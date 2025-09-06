@@ -73,7 +73,7 @@ const LoginFormComponent: React.FC = () => {
           case 'dashboard':
             return '/dashboard';
           default:
-            return '/dashboard'; // Default fallback
+            return '/'; // Default fallback
         }
       };
       
@@ -96,7 +96,7 @@ const LoginFormComponent: React.FC = () => {
     console.log('=== LoginFormComponent useEffect END ===');
   }, []); // Empty dependency array to run only once
   
-  const performAutoLogin = async (email: string, password: string, redirectPath: string = '/dashboard') => {
+  const performAutoLogin = async (email: string, password: string, redirectPath: string = '/') => {
     console.log('=== performAutoLogin STARTED ===');
     console.log('Email:', email);
     console.log('Password length:', password.length);
@@ -197,7 +197,7 @@ const LoginFormComponent: React.FC = () => {
       if (userData) {
         setUser(userData);
         toast.success('Login successful');
-        navigate('/dashboard');
+        navigate('/');
       } else {
         // Check if this was likely an IP verification issue
         if (email && password.length >= 6) {
@@ -224,7 +224,7 @@ const LoginFormComponent: React.FC = () => {
       if (userData) {
         setUser(userData);
         toast.success('Google login successful');
-        navigate('/dashboard');
+        navigate('/');
       } else {
         // If authentication returned null but no error was thrown, it's likely an IP verification issue
         try {
