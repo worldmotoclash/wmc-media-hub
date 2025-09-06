@@ -1,0 +1,216 @@
+
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Original theme colors */
+    --background: 0 0% 99%;
+    --foreground: 240 10% 4%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 4%;
+
+    --primary: 240 10% 4%;
+    --primary-foreground: 0 0% 99%;
+
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 10% 4%;
+
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+
+    --accent: 240 5% 96%;
+    --accent-foreground: 240 10% 4%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 99%;
+
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 240 10% 4%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5% 26%;
+    --sidebar-primary: 240 6% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 5% 96%;
+    --sidebar-accent-foreground: 240 6% 10%;
+    --sidebar-border: 240 6% 90%;
+    --sidebar-ring: 240 6% 70%;
+    
+    /* New custom color variables */
+    --color-silver: #c2c1c1;
+    --color-woodsmoke: #0a0b0e;
+    --color-dodger-blue: #0d9af8;
+    --color-cinnabar: #e34536;
+    --color-ming: #3d6586;
+    --color-emperor: #545151;
+    --color-havelock-blue: #5498d4;
+    --color-malibu: #78c0f4;
+    --color-siam: #61645b;
+    --color-science-blue: #0464c4;
+  }
+
+  .dark {
+    --background: 240 10% 4%;
+    --foreground: 0 0% 99%;
+
+    --card: 240 10% 4%;
+    --card-foreground: 0 0% 99%;
+
+    --popover: 240 10% 4%;
+    --popover-foreground: 0 0% 99%;
+
+    --primary: 0 0% 99%;
+    --primary-foreground: 240 10% 4%;
+
+    --secondary: 240 4% 12%;
+    --secondary-foreground: 0 0% 99%;
+
+    --muted: 240 4% 12%;
+    --muted-foreground: 240 5% 65%;
+
+    --accent: 240 4% 12%;
+    --accent-foreground: 0 0% 99%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 99%;
+
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 240 5% 84%;
+    
+    --sidebar-background: 240 6% 10%;
+    --sidebar-foreground: 240 5% 96%;
+    --sidebar-primary: 240 5% 96%;
+    --sidebar-primary-foreground: 240 6% 10%;
+    --sidebar-accent: 240 4% 16%;
+    --sidebar-accent-foreground: 240 5% 96%;
+    --sidebar-border: 240 4% 16%;
+    --sidebar-ring: 240 5% 84%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground font-inter antialiased;
+  }
+}
+
+@layer utilities {
+  .font-inter {
+    font-family: 'Inter', sans-serif;
+  }
+  
+  .glassmorphism {
+    @apply bg-white/30 backdrop-blur-md border border-white/20;
+  }
+  
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* New utility classes for the color palette */
+  .bg-brand-gradient {
+    @apply bg-gradient-to-r from-dodger-blue to-science-blue;
+  }
+  
+  .text-brand-gradient {
+    @apply bg-gradient-to-r from-dodger-blue to-science-blue bg-clip-text text-transparent;
+  }
+}
+
+/* Custom animations */
+.animated-gradient {
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.transition-all-cubic {
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.stagger-animation > * {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: stagger-fade-in 0.8s ease forwards;
+}
+
+.stagger-animation > *:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.stagger-animation > *:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.stagger-animation > *:nth-child(4) {
+  animation-delay: 0.3s;
+}
+
+.stagger-animation > *:nth-child(5) {
+  animation-delay: 0.4s;
+}
+
+@keyframes stagger-fade-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Smooth scrolling for anchor links */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Improve focus styles */
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Image lazy loading blur effect */
+.blur-load {
+  background-size: cover;
+  background-position: center;
+}
+
+.blur-load.loaded > img {
+  opacity: 1;
+}
+
+.blur-load > img {
+  opacity: 0;
+  transition: opacity 500ms ease-in-out;
+}
