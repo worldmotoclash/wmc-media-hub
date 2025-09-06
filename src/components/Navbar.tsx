@@ -82,19 +82,6 @@ const Navbar: React.FC = () => {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4, duration: 0.5 }}
               >
-                <Link
-                  to="/dashboard"
-                  className="text-sm font-medium hover:text-gray-600 transition-colors"
-                >
-                  Investor Portal
-                </Link>
-              </motion.div>
-              
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5, duration: 0.5 }}
-              >
                 <Button 
                   onClick={handleLogout}
                   variant="outline" 
