@@ -23,6 +23,9 @@ import CookiePolicy from "./pages/CookiePolicy";
 import InvestmentOpportunity from "./pages/InvestmentOpportunity";
 import TestTracking from "./pages/TestTracking";
 import TestLoginTracking from "./pages/TestLoginTracking";
+import MediaLibrary from "./pages/media/MediaLibrary";
+import MediaUpload from "./pages/media/MediaUpload";
+import PlaylistManager from "./pages/media/PlaylistManager";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +52,9 @@ const App = () => (
                 <Route path="/test-login-tracking" element={<TestLoginTracking />} />
                 <Route path="/thankyou" element={<ThankYou />} />
                 <Route path="/thankyouinvestor" element={<Navigate to="/thankyou" replace />} />
+                <Route path="/admin/media/library" element={<MediaLibrary />} />
+                <Route path="/admin/media/upload" element={<MediaUpload />} />
+                <Route path="/admin/media/playlists" element={<PlaylistManager />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                 <Route path="/terms-of-service" element={<TermsOfService />} />
                 <Route path="/cookie-policy" element={<CookiePolicy />} />

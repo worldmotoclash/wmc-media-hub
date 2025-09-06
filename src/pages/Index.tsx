@@ -1,77 +1,41 @@
 
 import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from '@/contexts/UserContext';
+import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
-import HeroSection from '@/components/HeroSection';
-import AboutSection from '@/components/AboutSection';
-import InvestmentHighlights from '@/components/InvestmentHighlights';
-import ContactSection from '@/components/contact/ContactSection';
+import MediaHubHero from '@/components/media/MediaHubHero';
+import ActionCards from '@/components/media/ActionCards';
+import SearchBar from '@/components/media/SearchBar';
+import RecentUploads from '@/components/media/RecentUploads';
 import Footer from '@/components/Footer';
 
 const Index: React.FC = () => {
+  const { user } = useUser();
+  const navigate = useNavigate();
+
   useEffect(() => {
     // Scroll to top when component mounts
     window.scrollTo(0, 0);
     
-    // Handle anchor links in URL
-    const handleAnchorLink = () => {
-      const hash = window.location.hash.substring(1);
-      if (hash) {
-        setTimeout(() => {
-          const element = document.getElementById(hash);
-          if (element) {
-            const navbarHeight = 80; // Approximate navbar height
-            const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
-            const offsetPosition = elementPosition - navbarHeight;
-            
-            window.scrollTo({
-              top: offsetPosition,
-              behavior: "smooth"
-            });
-          }
-        }, 100);
-      }
-    };
-
-    handleAnchorLink();
-    window.addEventListener('hashchange', handleAnchorLink);
-    
-    // Handle lazy loading of images
-    const blurDivs = document.querySelectorAll('.blur-load');
-    blurDivs.forEach(div => {
-      const img = div.querySelector('img');
-      
-      function loaded() {
-        div.classList.add('loaded');
-      }
-      
-      if (img?.complete) {
-        loaded();
-      } else {
-        img?.addEventListener('load', loaded);
-      }
-    });
-    
-    // Fix to handle form redirections from Salesforce
-    if (window.location.pathname === "/thankyouinvestor") {
-      window.location.href = "/thankyou";
+    // Redirect if no user is logged in
+    if (!user) {
+      toast.error('Please log in to access the WMC Media Hub');
+      navigate('/login');
     }
-    
-    return () => {
-      blurDivs.forEach(div => {
-        const img = div.querySelector('img');
-        img?.removeEventListener('load', () => div.classList.add('loaded'));
-      });
-      window.removeEventListener('hashchange', handleAnchorLink);
-    };
-  }, []);
+  }, [user, navigate]);
+
+  if (!user) {
+    return null; // Don't render anything while redirecting
+  }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <Navbar />
-      <HeroSection />
-      <AboutSection />
-      <InvestmentHighlights />
-      <ContactSection />
+      <MediaHubHero />
+      <ActionCards />
+      <SearchBar />
+      <RecentUploads />
       <Footer />
     </div>
   );

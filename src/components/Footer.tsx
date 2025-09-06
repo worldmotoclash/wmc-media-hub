@@ -2,49 +2,68 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import AnimatedLogo from './AnimatedLogo';
-import { Shield, FileText, Cookie, Info, Briefcase, Contact } from 'lucide-react';
+import { Shield, FileText, Cookie, Upload, FolderOpen, Briefcase } from 'lucide-react';
+import { useUser } from '@/contexts/UserContext';
 
 const Footer: React.FC = () => {
+  const { user } = useUser();
   const currentYear = new Date().getFullYear();
   
   return (
-    <footer className="py-16 bg-black text-white">
+    <footer className="py-16 bg-woodsmoke text-white">
       <div className="container mx-auto px-6">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-12">
           <div className="md:col-span-5 space-y-6">
             <AnimatedLogo className="text-white" />
             <p className="text-gray-400 max-w-md">
-              World Moto Clash is reimagining motorsport entertainment through innovation, technology, and global competition.
+              World Moto Clash Media Hub - Central platform for managing and exploring WMC media content. 
+              Experience the future of motorsports media management.
             </p>
           </div>
           
           <div className="md:col-span-4">
             <h4 className="text-lg font-semibold mb-4">Quick Links</h4>
             <ul className="space-y-2">
-              <li>
-                <a href="/#about" className="text-gray-400 hover:text-white transition-colors flex items-center">
-                  <Info className="w-4 h-4 mr-2" />
-                  About
-                </a>
-              </li>
-              <li>
-                <a href="/#investment" className="text-gray-400 hover:text-white transition-colors flex items-center">
-                  <Briefcase className="w-4 h-4 mr-2" />
-                  Investment
-                </a>
-              </li>
-              <li>
-                <a href="/#contact" className="text-gray-400 hover:text-white transition-colors flex items-center">
-                  <Contact className="w-4 h-4 mr-2" />
-                  Contact
-                </a>
-              </li>
-              <li>
-                <Link to="/login" className="text-gray-400 hover:text-white transition-colors flex items-center">
-                  <Briefcase className="w-4 h-4 mr-2" />
-                  Investor Login
-                </Link>
-              </li>
+              {user ? (
+                <>
+                  <li>
+                    <Link to="/admin/media/library" className="text-gray-400 hover:text-white transition-colors flex items-center">
+                      <FolderOpen className="w-4 h-4 mr-2" />
+                      Media Library
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/admin/media/upload" className="text-gray-400 hover:text-white transition-colors flex items-center">
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload Content
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/dashboard" className="text-gray-400 hover:text-white transition-colors flex items-center">
+                      <Briefcase className="w-4 h-4 mr-2" />
+                      Investor Portal
+                    </Link>
+                  </li>
+                  <li>
+                    <a 
+                      href="https://worldmotoclash.com" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-gray-400 hover:text-white transition-colors flex items-center"
+                    >
+                      <Briefcase className="w-4 h-4 mr-2" />
+                      Main Site
+                    </a>
+                  </li>
+                </>
+              ) : (
+                <li>
+                  <Link to="/login" className="text-gray-400 hover:text-white transition-colors flex items-center">
+                    <Briefcase className="w-4 h-4 mr-2" />
+                    Login
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
           

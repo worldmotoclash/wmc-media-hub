@@ -8,8 +8,8 @@
 
 @layer base {
   :root {
-    /* Original theme colors */
-    --background: 0 0% 99%;
+    /* Original theme colors updated for WMC Media Hub */
+    --background: 0 0% 100%;
     --foreground: 240 10% 4%;
 
     --card: 0 0% 100%;
@@ -18,8 +18,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 4%;
 
-    --primary: 240 10% 4%;
-    --primary-foreground: 0 0% 99%;
+    --primary: 213 79% 39%; /* science-blue */
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 240 5% 96%;
     --secondary-foreground: 240 10% 4%;
@@ -30,12 +30,12 @@
     --accent: 240 5% 96%;
     --accent-foreground: 240 10% 4%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 99%;
+    --destructive: 0 74% 58%; /* cinnabar */
+    --destructive-foreground: 0 0% 100%;
 
     --border: 240 6% 90%;
     --input: 240 6% 90%;
-    --ring: 240 10% 4%;
+    --ring: 213 79% 39%; /* science-blue */
 
     --radius: 0.5rem;
 
@@ -71,8 +71,8 @@
     --popover: 240 10% 4%;
     --popover-foreground: 0 0% 99%;
 
-    --primary: 0 0% 99%;
-    --primary-foreground: 240 10% 4%;
+    --primary: 213 79% 39%; /* science-blue */
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 240 4% 12%;
     --secondary-foreground: 0 0% 99%;
@@ -83,12 +83,12 @@
     --accent: 240 4% 12%;
     --accent-foreground: 0 0% 99%;
 
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 0 0% 99%;
+    --destructive: 0 74% 58%; /* cinnabar */
+    --destructive-foreground: 0 0% 100%;
 
     --border: 240 4% 16%;
     --input: 240 4% 16%;
-    --ring: 240 5% 84%;
+    --ring: 213 79% 39%; /* science-blue */
     
     --sidebar-background: 240 6% 10%;
     --sidebar-foreground: 240 5% 96%;
