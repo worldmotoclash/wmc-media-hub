@@ -170,32 +170,30 @@ const MediaLibrary: React.FC = () => {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (active.id !== over?.id) {
+    if (active.id !== over?.id && over) {
       const oldIndex = filteredVideos.findIndex(video => video.id === active.id);
-      const newIndex = filteredVideos.findIndex(video => video.id === over?.id);
+      const newIndex = filteredVideos.findIndex(video => video.id === over.id);
 
-      const newOrder = arrayMove(filteredVideos, oldIndex, newIndex);
-      
-      // Update playlist positions
-      const updatedVideos = newOrder.map((video, index) => ({
-        ...video,
-        playlistPosition: index + 1
-      }));
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newOrder = arrayMove(filteredVideos, oldIndex, newIndex);
+        
+        // Update playlist positions
+        const updatedVideos = newOrder.map((video, index) => ({
+          ...video,
+          playlistPosition: index + 1
+        }));
 
-      setFilteredVideos(updatedVideos);
-      setVideos(prevVideos => {
-        const updatedAllVideos = [...prevVideos];
-        updatedVideos.forEach(updatedVideo => {
-          const index = updatedAllVideos.findIndex(v => v.id === updatedVideo.id);
-          if (index !== -1) {
-            updatedAllVideos[index] = updatedVideo;
-          }
+        // Update both filtered and main videos state immediately
+        setFilteredVideos(updatedVideos);
+        setVideos(prevVideos => {
+          // Create a map for faster lookup
+          const updatedMap = new Map(updatedVideos.map(v => [v.id, v]));
+          return prevVideos.map(video => updatedMap.get(video.id) || video);
         });
-        return updatedAllVideos;
-      });
-      
-      setHasUnsavedChanges(true);
-      toast.success('Video order updated. Don\'t forget to save your changes!');
+        
+        setHasUnsavedChanges(true);
+        toast.success('Video order updated. Don\'t forget to save your changes!');
+      }
     }
   };
 
