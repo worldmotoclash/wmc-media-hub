@@ -211,8 +211,14 @@ export const sendVerificationEmail = async (contactId: string, ipInfo?: {ip: str
 
 // Track login activity using direct fetch method
 export const trackLogin = async (contactId: string, action: string = 'Login'): Promise<void> => {
-  console.log(`[trackLogin] ===== DIRECT FETCH METHOD START =====`);
+  console.log(`[trackLogin] ===== IFRAME METHOD START =====`);
   console.log(`[trackLogin] Action: ${action} for contact ID: ${contactId}`);
+  
+  // Validate required fields
+  if (!contactId || !action) {
+    console.error('[trackLogin] Missing required fields: contactId or action');
+    return;
+  }
   
   try {
     // Pre-fetch IP and location data
@@ -221,69 +227,72 @@ export const trackLogin = async (contactId: string, action: string = 'Login'): P
     
     console.log(`[trackLogin] IP data fetched: ${currentIp}, Location: ${locationData.city}, ${locationData.country}`);
     
-    // Validate required fields
-    if (!contactId || !action) {
-      console.error('[trackLogin] Missing required fields: contactId or action');
-      return;
-    }
+    // Use iframe method (same as working trackDocumentClick)
+    const trackingIframe = document.createElement('iframe');
+    trackingIframe.style.display = 'none';
     
-    // Create form data for direct submission
-    const formData = new FormData();
-    formData.append('sObj', 'ri__Portal__c');
-    formData.append('string_ri__Contact__c', contactId);
-    formData.append('text_ri__Login_URL__c', 'https://invest.worldmotoclash.com');
-    formData.append('text_ri__Action__c', action);
-    formData.append('text_ri__IP_Address__c', currentIp);
-    formData.append('text_ri__Login_Country__c', locationData.country);
-    formData.append('text_ri__Login_City__c', locationData.city);
+    trackingIframe.onload = () => {
+      try {
+        console.log(`[trackLogin] Iframe loaded, creating form...`);
+        
+        const iframeDoc = trackingIframe.contentDocument || trackingIframe.contentWindow?.document;
+        if (!iframeDoc) {
+          console.log(`[trackLogin] ERROR: Could not access iframe document`);
+          return;
+        }
+
+        console.log(`[trackLogin] Creating form fields...`);
+        
+        const form = iframeDoc.createElement('form');
+        form.method = 'POST';
+        form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
+          
+        const fields: Record<string, string> = {
+          'sObj': 'ri__Portal__c',
+          'string_ri__Contact__c': contactId,
+          'text_ri__Login_URL__c': 'https://invest.worldmotoclash.com',
+          'text_ri__Action__c': action,
+          'text_ri__IP_Address__c': currentIp,
+          'text_ri__Login_Country__c': locationData.country,
+          'text_ri__Login_City__c': locationData.city,
+        };
+
+        Object.entries(fields).forEach(([name, value]) => {
+          const input = iframeDoc.createElement('input');
+          input.type = 'hidden';
+          input.name = name;
+          input.value = value;
+          form.appendChild(input);
+          console.log(`[trackLogin] Added field: ${name} = ${value}`);
+        });
+
+        iframeDoc.body.appendChild(form);
+        console.log(`[trackLogin] Submitting form for: ${action}`);
+        form.submit();
+        
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown iframe error';
+        console.log(`[trackLogin] Error during form creation/submission: ${errorMessage}`);
+      }
+    };
     
-    console.log(`[trackLogin] Form data prepared for submission:`);
-    console.log(`[trackLogin] - Contact ID: ${contactId}`);
-    console.log(`[trackLogin] - Action: ${action}`);
-    console.log(`[trackLogin] - IP: ${currentIp}`);
-    console.log(`[trackLogin] - Location: ${locationData.city}, ${locationData.country}`);
+    document.body.appendChild(trackingIframe);
+    trackingIframe.src = 'about:blank';
     
-    // Use direct fetch with no-cors mode to avoid CORS issues
-    const response = await fetch('https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php', {
-      method: 'POST',
-      mode: 'no-cors', // This prevents CORS errors but means we can't read the response
-      body: formData
-    });
+    console.log(`[trackLogin] Iframe created and added to document`);
     
-    console.log(`[trackLogin] Request sent successfully for action: ${action}`);
-    console.log(`[trackLogin] Response type: ${response.type}`); // Will be 'opaque' due to no-cors
-    console.log(`[trackLogin] ===== DIRECT FETCH METHOD COMPLETE =====`);
+    // Remove iframe after sufficient time for request to complete
+    setTimeout(() => {
+      if (document.body.contains(trackingIframe)) {
+        document.body.removeChild(trackingIframe);
+        console.log(`[trackLogin] ===== IFRAME REMOVED =====`);
+      }
+    }, 5000);
+    
+    console.log(`[trackLogin] ===== IFRAME METHOD COMPLETE =====`);
     
   } catch (error) {
     console.error('[trackLogin] ===== ERROR OCCURRED =====', error);
-    
-    // Retry mechanism - try once more after a short delay
-    try {
-      console.log('[trackLogin] Attempting retry in 2 seconds...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const currentIp = await getCurrentIpAddress();
-      const locationData = await getIPLocation(currentIp);
-      
-      const retryFormData = new FormData();
-      retryFormData.append('sObj', 'ri__Portal__c');
-      retryFormData.append('string_ri__Contact__c', contactId);
-      retryFormData.append('text_ri__Login_URL__c', 'https://invest.worldmotoclash.com');
-      retryFormData.append('text_ri__Action__c', action);
-      retryFormData.append('text_ri__IP_Address__c', currentIp);
-      retryFormData.append('text_ri__Login_Country__c', locationData.country);
-      retryFormData.append('text_ri__Login_City__c', locationData.city);
-      
-      await fetch('https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php', {
-        method: 'POST',
-        mode: 'no-cors',
-        body: retryFormData
-      });
-      
-      console.log('[trackLogin] Retry attempt completed');
-    } catch (retryError) {
-      console.error('[trackLogin] Retry also failed:', retryError);
-    }
   }
 };
 
