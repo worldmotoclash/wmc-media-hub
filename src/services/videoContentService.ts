@@ -113,9 +113,12 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
         ri__Tags__c: '', // Not provided in API
         CreatedDate: '',
         LastModifiedDate: '',
-        playlistPosition: index + 1, // Set position based on XML order
+        playlistPosition: parseFloat(video.getElementsByTagName('playlistorder')[0]?.textContent || '') || (index + 1),
         junctionId: video.getElementsByTagName('id')[0]?.textContent || `fallback_${index}`
       }));
+      
+      // Sort by playlist order to ensure correct sequence
+      data.sort((a, b) => ((a as any).playlistPosition || 0) - ((b as any).playlistPosition || 0));
     } else {
       // Assume JSON response
       data = await response.json();
