@@ -195,17 +195,17 @@ export const fetchPlaylistData = async (): Promise<SalesforcePlaylist[]> => {
       console.log('Raw playlist XML response:', text);
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(text, 'text/xml');
-      const playlistElements = xmlDoc.getElementsByTagName('playlist') || xmlDoc.getElementsByTagName('record');
+      const playlistElements = xmlDoc.getElementsByTagName('content');
       console.log('Found playlist elements:', playlistElements.length);
       
       data = Array.from(playlistElements).map(playlist => ({
-        Id: playlist.getElementsByTagName('Id')[0]?.textContent || '',
-        Name: playlist.getElementsByTagName('Name')[0]?.textContent || '',
-        ri__Description__c: playlist.getElementsByTagName('ri__Description__c')[0]?.textContent || '',
-        ri__Video_Count__c: parseInt(playlist.getElementsByTagName('ri__Video_Count__c')[0]?.textContent || '0'),
-        ri__Status__c: playlist.getElementsByTagName('ri__Status__c')[0]?.textContent || '',
-        CreatedDate: playlist.getElementsByTagName('CreatedDate')[0]?.textContent || '',
-        LastModifiedDate: playlist.getElementsByTagName('LastModifiedDate')[0]?.textContent || ''
+        Id: playlist.getElementsByTagName('id')[0]?.textContent || '',
+        Name: playlist.getElementsByTagName('name')[0]?.textContent || '',
+        ri__Description__c: `${playlist.getElementsByTagName('playlistypye')[0]?.textContent || ''} playlist`,
+        ri__Video_Count__c: parseInt(playlist.getElementsByTagName('numberinplaylist')[0]?.textContent || '0'),
+        ri__Status__c: 'Active',
+        CreatedDate: new Date().toISOString(),
+        LastModifiedDate: new Date().toISOString()
       }));
     } else {
       // Assume JSON response
