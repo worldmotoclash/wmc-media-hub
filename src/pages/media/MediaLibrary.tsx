@@ -170,40 +170,45 @@ const MediaLibrary: React.FC = () => {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    console.log('Drag end event:', { activeId: active.id, overId: over?.id });
-    console.log('Current filtered videos:', filteredVideos.map(v => ({ id: v.id, position: v.playlistPosition, title: v.title })));
+    console.log('=== DRAG END START ===');
+    console.log('Active ID:', active.id, 'Over ID:', over?.id);
+    console.log('Before drag - filteredVideos order:', filteredVideos.map(v => ({ id: v.id, title: v.title, position: v.playlistPosition })));
 
     if (active.id !== over?.id && over) {
       const oldIndex = filteredVideos.findIndex(video => video.id === active.id);
       const newIndex = filteredVideos.findIndex(video => video.id === over.id);
 
-      console.log('Drag indices:', { oldIndex, newIndex });
+      console.log('Drag indices - oldIndex:', oldIndex, 'newIndex:', newIndex);
 
       if (oldIndex !== -1 && newIndex !== -1) {
-        const newOrder = arrayMove(filteredVideos, oldIndex, newIndex);
-        console.log('New order after arrayMove:', newOrder.map(v => ({ id: v.id, title: v.title })));
+        // Create a completely new array to force React re-render
+        const currentVideos = [...filteredVideos];
+        const newOrder = arrayMove(currentVideos, oldIndex, newIndex);
         
-        // Update playlist positions
+        console.log('After arrayMove - newOrder:', newOrder.map(v => ({ id: v.id, title: v.title })));
+        
+        // Update playlist positions with completely new objects
         const updatedVideos = newOrder.map((video, index) => ({
           ...video,
-          playlistPosition: index + 1
+          playlistPosition: index + 1,
+          // Add a timestamp to force object change detection
+          _sortTimestamp: Date.now()
         }));
 
-        console.log('Updated videos with new positions:', updatedVideos.map(v => ({ id: v.id, position: v.playlistPosition, title: v.title })));
+        console.log('Final updatedVideos:', updatedVideos.map(v => ({ id: v.id, title: v.title, position: v.playlistPosition })));
 
-        // Update both states immediately and synchronously
-        setFilteredVideos(updatedVideos);
+        // Force state updates
+        setFilteredVideos([...updatedVideos]);
         setVideos(prevVideos => {
-          console.log('Updating main videos state');
-          // Create a map for faster lookup
           const updatedMap = new Map(updatedVideos.map(v => [v.id, v]));
           const result = prevVideos.map(video => updatedMap.get(video.id) || video);
-          console.log('Updated main videos:', result.filter(v => updatedMap.has(v.id)).map(v => ({ id: v.id, position: v.playlistPosition, title: v.title })));
-          return result;
+          return [...result]; // Force new array reference
         });
         
         setHasUnsavedChanges(true);
         toast.success('Video order updated. Don\'t forget to save your changes!');
+        
+        console.log('=== DRAG END COMPLETE ===');
       }
     }
   };
@@ -876,19 +881,24 @@ const MediaLibrary: React.FC = () => {
                          ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
                          : "space-y-4"
                      }>
-                       {filteredVideos.map((video, index) => {
-                         console.log(`Rendering video at index ${index}:`, { id: video.id, title: video.title, position: video.playlistPosition });
-                         return (
-                           <SortableVideoItem
-                             key={video.id}
-                             video={video}
-                             index={index}
-                             onVideoClick={setSelectedVideo}
-                             getStatusColor={getStatusColor}
-                             viewMode={viewMode}
-                           />
-                         );
-                       })}
+                        {filteredVideos.map((video, index) => {
+                          console.log(`🎬 Rendering video at index ${index}:`, { 
+                            id: video.id, 
+                            title: video.title, 
+                            position: video.playlistPosition,
+                            visualIndex: index 
+                          });
+                          return (
+                            <SortableVideoItem
+                              key={`${video.id}-${video.playlistPosition || index}-${(video as any)._sortTimestamp || ''}`}
+                              video={video}
+                              index={index}
+                              onVideoClick={setSelectedVideo}
+                              getStatusColor={getStatusColor}
+                              viewMode={viewMode}
+                            />
+                          );
+                        })}
                      </div>
                    </SortableContext>
                 </DndContext>
