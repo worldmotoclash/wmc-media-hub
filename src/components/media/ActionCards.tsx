@@ -24,7 +24,7 @@ const ActionCards: React.FC = () => {
     },
     {
       title: 'Manage Library',
-      description: 'Browse media library and organize playlists',
+      description: 'Browse videos, manage library & playlists',
       icon: PlaySquare,
       href: '/admin/media/library',
       color: 'from-malibu/20 to-malibu/10',
