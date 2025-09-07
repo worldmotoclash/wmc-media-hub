@@ -874,32 +874,16 @@ const MediaLibrary: React.FC = () => {
                          ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
                          : "space-y-4"
                      }>
-                        {filteredVideos.map((video, index) => {
-                          console.log(`🎬 Rendering video at index ${index}:`, { 
-                            id: video.id, 
-                            title: video.title, 
-                            position: video.playlistPosition,
-                            visualIndex: index 
-                          });
-                          return (
-                            <div key={video.id} style={{ 
-                              border: '2px solid red', 
-                              margin: '2px',
-                              padding: '4px',
-                              backgroundColor: index === 0 ? 'yellow' : index === 1 ? 'lightgreen' : 'white'
-                            }}>
-                              <div>INDEX: {index} | POSITION: {video.playlistPosition}</div>
-                              <div>TITLE: {video.title}</div>
-                              <SortableVideoItem
-                                video={video}
-                                index={index}
-                                onVideoClick={setSelectedVideo}
-                                getStatusColor={getStatusColor}
-                                viewMode={viewMode}
-                              />
-                            </div>
-                          );
-                        })}
+                        {filteredVideos.map((video, index) => (
+                          <SortableVideoItem
+                            key={video.id}
+                            video={video}
+                            index={index}
+                            onVideoClick={setSelectedVideo}
+                            getStatusColor={getStatusColor}
+                            viewMode={viewMode}
+                          />
+                        ))}
                      </div>
                    </SortableContext>
                 </DndContext>
