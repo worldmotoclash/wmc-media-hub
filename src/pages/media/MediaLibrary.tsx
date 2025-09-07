@@ -229,7 +229,8 @@ const MediaLibrary: React.FC = () => {
 
       const videoOrders = changedVideos.map(video => ({
         id: video.id,
-        position: video.playlistPosition || 0
+        position: video.playlistPosition || 0,
+        junctionId: video.junctionId || `junction_${video.id}_${playlistId}`
       }));
 
       console.log(`🎯 Saving playlist order for ${changedVideos.length} changed videos (out of ${filteredVideos.length} total):`);

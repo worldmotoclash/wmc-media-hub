@@ -44,6 +44,7 @@ export interface VideoContent {
   contentType?: string;
   tags?: string[];
   playlistPosition?: number; // Order position in playlist (1-based)
+  junctionId?: string; // Junction record ID for playlist-video relationship
 }
 
 // API configuration
@@ -112,11 +113,19 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
         ri__Tags__c: '', // Not provided in API
         CreatedDate: '',
         LastModifiedDate: '',
-        playlistPosition: index + 1 // Set position based on XML order
+        playlistPosition: index + 1, // Set position based on XML order
+        junctionId: video.getElementsByTagName('junctionid')[0]?.textContent || video.getElementsByTagName('playlistcontentid')[0]?.textContent || `playlist_${targetPlaylistId}_content_${video.getElementsByTagName('contentid')[0]?.textContent || index}`
       }));
     } else {
       // Assume JSON response
       data = await response.json();
+      
+      // For JSON response, ensure junction IDs are available
+      data = data.map((video: any, index: number) => ({
+        ...video,
+        playlistPosition: video.playlistPosition || (index + 1),
+        junctionId: video.junctionId || video.ri1__Content_to_Playlist__c || `playlist_${targetPlaylistId}_content_${video.Id || index}`
+      }));
     }
 
     // Transform Salesforce data to UI format
@@ -140,7 +149,8 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
         description: 'Demo video content from Salesforce',
         fileSize: 1024000,
         contentType: 'video/mp4',
-        tags: ['demo', 'motorsport']
+        tags: ['demo', 'motorsport'],
+        junctionId: 'demo-junction-1'
       },
       {
         id: 'demo-2',
@@ -154,7 +164,8 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
         description: 'Another demo video',
         fileSize: 2048000,
         contentType: 'video/mp4',
-        tags: ['demo', 'business']
+        tags: ['demo', 'business'],
+        junctionId: 'demo-junction-2'
       }
     ];
   }
@@ -369,7 +380,8 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
     fileSize: salesforceVideo.ri__File_Size__c,
     contentType: salesforceVideo.ri__Content_Type__c,
     tags: parseTags(salesforceVideo.ri__Tags__c),
-    playlistPosition: (salesforceVideo as any).playlistPosition
+    playlistPosition: (salesforceVideo as any).playlistPosition,
+    junctionId: (salesforceVideo as any).junctionId
   };
 };
 
@@ -386,7 +398,7 @@ export const getVideosByPlaylist = async (playlistId: string): Promise<VideoCont
 // Update playlist video order using Real Intelligence update-engine.php
 export const updatePlaylistOrder = async (
   playlistId: string, 
-  videoOrders: { id: string; position: number; junctionId?: string }[]
+  videoOrders: { id: string; position: number; junctionId: string }[]
 ): Promise<boolean> => {
   console.log('🔄 Starting playlist order update...');
   console.log('Playlist ID:', playlistId);
@@ -399,6 +411,9 @@ export const updatePlaylistOrder = async (
     // Process each video order update sequentially
     for (const videoOrder of videoOrders) {
       try {
+        if (!videoOrder.junctionId) {
+          throw new Error(`Missing junction ID for video ${videoOrder.id}`);
+        }
         await updateSingleVideoOrder(videoOrder.id, videoOrder.position, videoOrder.junctionId);
         successCount++;
         console.log(`✅ Updated video ${videoOrder.id} to position ${videoOrder.position}`);
@@ -432,14 +447,15 @@ export const updatePlaylistOrder = async (
 const updateSingleVideoOrder = async (
   videoId: string, 
   newPosition: number, 
-  junctionId?: string
+  junctionId: string
 ): Promise<void> => {
   return new Promise((resolve, reject) => {
-    console.log(`🔄 Updating single video order: ${videoId} to position ${newPosition}`);
+    console.log(`🔄 Updating single video order: ${videoId} to position ${newPosition} with junction ID: ${junctionId}`);
     
-    // For now, use video ID as junction ID if not provided
-    // TODO: Enhance API to return actual junction record IDs
-    const effectiveJunctionId = junctionId || `junction_${videoId}`;
+    if (!junctionId) {
+      reject(new Error('Junction ID is required for playlist order updates'));
+      return;
+    }
     
     // Create form with data
     const form = document.createElement('form');
@@ -450,7 +466,7 @@ const updateSingleVideoOrder = async (
             
     const fields: Record<string, string> = {
       'sObj': 'ri1__Content_to_Playlist__c',
-      'id_ri1__Content_to_Playlist__c': effectiveJunctionId,
+      'id_ri1__Content_to_Playlist__c': junctionId,
       'number_ri1__Playlist_Order__c': newPosition.toString()
     };
 
