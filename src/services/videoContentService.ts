@@ -178,19 +178,25 @@ export const fetchPlaylistData = async (): Promise<SalesforcePlaylist[]> => {
       }
     });
     
+    console.log('Playlist API Response status:', response.status, response.statusText);
+    
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
     const contentType = response.headers.get('content-type');
+    console.log('Playlist API Content-Type:', contentType);
+    
     let data: SalesforcePlaylist[];
 
     if (contentType?.includes('xml')) {
       // Parse XML response
       const text = await response.text();
+      console.log('Raw playlist XML response:', text);
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(text, 'text/xml');
       const playlistElements = xmlDoc.getElementsByTagName('playlist') || xmlDoc.getElementsByTagName('record');
+      console.log('Found playlist elements:', playlistElements.length);
       
       data = Array.from(playlistElements).map(playlist => ({
         Id: playlist.getElementsByTagName('Id')[0]?.textContent || '',
@@ -204,8 +210,10 @@ export const fetchPlaylistData = async (): Promise<SalesforcePlaylist[]> => {
     } else {
       // Assume JSON response
       data = await response.json();
+      console.log('Playlist JSON response data:', data);
     }
 
+    console.log('Parsed playlist data:', data);
     return data;
 
   } catch (error) {
