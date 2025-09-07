@@ -460,7 +460,7 @@ const updateSingleVideoOrder = async (
     // Create form with data
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/update-engine.php";
+    form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/update-engine-playlistorder.php";
     form.target = `updateWindow_${videoId}_${Date.now()}`;
     form.style.display = 'none';
             
