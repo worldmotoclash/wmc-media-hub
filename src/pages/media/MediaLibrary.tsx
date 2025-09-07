@@ -889,19 +889,27 @@ const MediaLibrary: React.FC = () => {
                         {filteredVideos.map((video, index) => {
                           console.log(`🎬 Rendering video at index ${index}:`, { 
                             id: video.id, 
-title: video.title, 
+                            title: video.title, 
                             position: video.playlistPosition,
                             visualIndex: index 
                           });
                           return (
-                            <SortableVideoItem
-                              key={video.id}
-                              video={video}
-                              index={index}
-                              onVideoClick={setSelectedVideo}
-                              getStatusColor={getStatusColor}
-                              viewMode={viewMode}
-                            />
+                            <div key={video.id} style={{ 
+                              border: '2px solid red', 
+                              margin: '2px',
+                              padding: '4px',
+                              backgroundColor: index === 0 ? 'yellow' : index === 1 ? 'lightgreen' : 'white'
+                            }}>
+                              <div>INDEX: {index} | POSITION: {video.playlistPosition}</div>
+                              <div>TITLE: {video.title}</div>
+                              <SortableVideoItem
+                                video={video}
+                                index={index}
+                                onVideoClick={setSelectedVideo}
+                                getStatusColor={getStatusColor}
+                                viewMode={viewMode}
+                              />
+                            </div>
                           );
                         })}
                      </div>
