@@ -383,38 +383,129 @@ export const getVideosByPlaylist = async (playlistId: string): Promise<VideoCont
   return fetchVideoContent(playlistId);
 };
 
-// Update playlist video order
-export const updatePlaylistOrder = async (playlistId: string, videoOrders: { id: string; position: number }[]): Promise<boolean> => {
+// Update playlist video order using Real Intelligence update-engine.php
+export const updatePlaylistOrder = async (
+  playlistId: string, 
+  videoOrders: { id: string; position: number; junctionId?: string }[]
+): Promise<boolean> => {
+  console.log('🔄 Starting playlist order update...');
+  console.log('Playlist ID:', playlistId);
+  console.log('Video orders:', videoOrders);
+  
   try {
-    console.log('Updating playlist order for playlist:', playlistId);
-    console.log('New video order:', videoOrders);
+    let successCount = 0;
+    let failureCount = 0;
     
-    // Create form data for the API call
-    const formData = new FormData();
-    formData.append('orgId', API_CONFIG.orgId);
-    formData.append('sandbox', API_CONFIG.sandbox);
-    formData.append('playlistId', playlistId);
-    formData.append('videoOrders', JSON.stringify(videoOrders));
-    
-    // Make API call to update playlist order
-    const response = await fetch(`${API_CONFIG.baseUrl}/wmc-update-playlist-order.py`, {
-      method: 'POST',
-      body: formData
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    // Process each video order update sequentially
+    for (const videoOrder of videoOrders) {
+      try {
+        await updateSingleVideoOrder(videoOrder.id, videoOrder.position, videoOrder.junctionId);
+        successCount++;
+        console.log(`✅ Updated video ${videoOrder.id} to position ${videoOrder.position}`);
+      } catch (error) {
+        failureCount++;
+        console.error(`❌ Failed to update video ${videoOrder.id}:`, error);
+      }
     }
     
-    console.log('Playlist order updated successfully');
-    return true;
+    console.log(`📊 Update summary: ${successCount} successful, ${failureCount} failed`);
+    
+    if (successCount > 0) {
+      toast.success(`Updated ${successCount} video positions successfully`);
+    }
+    
+    if (failureCount > 0) {
+      toast.error(`Failed to update ${failureCount} video positions`);
+    }
+    
+    // Return success if at least some updates succeeded
+    return successCount > 0;
+    
   } catch (error) {
-    console.error('Error updating playlist order:', error);
-    // For development, we'll simulate success after a delay
-    // Comment out the throw below when the API endpoint is ready
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('Simulated successful playlist order update');
-    return true;
-    // throw error;
+    console.error('❌ Critical error in playlist order update:', error);
+    toast.error('Failed to update playlist order');
+    return false;
   }
+};
+
+// Helper function to update a single video's order using iframe submission
+const updateSingleVideoOrder = async (
+  videoId: string, 
+  newPosition: number, 
+  junctionId?: string
+): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    console.log(`🔄 Updating single video order: ${videoId} to position ${newPosition}`);
+    
+    // For now, use video ID as junction ID if not provided
+    // TODO: Enhance API to return actual junction record IDs
+    const effectiveJunctionId = junctionId || `junction_${videoId}`;
+    
+    const updateIframe = document.createElement('iframe');
+    updateIframe.style.display = 'none';
+    
+    updateIframe.onload = () => {
+      try {
+        console.log(`📄 Iframe loaded for video ${videoId}, creating form...`);
+        
+        const iframeDoc = updateIframe.contentDocument || updateIframe.contentWindow?.document;
+        if (!iframeDoc) {
+          console.error(`❌ Could not access iframe document for video ${videoId}`);
+          reject(new Error('Could not access iframe document'));
+          return;
+        }
+
+        const form = iframeDoc.createElement('form');
+        form.method = 'POST';
+        form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/update-engine.php";
+          
+        const fields: Record<string, string> = {
+          'sObj': 'ri1__Content_to_Playlist__c',
+          'id_ri1__Content_to_Playlist__c': effectiveJunctionId,
+          'number_ri1__Playlist_Order__c': newPosition.toString()
+        };
+
+        Object.entries(fields).forEach(([name, value]) => {
+          const input = iframeDoc.createElement('input');
+          input.type = 'hidden';
+          input.name = name;
+          input.value = value;
+          form.appendChild(input);
+          console.log(`📝 Added field: ${name} = ${value}`);
+        });
+
+        iframeDoc.body.appendChild(form);
+        console.log(`📤 Submitting form for video ${videoId} position update`);
+        form.submit();
+        
+        // Consider update successful after form submission
+        setTimeout(() => {
+          resolve();
+        }, 1000);
+        
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown iframe error';
+        console.error(`❌ Error during form creation/submission for video ${videoId}:`, errorMessage);
+        reject(new Error(errorMessage));
+      }
+    };
+    
+    updateIframe.onerror = () => {
+      console.error(`❌ Iframe failed to load for video ${videoId}`);
+      reject(new Error('Iframe failed to load'));
+    };
+    
+    document.body.appendChild(updateIframe);
+    updateIframe.src = 'about:blank';
+    
+    console.log(`📋 Iframe created for video ${videoId} update`);
+    
+    // Remove iframe after sufficient time for request to complete
+    setTimeout(() => {
+      if (document.body.contains(updateIframe)) {
+        document.body.removeChild(updateIframe);
+        console.log(`🗑️ Iframe removed for video ${videoId}`);
+      }
+    }, 5000);
+  });
 };
