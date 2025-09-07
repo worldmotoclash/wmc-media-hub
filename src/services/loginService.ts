@@ -430,8 +430,8 @@ export const authenticateUser = async (email: string, password: string, isGoogle
             // Also track the IP mismatch event
             await trackLogin(investor.id, isGoogleAuth ? "Google Auth IP Mismatch" : "IP Address Mismatch");
             
-            toast.error(`Access denied: Your IP address has changed. A verification email has been sent to confirm your identity. Location detected: ${locationData.city}, ${locationData.country}`);
-            return null;
+            // Return a special object to indicate IP verification is needed
+            throw new Error('IP_VERIFICATION_REQUIRED');
           } else {
             console.log('IP addresses match - access granted');
           }

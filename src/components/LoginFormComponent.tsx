@@ -130,8 +130,17 @@ const LoginFormComponent: React.FC = () => {
         console.log('Auto-login process completed successfully');
       } else {
         console.log('=== AUTO-LOGIN FAILED - authenticateUser returned null ===');
+        toast.error('Auto-login failed. Please enter your credentials manually.', {
+          duration: 5000,
+          position: 'top-center'
+        });
+      }
         
-        // Try to get location info for better error message
+    } catch (error: any) {
+      console.error('=== AUTO-LOGIN ERROR ===', error);
+      
+      // Handle IP verification required error specifically
+      if (error.message === 'IP_VERIFICATION_REQUIRED') {
         try {
           console.log('Getting IP for verification message...');
           const ip = await getCurrentIpAddress();
@@ -154,18 +163,17 @@ const LoginFormComponent: React.FC = () => {
           }
         } catch (locationError) {
           console.error('Failed to get location info:', locationError);
-          toast.error('Auto-login failed. Please enter your credentials manually.', {
+          toast.error('Auto-login failed - IP verification required. Please check your email.', {
             duration: 5000,
             position: 'top-center'
           });
         }
+      } else {
+        toast.error('Auto-login failed. Please enter your credentials manually.', {
+          duration: 5000,
+          position: 'top-center'
+        });
       }
-    } catch (error) {
-      console.error('=== AUTO-LOGIN ERROR ===', error);
-      toast.error('Auto-login failed. Please enter your credentials manually.', {
-        duration: 5000,
-        position: 'top-center'
-      });
     } finally {
       setIsLoading(false);
       console.log('=== performAutoLogin COMPLETED ===');
@@ -188,26 +196,34 @@ const LoginFormComponent: React.FC = () => {
     setLocationInfo(null);
     
     try {
-      // Try to get the user's location info for a better message if needed
-      const ip = await getCurrentIpAddress();
-      const location = await getIPLocation(ip);
-      
       const userData = await authenticateUser(email, password);
       
       if (userData) {
         setUser(userData);
         toast.success('Login successful');
         navigate('/');
-      } else {
-        // Check if this was likely an IP verification issue
-        if (email && password.length >= 6) {
+      }
+      // If userData is null, authenticateUser already showed the appropriate error message
+      // (either "Invalid password" or "Email not found")
+      // No need to override it here
+    } catch (error: any) {
+      console.error('Login error:', error);
+      
+      // Handle IP verification required error specifically
+      if (error.message === 'IP_VERIFICATION_REQUIRED') {
+        try {
+          const ip = await getCurrentIpAddress();
+          const location = await getIPLocation(ip);
           setIpVerificationSent(true);
           setLocationInfo(location);
+          toast.error(`Access denied: Your IP address has changed. A verification email has been sent to confirm your identity. Location detected: ${location.city}, ${location.country}`);
+        } catch (locationError) {
+          console.error('Failed to get location info:', locationError);
+          toast.error('IP verification required. Please check your email for verification instructions.');
         }
+      } else {
+        toast.error('An error occurred during login. Please try again.');
       }
-    } catch (error) {
-      console.error('Login error:', error);
-      toast.error('An error occurred during login. Please try again.');
     } finally {
       setIsLoading(false);
     }
