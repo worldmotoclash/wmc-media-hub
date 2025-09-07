@@ -559,7 +559,7 @@ const MediaLibrary: React.FC = () => {
                               <div className="flex items-center justify-between text-xs text-muted-foreground">
                                 <div className="flex items-center gap-1">
                                   <Clock className="w-3 h-3" />
-                                  {new Date(video.createdDate).toLocaleDateString()}
+                                  {video.uploadedAt}
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <Eye className="w-3 h-3" />
@@ -606,7 +606,7 @@ const MediaLibrary: React.FC = () => {
                                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                                   <div className="flex items-center gap-1">
                                     <Clock className="w-3 h-3" />
-                                    {new Date(video.createdDate).toLocaleDateString()}
+                                    {video.uploadedAt}
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <Eye className="w-3 h-3" />
