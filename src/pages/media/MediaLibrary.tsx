@@ -8,8 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Search, Filter, Grid, List, Loader2, PlayCircle, Clock, Eye } from 'lucide-react';
 import { toast } from 'sonner';
-import { fetchVideoContent, searchVideoContent, getVideosByPlaylist, VideoContent } from '@/services/videoContentService';
+import { fetchVideoContent, searchVideoContent, getVideosByPlaylist, VideoContent, fetchPlaylistData, SalesforcePlaylist } from '@/services/videoContentService';
 import VideoPreviewModal from '@/components/media/VideoPreviewModal';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 
 const MediaLibrary: React.FC = () => {
   const { user } = useUser();
@@ -25,6 +26,8 @@ const MediaLibrary: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [localSearch, setLocalSearch] = useState(searchQuery);
+  const [currentPlaylist, setCurrentPlaylist] = useState<SalesforcePlaylist | null>(null);
+  const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false);
 
   useEffect(() => {
     // Redirect if no user is logged in
@@ -33,6 +36,27 @@ const MediaLibrary: React.FC = () => {
       navigate('/login');
     }
   }, [user, navigate]);
+
+  // Fetch playlist details when playlistId is present
+  useEffect(() => {
+    const loadPlaylistDetails = async () => {
+      if (!playlistId || !user) return;
+      
+      setIsLoadingPlaylist(true);
+      try {
+        const playlists = await fetchPlaylistData();
+        const playlist = playlists.find(p => p.Id === playlistId);
+        setCurrentPlaylist(playlist || null);
+      } catch (error) {
+        console.error('Error loading playlist details:', error);
+        toast.error('Failed to load playlist details');
+      } finally {
+        setIsLoadingPlaylist(false);
+      }
+    };
+
+    loadPlaylistDetails();
+  }, [playlistId, user]);
 
   // Fetch videos on component mount and when search query or playlist changes
   useEffect(() => {
@@ -109,27 +133,74 @@ const MediaLibrary: React.FC = () => {
         <div className="mb-8">
           <Button 
             variant="ghost" 
-            onClick={() => navigate('/')}
+            onClick={() => navigate(playlistId ? '/media/playlists' : '/')}
             className="mb-4"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Media Hub
+            {playlistId ? 'Back to Playlists' : 'Back to Media Hub'}
           </Button>
+
+          {/* Breadcrumb Navigation */}
+          {playlistId && (
+            <Breadcrumb className="mb-4">
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink onClick={() => navigate('/media/playlists')} className="cursor-pointer">
+                    Playlists
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>
+                    {isLoadingPlaylist ? 'Loading...' : (currentPlaylist?.Name || 'Unknown Playlist')}
+                  </BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          )}
           
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <h1 className="text-4xl font-bold mb-4 text-foreground">Media Library</h1>
+            <h1 className="text-4xl font-bold mb-4 text-foreground">
+              {playlistId ? (
+                <>
+                  {isLoadingPlaylist ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-8 h-8 animate-spin" />
+                      Loading Playlist...
+                    </div>
+                  ) : (
+                    `Playlist: ${currentPlaylist?.Name || 'Unknown Playlist'}`
+                  )}
+                </>
+              ) : (
+                'Media Library'
+              )}
+            </h1>
+            
+            {playlistId && currentPlaylist && !isLoadingPlaylist && (
+              <div className="mb-4 p-4 bg-muted/50 rounded-lg border">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">{currentPlaylist.Name}</h2>
+                    {currentPlaylist.ri__Description__c && (
+                      <p className="text-muted-foreground">{currentPlaylist.ri__Description__c}</p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-primary">{currentPlaylist.ri__Video_Count__c || 0}</div>
+                    <div className="text-sm text-muted-foreground">videos</div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {searchQuery && (
               <p className="text-muted-foreground mb-2">
                 Search results for: <strong>"{searchQuery}"</strong>
-              </p>
-            )}
-            {playlistId && (
-              <p className="text-muted-foreground mb-2">
-                Showing videos from selected playlist
               </p>
             )}
           </motion.div>
