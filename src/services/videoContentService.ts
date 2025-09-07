@@ -114,7 +114,7 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
         CreatedDate: '',
         LastModifiedDate: '',
         playlistPosition: index + 1, // Set position based on XML order
-        junctionId: video.getElementsByTagName('junctionid')[0]?.textContent || video.getElementsByTagName('playlistcontentid')[0]?.textContent || `playlist_${targetPlaylistId}_content_${video.getElementsByTagName('contentid')[0]?.textContent || index}`
+        junctionId: video.getElementsByTagName('id')[0]?.textContent || `fallback_${index}`
       }));
     } else {
       // Assume JSON response
