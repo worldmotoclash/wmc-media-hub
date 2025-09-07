@@ -43,6 +43,7 @@ export interface VideoContent {
   fileSize?: number;
   contentType?: string;
   tags?: string[];
+  playlistPosition?: number; // Order position in playlist (1-based)
 }
 
 // API configuration
@@ -96,7 +97,7 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
       const xmlDoc = parser.parseFromString(text, 'text/xml');
       const videoElements = xmlDoc.getElementsByTagName('content');
       
-      data = Array.from(videoElements).map(video => ({
+      data = Array.from(videoElements).map((video, index) => ({
         Id: video.getElementsByTagName('contentid')[0]?.textContent || '',
         Name: video.getElementsByTagName('contentname')[0]?.textContent || video.getElementsByTagName('name')[0]?.textContent || '',
         ri__Content_URL__c: video.getElementsByTagName('contenturl')[0]?.textContent || '',
@@ -110,7 +111,8 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
         ri__Content_Type__c: video.getElementsByTagName('contenttype')[0]?.textContent || '',
         ri__Tags__c: '', // Not provided in API
         CreatedDate: '',
-        LastModifiedDate: ''
+        LastModifiedDate: '',
+        playlistPosition: index + 1 // Set position based on XML order
       }));
     } else {
       // Assume JSON response
@@ -366,7 +368,8 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
     description: salesforceVideo.ri__Description__c || `${salesforceVideo.ri__Content_Type__c} content: ${salesforceVideo.Name}`,
     fileSize: salesforceVideo.ri__File_Size__c,
     contentType: salesforceVideo.ri__Content_Type__c,
-    tags: parseTags(salesforceVideo.ri__Tags__c)
+    tags: parseTags(salesforceVideo.ri__Tags__c),
+    playlistPosition: (salesforceVideo as any).playlistPosition
   };
 };
 
@@ -378,4 +381,27 @@ export const searchVideoContent = async (searchQuery: string): Promise<VideoCont
 // Get videos by playlist
 export const getVideosByPlaylist = async (playlistId: string): Promise<VideoContent[]> => {
   return fetchVideoContent(playlistId);
+};
+
+// Update playlist video order (placeholder for future backend implementation)
+export const updatePlaylistOrder = async (playlistId: string, videoOrders: { id: string; position: number }[]): Promise<boolean> => {
+  try {
+    // TODO: Implement API call to update playlist order in Salesforce
+    console.log('Updating playlist order for playlist:', playlistId);
+    console.log('New video order:', videoOrders);
+    
+    // Placeholder API call structure:
+    // const response = await fetch(`${API_CONFIG.baseUrl}/update-playlist-order.py`, {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({ playlistId, videoOrders, orgId: API_CONFIG.orgId })
+    // });
+    
+    // For now, just return success after a short delay to simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    return true;
+  } catch (error) {
+    console.error('Error updating playlist order:', error);
+    throw error;
+  }
 };

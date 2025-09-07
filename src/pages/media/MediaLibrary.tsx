@@ -6,11 +6,28 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Search, Filter, Grid, List, Loader2, PlayCircle, Clock, Eye } from 'lucide-react';
+import { ArrowLeft, Search, Filter, Grid, List, Loader2, PlayCircle, Clock, Eye, Save, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
-import { fetchVideoContent, searchVideoContent, getVideosByPlaylist, VideoContent, fetchPlaylistData, SalesforcePlaylist } from '@/services/videoContentService';
+import { fetchVideoContent, searchVideoContent, getVideosByPlaylist, VideoContent, fetchPlaylistData, SalesforcePlaylist, updatePlaylistOrder } from '@/services/videoContentService';
 import VideoPreviewModal from '@/components/media/VideoPreviewModal';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
+import SortableVideoItem from '@/components/media/SortableVideoItem';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable';
 
 const MediaLibrary: React.FC = () => {
   const { user } = useUser();
@@ -28,6 +45,20 @@ const MediaLibrary: React.FC = () => {
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const [currentPlaylist, setCurrentPlaylist] = useState<SalesforcePlaylist | null>(null);
   const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false);
+  const [originalVideos, setOriginalVideos] = useState<VideoContent[]>([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     // Redirect if no user is logged in
@@ -75,6 +106,7 @@ const MediaLibrary: React.FC = () => {
         
         setVideos(videoData);
         setFilteredVideos(videoData);
+        setOriginalVideos(videoData); // Store original order
       } catch (error) {
         console.error('Error loading videos:', error);
         toast.error('Failed to load videos');
@@ -98,6 +130,73 @@ const MediaLibrary: React.FC = () => {
     
     setFilteredVideos(filtered);
   }, [videos, filterStatus]);
+
+  // Handle drag end for reordering
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      const oldIndex = filteredVideos.findIndex(video => video.id === active.id);
+      const newIndex = filteredVideos.findIndex(video => video.id === over?.id);
+
+      const newOrder = arrayMove(filteredVideos, oldIndex, newIndex);
+      
+      // Update playlist positions
+      const updatedVideos = newOrder.map((video, index) => ({
+        ...video,
+        playlistPosition: index + 1
+      }));
+
+      setFilteredVideos(updatedVideos);
+      setVideos(prevVideos => {
+        const updatedAllVideos = [...prevVideos];
+        updatedVideos.forEach(updatedVideo => {
+          const index = updatedAllVideos.findIndex(v => v.id === updatedVideo.id);
+          if (index !== -1) {
+            updatedAllVideos[index] = updatedVideo;
+          }
+        });
+        return updatedAllVideos;
+      });
+      
+      setHasUnsavedChanges(true);
+      toast.success('Video order updated. Don\'t forget to save your changes!');
+    }
+  };
+
+  // Save reordered playlist
+  const handleSaveOrder = async () => {
+    if (!playlistId || !hasUnsavedChanges) return;
+    
+    try {
+      const videoOrders = filteredVideos.map(video => ({
+        id: video.id,
+        position: video.playlistPosition || 0
+      }));
+
+      // TODO: Uncomment when backend API is ready
+      // await updatePlaylistOrder(playlistId, videoOrders);
+      
+      setOriginalVideos([...filteredVideos]);
+      setHasUnsavedChanges(false);
+      toast.success('Playlist order saved successfully!');
+    } catch (error) {
+      console.error('Error saving playlist order:', error);
+      toast.error('Failed to save playlist order');
+    }
+  };
+
+  // Reset to original order
+  const handleResetOrder = () => {
+    if (!hasUnsavedChanges) return;
+    
+    setVideos([...originalVideos]);
+    setFilteredVideos(originalVideos.filter(video => 
+      filterStatus === 'all' || video.status.toLowerCase() === filterStatus.toLowerCase()
+    ));
+    setHasUnsavedChanges(false);
+    toast.success('Playlist order reset to original');
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,6 +294,21 @@ const MediaLibrary: React.FC = () => {
                     <div className="text-sm text-muted-foreground">videos</div>
                   </div>
                 </div>
+                
+                {/* Save/Reset buttons for playlist reordering */}
+                {hasUnsavedChanges && (
+                  <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border">
+                    <p className="text-sm text-muted-foreground flex-1">You have unsaved changes to the video order</p>
+                    <Button variant="outline" size="sm" onClick={handleResetOrder}>
+                      <RotateCcw className="w-4 h-4 mr-1" />
+                      Reset
+                    </Button>
+                    <Button size="sm" onClick={handleSaveOrder}>
+                      <Save className="w-4 h-4 mr-1" />
+                      Save Order
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
             
@@ -316,83 +430,76 @@ const MediaLibrary: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.6 }}
           >
-            <div className={
-              viewMode === 'grid' 
-                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-                : "space-y-4"
-            }>
-              {filteredVideos.map((video, index) => (
-                <motion.div
-                  key={video.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05, duration: 0.6 }}
+            {playlistId ? (
+              /* Sortable Playlist View */
+              <DndContext 
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext 
+                  items={filteredVideos.map(v => v.id)}
+                  strategy={viewMode === 'grid' ? rectSortingStrategy : verticalListSortingStrategy}
                 >
-                  {viewMode === 'grid' ? (
-                    <Card 
-                      className="overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group"
-                      onClick={() => setSelectedVideo(video)}
-                    >
-                      <div className="relative">
-                        <img 
-                          src={video.thumbnail} 
-                          alt={video.title}
-                          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                  <div className={
+                    viewMode === 'grid' 
+                      ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                      : "space-y-4"
+                  }>
+                    {filteredVideos.map((video, index) => (
+                      <motion.div
+                        key={video.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05, duration: 0.6 }}
+                      >
+                        <SortableVideoItem
+                          video={video}
+                          index={index}
+                          onVideoClick={setSelectedVideo}
+                          getStatusColor={getStatusColor}
+                          viewMode={viewMode}
                         />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                          <PlayCircle className="w-12 h-12 text-white" />
-                        </div>
-                        <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {video.duration}
-                        </div>
-                      </div>
-                      <CardContent className="p-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <Badge 
-                            variant="outline" 
-                            className={getStatusColor(video.status)}
-                          >
-                            {video.status}
-                          </Badge>
-                        </div>
-                        <h3 className="font-semibold text-foreground mb-2 line-clamp-2 group-hover:text-primary transition-colors">
-                          {video.title}
-                        </h3>
-                        <div className="flex justify-between items-center text-sm text-muted-foreground">
-                          <span>{video.uploadedAt}</span>
-                          <div className="flex items-center gap-1">
-                            <Eye className="w-3 h-3" />
-                            {video.views.toLocaleString()}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <Card 
-                      className="overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group"
-                      onClick={() => setSelectedVideo(video)}
-                    >
-                      <div className="flex">
-                        <div className="relative w-48 h-32">
+                      </motion.div>
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            ) : (
+              /* Regular Media Library View */
+              <div className={
+                viewMode === 'grid' 
+                  ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                  : "space-y-4"
+              }>
+                {filteredVideos.map((video, index) => (
+                  <motion.div
+                    key={video.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05, duration: 0.6 }}
+                  >
+                    {viewMode === 'grid' ? (
+                      <Card 
+                        className="overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group"
+                        onClick={() => setSelectedVideo(video)}
+                      >
+                        <div className="relative">
                           <img 
                             src={video.thumbnail} 
                             alt={video.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
                           />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                            <PlayCircle className="w-8 h-8 text-white" />
+                            <PlayCircle className="w-12 h-12 text-white" />
                           </div>
-                          <div className="absolute bottom-1 right-1 bg-black/80 text-white text-xs px-1 py-0.5 rounded flex items-center gap-1">
-                            <Clock className="w-2 h-2" />
+                          <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
                             {video.duration}
                           </div>
                         </div>
-                        <CardContent className="flex-1 p-4">
+                        <CardContent className="p-4">
                           <div className="flex justify-between items-start mb-2">
-                            <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
-                              {video.title}
-                            </h3>
                             <Badge 
                               variant="outline" 
                               className={getStatusColor(video.status)}
@@ -400,25 +507,70 @@ const MediaLibrary: React.FC = () => {
                               {video.status}
                             </Badge>
                           </div>
-                          {video.description && (
-                            <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                              {video.description}
-                            </p>
-                          )}
+                          <h3 className="font-semibold text-foreground mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+                            {video.title}
+                          </h3>
                           <div className="flex justify-between items-center text-sm text-muted-foreground">
-                            <span>Uploaded {video.uploadedAt}</span>
+                            <span>{video.uploadedAt}</span>
                             <div className="flex items-center gap-1">
                               <Eye className="w-3 h-3" />
-                              {video.views.toLocaleString()} views
+                              {video.views.toLocaleString()}
                             </div>
                           </div>
                         </CardContent>
-                      </div>
-                    </Card>
-                  )}
-                </motion.div>
-              ))}
-            </div>
+                      </Card>
+                    ) : (
+                      <Card 
+                        className="overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group"
+                        onClick={() => setSelectedVideo(video)}
+                      >
+                        <div className="flex">
+                          <div className="relative w-48 h-32">
+                            <img 
+                              src={video.thumbnail} 
+                              alt={video.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                              <PlayCircle className="w-8 h-8 text-white" />
+                            </div>
+                            <div className="absolute bottom-1 right-1 bg-black/80 text-white text-xs px-1 py-0.5 rounded flex items-center gap-1">
+                              <Clock className="w-2 h-2" />
+                              {video.duration}
+                            </div>
+                          </div>
+                          <CardContent className="flex-1 p-4">
+                            <div className="flex justify-between items-start mb-2">
+                              <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                                {video.title}
+                              </h3>
+                              <Badge 
+                                variant="outline" 
+                                className={getStatusColor(video.status)}
+                              >
+                                {video.status}
+                              </Badge>
+                            </div>
+                            {video.description && (
+                              <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                                {video.description}
+                              </p>
+                            )}
+                            <div className="flex justify-between items-center text-sm text-muted-foreground">
+                              <span>Uploaded {video.uploadedAt}</span>
+                              <div className="flex items-center gap-1">
+                                <Eye className="w-3 h-3" />
+                                {video.views.toLocaleString()} views
+                              </div>
+                            </div>
+                          </CardContent>
+                        </div>
+                      </Card>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+            )}
           </motion.div>
         )}
       </div>
