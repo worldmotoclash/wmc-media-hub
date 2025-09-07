@@ -170,12 +170,18 @@ const MediaLibrary: React.FC = () => {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
+    console.log('Drag end event:', { activeId: active.id, overId: over?.id });
+    console.log('Current filtered videos:', filteredVideos.map(v => ({ id: v.id, position: v.playlistPosition, title: v.title })));
+
     if (active.id !== over?.id && over) {
       const oldIndex = filteredVideos.findIndex(video => video.id === active.id);
       const newIndex = filteredVideos.findIndex(video => video.id === over.id);
 
+      console.log('Drag indices:', { oldIndex, newIndex });
+
       if (oldIndex !== -1 && newIndex !== -1) {
         const newOrder = arrayMove(filteredVideos, oldIndex, newIndex);
+        console.log('New order after arrayMove:', newOrder.map(v => ({ id: v.id, title: v.title })));
         
         // Update playlist positions
         const updatedVideos = newOrder.map((video, index) => ({
@@ -183,12 +189,17 @@ const MediaLibrary: React.FC = () => {
           playlistPosition: index + 1
         }));
 
-        // Update both filtered and main videos state immediately
+        console.log('Updated videos with new positions:', updatedVideos.map(v => ({ id: v.id, position: v.playlistPosition, title: v.title })));
+
+        // Update both states immediately and synchronously
         setFilteredVideos(updatedVideos);
         setVideos(prevVideos => {
+          console.log('Updating main videos state');
           // Create a map for faster lookup
           const updatedMap = new Map(updatedVideos.map(v => [v.id, v]));
-          return prevVideos.map(video => updatedMap.get(video.id) || video);
+          const result = prevVideos.map(video => updatedMap.get(video.id) || video);
+          console.log('Updated main videos:', result.filter(v => updatedMap.has(v.id)).map(v => ({ id: v.id, position: v.playlistPosition, title: v.title })));
+          return result;
         });
         
         setHasUnsavedChanges(true);
@@ -860,28 +871,22 @@ const MediaLibrary: React.FC = () => {
                     items={filteredVideos.map(v => v.id)}
                     strategy={viewMode === 'grid' ? rectSortingStrategy : verticalListSortingStrategy}
                   >
-                    <div className={
-                      viewMode === 'grid' 
-                        ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-                        : "space-y-4"
-                    }>
-                      {filteredVideos.map((video, index) => (
-                        <motion.div
-                          key={video.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.05, duration: 0.6 }}
-                        >
-                          <SortableVideoItem
-                            video={video}
-                            index={index}
-                            onVideoClick={setSelectedVideo}
-                            getStatusColor={getStatusColor}
-                            viewMode={viewMode}
-                          />
-                        </motion.div>
-                      ))}
-                    </div>
+                     <div className={
+                       viewMode === 'grid' 
+                         ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                         : "space-y-4"
+                     }>
+                       {filteredVideos.map((video, index) => (
+                         <SortableVideoItem
+                           key={video.id}
+                           video={video}
+                           index={index}
+                           onVideoClick={setSelectedVideo}
+                           getStatusColor={getStatusColor}
+                           viewMode={viewMode}
+                         />
+                       ))}
+                     </div>
                   </SortableContext>
                 </DndContext>
               </motion.div>
