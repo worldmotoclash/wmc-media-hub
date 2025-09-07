@@ -461,7 +461,7 @@ const updateSingleVideoOrder = async (
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/update-engine.php";
-    form.target = `update_frame_${videoId}_${Date.now()}`;
+    form.target = `updateWindow_${videoId}_${Date.now()}`;
     form.style.display = 'none';
             
     const fields: Record<string, string> = {
@@ -470,6 +470,7 @@ const updateSingleVideoOrder = async (
       'number_ri1__Playlist_Order__c': newPosition.toString()
     };
 
+    // Add form fields
     Object.entries(fields).forEach(([name, value]) => {
       const input = document.createElement('input');
       input.type = 'hidden';
@@ -479,70 +480,29 @@ const updateSingleVideoOrder = async (
       console.log(`📝 Added field: ${name} = ${value}`);
     });
 
-    // Create iframe for form submission
-    const updateIframe = document.createElement('iframe');
-    updateIframe.name = form.target;
-    updateIframe.style.display = 'none';
-    updateIframe.style.width = '0';
-    updateIframe.style.height = '0';
-    updateIframe.style.border = 'none';
+    // Open in new browser window to see actual results
+    const windowName = form.target;
+    const newWindow = window.open('', windowName, 'width=800,height=600,scrollbars=yes,resizable=yes');
     
-    let resolved = false;
+    if (!newWindow) {
+      reject(new Error('Failed to open browser window - popup blocked?'));
+      return;
+    }
+
+    // Add to DOM and submit
+    document.body.appendChild(form);
     
-    const cleanup = () => {
-      if (document.body.contains(updateIframe)) {
-        document.body.removeChild(updateIframe);
-      }
+    // Submit and resolve immediately (user will see results in new window)
+    form.submit();
+    
+    // Clean up form
+    setTimeout(() => {
       if (document.body.contains(form)) {
         document.body.removeChild(form);
       }
-      console.log(`🗑️ Cleaned up iframe and form for video ${videoId}`);
-    };
+    }, 1000);
     
-    const handleSuccess = () => {
-      if (!resolved) {
-        resolved = true;
-        setTimeout(cleanup, 2000);
-        resolve();
-      }
-    };
-    
-    const handleError = (error: Error) => {
-      if (!resolved) {
-        resolved = true;
-        cleanup();
-        reject(error);
-      }
-    };
-    
-    // Set up timeout for the entire operation
-    const timeoutId = setTimeout(() => {
-      if (!resolved) {
-        console.error(`⏰ Timeout updating video ${videoId}`);
-        handleError(new Error('Update timeout'));
-      }
-    }, 8000); // 8 second timeout
-    
-    updateIframe.onload = () => {
-      console.log(`📄 Iframe loaded for video ${videoId} - assuming success`);
-      // Assume success since we can't access cross-origin iframe content
-      clearTimeout(timeoutId);
-      setTimeout(handleSuccess, 1000);
-    };
-    
-    updateIframe.onerror = () => {
-      console.error(`❌ Iframe failed to load for video ${videoId}`);
-      clearTimeout(timeoutId);
-      handleError(new Error('Iframe failed to load'));
-    };
-    
-    // Add elements to DOM
-    document.body.appendChild(updateIframe);
-    document.body.appendChild(form);
-    
-    console.log(`📤 Submitting form for video ${videoId} position update`);
-    form.submit();
-    
-    console.log(`📋 Form submitted for video ${videoId} update`);
+    console.log(`🌐 Opened browser window for video ${videoId} update results`);
+    resolve();
   });
 };
