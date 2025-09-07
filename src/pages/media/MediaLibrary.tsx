@@ -172,44 +172,49 @@ const MediaLibrary: React.FC = () => {
 
     console.log('=== DRAG END START ===');
     console.log('Active ID:', active.id, 'Over ID:', over?.id);
-    console.log('Before drag - filteredVideos order:', filteredVideos.map(v => ({ id: v.id, title: v.title, position: v.playlistPosition })));
 
-    if (active.id !== over?.id && over) {
-      const oldIndex = filteredVideos.findIndex(video => video.id === active.id);
-      const newIndex = filteredVideos.findIndex(video => video.id === over.id);
+    if (!over || active.id === over.id) {
+      console.log('No drag change needed');
+      return;
+    }
 
-      console.log('Drag indices - oldIndex:', oldIndex, 'newIndex:', newIndex);
+    try {
+      const activeIndex = filteredVideos.findIndex(video => video.id === active.id);
+      const overIndex = filteredVideos.findIndex(video => video.id === over.id);
 
-      if (oldIndex !== -1 && newIndex !== -1) {
-        // Create a completely new array to force React re-render
-        const currentVideos = [...filteredVideos];
-        const newOrder = arrayMove(currentVideos, oldIndex, newIndex);
-        
-        console.log('After arrayMove - newOrder:', newOrder.map(v => ({ id: v.id, title: v.title })));
-        
-        // Update playlist positions with completely new objects
-        const updatedVideos = newOrder.map((video, index) => ({
-          ...video,
-          playlistPosition: index + 1,
-          // Add a timestamp to force object change detection
-          _sortTimestamp: Date.now()
-        }));
+      console.log('Indices:', { activeIndex, overIndex });
 
-        console.log('Final updatedVideos:', updatedVideos.map(v => ({ id: v.id, title: v.title, position: v.playlistPosition })));
-
-        // Force state updates
-        setFilteredVideos([...updatedVideos]);
-        setVideos(prevVideos => {
-          const updatedMap = new Map(updatedVideos.map(v => [v.id, v]));
-          const result = prevVideos.map(video => updatedMap.get(video.id) || video);
-          return [...result]; // Force new array reference
-        });
-        
-        setHasUnsavedChanges(true);
-        toast.success('Video order updated. Don\'t forget to save your changes!');
-        
-        console.log('=== DRAG END COMPLETE ===');
+      if (activeIndex === -1 || overIndex === -1) {
+        console.log('Invalid indices found');
+        return;
       }
+
+      // Create new array manually instead of using arrayMove
+      const newVideos = [...filteredVideos];
+      const [draggedItem] = newVideos.splice(activeIndex, 1);
+      newVideos.splice(overIndex, 0, draggedItem);
+
+      // Update positions
+      const finalVideos = newVideos.map((video, index) => ({
+        ...video,
+        playlistPosition: index + 1
+      }));
+
+      console.log('New order:', finalVideos.map(v => ({ id: v.id, title: v.title, position: v.playlistPosition })));
+
+      // Update states
+      setFilteredVideos(finalVideos);
+      setVideos(prevVideos => {
+        const videoMap = new Map(finalVideos.map(v => [v.id, v]));
+        return prevVideos.map(v => videoMap.get(v.id) || v);
+      });
+      
+      setHasUnsavedChanges(true);
+      toast.success('Video order updated!');
+      
+      console.log('=== DRAG END SUCCESS ===');
+    } catch (error) {
+      console.error('Drag end error:', error);
     }
   };
 
@@ -884,13 +889,13 @@ const MediaLibrary: React.FC = () => {
                         {filteredVideos.map((video, index) => {
                           console.log(`🎬 Rendering video at index ${index}:`, { 
                             id: video.id, 
-                            title: video.title, 
+title: video.title, 
                             position: video.playlistPosition,
                             visualIndex: index 
                           });
                           return (
                             <SortableVideoItem
-                              key={`${video.id}-${video.playlistPosition || index}-${(video as any)._sortTimestamp || ''}`}
+                              key={video.id}
                               video={video}
                               index={index}
                               onVideoClick={setSelectedVideo}
