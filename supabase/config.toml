@@ -1,1 +1,4 @@
 project_id = "vlwumuuolvxhiixqbnub"
+
+[functions.generate-veo-video]
+verify_jwt = true

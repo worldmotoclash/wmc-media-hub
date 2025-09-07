@@ -14,7 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      video_generations: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          generation_data: Json
+          google_operation_id: string | null
+          id: string
+          progress: number
+          salesforce_record_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          generation_data: Json
+          google_operation_id?: string | null
+          id?: string
+          progress?: number
+          salesforce_record_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          generation_data?: Json
+          google_operation_id?: string | null
+          id?: string
+          progress?: number
+          salesforce_record_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

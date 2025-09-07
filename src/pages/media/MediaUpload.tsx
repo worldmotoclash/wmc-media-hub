@@ -1,24 +1,51 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { useUser } from '@/contexts/UserContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { Progress } from '@/components/ui/progress';
-import { Upload, ArrowLeft, Sparkles, Link, File, Palette, Clock, Monitor, Key, AlertCircle } from 'lucide-react';
-import { toast } from 'sonner';
-import { createGoogleVeoService, createMockVeoService, VeoGenerationRequest } from '@/services/googleVeoService';
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Upload, Wand2, AlertCircle, CheckCircle2, Calendar, MapPin, Tag, ArrowLeft, Sparkles, Clock, Monitor, Video } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useUser } from "@/contexts/UserContext";
+
+interface SalesforceData {
+  title: string;
+  subtitle: string;
+  description: string;
+  categories: string[];
+  template: string;
+  location: string;
+  track: string;
+  scheduledDate: string;
+  tags: string[];
+  keywords: string[];
+}
+
+interface VideoGeneration {
+  id: string;
+  status: 'pending' | 'generating' | 'completed' | 'failed';
+  progress: number;
+  generation_data: any;
+  video_url?: string;
+  error_message?: string;
+  created_at: string;
+  updated_at: string;
+}
 
 const MediaUpload: React.FC = () => {
   const { user } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
   const isGenerateMode = location.pathname.includes('/generate');
   
   // Upload form state
@@ -30,39 +57,104 @@ const MediaUpload: React.FC = () => {
     keywords: ''
   });
   
-  // AI Generation form state
+  // AI Generation form state with Salesforce fields
   const [genData, setGenData] = useState({
-    provider: '',
+    provider: 'veo',
     mainPrompt: '',
     negativePrompt: '',
     duration: [5],
     aspectRatio: '16:9',
-    creativity: [0.7],
-    referenceFile: null as File | null
+    creativity: [0.5],
+    // Salesforce fields
+    title: '',
+    subtitle: '',
+    description: '',
+    categories: [] as string[],
+    template: '',
+    location: '',
+    track: '',
+    scheduledDate: '',
+    tags: [] as string[],
+    keywords: [] as string[],
   });
 
   // Video generation state
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStatus, setGenerationStatus] = useState('');
-  
-  // API credentials state
-  const [googleApiKey, setGoogleApiKey] = useState('');
-  const [googleProjectId, setGoogleProjectId] = useState('');
-  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+  const [currentGeneration, setCurrentGeneration] = useState<VideoGeneration | null>(null);
 
   useEffect(() => {
     if (!user) {
-      toast.error('Please log in to access the media upload');
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to access the media upload",
+        variant: "destructive",
+      });
       navigate('/login');
     }
-    
-    // Load saved API credentials from localStorage
-    const savedApiKey = localStorage.getItem('google_veo_api_key');
-    const savedProjectId = localStorage.getItem('google_veo_project_id');
-    if (savedApiKey) setGoogleApiKey(savedApiKey);
-    if (savedProjectId) setGoogleProjectId(savedProjectId);
-  }, [user, navigate]);
+  }, [user, navigate, toast]);
+
+  // Real-time subscription for generation updates
+  useEffect(() => {
+    if (!user || !currentGeneration) return;
+
+    const subscription = supabase
+      .channel('video-generation-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'video_generations',
+          filter: `id=eq.${currentGeneration.id}`,
+        },
+        (payload) => {
+          const updatedGeneration = payload.new as any;
+          const typedGeneration: VideoGeneration = {
+            id: updatedGeneration.id,
+            status: updatedGeneration.status as 'pending' | 'generating' | 'completed' | 'failed',
+            progress: updatedGeneration.progress,
+            generation_data: updatedGeneration.generation_data,
+            video_url: updatedGeneration.video_url,
+            error_message: updatedGeneration.error_message,
+            created_at: updatedGeneration.created_at,
+            updated_at: updatedGeneration.updated_at,
+          };
+          setCurrentGeneration(typedGeneration);
+          setGenerationProgress(typedGeneration.progress);
+          
+          if (updatedGeneration.status === 'completed') {
+            setGenerationStatus('Video generated successfully!');
+            setIsGenerating(false);
+            toast({
+              title: "Success!",
+              description: "Video generated successfully! You can now view it in the Media Library.",
+            });
+            
+            // Navigate to media library after a delay
+            setTimeout(() => {
+              navigate('/admin/media/library');
+            }, 2000);
+          } else if (updatedGeneration.status === 'failed') {
+            setGenerationStatus('Generation failed');
+            setIsGenerating(false);
+            toast({
+              title: "Generation Failed",
+              description: updatedGeneration.error_message || 'Unknown error occurred',
+              variant: "destructive",
+            });
+          } else if (updatedGeneration.status === 'generating') {
+            setGenerationStatus(`Generating video... ${updatedGeneration.progress}%`);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [user, currentGeneration, navigate, toast]);
 
   if (!user) {
     return null;
@@ -70,19 +162,20 @@ const MediaUpload: React.FC = () => {
 
   const handleUploadSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    toast.info('Upload functionality coming soon!');
+    toast({
+      title: "Coming Soon",
+      description: "Upload functionality will be available soon!",
+    });
   };
 
   const handleGenerateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!genData.provider || !genData.mainPrompt) {
-      toast.error('Please select a provider and enter a prompt');
-      return;
-    }
-
-    if (genData.provider === 'veo' && (!googleApiKey || !googleProjectId)) {
-      setShowApiKeyInput(true);
-      toast.error('Please enter your Google VEO API credentials');
+    if (!genData.mainPrompt || !genData.title) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter a prompt and title for the video",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -91,67 +184,102 @@ const MediaUpload: React.FC = () => {
     setGenerationStatus('Initializing video generation...');
 
     try {
-      const veoService = genData.provider === 'veo' && googleApiKey && googleProjectId
-        ? createGoogleVeoService(googleApiKey, googleProjectId)
-        : createMockVeoService();
-
-      const request: VeoGenerationRequest = {
-        prompt: genData.mainPrompt,
-        negativePrompt: genData.negativePrompt || undefined,
-        duration: genData.duration[0],
-        aspectRatio: genData.aspectRatio as '16:9' | '9:16' | '1:1',
-        creativity: genData.creativity[0],
+      // Prepare Salesforce data
+      const salesforceData: SalesforceData = {
+        title: genData.title,
+        subtitle: genData.subtitle,
+        description: genData.description,
+        categories: genData.categories,
+        template: genData.template,
+        location: genData.location,
+        track: genData.track,
+        scheduledDate: genData.scheduledDate,
+        tags: genData.tags,
+        keywords: genData.keywords,
       };
 
-      // Save API credentials for future use
-      if (genData.provider === 'veo' && googleApiKey && googleProjectId) {
-        localStorage.setItem('google_veo_api_key', googleApiKey);
-        localStorage.setItem('google_veo_project_id', googleProjectId);
+      // Call the edge function
+      const { data: authData } = await supabase.auth.getSession();
+      if (!authData.session) {
+        throw new Error('No active session');
       }
 
       setGenerationStatus('Starting generation...');
-      const operation = await veoService.generateVideo(request);
-      
-      setGenerationStatus('Video is being generated...');
-      const result = await veoService.waitForGeneration(
-        operation.name,
-        (progress) => {
-          setGenerationProgress(progress);
-          setGenerationStatus(`Generating video... ${Math.round(progress)}%`);
-        }
-      );
+      const response = await supabase.functions.invoke('generate-veo-video', {
+        body: {
+          prompt: genData.mainPrompt,
+          negativePrompt: genData.negativePrompt || undefined,
+          duration: genData.duration[0],
+          aspectRatio: genData.aspectRatio,
+          creativity: genData.creativity[0],
+          salesforceData,
+        },
+      });
 
-      if (result.status === 'COMPLETED') {
-        setGenerationProgress(100);
-        setGenerationStatus('Video generated successfully!');
-        toast.success('Video generated successfully! You can now view it in the Media Library.');
-        
-        // Reset form
-        setGenData({
-          provider: '',
-          mainPrompt: '',
-          negativePrompt: '',
-          duration: [5],
-          aspectRatio: '16:9',
-          creativity: [0.7],
-          referenceFile: null
-        });
-        
-        // Navigate to media library after a delay
-        setTimeout(() => {
-          navigate('/admin/media/library');
-        }, 2000);
-      } else {
-        throw new Error(result.error || 'Video generation failed');
+      if (response.error) {
+        throw new Error(response.error.message);
       }
+
+      const result = response.data;
+      if (!result.success) {
+        throw new Error(result.error || 'Unknown error occurred');
+      }
+
+      // Get the generation record to enable real-time updates
+      const { data: generationRecord, error: fetchError } = await supabase
+        .from('video_generations')
+        .select('*')
+        .eq('id', result.generationId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching generation record:', fetchError);
+      } else {
+        const typedRecord: VideoGeneration = {
+          id: generationRecord.id,
+          status: generationRecord.status as 'pending' | 'generating' | 'completed' | 'failed',
+          progress: generationRecord.progress,
+          generation_data: generationRecord.generation_data,
+          video_url: generationRecord.video_url,
+          error_message: generationRecord.error_message,
+          created_at: generationRecord.created_at,
+          updated_at: generationRecord.updated_at,
+        };
+        setCurrentGeneration(typedRecord);
+      }
+
+      setGenerationStatus('Video is being generated...');
+      toast({
+        title: "Generation Started",
+        description: "Your video is being generated. You'll receive updates in real-time.",
+      });
 
     } catch (error) {
       console.error('Generation error:', error);
       setGenerationStatus('Generation failed');
-      toast.error(`Generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
       setIsGenerating(false);
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        variant: "destructive",
+      });
     }
+  };
+
+  const handleTagAdd = (type: 'tags' | 'keywords' | 'categories', value: string) => {
+    if (!value.trim()) return;
+    
+    setGenData(prev => ({
+      ...prev,
+      [type]: [...prev[type], value.trim()]
+    }));
+  };
+
+  const handleTagRemove = (type: 'tags' | 'keywords' | 'categories', index: number) => {
+    setGenData(prev => ({
+      ...prev,
+      [type]: prev[type].filter((_, i) => i !== index)
+    }));
   };
 
   const pageTitle = isGenerateMode ? 'Generate AI Video' : 'Upload Video';
@@ -165,7 +293,7 @@ const MediaUpload: React.FC = () => {
         <div className="mb-8">
           <Button 
             variant="ghost" 
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/admin/media')}
             className="mb-4"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -214,7 +342,7 @@ const MediaUpload: React.FC = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Upload className="w-5 h-5 text-science-blue" />
+                    <Upload className="w-5 h-5 text-primary" />
                     Upload Video Content
                   </CardTitle>
                 </CardHeader>
@@ -222,10 +350,7 @@ const MediaUpload: React.FC = () => {
                   <form onSubmit={handleUploadSubmit} className="space-y-6">
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor="url" className="flex items-center gap-2">
-                          <Link className="w-4 h-4" />
-                          Video URL (YouTube, Vimeo, etc.)
-                        </Label>
+                        <Label htmlFor="url">Video URL (YouTube, Vimeo, etc.)</Label>
                         <Input
                           id="url"
                           type="url"
@@ -237,7 +362,7 @@ const MediaUpload: React.FC = () => {
                       </div>
 
                       <div className="text-center py-8 border-2 border-dashed border-muted-foreground/20 rounded-lg">
-                        <File className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                        <Video className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                         <p className="text-muted-foreground mb-2">Or drag & drop video files</p>
                         <Button variant="outline" type="button">
                           Browse Files
@@ -278,20 +403,9 @@ const MediaUpload: React.FC = () => {
                           rows={4}
                         />
                       </div>
-
-                      <div>
-                        <Label htmlFor="keywords">Keywords</Label>
-                        <Input
-                          id="keywords"
-                          placeholder="motocross racing championship track"
-                          value={uploadData.keywords}
-                          onChange={(e) => setUploadData({...uploadData, keywords: e.target.value})}
-                          className="mt-2"
-                        />
-                      </div>
                     </div>
 
-                    <Button type="submit" className="w-full bg-science-blue hover:bg-science-blue/80">
+                    <Button type="submit" className="w-full">
                       Upload & Process Video
                     </Button>
                   </form>
@@ -300,185 +414,332 @@ const MediaUpload: React.FC = () => {
             </TabsContent>
 
             <TabsContent value="generate" className="space-y-6">
+              {/* Generation Progress */}
+              {isGenerating && (
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardContent className="pt-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-primary animate-spin" />
+                        <span className="text-sm font-medium">Generating Video</span>
+                      </div>
+                      <Progress value={generationProgress} className="w-full" />
+                      <p className="text-sm text-muted-foreground">{generationStatus}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-cinnabar" />
+                    <Sparkles className="w-5 h-5 text-primary" />
                     AI Video Generation
                   </CardTitle>
+                  <CardDescription>
+                    Generate racing videos with AI and automatically sync to Salesforce
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleGenerateSubmit} className="space-y-6">
-                    <div>
-                      <Label htmlFor="provider">AI Provider</Label>
-                      <Select 
-                        value={genData.provider} 
-                        onValueChange={(value) => setGenData({...genData, provider: value})}
-                      >
-                        <SelectTrigger className="mt-2">
-                          <SelectValue placeholder="Choose AI provider" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="veo">Google VEO</SelectItem>
-                          <SelectItem value="nano-banana">Nano Banana</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {/* Basic Information */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold">Basic Information</h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="title" className="text-sm font-medium">
+                            Title <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            id="title"
+                            placeholder="Epic Racing Highlights"
+                            value={genData.title}
+                            onChange={(e) => setGenData({...genData, title: e.target.value})}
+                            className="mt-2"
+                            required
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="subtitle">Subtitle</Label>
+                          <Input
+                            id="subtitle"
+                            placeholder="Championship Finals"
+                            value={genData.subtitle}
+                            onChange={(e) => setGenData({...genData, subtitle: e.target.value})}
+                            className="mt-2"
+                          />
+                        </div>
+                      </div>
 
-                    {/* Google VEO API Credentials */}
-                    {(genData.provider === 'veo' || showApiKeyInput) && (
-                      <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-sm flex items-center gap-2">
-                            <Key className="w-4 h-4" />
-                            Google VEO API Credentials
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200">
-                            <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5" />
-                            <div className="text-sm text-amber-800 dark:text-amber-200">
-                              <p className="font-medium mb-1">API credentials are stored locally in your browser</p>
-                              <p>For production use, consider connecting to Supabase for secure credential management.</p>
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="googleApiKey">Google API Key</Label>
-                            <Input
-                              id="googleApiKey"
-                              type="password"
-                              placeholder="Enter your Google VEO API key"
-                              value={googleApiKey}
-                              onChange={(e) => setGoogleApiKey(e.target.value)}
-                              className="mt-2"
-                            />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="googleProjectId">Google Project ID</Label>
-                            <Input
-                              id="googleProjectId"
-                              placeholder="Enter your Google Cloud Project ID"
-                              value={googleProjectId}
-                              onChange={(e) => setGoogleProjectId(e.target.value)}
-                              className="mt-2"
-                            />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-
-                    {/* Generation Progress */}
-                    {isGenerating && (
-                      <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
-                        <CardContent className="pt-6">
-                          <div className="space-y-4">
-                            <div className="flex items-center gap-2">
-                              <Sparkles className="w-4 h-4 text-blue-600 animate-spin" />
-                              <span className="text-sm font-medium">Generating Video</span>
-                            </div>
-                            <Progress value={generationProgress} className="w-full" />
-                            <p className="text-sm text-muted-foreground">{generationStatus}</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-
-                    <div>
-                      <Label htmlFor="mainPrompt">Main Prompt</Label>
-                      <Textarea
-                        id="mainPrompt"
-                        placeholder="A high-speed motocross race through muddy terrain with spectacular jumps..."
-                        value={genData.mainPrompt}
-                        onChange={(e) => setGenData({...genData, mainPrompt: e.target.value})}
-                        className="mt-2"
-                        rows={4}
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="negativePrompt">Negative Prompt (Optional)</Label>
-                      <Textarea
-                        id="negativePrompt"
-                        placeholder="Low quality, blurry, static camera..."
-                        value={genData.negativePrompt}
-                        onChange={(e) => setGenData({...genData, negativePrompt: e.target.value})}
-                        className="mt-2"
-                        rows={2}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <Label className="flex items-center gap-2">
-                          <Clock className="w-4 h-4" />
-                          Duration: {genData.duration[0]}s
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea
+                          id="description"
+                          placeholder="Describe the video content and context..."
+                          value={genData.description}
+                          onChange={(e) => setGenData({...genData, description: e.target.value})}
+                          className="mt-2"
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+
+                    {/* AI Generation Settings */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold">AI Generation Settings</h3>
+                      
+                      <div>
+                        <Label htmlFor="mainPrompt" className="text-sm font-medium">
+                          Main Prompt <span className="text-destructive">*</span>
                         </Label>
-                        <Slider
-                          value={genData.duration}
-                          onValueChange={(value) => setGenData({...genData, duration: value})}
-                          max={10}
-                          min={3}
-                          step={1}
-                          className="mt-3"
+                        <Textarea
+                          id="mainPrompt"
+                          placeholder="A high-speed motocross race through muddy terrain with spectacular jumps, dynamic camera angles, professional cinematography, 4K resolution..."
+                          value={genData.mainPrompt}
+                          onChange={(e) => setGenData({...genData, mainPrompt: e.target.value})}
+                          className="mt-2"
+                          rows={4}
+                          required
                         />
                       </div>
 
                       <div>
-                        <Label className="flex items-center gap-2">
-                          <Monitor className="w-4 h-4" />
-                          Aspect Ratio
-                        </Label>
-                        <Select 
-                          value={genData.aspectRatio} 
-                          onValueChange={(value) => setGenData({...genData, aspectRatio: value})}
-                        >
-                          <SelectTrigger className="mt-2">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
-                            <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
-                            <SelectItem value="1:1">1:1 (Square)</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Label htmlFor="negativePrompt">Negative Prompt</Label>
+                        <Textarea
+                          id="negativePrompt"
+                          placeholder="Low quality, blurry, static camera, poor lighting..."
+                          value={genData.negativePrompt}
+                          onChange={(e) => setGenData({...genData, negativePrompt: e.target.value})}
+                          className="mt-2"
+                          rows={2}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                          <Label className="flex items-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            Duration: {genData.duration[0]}s
+                          </Label>
+                          <Slider
+                            value={genData.duration}
+                            onValueChange={(value) => setGenData({...genData, duration: value})}
+                            max={10}
+                            min={3}
+                            step={1}
+                            className="mt-2"
+                          />
+                        </div>
+
+                        <div>
+                          <Label className="flex items-center gap-2">
+                            <Monitor className="w-4 h-4" />
+                            Aspect Ratio
+                          </Label>
+                          <Select 
+                            value={genData.aspectRatio} 
+                            onValueChange={(value) => setGenData({...genData, aspectRatio: value})}
+                          >
+                            <SelectTrigger className="mt-2">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
+                              <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
+                              <SelectItem value="1:1">1:1 (Square)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label>Creativity: {genData.creativity[0]}</Label>
+                          <Slider
+                            value={genData.creativity}
+                            onValueChange={(value) => setGenData({...genData, creativity: value})}
+                            max={1}
+                            min={0}
+                            step={0.1}
+                            className="mt-2"
+                          />
+                        </div>
                       </div>
                     </div>
 
-                    <div>
-                      <Label className="flex items-center gap-2">
-                        <Palette className="w-4 h-4" />
-                        Creativity Level: {Math.round(genData.creativity[0] * 100)}%
-                      </Label>
-                      <Slider
-                        value={genData.creativity}
-                        onValueChange={(value) => setGenData({...genData, creativity: value})}
-                        max={1}
-                        min={0}
-                        step={0.1}
-                        className="mt-3"
-                      />
-                    </div>
+                    {/* Salesforce Integration Fields */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold">Content Metadata</h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="template">Template</Label>
+                          <Select 
+                            value={genData.template} 
+                            onValueChange={(value) => setGenData({...genData, template: value})}
+                          >
+                            <SelectTrigger className="mt-2">
+                              <SelectValue placeholder="Select template" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="race-highlights">Race Highlights</SelectItem>
+                              <SelectItem value="training-footage">Training Footage</SelectItem>
+                              <SelectItem value="behind-scenes">Behind the Scenes</SelectItem>
+                              <SelectItem value="promotional">Promotional</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                    <div>
-                      <Label>Reference Image/Video (Optional)</Label>
-                      <div className="mt-2 text-center py-8 border-2 border-dashed border-muted-foreground/20 rounded-lg">
-                        <File className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                        <p className="text-muted-foreground mb-2">Upload reference material</p>
-                        <Button variant="outline" type="button">
-                          Choose File
-                        </Button>
+                        <div>
+                          <Label htmlFor="location" className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4" />
+                            Location
+                          </Label>
+                          <Input
+                            id="location"
+                            placeholder="Track name or location"
+                            value={genData.location}
+                            onChange={(e) => setGenData({...genData, location: e.target.value})}
+                            className="mt-2"
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="track">Track</Label>
+                          <Input
+                            id="track"
+                            placeholder="Track or circuit name"
+                            value={genData.track}
+                            onChange={(e) => setGenData({...genData, track: e.target.value})}
+                            className="mt-2"
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="scheduledDate" className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4" />
+                            Scheduled Date
+                          </Label>
+                          <Input
+                            id="scheduledDate"
+                            type="date"
+                            value={genData.scheduledDate}
+                            onChange={(e) => setGenData({...genData, scheduledDate: e.target.value})}
+                            className="mt-2"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Categories */}
+                      <div>
+                        <Label className="flex items-center gap-2">
+                          <Tag className="w-4 h-4" />
+                          Categories
+                        </Label>
+                        <div className="mt-2">
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {genData.categories.map((category, index) => (
+                              <Badge 
+                                key={index} 
+                                variant="secondary" 
+                                className="cursor-pointer"
+                                onClick={() => handleTagRemove('categories', index)}
+                              >
+                                {category} ×
+                              </Badge>
+                            ))}
+                          </div>
+                          <Select onValueChange={(value) => handleTagAdd('categories', value)}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Add category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="motocross">Motocross</SelectItem>
+                              <SelectItem value="supercross">Supercross</SelectItem>
+                              <SelectItem value="road-racing">Road Racing</SelectItem>
+                              <SelectItem value="enduro">Enduro</SelectItem>
+                              <SelectItem value="trial">Trial</SelectItem>
+                              <SelectItem value="training">Training</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* Tags */}
+                      <div>
+                        <Label>Tags</Label>
+                        <div className="mt-2">
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {genData.tags.map((tag, index) => (
+                              <Badge 
+                                key={index} 
+                                variant="outline" 
+                                className="cursor-pointer"
+                                onClick={() => handleTagRemove('tags', index)}
+                              >
+                                {tag} ×
+                              </Badge>
+                            ))}
+                          </div>
+                          <Input
+                            placeholder="Add tag and press Enter"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleTagAdd('tags', e.currentTarget.value);
+                                e.currentTarget.value = '';
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Keywords */}
+                      <div>
+                        <Label>Keywords</Label>
+                        <div className="mt-2">
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {genData.keywords.map((keyword, index) => (
+                              <Badge 
+                                key={index} 
+                                variant="outline" 
+                                className="cursor-pointer"
+                                onClick={() => handleTagRemove('keywords', index)}
+                              >
+                                {keyword} ×
+                              </Badge>
+                            ))}
+                          </div>
+                          <Input
+                            placeholder="Add keyword and press Enter"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleTagAdd('keywords', e.currentTarget.value);
+                                e.currentTarget.value = '';
+                              }
+                            }}
+                          />
+                        </div>
                       </div>
                     </div>
 
                     <Button 
                       type="submit" 
-                      disabled={isGenerating}
-                      className="w-full bg-cinnabar hover:bg-cinnabar/80 disabled:opacity-50"
+                      className="w-full" 
+                      disabled={isGenerating || !genData.mainPrompt || !genData.title}
                     >
-                      <Sparkles className={`w-4 h-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
-                      {isGenerating ? 'Generating Video...' : 'Generate AI Video'}
+                      {isGenerating ? (
+                        <>
+                          <Wand2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generating Video...
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="w-4 h-4 mr-2" />
+                          Generate AI Video
+                        </>
+                      )}
                     </Button>
                   </form>
                 </CardContent>
