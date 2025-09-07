@@ -245,12 +245,12 @@ export const trackLogin = async (contactId: string, action: string = 'Login'): P
         
         const form = iframeDoc.createElement('form');
         form.method = 'POST';
-        form.action = "https://media.worldmotoclash.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
+        form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
           
         const fields: Record<string, string> = {
           'sObj': 'ri__Portal__c',
           'string_ri__Contact__c': contactId,
-          'text_ri__Login_URL__c': 'https://invest.worldmotoclash.com',
+          'text_ri__Login_URL__c': 'https://media.worldmotoclash.com',
           'text_ri__Action__c': action,
           'text_ri__IP_Address__c': currentIp,
           'text_ri__Login_Country__c': locationData.country,
@@ -334,7 +334,7 @@ export const trackDocumentClick = async (
         
         const form = iframeDoc.createElement('form');
         form.method = 'POST';
-        form.action = "https://media.worldmotoclash.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
+        form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
           
         const fields: Record<string, string> = {
           'sObj': 'ri__Portal__c',
