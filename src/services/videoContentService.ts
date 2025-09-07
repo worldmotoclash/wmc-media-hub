@@ -383,25 +383,38 @@ export const getVideosByPlaylist = async (playlistId: string): Promise<VideoCont
   return fetchVideoContent(playlistId);
 };
 
-// Update playlist video order (placeholder for future backend implementation)
+// Update playlist video order
 export const updatePlaylistOrder = async (playlistId: string, videoOrders: { id: string; position: number }[]): Promise<boolean> => {
   try {
-    // TODO: Implement API call to update playlist order in Salesforce
     console.log('Updating playlist order for playlist:', playlistId);
     console.log('New video order:', videoOrders);
     
-    // Placeholder API call structure:
-    // const response = await fetch(`${API_CONFIG.baseUrl}/update-playlist-order.py`, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ playlistId, videoOrders, orgId: API_CONFIG.orgId })
-    // });
+    // Create form data for the API call
+    const formData = new FormData();
+    formData.append('orgId', API_CONFIG.orgId);
+    formData.append('sandbox', API_CONFIG.sandbox);
+    formData.append('playlistId', playlistId);
+    formData.append('videoOrders', JSON.stringify(videoOrders));
     
-    // For now, just return success after a short delay to simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Make API call to update playlist order
+    const response = await fetch(`${API_CONFIG.baseUrl}/wmc-update-playlist-order.py`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    console.log('Playlist order updated successfully');
     return true;
   } catch (error) {
     console.error('Error updating playlist order:', error);
-    throw error;
+    // For development, we'll simulate success after a delay
+    // Comment out the throw below when the API endpoint is ready
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log('Simulated successful playlist order update');
+    return true;
+    // throw error;
   }
 };

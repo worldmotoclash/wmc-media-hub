@@ -98,6 +98,12 @@ const MediaLibrary: React.FC = () => {
   // Fetch videos on component mount and when search query or playlist changes
   useEffect(() => {
     const loadVideos = async () => {
+      // Don't reload if we have unsaved changes
+      if (hasUnsavedChanges) {
+        console.log('Skipping video reload due to unsaved changes');
+        return;
+      }
+
       setIsLoading(true);
       try {
         let videoData: VideoContent[];
@@ -112,7 +118,10 @@ const MediaLibrary: React.FC = () => {
         
         setVideos(videoData);
         setFilteredVideos(videoData);
-        setOriginalVideos(videoData); // Store original order
+        // Only update originalVideos if we don't have unsaved changes
+        if (!hasUnsavedChanges) {
+          setOriginalVideos(videoData);
+        }
       } catch (error) {
         console.error('Error loading videos:', error);
         toast.error('Failed to load videos');
@@ -124,7 +133,7 @@ const MediaLibrary: React.FC = () => {
     if (user) {
       loadVideos();
     }
-  }, [user, searchQuery, playlistId]);
+  }, [user, searchQuery, playlistId, hasUnsavedChanges]);
 
   // Fetch playlists for the playlist tab
   useEffect(() => {
@@ -200,15 +209,19 @@ const MediaLibrary: React.FC = () => {
         position: video.playlistPosition || 0
       }));
 
-      // TODO: Uncomment when backend API is ready
-      // await updatePlaylistOrder(playlistId, videoOrders);
+      console.log('Saving playlist order for playlist:', playlistId);
+      console.log('Video orders:', videoOrders);
+
+      // Enable API call to persist changes
+      await updatePlaylistOrder(playlistId, videoOrders);
       
+      // Update the original videos state to reflect the new saved order
       setOriginalVideos([...filteredVideos]);
       setHasUnsavedChanges(false);
       toast.success('Playlist order saved successfully!');
     } catch (error) {
       console.error('Error saving playlist order:', error);
-      toast.error('Failed to save playlist order');
+      toast.error('Failed to save playlist order. Please try again.');
     }
   };
 
