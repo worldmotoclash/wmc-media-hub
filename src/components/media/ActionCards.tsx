@@ -1,32 +1,32 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload, FolderOpen, PlaySquare } from 'lucide-react';
+import { Upload, Sparkles, PlaySquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const ActionCards: React.FC = () => {
   const actions = [
     {
-      title: 'Upload New Video',
-      description: 'Add new video content to the WMC library',
+      title: 'Upload Video',
+      description: 'Add videos from files or URLs to the WMC library',
       icon: Upload,
       href: '/admin/media/upload',
-      color: 'from-cinnabar/20 to-cinnabar/10',
-      iconColor: 'text-cinnabar'
-    },
-    {
-      title: 'Browse Media Library',
-      description: 'View and manage all WMC media files',
-      icon: FolderOpen,
-      href: '/admin/media/library',
       color: 'from-science-blue/20 to-science-blue/10',
       iconColor: 'text-science-blue'
     },
     {
-      title: 'Manage Playlists',
-      description: 'Organize videos into curated playlists',
+      title: 'Generate AI Video',
+      description: 'Create racing content with AI video generation',
+      icon: Sparkles,
+      href: '/admin/media/generate',
+      color: 'from-cinnabar/20 to-cinnabar/10',
+      iconColor: 'text-cinnabar'
+    },
+    {
+      title: 'Manage Library',
+      description: 'Browse media library and organize playlists',
       icon: PlaySquare,
-      href: '/admin/media/playlists',
+      href: '/admin/media/library',
       color: 'from-malibu/20 to-malibu/10',
       iconColor: 'text-malibu'
     }

@@ -43,7 +43,7 @@ const MediaHubHero: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.6 }}
           >
-            Upload, manage, and explore all WMC media content
+            Pure Racing, Pure Entertainment
           </motion.p>
         </motion.div>
       </div>
