@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { Upload, ArrowLeft, Sparkles, Link, File, Palette, Clock, RectangleHorizontal } from 'lucide-react';
+import { Upload, ArrowLeft, Sparkles, Link, File, Palette, Clock, Monitor } from 'lucide-react';
 import { toast } from 'sonner';
 
 const MediaUpload: React.FC = () => {
@@ -277,7 +277,7 @@ const MediaUpload: React.FC = () => {
 
                       <div>
                         <Label className="flex items-center gap-2">
-                          <RectangleHorizontal className="w-4 h-4" />
+                          <Monitor className="w-4 h-4" />
                           Aspect Ratio
                         </Label>
                         <Select 
