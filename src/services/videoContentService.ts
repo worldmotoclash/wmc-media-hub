@@ -70,7 +70,7 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
       params.append('search', searchQuery);
     }
 
-    const url = `${API_CONFIG.baseUrl}/my-content-playlist-wmc.py?${params.toString()}`;
+    const url = `${API_CONFIG.baseUrl}/wmc-content-playlist.py?${params.toString()}`;
     console.log('Fetching video content from:', url);
 
     const response = await fetch(url, {
@@ -97,9 +97,9 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
       const videoElements = xmlDoc.getElementsByTagName('content');
       
       data = Array.from(videoElements).map(video => ({
-        Id: video.getElementsByTagName('id')[0]?.textContent || '',
-        Name: video.getElementsByTagName('name')[0]?.textContent || '',
-        ri__Content_URL__c: video.getElementsByTagName('url')[0]?.textContent || '',
+        Id: video.getElementsByTagName('contentid')[0]?.textContent || '',
+        Name: video.getElementsByTagName('contentname')[0]?.textContent || video.getElementsByTagName('name')[0]?.textContent || '',
+        ri__Content_URL__c: video.getElementsByTagName('contenturl')[0]?.textContent || '',
         ri__Thumbnail_URL__c: '', // Not provided in API
         ri__Status__c: video.getElementsByTagName('approved')[0]?.textContent || '',
         ri__Duration__c: video.getElementsByTagName('lengthinseconds')[0]?.textContent || '',
@@ -378,70 +378,4 @@ export const searchVideoContent = async (searchQuery: string): Promise<VideoCont
 // Get videos by playlist
 export const getVideosByPlaylist = async (playlistId: string): Promise<VideoContent[]> => {
   return fetchVideoContent(playlistId);
-};
-
-// Update the fetchVideoContent function to handle playlist filtering
-const updateFetchVideoContent = async (playlistId?: string, searchQuery?: string): Promise<VideoContent[]> => {
-  try {
-    const params = new URLSearchParams({
-      orgId: API_CONFIG.orgId,
-      sandbox: API_CONFIG.sandbox
-    });
-
-    if (playlistId) {
-      params.append('playlistId', playlistId);
-    }
-
-    if (searchQuery) {
-      params.append('search', searchQuery);
-    }
-
-    const url = `${API_CONFIG.baseUrl}/my-content-playlist-wmc.py?${params.toString()}`;
-    console.log('Fetching video content from:', url);
-
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const contentType = response.headers.get('content-type');
-    let data: SalesforceVideo[];
-
-    if (contentType?.includes('xml')) {
-      // Parse XML response
-      const text = await response.text();
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(text, 'text/xml');
-      const videoElements = xmlDoc.getElementsByTagName('video') || xmlDoc.getElementsByTagName('record');
-      
-      data = Array.from(videoElements).map(video => ({
-        Id: video.getElementsByTagName('Id')[0]?.textContent || video.getElementsByTagName('id')[0]?.textContent || '',
-        Name: video.getElementsByTagName('Name')[0]?.textContent || video.getElementsByTagName('name')[0]?.textContent || '',
-        ri__Content_URL__c: video.getElementsByTagName('ri__Content_URL__c')[0]?.textContent || '',
-        ri__Thumbnail_URL__c: video.getElementsByTagName('ri__Thumbnail_URL__c')[0]?.textContent || '',
-        ri__Status__c: video.getElementsByTagName('ri__Status__c')[0]?.textContent || '',
-        ri__Duration__c: video.getElementsByTagName('ri__Duration__c')[0]?.textContent || '',
-        ri__Upload_Date__c: video.getElementsByTagName('ri__Upload_Date__c')[0]?.textContent || '',
-        ri__Views__c: parseInt(video.getElementsByTagName('ri__Views__c')[0]?.textContent || '0'),
-        ri__Description__c: video.getElementsByTagName('ri__Description__c')[0]?.textContent || '',
-        ri__File_Size__c: parseInt(video.getElementsByTagName('ri__File_Size__c')[0]?.textContent || '0'),
-        ri__Content_Type__c: video.getElementsByTagName('ri__Content_Type__c')[0]?.textContent || '',
-        ri__Tags__c: video.getElementsByTagName('ri__Tags__c')[0]?.textContent || '',
-        CreatedDate: video.getElementsByTagName('CreatedDate')[0]?.textContent || '',
-        LastModifiedDate: video.getElementsByTagName('LastModifiedDate')[0]?.textContent || ''
-      }));
-    } else {
-      // Assume JSON response
-      data = await response.json();
-    }
-
-    // Transform Salesforce data to UI format
-    return data.map(transformVideoData);
-
-  } catch (error) {
-    console.error('Error fetching video content:', error);
-    toast.error('Failed to load video content. Please try again.');
-    return [];
-  }
 };
