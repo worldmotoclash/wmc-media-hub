@@ -867,27 +867,30 @@ const MediaLibrary: React.FC = () => {
                   collisionDetection={closestCenter}
                   onDragEnd={handleDragEnd}
                 >
-                  <SortableContext 
-                    items={filteredVideos.map(v => v.id)}
-                    strategy={viewMode === 'grid' ? rectSortingStrategy : verticalListSortingStrategy}
-                  >
+                   <SortableContext 
+                     items={filteredVideos.map(v => v.id)}
+                     strategy={viewMode === 'grid' ? rectSortingStrategy : verticalListSortingStrategy}
+                   >
                      <div className={
                        viewMode === 'grid' 
                          ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
                          : "space-y-4"
                      }>
-                       {filteredVideos.map((video, index) => (
-                         <SortableVideoItem
-                           key={video.id}
-                           video={video}
-                           index={index}
-                           onVideoClick={setSelectedVideo}
-                           getStatusColor={getStatusColor}
-                           viewMode={viewMode}
-                         />
-                       ))}
+                       {filteredVideos.map((video, index) => {
+                         console.log(`Rendering video at index ${index}:`, { id: video.id, title: video.title, position: video.playlistPosition });
+                         return (
+                           <SortableVideoItem
+                             key={video.id}
+                             video={video}
+                             index={index}
+                             onVideoClick={setSelectedVideo}
+                             getStatusColor={getStatusColor}
+                             viewMode={viewMode}
+                           />
+                         );
+                       })}
                      </div>
-                  </SortableContext>
+                   </SortableContext>
                 </DndContext>
               </motion.div>
             )}
