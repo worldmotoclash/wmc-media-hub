@@ -159,19 +159,15 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
 };
 
 // Fetch playlist data from Salesforce
-export const fetchPlaylistData = async (playlistId?: string): Promise<SalesforcePlaylist[]> => {
+export const fetchPlaylistData = async (): Promise<SalesforcePlaylist[]> => {
   try {
     const params = new URLSearchParams({
       orgId: API_CONFIG.orgId,
+      approved: 'yes',
       sandbox: API_CONFIG.sandbox
     });
 
-    // Include default playlist ID if none provided
-    if (playlistId) {
-      params.append('playlistId', playlistId);
-    }
-
-    const url = `${API_CONFIG.baseUrl}/my-content-playlist-wmc.py?${params.toString()}`;
+    const url = `${API_CONFIG.baseUrl}/wmc-playlists.py?${params.toString()}`;
     console.log('Fetching playlist data from:', url);
 
     const response = await fetch(url, {
