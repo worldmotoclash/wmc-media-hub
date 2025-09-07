@@ -49,6 +49,7 @@ const MediaLibrary: React.FC = () => {
   const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false);
   const [originalVideos, setOriginalVideos] = useState<VideoContent[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [justSaved, setJustSaved] = useState(false); // Prevent refetch immediately after save
 
   // DnD Kit sensors
   
@@ -100,9 +101,9 @@ const MediaLibrary: React.FC = () => {
   // Fetch videos on component mount and when search query or playlist changes
   useEffect(() => {
     const loadVideos = async () => {
-      // Don't reload if we have unsaved changes
-      if (hasUnsavedChanges) {
-        console.log('Skipping video reload due to unsaved changes');
+      // Don't reload if we have unsaved changes or just saved
+      if (hasUnsavedChanges || justSaved) {
+        console.log('Skipping video reload due to unsaved changes or recent save');
         return;
       }
 
@@ -135,7 +136,7 @@ const MediaLibrary: React.FC = () => {
     if (user) {
       loadVideos();
     }
-  }, [user, searchQuery, playlistId, hasUnsavedChanges]);
+  }, [user, searchQuery, playlistId, hasUnsavedChanges, justSaved]);
 
   // Fetch playlists for the playlist tab
   useEffect(() => {
@@ -240,9 +241,13 @@ const MediaLibrary: React.FC = () => {
       
       if (success) {
         setHasUnsavedChanges(false);
+        setJustSaved(true); // Prevent immediate refetch
         // Update original videos to reflect the new saved state
         setOriginalVideos([...filteredVideos]);
         toast.success('Playlist order saved successfully!');
+        
+        // Reset justSaved flag after a delay to allow manual refreshes
+        setTimeout(() => setJustSaved(false), 3000);
       } else {
         toast.error('Failed to save playlist order');
       }
