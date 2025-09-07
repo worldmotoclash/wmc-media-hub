@@ -91,25 +91,26 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
     if (contentType?.includes('xml')) {
       // Parse XML response
       const text = await response.text();
+      console.log('Raw XML response:', text);
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(text, 'text/xml');
-      const videoElements = xmlDoc.getElementsByTagName('video') || xmlDoc.getElementsByTagName('record');
+      const videoElements = xmlDoc.getElementsByTagName('content');
       
       data = Array.from(videoElements).map(video => ({
-        Id: video.getElementsByTagName('Id')[0]?.textContent || video.getElementsByTagName('id')[0]?.textContent || '',
-        Name: video.getElementsByTagName('Name')[0]?.textContent || video.getElementsByTagName('name')[0]?.textContent || '',
-        ri__Content_URL__c: video.getElementsByTagName('ri__Content_URL__c')[0]?.textContent || '',
-        ri__Thumbnail_URL__c: video.getElementsByTagName('ri__Thumbnail_URL__c')[0]?.textContent || '',
-        ri__Status__c: video.getElementsByTagName('ri__Status__c')[0]?.textContent || '',
-        ri__Duration__c: video.getElementsByTagName('ri__Duration__c')[0]?.textContent || '',
-        ri__Upload_Date__c: video.getElementsByTagName('ri__Upload_Date__c')[0]?.textContent || '',
-        ri__Views__c: parseInt(video.getElementsByTagName('ri__Views__c')[0]?.textContent || '0'),
-        ri__Description__c: video.getElementsByTagName('ri__Description__c')[0]?.textContent || '',
-        ri__File_Size__c: parseInt(video.getElementsByTagName('ri__File_Size__c')[0]?.textContent || '0'),
-        ri__Content_Type__c: video.getElementsByTagName('ri__Content_Type__c')[0]?.textContent || '',
-        ri__Tags__c: video.getElementsByTagName('ri__Tags__c')[0]?.textContent || '',
-        CreatedDate: video.getElementsByTagName('CreatedDate')[0]?.textContent || '',
-        LastModifiedDate: video.getElementsByTagName('LastModifiedDate')[0]?.textContent || ''
+        Id: video.getElementsByTagName('id')[0]?.textContent || '',
+        Name: video.getElementsByTagName('name')[0]?.textContent || '',
+        ri__Content_URL__c: video.getElementsByTagName('url')[0]?.textContent || '',
+        ri__Thumbnail_URL__c: '', // Not provided in API
+        ri__Status__c: video.getElementsByTagName('approved')[0]?.textContent || '',
+        ri__Duration__c: video.getElementsByTagName('lengthinseconds')[0]?.textContent || '',
+        ri__Upload_Date__c: '', // Not provided in API
+        ri__Views__c: 0, // Not provided in API
+        ri__Description__c: '', // Not provided in API
+        ri__File_Size__c: 0, // Not provided in API
+        ri__Content_Type__c: video.getElementsByTagName('contenttype')[0]?.textContent || '',
+        ri__Tags__c: '', // Not provided in API
+        CreatedDate: '',
+        LastModifiedDate: ''
       }));
     } else {
       // Assume JSON response
@@ -254,22 +255,15 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
   const mapStatus = (sfStatus?: string): VideoContent['status'] => {
     if (!sfStatus) return 'Draft';
     
-    switch (sfStatus.toLowerCase()) {
-      case 'published':
-      case 'active':
-      case 'live':
-        return 'Synced';
-      case 'draft':
-      case 'pending':
-        return 'Draft';
-      case 'processing':
-      case 'uploading':
-        return 'Processing';
-      case 'error':
-      case 'failed':
-        return 'Error';
-      default:
-        return 'Draft';
+    const approvedValue = parseFloat(sfStatus);
+    
+    // Map approval values to status
+    if (approvedValue >= 1000) {
+      return 'Synced'; // High approval rating = published/synced
+    } else if (approvedValue >= 1) {
+      return 'Processing'; // Some approval = processing
+    } else {
+      return 'Draft'; // Low or no approval = draft
     }
   };
 
@@ -312,13 +306,17 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
   return {
     id: salesforceVideo.Id,
     title: salesforceVideo.Name || 'Untitled Video',
-    thumbnail: salesforceVideo.ri__Thumbnail_URL__c || '/placeholder.svg',
+    thumbnail: salesforceVideo.ri__Thumbnail_URL__c || (
+      salesforceVideo.ri__Content_Type__c === 'Youtube' 
+        ? '/lovable-uploads/wmc-sizzle-thumbnail.png' 
+        : '/lovable-uploads/sponsor-primier-thumbnail.png'
+    ),
     status: mapStatus(salesforceVideo.ri__Status__c),
     duration: formatDuration(salesforceVideo.ri__Duration__c),
     uploadedAt: formatUploadDate(salesforceVideo.ri__Upload_Date__c || salesforceVideo.CreatedDate),
     views: salesforceVideo.ri__Views__c || 0,
     videoSrc: salesforceVideo.ri__Content_URL__c,
-    description: salesforceVideo.ri__Description__c,
+    description: salesforceVideo.ri__Description__c || `${salesforceVideo.ri__Content_Type__c} content: ${salesforceVideo.Name}`,
     fileSize: salesforceVideo.ri__File_Size__c,
     contentType: salesforceVideo.ri__Content_Type__c,
     tags: parseTags(salesforceVideo.ri__Tags__c)
