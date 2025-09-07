@@ -170,52 +170,40 @@ const MediaLibrary: React.FC = () => {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    console.log('=== DRAG END START ===');
-    console.log('Active ID:', active.id, 'Over ID:', over?.id);
+    console.log('=== DRAG START ===');
+    console.log('Moving:', active.id, 'to position of:', over?.id);
 
-    if (!over || active.id === over.id) {
-      console.log('No drag change needed');
-      return;
-    }
+    if (!over || active.id === over.id) return;
 
-    try {
-      const activeIndex = filteredVideos.findIndex(video => video.id === active.id);
-      const overIndex = filteredVideos.findIndex(video => video.id === over.id);
-
-      console.log('Indices:', { activeIndex, overIndex });
+    setFilteredVideos(currentVideos => {
+      console.log('Current videos before reorder:', currentVideos.map(v => ({ id: v.id, title: v.title })));
+      
+      const activeIndex = currentVideos.findIndex(video => video.id === active.id);
+      const overIndex = currentVideos.findIndex(video => video.id === over.id);
 
       if (activeIndex === -1 || overIndex === -1) {
-        console.log('Invalid indices found');
-        return;
+        console.log('Could not find indices');
+        return currentVideos;
       }
 
-      // Create new array manually instead of using arrayMove
-      const newVideos = [...filteredVideos];
-      const [draggedItem] = newVideos.splice(activeIndex, 1);
-      newVideos.splice(overIndex, 0, draggedItem);
-
+      // Create completely new array with proper reordering
+      const result = [...currentVideos];
+      const [movedItem] = result.splice(activeIndex, 1);
+      result.splice(overIndex, 0, movedItem);
+      
       // Update positions
-      const finalVideos = newVideos.map((video, index) => ({
+      const finalResult = result.map((video, index) => ({
         ...video,
         playlistPosition: index + 1
       }));
 
-      console.log('New order:', finalVideos.map(v => ({ id: v.id, title: v.title, position: v.playlistPosition })));
+      console.log('Final reordered videos:', finalResult.map(v => ({ id: v.id, title: v.title, position: v.playlistPosition })));
+      
+      return finalResult;
+    });
 
-      // Update states
-      setFilteredVideos(finalVideos);
-      setVideos(prevVideos => {
-        const videoMap = new Map(finalVideos.map(v => [v.id, v]));
-        return prevVideos.map(v => videoMap.get(v.id) || v);
-      });
-      
-      setHasUnsavedChanges(true);
-      toast.success('Video order updated!');
-      
-      console.log('=== DRAG END SUCCESS ===');
-    } catch (error) {
-      console.error('Drag end error:', error);
-    }
+    setHasUnsavedChanges(true);
+    toast.success('Video reordered!');
   };
 
   // Save reordered playlist
