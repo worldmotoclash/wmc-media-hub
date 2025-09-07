@@ -443,69 +443,98 @@ const updateSingleVideoOrder = async (
     
     const updateIframe = document.createElement('iframe');
     updateIframe.style.display = 'none';
+    updateIframe.style.width = '0';
+    updateIframe.style.height = '0';
+    updateIframe.style.border = 'none';
+    
+    let resolved = false;
+    
+    const cleanup = () => {
+      if (document.body.contains(updateIframe)) {
+        document.body.removeChild(updateIframe);
+        console.log(`🗑️ Iframe removed for video ${videoId}`);
+      }
+    };
+    
+    const handleSuccess = () => {
+      if (!resolved) {
+        resolved = true;
+        setTimeout(cleanup, 1000);
+        resolve();
+      }
+    };
+    
+    const handleError = (error: Error) => {
+      if (!resolved) {
+        resolved = true;
+        cleanup();
+        reject(error);
+      }
+    };
     
     updateIframe.onload = () => {
-      try {
-        console.log(`📄 Iframe loaded for video ${videoId}, creating form...`);
-        
-        const iframeDoc = updateIframe.contentDocument || updateIframe.contentWindow?.document;
-        if (!iframeDoc) {
-          console.error(`❌ Could not access iframe document for video ${videoId}`);
-          reject(new Error('Could not access iframe document'));
-          return;
-        }
-
-        const form = iframeDoc.createElement('form');
-        form.method = 'POST';
-        form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/update-engine.php";
+      // Add a small delay to ensure iframe is fully loaded
+      setTimeout(() => {
+        try {
+          console.log(`📄 Iframe loaded for video ${videoId}, creating form...`);
           
-        const fields: Record<string, string> = {
-          'sObj': 'ri1__Content_to_Playlist__c',
-          'id_ri1__Content_to_Playlist__c': effectiveJunctionId,
-          'number_ri1__Playlist_Order__c': newPosition.toString()
-        };
+          const iframeDoc = updateIframe.contentDocument || updateIframe.contentWindow?.document;
+          if (!iframeDoc) {
+            console.error(`❌ Could not access iframe document for video ${videoId}`);
+            handleError(new Error('Could not access iframe document'));
+            return;
+          }
 
-        Object.entries(fields).forEach(([name, value]) => {
-          const input = iframeDoc.createElement('input');
-          input.type = 'hidden';
-          input.name = name;
-          input.value = value;
-          form.appendChild(input);
-          console.log(`📝 Added field: ${name} = ${value}`);
-        });
+          const form = iframeDoc.createElement('form');
+          form.method = 'POST';
+          form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/update-engine.php";
+            
+          const fields: Record<string, string> = {
+            'sObj': 'ri1__Content_to_Playlist__c',
+            'id_ri1__Content_to_Playlist__c': effectiveJunctionId,
+            'number_ri1__Playlist_Order__c': newPosition.toString()
+          };
 
-        iframeDoc.body.appendChild(form);
-        console.log(`📤 Submitting form for video ${videoId} position update`);
-        form.submit();
-        
-        // Consider update successful after form submission
-        setTimeout(() => {
-          resolve();
-        }, 1000);
-        
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown iframe error';
-        console.error(`❌ Error during form creation/submission for video ${videoId}:`, errorMessage);
-        reject(new Error(errorMessage));
-      }
+          Object.entries(fields).forEach(([name, value]) => {
+            const input = iframeDoc.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            form.appendChild(input);
+            console.log(`📝 Added field: ${name} = ${value}`);
+          });
+
+          iframeDoc.body.appendChild(form);
+          console.log(`📤 Submitting form for video ${videoId} position update`);
+          form.submit();
+          
+          // Consider update successful after form submission
+          setTimeout(handleSuccess, 1500);
+          
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : 'Unknown iframe error';
+          console.error(`❌ Error during form creation/submission for video ${videoId}:`, errorMessage);
+          handleError(new Error(errorMessage));
+        }
+      }, 100); // Small delay to avoid CORS timing issues
     };
     
     updateIframe.onerror = () => {
       console.error(`❌ Iframe failed to load for video ${videoId}`);
-      reject(new Error('Iframe failed to load'));
+      handleError(new Error('Iframe failed to load'));
     };
+    
+    // Set up timeout for the entire operation
+    setTimeout(() => {
+      if (!resolved) {
+        console.error(`⏰ Timeout updating video ${videoId}`);
+        handleError(new Error('Update timeout'));
+      }
+    }, 10000); // 10 second timeout
     
     document.body.appendChild(updateIframe);
     updateIframe.src = 'about:blank';
     
     console.log(`📋 Iframe created for video ${videoId} update`);
-    
-    // Remove iframe after sufficient time for request to complete
-    setTimeout(() => {
-      if (document.body.contains(updateIframe)) {
-        document.body.removeChild(updateIframe);
-        console.log(`🗑️ Iframe removed for video ${videoId}`);
-      }
-    }, 5000);
   });
 };

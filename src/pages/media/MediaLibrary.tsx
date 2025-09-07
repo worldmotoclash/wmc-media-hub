@@ -49,6 +49,8 @@ const MediaLibrary: React.FC = () => {
   const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false);
   const [originalVideos, setOriginalVideos] = useState<VideoContent[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // DnD Kit sensors
   
   // Playlist management state
   const [playlists, setPlaylists] = useState<SalesforcePlaylist[]>([]);
@@ -206,29 +208,46 @@ const MediaLibrary: React.FC = () => {
     toast.success('Video reordered!');
   };
 
-  // Save reordered playlist
+  // Save reordered playlist - only update videos that actually changed position
   const handleSaveOrder = async () => {
     if (!playlistId || !hasUnsavedChanges) return;
     
     try {
-      const videoOrders = filteredVideos.map(video => ({
+      // Only send updates for videos that actually changed position
+      const changedVideos = filteredVideos.filter((video, index) => {
+        const originalVideo = originalVideos.find(orig => orig.id === video.id);
+        const currentPosition = video.playlistPosition || (index + 1);
+        const originalPosition = originalVideo?.playlistPosition || 0;
+        return currentPosition !== originalPosition;
+      });
+
+      if (changedVideos.length === 0) {
+        console.log('No videos actually changed position');
+        setHasUnsavedChanges(false);
+        return;
+      }
+
+      const videoOrders = changedVideos.map(video => ({
         id: video.id,
         position: video.playlistPosition || 0
       }));
 
-      console.log('Saving playlist order for playlist:', playlistId);
-      console.log('Video orders:', videoOrders);
+      console.log(`🎯 Saving playlist order for ${changedVideos.length} changed videos (out of ${filteredVideos.length} total):`);
+      console.log('Changed video orders:', videoOrders);
 
-      // Enable API call to persist changes
-      await updatePlaylistOrder(playlistId, videoOrders);
+      const success = await updatePlaylistOrder(playlistId, videoOrders);
       
-      // Update the original videos state to reflect the new saved order
-      setOriginalVideos([...filteredVideos]);
-      setHasUnsavedChanges(false);
-      toast.success('Playlist order saved successfully!');
+      if (success) {
+        setHasUnsavedChanges(false);
+        // Update original videos to reflect the new saved state
+        setOriginalVideos([...filteredVideos]);
+        toast.success('Playlist order saved successfully!');
+      } else {
+        toast.error('Failed to save playlist order');
+      }
     } catch (error) {
       console.error('Error saving playlist order:', error);
-      toast.error('Failed to save playlist order. Please try again.');
+      toast.error('Failed to save playlist order');
     }
   };
 
