@@ -303,14 +303,57 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
     return tagsString.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
   };
 
+  // Helper function to extract YouTube video ID from URL
+  const extractYouTubeId = (url: string): string | null => {
+    if (!url) return null;
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+      /youtube\.com\/v\/([^&\n?#]+)/
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    return null;
+  };
+
+  // Helper function to generate YouTube thumbnail URL
+  const generateYouTubeThumbnail = (videoUrl: string): string | null => {
+    const videoId = extractYouTubeId(videoUrl);
+    if (videoId) {
+      return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    }
+    return null;
+  };
+
+  // Generate appropriate thumbnail
+  const getThumbnail = (): string => {
+    // First priority: Salesforce provided thumbnail
+    if (salesforceVideo.ri__Thumbnail_URL__c) {
+      return salesforceVideo.ri__Thumbnail_URL__c;
+    }
+    
+    // Second priority: Generate YouTube thumbnail if it's a YouTube video
+    if (salesforceVideo.ri__Content_Type__c === 'Youtube' && salesforceVideo.ri__Content_URL__c) {
+      const youtubeThumbnail = generateYouTubeThumbnail(salesforceVideo.ri__Content_URL__c);
+      if (youtubeThumbnail) {
+        return youtubeThumbnail;
+      }
+    }
+    
+    // Fallback to content type specific placeholders
+    return salesforceVideo.ri__Content_Type__c === 'Youtube' 
+      ? '/lovable-uploads/wmc-sizzle-thumbnail.png' 
+      : '/lovable-uploads/sponsor-primier-thumbnail.png';
+  };
+
   return {
     id: salesforceVideo.Id,
     title: salesforceVideo.Name || 'Untitled Video',
-    thumbnail: salesforceVideo.ri__Thumbnail_URL__c || (
-      salesforceVideo.ri__Content_Type__c === 'Youtube' 
-        ? '/lovable-uploads/wmc-sizzle-thumbnail.png' 
-        : '/lovable-uploads/sponsor-primier-thumbnail.png'
-    ),
+    thumbnail: getThumbnail(),
     status: mapStatus(salesforceVideo.ri__Status__c),
     duration: formatDuration(salesforceVideo.ri__Duration__c),
     uploadedAt: formatUploadDate(salesforceVideo.ri__Upload_Date__c || salesforceVideo.CreatedDate),
