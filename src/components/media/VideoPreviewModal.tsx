@@ -2,20 +2,10 @@ import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Clock, Eye, Calendar } from 'lucide-react';
-
-interface VideoUpload {
-  id: string;
-  title: string;
-  thumbnail: string;
-  status: 'Draft' | 'Synced' | 'Error';
-  duration: string;
-  uploadedAt: string;
-  views: number;
-  videoSrc?: string;
-}
+import { VideoContent } from '@/services/videoContentService';
 
 interface VideoPreviewModalProps {
-  video: VideoUpload | null;
+  video: VideoContent | null;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -23,7 +13,7 @@ interface VideoPreviewModalProps {
 const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, onClose }) => {
   if (!video) return null;
 
-  const getStatusColor = (status: VideoUpload['status']) => {
+  const getStatusColor = (status: VideoContent['status']) => {
     switch (status) {
       case 'Synced':
         return 'bg-green-100 text-green-800 border-green-200';
@@ -31,6 +21,8 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, on
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'Error':
         return 'bg-red-100 text-red-800 border-red-200';
+      case 'Processing':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -111,11 +103,40 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, on
               </div>
             )}
             
+            {video.status === 'Processing' && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-blue-800 text-sm">
+                  <strong>Processing:</strong> This video is currently being processed and will be available shortly.
+                </p>
+              </div>
+            )}
+            
             {video.status === 'Synced' && (
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                 <p className="text-green-800 text-sm">
                   <strong>Published:</strong> This video is live and available to viewers.
                 </p>
+              </div>
+            )}
+
+            {/* Additional video metadata */}
+            {video.description && (
+              <div>
+                <h4 className="font-semibold text-foreground mb-2">Description</h4>
+                <p className="text-muted-foreground text-sm">{video.description}</p>
+              </div>
+            )}
+
+            {video.tags && video.tags.length > 0 && (
+              <div>
+                <h4 className="font-semibold text-foreground mb-2">Tags</h4>
+                <div className="flex flex-wrap gap-2">
+                  {video.tags.map((tag, index) => (
+                    <Badge key={index} variant="secondary" className="text-xs">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
               </div>
             )}
           </div>

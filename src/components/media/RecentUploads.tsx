@@ -1,86 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { PlayCircle, Clock, Eye } from 'lucide-react';
+import { PlayCircle, Clock, Eye, Loader2 } from 'lucide-react';
 import VideoPreviewModal from './VideoPreviewModal';
+import { fetchVideoContent, VideoContent } from '@/services/videoContentService';
 
-interface VideoUpload {
-  id: string;
-  title: string;
-  thumbnail: string;
-  status: 'Draft' | 'Synced' | 'Error';
-  duration: string;
-  uploadedAt: string;
-  views: number;
-  videoSrc?: string;
-}
+// VideoContent interface is now imported from the service
 
 const RecentUploads: React.FC = () => {
-  const [selectedVideo, setSelectedVideo] = useState<VideoUpload | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<VideoContent | null>(null);
+  const [recentUploads, setRecentUploads] = useState<VideoContent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Mock data for recent uploads
-  const recentUploads: VideoUpload[] = [
-    {
-      id: '1',
-      title: 'Laguna Seca Highlights - Race Day 1',
-      thumbnail: '/lovable-uploads/sonoma-chicane.jpeg',
-      status: 'Synced',
-      duration: '3:45',
-      uploadedAt: '2 hours ago',
-      views: 1247,
-      videoSrc: 'https://www.youtube.com/embed/mVkp_elkgQk'
-    },
-    {
-      id: '2',
-      title: 'Behind the Scenes - Team Preparation',
-      thumbnail: '/lovable-uploads/moto-grid.jpg',
-      status: 'Draft',
-      duration: '8:12',
-      uploadedAt: '4 hours ago',
-      views: 0,
-      videoSrc: 'https://www.youtube.com/embed/Ka2X73qTQ5Y'
-    },
-    {
-      id: '3',
-      title: 'Road America Drone Footage',
-      thumbnail: '/lovable-uploads/road-america-drone.jpg',
-      status: 'Synced',
-      duration: '2:30',
-      uploadedAt: '1 day ago',
-      views: 892,
-      videoSrc: 'https://www.youtube.com/embed/mVkp_elkgQk'
-    },
-    {
-      id: '4',
-      title: 'Miguel Victory Podium Celebration',
-      thumbnail: '/lovable-uploads/miguel-podium.jpg',
-      status: 'Error',
-      duration: '1:15',
-      uploadedAt: '2 days ago',
-      views: 0
-    },
-    {
-      id: '5',
-      title: 'Sonoma Raceway Overview',
-      thumbnail: '/lovable-uploads/sonoma-drone.jpg',
-      status: 'Synced',
-      duration: '4:22',
-      uploadedAt: '3 days ago',
-      views: 1556
-    },
-    {
-      id: '6',
-      title: 'COTA Track Analysis',
-      thumbnail: '/lovable-uploads/cota-drone.png',
-      status: 'Draft',
-      duration: '6:08',
-      uploadedAt: '1 week ago',
-      views: 0
-    }
-  ];
+  // Fetch video content on component mount
+  useEffect(() => {
+    const loadRecentUploads = async () => {
+      setIsLoading(true);
+      try {
+        const videos = await fetchVideoContent();
+        // Sort by upload date and take the most recent 6 videos
+        const sortedVideos = videos
+          .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
+          .slice(0, 6);
+        setRecentUploads(sortedVideos);
+      } catch (error) {
+        console.error('Error loading recent uploads:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const getStatusColor = (status: VideoUpload['status']) => {
+    loadRecentUploads();
+  }, []);
+
+  const getStatusColor = (status: VideoContent['status']) => {
     switch (status) {
       case 'Synced':
         return 'bg-green-100 text-green-800 border-green-200';
@@ -88,10 +42,25 @@ const RecentUploads: React.FC = () => {
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'Error':
         return 'bg-red-100 text-red-800 border-red-200';
+      case 'Processing':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
+
+  if (isLoading) {
+    return (
+      <section className="py-16 bg-background">
+        <div className="container mx-auto px-6">
+          <div className="flex justify-center items-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <span className="ml-2 text-muted-foreground">Loading recent uploads...</span>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <>
