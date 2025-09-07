@@ -70,7 +70,7 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
       params.append('search', searchQuery);
     }
 
-    const url = `${API_CONFIG.baseUrl}/wmc-content-playlist.py?${params.toString()}`;
+    const url = `${API_CONFIG.baseUrl}/my-content-playlist-wmc.py?${params.toString()}`;
     console.log('Fetching video content from:', url);
 
     const response = await fetch(url, {
@@ -396,7 +396,7 @@ const updateFetchVideoContent = async (playlistId?: string, searchQuery?: string
       params.append('search', searchQuery);
     }
 
-    const url = `${API_CONFIG.baseUrl}/wmc-content-playlist.py?${params.toString()}`;
+    const url = `${API_CONFIG.baseUrl}/my-content-playlist-wmc.py?${params.toString()}`;
     console.log('Fetching video content from:', url);
 
     const response = await fetch(url);
