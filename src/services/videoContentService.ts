@@ -464,7 +464,7 @@ const updateSingleVideoOrder = async (
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/update-engine-playlistorder.php";
-    form.target = `updateWindow_${videoId}_${Date.now()}`;
+    form.target = `updateFrame_${videoId}_${Date.now()}`;
     form.style.display = 'none';
             
     const fields: Record<string, string> = {
@@ -483,29 +483,29 @@ const updateSingleVideoOrder = async (
       console.log(`📝 Added field: ${name} = ${value}`);
     });
 
-    // Open in new browser window to see actual results
-    const windowName = form.target;
-    const newWindow = window.open('', windowName, 'width=800,height=600,scrollbars=yes,resizable=yes');
-    
-    if (!newWindow) {
-      reject(new Error('Failed to open browser window - popup blocked?'));
-      return;
-    }
+    // Create hidden iframe for silent submission
+    const iframe = document.createElement('iframe');
+    iframe.name = form.target;
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
 
     // Add to DOM and submit
     document.body.appendChild(form);
     
-    // Submit and resolve immediately (user will see results in new window)
+    // Submit and resolve after a brief delay
     form.submit();
     
-    // Clean up form
+    // Clean up form and iframe after submission
     setTimeout(() => {
       if (document.body.contains(form)) {
         document.body.removeChild(form);
       }
-    }, 1000);
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+      }
+    }, 2000);
     
-    console.log(`🌐 Opened browser window for video ${videoId} update results`);
+    console.log(`✅ Submitted order update for video ${videoId} to position ${newPosition}`);
     resolve();
   });
 };
