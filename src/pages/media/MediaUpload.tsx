@@ -221,10 +221,10 @@ const MediaUpload: React.FC = () => {
         throw new Error(result.error || 'Unknown error occurred');
       }
 
-      // Submit to Salesforce using client-side iframe method
+      // Submit to Salesforce using direct fetch method
       if (result.salesforceSubmissionData) {
-        console.log('Submitting to Salesforce using iframe method...');
-        await submitToSalesforceViaIframe(result.salesforceSubmissionData, result.generationId);
+        console.log('Submitting to Salesforce using direct fetch method...');
+        await submitToSalesforceViaFetch(result.salesforceSubmissionData, result.generationId);
       }
 
       // Get the generation record to enable real-time updates
@@ -268,121 +268,72 @@ const MediaUpload: React.FC = () => {
     }
   };
 
-  // Function to submit to Salesforce using iframe method (same as loginService)
-  const submitToSalesforceViaIframe = async (salesforceData: Record<string, any>, generationId: string): Promise<void> => {
+  // Function to submit to Salesforce using direct fetch instead of iframe
+  const submitToSalesforceViaFetch = async (salesforceData: Record<string, any>, generationId: string): Promise<void> => {
     try {
-      console.log('📝 Starting Salesforce iframe submission...');
+      console.log('📝 Starting direct Salesforce fetch submission...');
       
-      // Create a hidden iframe for submission
-      const trackingIframe = document.createElement('iframe');
-      trackingIframe.style.display = 'none';
+      // Create URLSearchParams for form data
+      const formData = new URLSearchParams();
       
-          trackingIframe.onload = () => {
-            try {
-              console.log('📝 Iframe loaded, creating form...');
-              
-              const iframeDoc = trackingIframe.contentDocument || trackingIframe.contentWindow?.document;
-              if (!iframeDoc) {
-                console.error('❌ Could not access iframe document');
-                return;
-              }
-
-              // Create form with explicit encoding and ensure sObj is sent
-              const form = iframeDoc.createElement('form');
-              form.method = 'POST';
-              form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
-              form.enctype = 'application/x-www-form-urlencoded'; // Explicitly set encoding
-              
-              // Create sObj input with explicit attributes
-              const sObjInput = iframeDoc.createElement('input');
-              sObjInput.setAttribute('type', 'hidden');
-              sObjInput.setAttribute('name', 'sObj');
-              sObjInput.setAttribute('value', 'ri1__Content__c');
-              form.appendChild(sObjInput);
-              console.log('📝 Added sObj field with explicit attributes');
-
-              // Add required fields with explicit attributes
-              const fieldsToAdd = [
-                { name: 'text_Name', value: 'Test Video Generation' },
-                { name: 'text_AI_Prompt__c', value: salesforceData.AI_Prompt__c || 'Test prompt' },
-                { name: 'number_ri1__Length_in_Seconds__c', value: (salesforceData.ri1__Length_in_Seconds__c || 5).toString() },
-                { name: 'text_ri1__Status__c', value: salesforceData.ri1__Status__c || 'Generating' }
-              ];
-
-              fieldsToAdd.forEach(field => {
-                const input = iframeDoc.createElement('input');
-                input.setAttribute('type', 'hidden');
-                input.setAttribute('name', field.name);
-                input.setAttribute('value', field.value);
-                form.appendChild(input);
-                console.log(`📝 Added field with explicit attributes: ${field.name} = ${field.value}`);
-              });
-
-              // Verify form elements before submission
-              console.log('🔍 Form elements count:', form.elements.length);
-              console.log('🔍 Form action:', form.action);
-              console.log('🔍 Form method:', form.method);
-              
-              // Log each form element
-              for (let i = 0; i < form.elements.length; i++) {
-                const element = form.elements[i] as HTMLInputElement;
-                console.log(`🔍 Element ${i}: ${element.name} = ${element.value}`);
-              }
-              
-              // Append form to iframe body
-              iframeDoc.body.appendChild(form);
-              
-              // Create debug URL with the same minimal fields
-              const debugParams = new URLSearchParams({
-                sObj: 'ri1__Content__c',
-                text_Name: 'Test Video Generation',
-                text_AI_Prompt__c: salesforceData.AI_Prompt__c || 'Test prompt',
-                number_ri1__Length_in_Seconds__c: (salesforceData.ri1__Length_in_Seconds__c || 5).toString(),
-                text_ri1__Status__c: salesforceData.ri1__Status__c || 'Generating'
-              });
-
-              const debugUrl = `https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php?${debugParams.toString()}`;
-              console.log('🔗 Debug URL (minimal test):', debugUrl);
-              
-              // Open debug window immediately
-              const debugWindow = window.open(debugUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
-              
-              if (debugWindow) {
-                console.log('✅ Debug window opened successfully');
-                toast({
-                  title: "Salesforce Test Submission",
-                  description: "Testing minimal form with sObj - check debug window for results",
-                });
-              } else {
-                console.warn('❌ Debug window blocked by popup blocker');
-                toast({
-                  title: "Popup Blocked", 
-                  description: "Please allow popups to see Salesforce submission results",
-                  variant: "destructive",
-                });
-              }
-
-              console.log('🚀 Submitting form to Salesforce...');
-              form.submit();
-              
-            } catch (err) {
-              console.error('❌ Error during form creation/submission:', err);
-            }
-          };
+      // Add sObj first
+      formData.append('sObj', 'ri1__Content__c');
+      console.log('📝 Added sObj: ri1__Content__c');
       
-      document.body.appendChild(trackingIframe);
-      trackingIframe.src = 'about:blank';
+      // Add minimal test fields
+      const testFields = {
+        'text_Name': 'Test Video Generation',
+        'text_AI_Prompt__c': salesforceData.AI_Prompt__c || 'Test prompt',
+        'number_ri1__Length_in_Seconds__c': (salesforceData.ri1__Length_in_Seconds__c || 5).toString(),
+        'text_ri1__Status__c': salesforceData.ri1__Status__c || 'Generating'
+      };
       
-      // Remove iframe after sufficient time
-      setTimeout(() => {
-        if (document.body.contains(trackingIframe)) {
-          document.body.removeChild(trackingIframe);
-          console.log('🗑️ Iframe removed');
-        }
-      }, 10000);
+      Object.entries(testFields).forEach(([key, value]) => {
+        formData.append(key, value);
+        console.log(`📝 Added field: ${key} = ${value}`);
+      });
+      
+      // Log the complete form data
+      console.log('🔍 Complete form data:', formData.toString());
+      
+      // Make direct fetch request
+      const response = await fetch('https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData.toString(),
+        mode: 'no-cors' // Handle CORS
+      });
+      
+      console.log('✅ Salesforce fetch request sent');
+      
+      // Open debug window to see results
+      const debugUrl = `https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php?${formData.toString()}`;
+      console.log('🔗 Opening debug window:', debugUrl);
+      
+      const debugWindow = window.open(debugUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+      
+      if (debugWindow) {
+        toast({
+          title: "Salesforce Direct Submission",
+          description: "Sent via fetch request - check debug window for results",
+        });
+      } else {
+        toast({
+          title: "Popup Blocked",
+          description: "Please allow popups to see Salesforce submission results",
+          variant: "destructive",
+        });
+      }
       
     } catch (error) {
-      console.error('❌ Error in Salesforce iframe submission:', error);
+      console.error('❌ Error in direct Salesforce fetch submission:', error);
+      toast({
+        title: "Submission Error",
+        description: `Failed to submit to Salesforce: ${error.message}`,
+        variant: "destructive",
+      });
     }
   };
 
