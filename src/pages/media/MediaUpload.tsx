@@ -168,17 +168,25 @@ const MediaUpload: React.FC = () => {
     });
   };
 
+  const [submissionCount, setSubmissionCount] = useState(0);
+
   const handleGenerateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('[handleGenerateSubmit] Form submission started', { isGenerating });
+    e.stopPropagation(); // Prevent event bubbling
+    
+    const currentCount = submissionCount + 1;
+    setSubmissionCount(currentCount);
+    
+    console.log(`[handleGenerateSubmit] Submission #${currentCount} started`, { isGenerating });
     
     // Prevent double submission
     if (isGenerating) {
-      console.log('[handleGenerateSubmit] Already generating, preventing duplicate submission');
+      console.log(`[handleGenerateSubmit] Submission #${currentCount} blocked - already generating`);
       return;
     }
     
     if (!genData.mainPrompt || !genData.title) {
+      console.log(`[handleGenerateSubmit] Submission #${currentCount} blocked - missing data`);
       toast({
         title: "Missing Information",
         description: "Please enter a prompt and title for the video",
@@ -187,7 +195,7 @@ const MediaUpload: React.FC = () => {
       return;
     }
 
-    console.log('[handleGenerateSubmit] Setting isGenerating to true');
+    console.log(`[handleGenerateSubmit] Submission #${currentCount} proceeding - setting isGenerating to true`);
     setIsGenerating(true);
     setGenerationProgress(0);
     setGenerationStatus('Initializing video generation...');
@@ -208,7 +216,7 @@ const MediaUpload: React.FC = () => {
       };
 
       // Call the edge function with custom user ID
-      console.log('[handleGenerateSubmit] Calling edge function...');
+      console.log(`[handleGenerateSubmit] Submission #${currentCount} calling edge function...`);
       setGenerationStatus('Starting generation...');
       const response = await supabase.functions.invoke('generate-veo-video', {
         body: {
