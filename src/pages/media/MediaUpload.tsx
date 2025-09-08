@@ -221,6 +221,16 @@ const MediaUpload: React.FC = () => {
         throw new Error(result.error || 'Unknown error occurred');
       }
 
+      // Open browser window to show Salesforce submission results
+      if (result.salesforceDebugUrl) {
+        console.log('Opening Salesforce debug URL:', result.salesforceDebugUrl);
+        window.open(result.salesforceDebugUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+        toast({
+          title: "Salesforce Submission",
+          description: "Opened browser window to show Salesforce submission results",
+        });
+      }
+
       // Get the generation record to enable real-time updates
       const { data: generationRecord, error: fetchError } = await supabase
         .from('video_generations')

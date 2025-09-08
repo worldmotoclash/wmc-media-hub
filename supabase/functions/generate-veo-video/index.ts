@@ -99,7 +99,7 @@ serve(async (req) => {
     };
 
     // Submit to Salesforce first
-    const salesforceRecordId = await submitToSalesforce(salesforceRecord);
+    const { recordId: salesforceRecordId, debugUrl } = await submitToSalesforce(salesforceRecord);
     
     if (!salesforceRecordId) {
       console.error('❌ Salesforce submission failed - aborting video generation');
@@ -156,6 +156,7 @@ serve(async (req) => {
       generationId: videoGeneration.id,
       operationId: mockOperationName,
       salesforceRecordId: salesforceRecordId,
+      salesforceDebugUrl: debugUrl,
       message: 'Video generation started successfully (mock mode)',
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -289,7 +290,7 @@ async function updateSalesforceRecord(generationId: string, videoUrl: string) {
 }
 
 // Function to submit data to Salesforce using direct HTTP POST
-async function submitToSalesforce(recordData: Record<string, any>): Promise<string | null> {
+async function submitToSalesforce(recordData: Record<string, any>): Promise<{recordId: string | null, debugUrl: string}> {
   try {
     console.log('🔄 Starting Salesforce w2x-engine submission...');
     
@@ -322,7 +323,7 @@ async function submitToSalesforce(recordData: Record<string, any>): Promise<stri
 
     // Create debug URL for manual testing
     const debugUrl = createDebugUrl(formFields);
-    console.log('🔗 Debug URL (copy to browser to test manually):');
+    console.log('🔗 Debug URL (will be opened in browser):');
     console.log(debugUrl);
 
     // Log full request details
@@ -349,17 +350,17 @@ async function submitToSalesforce(recordData: Record<string, any>): Promise<stri
       // Try to extract record ID from response
       const recordId = extractRecordIdFromResponse(responseText);
       console.log('🎯 Extracted record ID:', recordId || 'No ID found');
-      return recordId || 'SUCCESS';
+      return { recordId: recordId || 'SUCCESS', debugUrl };
     } else {
       const errorText = await response.text();
       console.error('❌ Salesforce submission failed with status:', response.status);
       console.error('❌ Error response:', errorText);
-      return null;
+      return { recordId: null, debugUrl };
     }
 
   } catch (error) {
     console.error('💥 Error in submitToSalesforce:', error);
-    return null;
+    return { recordId: null, debugUrl: '' };
   }
 }
 
