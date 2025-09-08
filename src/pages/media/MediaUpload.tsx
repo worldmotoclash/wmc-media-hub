@@ -318,18 +318,10 @@ const MediaUpload: React.FC = () => {
     document.body.appendChild(trackingIframe);
     trackingIframe.src = 'about:blank';
     
-    // 2. Debug popup window (shows Salesforce submission result)
+    // 2. Debug popup window (shows Salesforce submission result using POST)
     try {
-      // Build the same form data as query parameters for the popup
-      const formParams = new URLSearchParams();
-      Object.entries(fields).forEach(([name, value]) => {
-        formParams.append(name, value);
-      });
-      
-      const popupUrl = `https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php?${formParams.toString()}`;
-      
-      // Open popup window to show Salesforce response
-      const popup = window.open(popupUrl, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+      // Create a new popup window with a form that will POST the data
+      const popup = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
       
       if (!popup) {
         console.log(`[submitToSF] Popup blocked - you may need to allow popups for this site`);
@@ -338,10 +330,44 @@ const MediaUpload: React.FC = () => {
           description: "Please allow popups to see Salesforce submission result",
         });
       } else {
-        console.log(`[submitToSF] Debug popup opened successfully`);
+        // Write HTML with a form that will POST to Salesforce
+        const formHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Salesforce Submission</title>
+          </head>
+          <body>
+            <h2>Submitting to Salesforce...</h2>
+            <form id="salesforceForm" method="POST" action="https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php">
+              ${Object.entries(fields).map(([name, value]) => 
+                `<input type="hidden" name="${name}" value="${value}">`
+              ).join('')}
+              <p>Data being sent:</p>
+              <ul>
+                ${Object.entries(fields).map(([name, value]) => 
+                  `<li><strong>${name}:</strong> ${value}</li>`
+                ).join('')}
+              </ul>
+              <button type="submit">Submit to Salesforce</button>
+            </form>
+            <script>
+              // Auto-submit the form after a short delay
+              setTimeout(() => {
+                document.getElementById('salesforceForm').submit();
+              }, 1000);
+            </script>
+          </body>
+          </html>
+        `;
+        
+        popup.document.write(formHtml);
+        popup.document.close();
+        
+        console.log(`[submitToSF] Debug popup opened with POST form`);
         toast({
           title: "Salesforce Submission Sent",
-          description: "Check the popup window for results",
+          description: "Check the popup window for results - form will auto-submit",
         });
       }
     } catch (popupErr) {
