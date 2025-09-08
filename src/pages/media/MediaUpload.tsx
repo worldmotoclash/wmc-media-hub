@@ -268,11 +268,17 @@ const MediaUpload: React.FC = () => {
     }
   };
 
-  // Function to submit to Salesforce using iframe method (exact copy of working loginService.ts pattern)
+  // Function to submit to Salesforce using iframe method with optional debug popup
   const submitToSalesforceViaFetch = async (salesforceData: Record<string, any>, generationId: string): Promise<void> => {
     console.log(`[submitToSF] Starting Salesforce submission for ri1__Content__c...`);
     
-    // Use iframe method (same as working trackLogin)
+    const fields: Record<string, string> = {
+      'sObj': 'ri1__Content__c',
+      'text_Name': salesforceData.Name || 'Test Video Generation',
+      'text_AI_Prompt__c': salesforceData.AI_Prompt__c || 'Test prompt',
+    };
+    
+    // 1. Hidden iframe for background tracking (keeps existing functionality)
     const trackingIframe = document.createElement('iframe');
     trackingIframe.style.display = 'none';
     
@@ -286,18 +292,10 @@ const MediaUpload: React.FC = () => {
           return;
         }
 
-        console.log(`[submitToSF] Creating form fields...`);
-        
         const form = iframeDoc.createElement('form');
         form.method = 'POST';
         form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
           
-        const fields: Record<string, string> = {
-          'sObj': 'ri1__Content__c',
-          'text_Name': salesforceData.Name || 'Test Video Generation',
-          'text_AI_Prompt__c': salesforceData.AI_Prompt__c || 'Test prompt',
-        };
-
         Object.entries(fields).forEach(([name, value]) => {
           const input = iframeDoc.createElement('input');
           input.type = 'hidden';
@@ -320,7 +318,35 @@ const MediaUpload: React.FC = () => {
     document.body.appendChild(trackingIframe);
     trackingIframe.src = 'about:blank';
     
-    console.log(`[submitToSF] Iframe created and added to document`);
+    // 2. Debug popup window (shows Salesforce submission result)
+    try {
+      // Build the same form data as query parameters for the popup
+      const formParams = new URLSearchParams();
+      Object.entries(fields).forEach(([name, value]) => {
+        formParams.append(name, value);
+      });
+      
+      const popupUrl = `https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php?${formParams.toString()}`;
+      
+      // Open popup window to show Salesforce response
+      const popup = window.open(popupUrl, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+      
+      if (!popup) {
+        console.log(`[submitToSF] Popup blocked - you may need to allow popups for this site`);
+        toast({
+          title: "Popup Blocked",
+          description: "Please allow popups to see Salesforce submission result",
+        });
+      } else {
+        console.log(`[submitToSF] Debug popup opened successfully`);
+        toast({
+          title: "Salesforce Submission Sent",
+          description: "Check the popup window for results",
+        });
+      }
+    } catch (popupErr) {
+      console.log(`[submitToSF] Error opening popup: ${popupErr}`);
+    }
     
     // Remove iframe after sufficient time for request to complete
     setTimeout(() => {
