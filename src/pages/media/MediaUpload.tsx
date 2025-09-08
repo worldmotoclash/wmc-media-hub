@@ -270,103 +270,121 @@ const MediaUpload: React.FC = () => {
 
   // Function to submit to Salesforce using iframe method (same as ri__Portal__c)
   const submitToSalesforceViaFetch = async (salesforceData: Record<string, any>, generationId: string): Promise<void> => {
+    console.log('📝 Starting Salesforce iframe submission (ri1__Content__c)...');
+    console.log('🔍 Full Salesforce Data Received:', JSON.stringify(salesforceData, null, 2));
+    
     try {
-      console.log('📝 Starting Salesforce iframe submission (ri1__Content__c)...');
-      console.log('🔍 Full Salesforce Data Received:', JSON.stringify(salesforceData, null, 2));
-      
-      // Create a hidden iframe for submission
+      // Create a hidden iframe for submission (working pattern from loginService.ts)
       const iframe = document.createElement('iframe');
       iframe.style.display = 'none';
-      document.body.appendChild(iframe);
       
-      // Wait for iframe to load
-      await new Promise(resolve => {
-        iframe.onload = resolve;
-        iframe.src = 'about:blank';
-      });
-      
-      // Get the iframe document
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-      
-      if (!iframeDoc) {
-        console.log('ERROR: Could not access iframe document');
-        return;
-      }
-      
-      console.log('Creating form fields...');
-      
-      const form = iframeDoc.createElement('form');
-      form.method = 'POST';
-      form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
-        
-      const fields: Record<string, string> = {
-        'sObj': 'ri1__Content__c',
-        'text_Name': salesforceData.Name || 'Test Video Generation',
-        'text_AI_Prompt__c': salesforceData.AI_Prompt__c || 'Test prompt',
-        'number_ri1__Length_in_Seconds__c': (salesforceData.ri1__Length_in_Seconds__c || 5).toString(),
-        'text_ri1__Status__c': salesforceData.ri1__Status__c || 'Generating'
-      };
+      // Set onload handler BEFORE setting src (critical timing!)
+      iframe.onload = () => {
+        try {
+          console.log('📋 Iframe loaded, creating form...');
+          
+          const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+          if (!iframeDoc) {
+            console.log('❌ ERROR: Could not access iframe document');
+            return;
+          }
 
-      console.log('🎯 COMPLETE FORM PAYLOAD:');
-      console.log('=======================');
-      Object.entries(fields).forEach(([name, value]) => {
-        const input = iframeDoc.createElement('input');
-        input.type = 'hidden';
-        input.name = name;
-        input.value = value;
-        form.appendChild(input);
-        console.log(`${name}: "${value}"`);
-      });
-      console.log('=======================');
+          console.log('🏗️ Creating form fields...');
+          
+          const form = iframeDoc.createElement('form');
+          form.method = 'POST';
+          form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
+            
+          const fields: Record<string, string> = {
+            'sObj': 'ri1__Content__c',
+            'text_Name': salesforceData.Name || 'Test Video Generation',
+            'text_AI_Prompt__c': salesforceData.AI_Prompt__c || 'Test prompt',
+            'number_ri1__Length_in_Seconds__c': (salesforceData.ri1__Length_in_Seconds__c || 5).toString(),
+            'text_ri1__Status__c': salesforceData.ri1__Status__c || 'Generating'
+          };
 
-      // Log the form HTML for debugging
-      iframeDoc.body.appendChild(form);
-      console.log('🔍 Generated Form HTML:', form.outerHTML);
-      
-      // Create a FormData object to show what would be posted
-      const formData = new FormData(form);
-      console.log('📤 FormData entries:');
-      for (const [key, value] of formData.entries()) {
-        console.log(`  ${key}: ${value}`);
-      }
-      
-      // Also create URLSearchParams to show URL encoded version
-      const urlParams = new URLSearchParams();
-      Object.entries(fields).forEach(([key, value]) => {
-        urlParams.append(key, value);
-      });
-      console.log('🌐 URL Encoded Payload:', urlParams.toString());
-      
-      console.log('🚀 Submitting form for ri1__Content__c...');
-      form.submit();
-      
-      // Open debug window to see results - but wait a moment for the form to submit
-      setTimeout(() => {
-        const debugParams = new URLSearchParams(fields);
-        const debugUrl = `https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php?${debugParams.toString()}`;
-        console.log('🔗 Opening debug window:', debugUrl);
-        
-        const debugWindow = window.open(debugUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
-        
-        if (debugWindow) {
-          toast({
-            title: "Salesforce Submission",
-            description: "Submitted via iframe method - check debug window and console for complete payload details",
+          console.log('🎯 COMPLETE FORM PAYLOAD:');
+          console.log('=======================');
+          Object.entries(fields).forEach(([name, value]) => {
+            const input = iframeDoc.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            form.appendChild(input);
+            console.log(`${name}: "${value}"`);
           });
-        } else {
-          toast({
-            title: "Popup Blocked",
-            description: "Please allow popups to see Salesforce submission results",
-            variant: "destructive",
+          console.log('=======================');
+
+          // Log the form HTML for debugging
+          iframeDoc.body.appendChild(form);
+          console.log('🔍 Generated Form HTML:', form.outerHTML);
+          
+          // Create a FormData object to show what would be posted
+          const formData = new FormData(form);
+          console.log('📤 FormData entries:');
+          for (const [key, value] of formData.entries()) {
+            console.log(`  ${key}: ${value}`);
+          }
+          
+          // Also create URLSearchParams to show URL encoded version
+          const urlParams = new URLSearchParams();
+          Object.entries(fields).forEach(([key, value]) => {
+            urlParams.append(key, value);
           });
+          console.log('🌐 URL Encoded Payload:', urlParams.toString());
+          
+          console.log('🚀 Submitting form for ri1__Content__c...');
+          form.submit();
+          
+          // Open debug window to see results - from within onload handler
+          setTimeout(() => {
+            const debugParams = new URLSearchParams(fields);
+            const debugUrl = `https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php?${debugParams.toString()}`;
+            console.log('🔗 Opening debug window:', debugUrl);
+            
+            const debugWindow = window.open(debugUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+            
+            if (debugWindow) {
+              toast({
+                title: "Salesforce Submission",
+                description: "Submitted via iframe method - check debug window and console for complete payload details",
+              });
+            } else {
+              toast({
+                title: "Popup Blocked",
+                description: "Please allow popups to see Salesforce submission results",
+                variant: "destructive",
+              });
+            }
+          }, 1000);
+          
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : 'Unknown iframe error';
+          console.log(`❌ Error during form creation/submission: ${errorMessage}`);
         }
-      }, 1000); // Wait 1 second before opening debug window
+      };
+      
+      // Add iframe to document, then set src to trigger onload (critical order!)
+      document.body.appendChild(iframe);
+      iframe.src = 'about:blank';
+      
+      console.log('📋 Iframe created and added to document');
+      
+      // Clean up iframe after sufficient time for request to complete
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+          console.log('🧹 Iframe cleaned up');
+        }
+      }, 5000);
+      
+      console.log('✅ Iframe method setup complete');
       
     } catch (error) {
-      console.error('❌ Error in Salesforce iframe submission:', error);
+      console.error('❌ Salesforce submission error:', error);
       toast({
         title: "Submission Error",
-        description: `Failed to submit to Salesforce: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        description: "Failed to submit to Salesforce",
         variant: "destructive",
       });
     }
