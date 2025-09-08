@@ -122,8 +122,8 @@ Deno.serve(async (req) => {
       ri1__Status__c: 'Generating'
     };
 
-    // Start background mock generation process
-    EdgeRuntime.waitUntil(mockGenerationProcess(videoGeneration.id, mockOperationName));
+    // Start real VEO generation process
+    EdgeRuntime.waitUntil(startVeoGeneration(videoGeneration.id, generationData, googleProjectId, googleApiKey));
 
     return new Response(JSON.stringify({
       success: true,
@@ -147,9 +147,9 @@ Deno.serve(async (req) => {
   }
 });
 
-// Mock generation process that simulates video generation
-async function mockGenerationProcess(generationId: string, operationName: string) {
-  console.log(`Starting mock generation process for ${generationId}`);
+// Real VEO generation process using Google Vertex AI
+async function startVeoGeneration(generationId: string, generationData: any, projectId: string, apiKey: string) {
+  console.log(`🎬 Starting real VEO generation for ${generationId}`);
   
   const supabaseClient = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
@@ -157,57 +157,270 @@ async function mockGenerationProcess(generationId: string, operationName: string
   );
 
   try {
-    // Simulate generation progress over 30 seconds
-    const totalSteps = 6;
+    // Update progress: Authenticating
+    await supabaseClient
+      .from('video_generations')
+      .update({
+        status: 'generating',
+        progress: 20,
+      })
+      .eq('id', generationId);
+
+    // Get service account key for authentication
+    const serviceAccountKey = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY');
+    if (!serviceAccountKey) {
+      throw new Error('Google Service Account Key not found');
+    }
+
+    // Parse the service account key
+    const credentials = JSON.parse(serviceAccountKey);
     
-    for (let step = 1; step <= totalSteps; step++) {
-      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+    console.log('🔐 Generating access token...');
+    // Generate access token using service account
+    const accessToken = await getAccessToken(credentials);
+    
+    // Update progress: Preparing request
+    await supabaseClient
+      .from('video_generations')
+      .update({
+        progress: 40,
+      })
+      .eq('id', generationId);
+    
+    // Prepare VEO generation request
+    const veoRequest = {
+      contents: [{
+        role: "user", 
+        parts: [{
+          text: `Create a ${generationData.duration}-second video in ${generationData.aspectRatio} aspect ratio: ${generationData.prompt}`
+        }]
+      }],
+      generation_config: {
+        response_mime_type: "video/mp4",
+        response_modalities: ["VIDEO"],
+        // Add creativity/temperature if supported
+        ...(generationData.creativity && { temperature: generationData.creativity })
+      },
+      safety_settings: [
+        {
+          category: "HARM_CATEGORY_HATE_SPEECH",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_DANGEROUS_CONTENT", 
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_HARASSMENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        }
+      ]
+    };
+
+    // If negative prompt is provided, add it to the main prompt
+    if (generationData.negativePrompt) {
+      veoRequest.contents[0].parts[0].text += `. Avoid: ${generationData.negativePrompt}`;
+    }
+
+    console.log('🚀 Calling Google Vertex AI VEO API...');
+    console.log('📝 Request prompt:', veoRequest.contents[0].parts[0].text);
+    
+    // Update progress: Calling VEO API
+    await supabaseClient
+      .from('video_generations')
+      .update({
+        progress: 60,
+      })
+      .eq('id', generationId);
+    
+    // Call Vertex AI VEO API
+    const veoResponse = await fetch(
+      `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/veo-001:generateContent`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(veoRequest),
+      }
+    );
+
+    const responseData = await veoResponse.json();
+    console.log('📋 VEO API Response Status:', veoResponse.status);
+    console.log('📄 Response data keys:', Object.keys(responseData));
+    
+    if (!veoResponse.ok) {
+      console.error('❌ VEO API Error Response:', JSON.stringify(responseData, null, 2));
+      throw new Error(`VEO API Error (${veoResponse.status}): ${responseData.error?.message || JSON.stringify(responseData)}`);
+    }
+
+    // Update progress: Processing response
+    await supabaseClient
+      .from('video_generations')
+      .update({
+        progress: 80,
+      })
+      .eq('id', generationId);
+
+    // Check if response contains video content
+    if (responseData.candidates && responseData.candidates[0]?.content?.parts) {
+      const parts = responseData.candidates[0].content.parts;
+      console.log('📹 Response parts:', parts.length);
       
-      const progress = Math.round((step / totalSteps) * 100);
+      // Look for video content in the parts
+      let videoUrl = null;
+      for (const part of parts) {
+        if (part.inline_data && part.inline_data.mime_type === 'video/mp4') {
+          console.log('✅ Video content found in response');
+          // For demo purposes, create a data URL (in production, upload to storage)
+          const videoBase64 = part.inline_data.data;
+          videoUrl = `data:video/mp4;base64,${videoBase64}`;
+          break;
+        } else if (part.file_data && part.file_data.mime_type === 'video/mp4') {
+          console.log('✅ Video file reference found in response');
+          videoUrl = part.file_data.file_uri;
+          break;
+        }
+      }
       
-      console.log(`Mock generation ${generationId} progress: ${progress}%`);
-      
-      if (step === totalSteps) {
-        // Simulation complete - mark as completed with a mock video URL
-        const mockVideoUrl = `https://storage.googleapis.com/generated-videos/mock-video-${generationId}.mp4`;
-        
+      if (videoUrl) {
+        // Update generation record with completed status
         await supabaseClient
           .from('video_generations')
           .update({
             status: 'completed',
             progress: 100,
-            video_url: mockVideoUrl,
+            video_url: videoUrl,
           })
           .eq('id', generationId);
         
-        console.log(`Mock generation ${generationId} completed successfully`);
-        
-        // Note: Salesforce submission is handled client-side via iframe method
-        console.log(`✅ Video generation completed. Client should handle Salesforce update.`);
+        console.log(`✅ VEO generation ${generationId} completed successfully`);
+        console.log(`🎥 Video URL: ${videoUrl.substring(0, 100)}...`);
         
       } else {
-        // Update progress
-        await supabaseClient
-          .from('video_generations')
-          .update({
-            progress: progress,
-          })
-          .eq('id', generationId);
+        console.error('❌ No video content found in VEO response parts');
+        console.log('📄 Full response for debugging:', JSON.stringify(responseData, null, 2));
+        throw new Error('No video content found in VEO API response');
       }
+    } else {
+      console.error('❌ Invalid VEO response structure');
+      console.log('📄 Full response for debugging:', JSON.stringify(responseData, null, 2));
+      throw new Error('Invalid response structure from VEO API - no candidates found');
     }
     
   } catch (error) {
-    console.error(`Error in mock generation process for ${generationId}:`, error);
+    console.error(`❌ Error in VEO generation for ${generationId}:`, error);
+    console.error('📋 Error details:', error.stack);
     
-    // Mark as failed
+    // Mark as failed with detailed error message
     await supabaseClient
       .from('video_generations')
       .update({
         status: 'failed',
-        error_message: `Mock generation error: ${error.message}`,
+        progress: 0,
+        error_message: `VEO generation failed: ${error.message}`,
       })
       .eq('id', generationId);
   }
+}
+
+// Helper function to get Google Cloud access token using service account
+async function getAccessToken(credentials: any): Promise<string> {
+  const jwt = await createJWT(credentials);
+  
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+  });
+  
+  const tokenData = await tokenResponse.json();
+  
+  if (!tokenResponse.ok) {
+    throw new Error(`Failed to get access token: ${tokenData.error_description}`);
+  }
+  
+  return tokenData.access_token;
+}
+
+// Helper function to create JWT for service account authentication
+async function createJWT(credentials: any): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  
+  const header = {
+    alg: 'RS256',
+    typ: 'JWT',
+  };
+  
+  const payload = {
+    iss: credentials.client_email,
+    scope: 'https://www.googleapis.com/auth/cloud-platform',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: now + 3600,
+    iat: now,
+  };
+  
+  // Encode header and payload
+  const encodedHeader = btoa(JSON.stringify(header)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  const encodedPayload = btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  
+  // Create the signing input
+  const signingInput = `${encodedHeader}.${encodedPayload}`;
+  
+  // Import the private key
+  const privateKeyPem = credentials.private_key;
+  const privateKeyBuffer = pemToArrayBuffer(privateKeyPem);
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    privateKeyBuffer,
+    {
+      name: 'RSASSA-PKCS1-v1_5',
+      hash: 'SHA-256',
+    },
+    false,
+    ['sign']
+  );
+  
+  // Sign the JWT
+  const encoder = new TextEncoder();
+  const signatureBuffer = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    cryptoKey,
+    encoder.encode(signingInput)
+  );
+  
+  // Encode signature
+  const signature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)))
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+  
+  return `${signingInput}.${signature}`;
+}
+
+// Helper function to convert PEM to ArrayBuffer
+function pemToArrayBuffer(pem: string): ArrayBuffer {
+  const pemContents = pem
+    .replace('-----BEGIN PRIVATE KEY-----', '')
+    .replace('-----END PRIVATE KEY-----', '')
+    .replace(/\s/g, '');
+  
+  const binaryString = atob(pemContents);
+  const bytes = new Uint8Array(binaryString.length);
+  
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  
+  return bytes.buffer;
 }
 
 // Note: All Salesforce operations are now handled client-side using iframe method
