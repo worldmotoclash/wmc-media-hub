@@ -282,15 +282,21 @@ const MediaUpload: React.FC = () => {
       'string_AI_Prompt__c': salesforceData.AI_Prompt__c || '',
       'number_ri1__Length_in_Seconds__c': String(salesforceData.ri1__Length_in_Seconds__c || 5),
       'id_ri1__Contact__c': salesforceData.ri1__Contact__c || '', // Fixed: Use id_ prefix for ID fields
+      
+      // Adding more fields gradually
+      'string_ri1__Categories__c': salesforceData.ri1__Categories__c || '',
+      'string_ri1__Subtitle__c': salesforceData.ri1__Subtitle__c || '',
     };
     
     // Enhanced logging - show each field value
-    console.log(`[submitToSF] MINIMAL FIELDS ONLY:`);
+    console.log(`[submitToSF] FIELDS (now with Categories and Subtitle):`);
     console.log(`[submitToSF] - sObj: "${fields.sObj}"`);
     console.log(`[submitToSF] - Name: "${fields.string_Name}"`);
     console.log(`[submitToSF] - AI_Prompt__c: "${fields.string_AI_Prompt__c}"`);
     console.log(`[submitToSF] - ri1__Length_in_Seconds__c: "${fields['number_ri1__Length_in_Seconds__c']}"`);
     console.log(`[submitToSF] - ri1__Contact__c: "${fields['id_ri1__Contact__c']}"`);
+    console.log(`[submitToSF] - ri1__Categories__c: "${fields['string_ri1__Categories__c']}"`);
+    console.log(`[submitToSF] - ri1__Subtitle__c: "${fields['string_ri1__Subtitle__c']}"`);
     console.log(`[submitToSF] Total fields count:`, Object.keys(fields).length);
     
     console.log(`[submitToSF] Prepared fields:`, fields);
