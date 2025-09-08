@@ -276,33 +276,33 @@ const MediaUpload: React.FC = () => {
     // Map all the fields from the edge function response to form fields
     const fields: Record<string, string> = {
       'sObj': 'ri1__Content__c',
-      // Basic info fields
-      'text_Name': salesforceData.Name || '',
-      'text_ri1__Subtitle__c': salesforceData.ri1__Subtitle__c || '',
-      'text_ri1__Description__c': salesforceData.ri1__Description__c || '',
-      'text_ri1__URL__c': salesforceData.ri1__URL__c || '',
+      // Basic info fields - use string_ prefix for text fields like working loginService
+      'string_Name': salesforceData.Name || '',
+      'string_ri1__Subtitle__c': salesforceData.ri1__Subtitle__c || '',
+      'string_ri1__Description__c': salesforceData.ri1__Description__c || '',
+      'string_ri1__URL__c': salesforceData.ri1__URL__c || '',
       
-      // AI Generation fields (required)
-      'text_AI_Prompt__c': salesforceData.AI_Prompt__c || '',
+      // AI Generation fields (required) - use proper prefixes
+      'string_AI_Prompt__c': salesforceData.AI_Prompt__c || '',
       'number_ri1__Length_in_Seconds__c': String(salesforceData.ri1__Length_in_Seconds__c || 5),
-      'text_ri1__Aspect_Ratio__c': salesforceData.ri1__Aspect_Ratio__c || '',
+      'string_ri1__Aspect_Ratio__c': salesforceData.ri1__Aspect_Ratio__c || '',
       'number_AI_Creativity_Level__c': String(salesforceData.AI_Creativity_Level__c || 0.5),
       
       // Status fields
-      'text_Generation_Status__c': salesforceData.Generation_Status__c || '',
+      'string_Generation_Status__c': salesforceData.Generation_Status__c || '',
       'number_Generation_Progress__c': String(salesforceData.Generation_Progress__c || 0),
-      'text_API_Operation_ID__c': salesforceData.API_Operation_ID__c || '',
+      'string_API_Operation_ID__c': salesforceData.API_Operation_ID__c || '',
       
       // Metadata fields
-      'text_ri1__Categories__c': salesforceData.ri1__Categories__c || '',
-      'text_ri1__Template__c': salesforceData.ri1__Template__c || '',
-      'text_ri1__Location__c': salesforceData.ri1__Location__c || '',
-      'text_ri1__Track__c': salesforceData.ri1__Track__c || '',
+      'string_ri1__Categories__c': salesforceData.ri1__Categories__c || '',
+      'string_ri1__Template__c': salesforceData.ri1__Template__c || '',
+      'string_ri1__Location__c': salesforceData.ri1__Location__c || '',
+      'string_ri1__Track__c': salesforceData.ri1__Track__c || '',
       'date_ri1__Scheduled_Date__c': salesforceData.ri1__Scheduled_Date__c || '',
-      'text_ri1__Tags__c': salesforceData.ri1__Tags__c || '',
-      'text_ri1__Keywords__c': salesforceData.ri1__Keywords__c || '',
-      'text_ri1__Type__c': salesforceData.ri1__Type__c || 'AI Generated',
-      'text_ri1__Status__c': salesforceData.ri1__Status__c || 'Generating',
+      'string_ri1__Tags__c': salesforceData.ri1__Tags__c || '',
+      'string_ri1__Keywords__c': salesforceData.ri1__Keywords__c || '',
+      'string_ri1__Type__c': salesforceData.ri1__Type__c || 'AI Generated',
+      'string_ri1__Status__c': salesforceData.ri1__Status__c || 'Generating',
     };
     
     console.log(`[submitToSF] Prepared fields:`, fields);
