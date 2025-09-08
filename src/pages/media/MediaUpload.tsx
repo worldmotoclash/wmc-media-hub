@@ -322,39 +322,48 @@ const MediaUpload: React.FC = () => {
             }
           });
 
-          iframeDoc.body.appendChild(form);
-          console.log('🚀 Submitting form to Salesforce...');
-          form.submit();
-
-          // Open debug window to see results after a short delay
-          setTimeout(() => {
-            const debugParams = new URLSearchParams({
-              sObj: 'ri1__Content__c'
-            });
-            
-            Object.entries(salesforceData).forEach(([key, value]) => {
-              if (value !== null && value !== undefined && value !== '') {
-                let fieldName: string;
-                if (typeof value === 'number') {
-                  fieldName = `number_${key}`;
-                } else if (key.includes('Date')) {
-                  fieldName = `date_${key}`;
-                } else {
-                  fieldName = `text_${key}`;
-                }
-                debugParams.append(fieldName, value.toString());
+          // Open debug window immediately to avoid popup blockers
+          const debugParams = new URLSearchParams({
+            sObj: 'ri1__Content__c'
+          });
+          
+          Object.entries(salesforceData).forEach(([key, value]) => {
+            if (value !== null && value !== undefined && value !== '') {
+              let fieldName: string;
+              if (typeof value === 'number') {
+                fieldName = `number_${key}`;
+              } else if (key.includes('Date')) {
+                fieldName = `date_${key}`;
+              } else {
+                fieldName = `text_${key}`;
               }
-            });
+              debugParams.append(fieldName, value.toString());
+            }
+          });
 
-            const debugUrl = `https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php?${debugParams.toString()}`;
-            console.log('🔗 Opening debug window:', debugUrl);
-            window.open(debugUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
-            
+          const debugUrl = `https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php?${debugParams.toString()}`;
+          console.log('🔗 Opening debug window:', debugUrl);
+          
+          // Open debug window immediately
+          const debugWindow = window.open(debugUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+          
+          if (debugWindow) {
+            console.log('✅ Debug window opened successfully');
             toast({
               title: "Salesforce Submission",
               description: "Submitted to Salesforce and opened debug window to show results",
             });
-          }, 1000);
+          } else {
+            console.warn('❌ Debug window blocked by popup blocker');
+            toast({
+              title: "Popup Blocked",
+              description: "Please allow popups to see Salesforce submission results",
+              variant: "destructive",
+            });
+          }
+
+          console.log('🚀 Submitting form to Salesforce...');
+          form.submit();
           
         } catch (err) {
           console.error('❌ Error during form creation/submission:', err);
