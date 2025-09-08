@@ -273,37 +273,25 @@ const MediaUpload: React.FC = () => {
     console.log(`[submitToSF] Starting Salesforce submission for ri1__Content__c...`);
     console.log(`[submitToSF] Full salesforce data:`, salesforceData);
     
-    // Map all the fields from the edge function response to form fields
+    // MINIMAL REQUIRED FIELDS ONLY - Start simple and add more once working
     const fields: Record<string, string> = {
       'sObj': 'ri1__Content__c',
-      // Basic info fields - use string_ prefix for text fields like working loginService
-      'string_Name': salesforceData.Name || '',
-      'string_ri1__Subtitle__c': salesforceData.ri1__Subtitle__c || '',
-      'string_ri1__Description__c': salesforceData.ri1__Description__c || '',
-      'string_ri1__URL__c': salesforceData.ri1__URL__c || '',
       
-      // AI Generation fields (required) - use proper prefixes
+      // Essential fields only
+      'string_Name': salesforceData.Name || `AI Video - ${new Date().toISOString()}`,
       'string_AI_Prompt__c': salesforceData.AI_Prompt__c || '',
       'number_ri1__Length_in_Seconds__c': String(salesforceData.ri1__Length_in_Seconds__c || 5),
-      'string_ri1__Aspect_Ratio__c': salesforceData.ri1__Aspect_Ratio__c || '',
-      'number_AI_Creativity_Level__c': String(salesforceData.AI_Creativity_Level__c || 0.5),
-      
-      // Status fields
-      'string_Generation_Status__c': salesforceData.Generation_Status__c || '',
-      'number_Generation_Progress__c': String(salesforceData.Generation_Progress__c || 0),
-      'string_API_Operation_ID__c': salesforceData.API_Operation_ID__c || '',
-      
-      // Metadata fields
-      'string_ri1__Categories__c': salesforceData.ri1__Categories__c || '',
-      'string_ri1__Template__c': salesforceData.ri1__Template__c || '',
-      'string_ri1__Location__c': salesforceData.ri1__Location__c || '',
-      'string_ri1__Track__c': salesforceData.ri1__Track__c || '',
-      'date_ri1__Scheduled_Date__c': salesforceData.ri1__Scheduled_Date__c || '',
-      'string_ri1__Tags__c': salesforceData.ri1__Tags__c || '',
-      'string_ri1__Keywords__c': salesforceData.ri1__Keywords__c || '',
-      'string_ri1__Type__c': salesforceData.ri1__Type__c || 'AI Generated',
-      'string_ri1__Status__c': salesforceData.ri1__Status__c || 'Generating',
+      'id_ri1__Contact__c': salesforceData.ri1__Contact__c || '', // Fixed: Use id_ prefix for ID fields
     };
+    
+    // Enhanced logging - show each field value
+    console.log(`[submitToSF] MINIMAL FIELDS ONLY:`);
+    console.log(`[submitToSF] - sObj: "${fields.sObj}"`);
+    console.log(`[submitToSF] - Name: "${fields.string_Name}"`);
+    console.log(`[submitToSF] - AI_Prompt__c: "${fields.string_AI_Prompt__c}"`);
+    console.log(`[submitToSF] - ri1__Length_in_Seconds__c: "${fields['number_ri1__Length_in_Seconds__c']}"`);
+    console.log(`[submitToSF] - ri1__Contact__c: "${fields['id_ri1__Contact__c']}"`);
+    console.log(`[submitToSF] Total fields count:`, Object.keys(fields).length);
     
     console.log(`[submitToSF] Prepared fields:`, fields);
     
