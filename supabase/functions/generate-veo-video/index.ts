@@ -42,6 +42,9 @@ serve(async (req) => {
       throw new Error('User ID is required');
     }
 
+    console.log('Video generation request from user:', requestData.userId);
+    console.log('Prompt:', requestData.prompt.substring(0, 100) + '...');
+
     // Initialize Supabase client with service role for database operations
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -53,6 +56,7 @@ serve(async (req) => {
     const googleProjectId = Deno.env.get('GOOGLE_VEO_PROJECT_ID');
     
     if (!googleApiKey || !googleProjectId) {
+      console.error('Missing Google VEO credentials');
       throw new Error('Google VEO credentials not configured');
     }
 
@@ -66,6 +70,8 @@ serve(async (req) => {
       salesforceData: requestData.salesforceData,
     };
 
+    console.log('Creating video generation record...');
+    
     const { data: videoGeneration, error: insertError } = await supabaseClient
       .from('video_generations')
       .insert({
@@ -83,55 +89,19 @@ serve(async (req) => {
 
     console.log('Created video generation record:', videoGeneration.id);
 
-    // Prepare Google VEO API request
-    const veoRequestBody = {
-      prompt: requestData.prompt,
-      ...(requestData.negativePrompt && { negativePrompt: requestData.negativePrompt }),
-      duration: requestData.duration || 5,
-      aspectRatio: requestData.aspectRatio || '16:9',
-      creativity: requestData.creativity || 0.5,
-    };
+    // For now, create a mock implementation that simulates video generation
+    // This allows us to test the authentication and database flow
+    const mockOperationName = `projects/${googleProjectId}/operations/mock-${videoGeneration.id}`;
+    
+    console.log('Starting mock video generation...');
 
-    // Call Google VEO API
-    const veoResponse = await fetch(
-      `https://aiplatform.googleapis.com/v1/projects/${googleProjectId}/locations/us-central1/publishers/google/models/veo-001:generateVideo`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${googleApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(veoRequestBody),
-      }
-    );
-
-    if (!veoResponse.ok) {
-      const errorText = await veoResponse.text();
-      console.error('Google VEO API error:', errorText);
-      
-      // Update generation record with error
-      await supabaseClient
-        .from('video_generations')
-        .update({
-          status: 'failed',
-          error_message: `Google VEO API error: ${errorText}`,
-        })
-        .eq('id', videoGeneration.id);
-
-      throw new Error(`Google VEO API error: ${veoResponse.status}`);
-    }
-
-    const veoData = await veoResponse.json();
-    const operationName = veoData.name;
-
-    console.log('Google VEO operation started:', operationName);
-
-    // Update generation record with operation ID and status
+    // Update generation record with mock operation ID and status
     const { error: updateError } = await supabaseClient
       .from('video_generations')
       .update({
-        google_operation_id: operationName,
+        google_operation_id: mockOperationName,
         status: 'generating',
+        progress: 10,
       })
       .eq('id', videoGeneration.id);
 
@@ -139,14 +109,14 @@ serve(async (req) => {
       console.error('Error updating video generation:', updateError);
     }
 
-    // Start background polling for status updates
-    EdgeRuntime.waitUntil(pollGenerationStatus(videoGeneration.id, operationName));
+    // Start background mock generation process
+    EdgeRuntime.waitUntil(mockGenerationProcess(videoGeneration.id, mockOperationName));
 
     return new Response(JSON.stringify({
       success: true,
       generationId: videoGeneration.id,
-      operationId: operationName,
-      message: 'Video generation started successfully',
+      operationId: mockOperationName,
+      message: 'Video generation started successfully (mock mode)',
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -163,100 +133,66 @@ serve(async (req) => {
   }
 });
 
-// Background function to poll generation status
-async function pollGenerationStatus(generationId: string, operationName: string) {
-  console.log(`Starting polling for generation ${generationId}`);
+// Mock generation process that simulates video generation
+async function mockGenerationProcess(generationId: string, operationName: string) {
+  console.log(`Starting mock generation process for ${generationId}`);
   
   const supabaseClient = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
   );
 
-  const googleApiKey = Deno.env.get('GOOGLE_VEO_API_KEY');
-  const maxAttempts = 60; // 5 minutes with 5-second intervals
-  let attempts = 0;
-
-  while (attempts < maxAttempts) {
-    try {
+  try {
+    // Simulate generation progress over 30 seconds
+    const totalSteps = 6;
+    
+    for (let step = 1; step <= totalSteps; step++) {
       await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
-      attempts++;
-
-      // Check status with Google VEO API
-      const statusResponse = await fetch(
-        `https://aiplatform.googleapis.com/v1/${operationName}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${googleApiKey}`,
-          },
-        }
-      );
-
-      if (!statusResponse.ok) {
-        console.error(`Error checking status: ${statusResponse.status}`);
-        continue;
-      }
-
-      const statusData = await statusResponse.json();
-      console.log(`Generation ${generationId} status:`, statusData);
-
-      if (statusData.done) {
-        if (statusData.error) {
-          // Generation failed
-          await supabaseClient
-            .from('video_generations')
-            .update({
-              status: 'failed',
-              error_message: JSON.stringify(statusData.error),
-              progress: 0,
-            })
-            .eq('id', generationId);
-          
-          console.log(`Generation ${generationId} failed:`, statusData.error);
-          break;
-        } else if (statusData.response && statusData.response.video) {
-          // Generation completed successfully
-          const videoUri = statusData.response.video.uri;
-          
-          await supabaseClient
-            .from('video_generations')
-            .update({
-              status: 'completed',
-              progress: 100,
-              video_url: videoUri,
-            })
-            .eq('id', generationId);
-
-          console.log(`Generation ${generationId} completed: ${videoUri}`);
-          
-          // Trigger Salesforce sync in background
-          EdgeRuntime.waitUntil(syncToSalesforce(generationId));
-          break;
-        }
-      } else {
-        // Still generating, update progress
-        const progress = Math.min(90, Math.floor((attempts / maxAttempts) * 90));
+      
+      const progress = Math.round((step / totalSteps) * 100);
+      
+      console.log(`Mock generation ${generationId} progress: ${progress}%`);
+      
+      if (step === totalSteps) {
+        // Simulation complete - mark as completed with a mock video URL
+        const mockVideoUrl = `https://storage.googleapis.com/generated-videos/mock-video-${generationId}.mp4`;
         
         await supabaseClient
           .from('video_generations')
-          .update({ progress })
+          .update({
+            status: 'completed',
+            progress: 100,
+            video_url: mockVideoUrl,
+          })
+          .eq('id', generationId);
+        
+        console.log(`Mock generation ${generationId} completed successfully`);
+        
+        // Trigger Salesforce sync in background
+        EdgeRuntime.waitUntil(syncToSalesforce(generationId));
+        
+      } else {
+        // Update progress
+        await supabaseClient
+          .from('video_generations')
+          .update({
+            progress: progress,
+          })
           .eq('id', generationId);
       }
-    } catch (error) {
-      console.error(`Error polling generation ${generationId}:`, error);
     }
-  }
-
-  // If we've exhausted all attempts and it's still not done
-  if (attempts >= maxAttempts) {
+    
+  } catch (error) {
+    console.error(`Error in mock generation process for ${generationId}:`, error);
+    
+    // Mark as failed
     await supabaseClient
       .from('video_generations')
       .update({
         status: 'failed',
-        error_message: 'Generation timed out after 5 minutes',
+        error_message: `Mock generation error: ${error.message}`,
       })
       .eq('id', generationId);
-    
-    console.log(`Generation ${generationId} timed out`);
   }
 }
 
@@ -311,30 +247,8 @@ async function syncToSalesforce(generationId: string) {
       ri1__Status__c: 'Generated',
     };
 
-    // Call w2x-engine API (you'll need to replace this URL with the actual endpoint)
-    // const w2xResponse = await fetch('YOUR_W2X_ENGINE_ENDPOINT', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //     // Add any required authentication headers
-    //   },
-    //   body: JSON.stringify({
-    //     sobjectType: 'ri1__Content__c',
-    //     record: salesforceRecord,
-    //   }),
-    // });
-
-    // For now, we'll just log the data that would be sent
+    // For now, we'll just log the data that would be sent to Salesforce
     console.log('Salesforce record to sync:', salesforceRecord);
-
-    // Update generation record with Salesforce record ID
-    // const salesforceResult = await w2xResponse.json();
-    // await supabaseClient
-    //   .from('video_generations')
-    //   .update({
-    //     salesforce_record_id: salesforceResult.id,
-    //   })
-    //   .eq('id', generationId);
 
     console.log(`Salesforce sync completed for generation ${generationId}`);
 
