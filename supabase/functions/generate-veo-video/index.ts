@@ -8,6 +8,7 @@ const corsHeaders = {
 };
 
 interface VeoGenerationRequest {
+  userId: string;
   prompt: string;
   negativePrompt?: string;
   duration?: number;
@@ -34,28 +35,18 @@ serve(async (req) => {
   }
 
   try {
-    // Get auth token from request
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('No authorization header');
+    const requestData: VeoGenerationRequest = await req.json();
+    
+    // Validate user ID is provided
+    if (!requestData.userId) {
+      throw new Error('User ID is required');
     }
 
-    // Initialize Supabase client
+    // Initialize Supabase client with service role for database operations
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { auth: { persistSession: false } }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
-
-    // Get user from JWT
-    const jwt = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(jwt);
-    
-    if (authError || !user) {
-      throw new Error('Invalid authentication');
-    }
-
-    const requestData: VeoGenerationRequest = await req.json();
 
     // Get Google VEO credentials
     const googleApiKey = Deno.env.get('GOOGLE_VEO_API_KEY');
@@ -78,7 +69,7 @@ serve(async (req) => {
     const { data: videoGeneration, error: insertError } = await supabaseClient
       .from('video_generations')
       .insert({
-        user_id: user.id,
+        user_id: requestData.userId,
         status: 'pending',
         generation_data: generationData,
       })

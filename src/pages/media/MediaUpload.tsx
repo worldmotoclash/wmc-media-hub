@@ -198,15 +198,11 @@ const MediaUpload: React.FC = () => {
         keywords: genData.keywords,
       };
 
-      // Call the edge function
-      const { data: authData } = await supabase.auth.getSession();
-      if (!authData.session) {
-        throw new Error('No active session');
-      }
-
+      // Call the edge function with custom user ID
       setGenerationStatus('Starting generation...');
       const response = await supabase.functions.invoke('generate-veo-video', {
         body: {
+          userId: user.id,
           prompt: genData.mainPrompt,
           negativePrompt: genData.negativePrompt || undefined,
           duration: genData.duration[0],
