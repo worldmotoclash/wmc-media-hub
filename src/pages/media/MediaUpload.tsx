@@ -272,6 +272,7 @@ const MediaUpload: React.FC = () => {
   const submitToSalesforceViaFetch = async (salesforceData: Record<string, any>, generationId: string): Promise<void> => {
     try {
       console.log('📝 Starting Salesforce iframe submission (ri1__Content__c)...');
+      console.log('🔍 Full Salesforce Data Received:', JSON.stringify(salesforceData, null, 2));
       
       // Create a hidden iframe for submission
       const iframe = document.createElement('iframe');
@@ -306,17 +307,37 @@ const MediaUpload: React.FC = () => {
         'text_ri1__Status__c': salesforceData.ri1__Status__c || 'Generating'
       };
 
+      console.log('🎯 COMPLETE FORM PAYLOAD:');
+      console.log('=======================');
       Object.entries(fields).forEach(([name, value]) => {
         const input = iframeDoc.createElement('input');
         input.type = 'hidden';
         input.name = name;
         input.value = value;
         form.appendChild(input);
-        console.log(`Added field: ${name} = ${value}`);
+        console.log(`${name}: "${value}"`);
       });
+      console.log('=======================');
 
+      // Log the form HTML for debugging
       iframeDoc.body.appendChild(form);
-      console.log('Submitting form for ri1__Content__c...');
+      console.log('🔍 Generated Form HTML:', form.outerHTML);
+      
+      // Create a FormData object to show what would be posted
+      const formData = new FormData(form);
+      console.log('📤 FormData entries:');
+      for (const [key, value] of formData.entries()) {
+        console.log(`  ${key}: ${value}`);
+      }
+      
+      // Also create URLSearchParams to show URL encoded version
+      const urlParams = new URLSearchParams();
+      Object.entries(fields).forEach(([key, value]) => {
+        urlParams.append(key, value);
+      });
+      console.log('🌐 URL Encoded Payload:', urlParams.toString());
+      
+      console.log('🚀 Submitting form for ri1__Content__c...');
       form.submit();
       
       // Open debug window to see results - but wait a moment for the form to submit
@@ -330,7 +351,7 @@ const MediaUpload: React.FC = () => {
         if (debugWindow) {
           toast({
             title: "Salesforce Submission",
-            description: "Submitted via iframe method - check debug window for results",
+            description: "Submitted via iframe method - check debug window and console for complete payload details",
           });
         } else {
           toast({
