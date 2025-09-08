@@ -196,10 +196,9 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
         }]
       }],
       generation_config: {
-        response_mime_type: "video/mp4",
-        response_modalities: ["VIDEO"],
-        // Add creativity/temperature if supported
-        ...(generationData.creativity && { temperature: generationData.creativity })
+        // Remove invalid parameters - VEO doesn't use response_modalities or response_mime_type
+        max_output_tokens: 1024,
+        ...(generationData.creativity && generationData.creativity !== 1.0 && { temperature: generationData.creativity })
       },
       safety_settings: [
         {

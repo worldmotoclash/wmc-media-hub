@@ -287,45 +287,47 @@ const MediaUpload: React.FC = () => {
                 return;
               }
 
-              // Create a simple test form with minimal fields to debug the sObj issue
+              // Create form with explicit encoding and ensure sObj is sent
               const form = iframeDoc.createElement('form');
               form.method = 'POST';
               form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
+              form.enctype = 'application/x-www-form-urlencoded'; // Explicitly set encoding
               
-              // Add sObj as the very first field
+              // Create sObj input with explicit attributes
               const sObjInput = iframeDoc.createElement('input');
-              sObjInput.type = 'hidden';
-              sObjInput.name = 'sObj';
-              sObjInput.value = 'ri1__Content__c';
+              sObjInput.setAttribute('type', 'hidden');
+              sObjInput.setAttribute('name', 'sObj');
+              sObjInput.setAttribute('value', 'ri1__Content__c');
               form.appendChild(sObjInput);
-              console.log('📝 Added sObj field:', sObjInput.name, '=', sObjInput.value);
+              console.log('📝 Added sObj field with explicit attributes');
 
-              // Add a simple test name field
-              const nameInput = iframeDoc.createElement('input');
-              nameInput.type = 'hidden';
-              nameInput.name = 'text_Name';
-              nameInput.value = 'Test Video Generation';
-              form.appendChild(nameInput);
-              console.log('📝 Added Name field:', nameInput.name, '=', nameInput.value);
+              // Add required fields with explicit attributes
+              const fieldsToAdd = [
+                { name: 'text_Name', value: 'Test Video Generation' },
+                { name: 'text_AI_Prompt__c', value: salesforceData.AI_Prompt__c || 'Test prompt' },
+                { name: 'number_ri1__Length_in_Seconds__c', value: (salesforceData.ri1__Length_in_Seconds__c || 5).toString() },
+                { name: 'text_ri1__Status__c', value: salesforceData.ri1__Status__c || 'Generating' }
+              ];
 
-              // Add minimal required fields only
-              const requiredFields = {
-                'text_AI_Prompt__c': salesforceData.AI_Prompt__c || 'Test prompt',
-                'number_ri1__Length_in_Seconds__c': salesforceData.ri1__Length_in_Seconds__c || 5,
-                'text_ri1__Status__c': salesforceData.ri1__Status__c || 'Generating'
-              };
-
-              Object.entries(requiredFields).forEach(([fieldName, value]) => {
+              fieldsToAdd.forEach(field => {
                 const input = iframeDoc.createElement('input');
-                input.type = 'hidden';
-                input.name = fieldName;
-                input.value = value.toString();
+                input.setAttribute('type', 'hidden');
+                input.setAttribute('name', field.name);
+                input.setAttribute('value', field.value);
                 form.appendChild(input);
-                console.log(`📝 Added required field: ${fieldName} = ${value}`);
+                console.log(`📝 Added field with explicit attributes: ${field.name} = ${field.value}`);
               });
 
-              // Debug: Log form HTML before submission
-              console.log('🔍 Form HTML:', form.outerHTML);
+              // Verify form elements before submission
+              console.log('🔍 Form elements count:', form.elements.length);
+              console.log('🔍 Form action:', form.action);
+              console.log('🔍 Form method:', form.method);
+              
+              // Log each form element
+              for (let i = 0; i < form.elements.length; i++) {
+                const element = form.elements[i] as HTMLInputElement;
+                console.log(`🔍 Element ${i}: ${element.name} = ${element.value}`);
+              }
               
               // Append form to iframe body
               iframeDoc.body.appendChild(form);
