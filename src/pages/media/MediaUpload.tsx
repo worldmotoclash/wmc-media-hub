@@ -170,6 +170,14 @@ const MediaUpload: React.FC = () => {
 
   const handleGenerateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('[handleGenerateSubmit] Form submission started', { isGenerating });
+    
+    // Prevent double submission
+    if (isGenerating) {
+      console.log('[handleGenerateSubmit] Already generating, preventing duplicate submission');
+      return;
+    }
+    
     if (!genData.mainPrompt || !genData.title) {
       toast({
         title: "Missing Information",
@@ -179,6 +187,7 @@ const MediaUpload: React.FC = () => {
       return;
     }
 
+    console.log('[handleGenerateSubmit] Setting isGenerating to true');
     setIsGenerating(true);
     setGenerationProgress(0);
     setGenerationStatus('Initializing video generation...');
@@ -199,6 +208,7 @@ const MediaUpload: React.FC = () => {
       };
 
       // Call the edge function with custom user ID
+      console.log('[handleGenerateSubmit] Calling edge function...');
       setGenerationStatus('Starting generation...');
       const response = await supabase.functions.invoke('generate-veo-video', {
         body: {
@@ -270,8 +280,16 @@ const MediaUpload: React.FC = () => {
 
   // Function to submit to Salesforce using iframe method with optional debug popup
   const submitToSalesforceViaFetch = async (salesforceData: Record<string, any>, generationId: string): Promise<void> => {
-    console.log(`[submitToSF] Starting Salesforce submission for ri1__Content__c...`);
+    console.log(`[submitToSF] Starting Salesforce submission for generation ${generationId}...`);
     console.log(`[submitToSF] Full salesforce data:`, salesforceData);
+    
+    // Prevent duplicate submissions for the same generation
+    const submissionKey = `sf_submission_${generationId}`;
+    if ((window as any)[submissionKey]) {
+      console.log(`[submitToSF] Already submitted for generation ${generationId}, skipping duplicate`);
+      return;
+    }
+    (window as any)[submissionKey] = true;
     
     // MINIMAL REQUIRED FIELDS ONLY - Start simple and add more once working
     const fields: Record<string, string> = {
