@@ -271,133 +271,74 @@ async function syncToSalesforce(generationId: string) {
   }
 }
 
-// Function to submit data to Salesforce using iframe form submission
+// Function to submit data to Salesforce using direct HTTP POST
 async function submitToSalesforce(recordData: Record<string, any>): Promise<string | null> {
-  return new Promise((resolve) => {
-    try {
-      console.log('Creating iframe for Salesforce submission...');
-      
-      // Create an iframe element
-      const iframe = globalThis.document?.createElement('iframe');
-      if (!iframe) {
-        console.error('Cannot create iframe - document not available');
-        resolve(null);
-        return;
+  try {
+    console.log('Submitting to Salesforce w2x-engine...');
+    
+    // Prepare form data
+    const formData = new FormData();
+    
+    // Add sObj field for ri1__Content__c
+    formData.append('sObj', 'ri1__Content__c');
+
+    // Map record data to form fields
+    Object.entries(recordData).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        // Determine field prefix based on data type
+        let fieldName: string;
+        if (typeof value === 'number') {
+          fieldName = `number_${key}`;
+        } else if (key.includes('Date')) {
+          fieldName = `date_${key}`;
+        } else {
+          fieldName = `text_${key}`;
+        }
+        
+        formData.append(fieldName, value.toString());
+        console.log(`Added form field: ${fieldName} = ${value}`);
       }
+    });
 
-      iframe.style.display = 'none';
-      iframe.style.position = 'absolute';
-      iframe.style.left = '-9999px';
+    // Submit to Salesforce
+    const response = await fetch('https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php', {
+      method: 'POST',
+      body: formData,
+    });
+
+    console.log('Salesforce response status:', response.status);
+    
+    if (response.ok) {
+      const responseText = await response.text();
+      console.log('Salesforce response:', responseText.substring(0, 200) + '...');
       
-      // Add iframe to document
-      globalThis.document.body?.appendChild(iframe);
-      
-      // Create form inside iframe
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (!iframeDoc) {
-        console.error('Cannot access iframe document');
-        resolve(null);
-        return;
-      }
-
-      const form = iframeDoc.createElement('form');
-      form.method = 'POST';
-      form.action = 'https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php';
-      form.target = '_self';
-
-      // Add sObj field for ri1__Content__c
-      const sObjField = iframeDoc.createElement('input');
-      sObjField.type = 'hidden';
-      sObjField.name = 'sObj';
-      sObjField.value = 'ri1__Content__c';
-      form.appendChild(sObjField);
-
-      // Map record data to form fields
-      Object.entries(recordData).forEach(([key, value]) => {
-        if (value !== null && value !== undefined && value !== '') {
-          const input = iframeDoc.createElement('input');
-          input.type = 'hidden';
-          
-          // Determine field prefix based on data type
-          if (typeof value === 'number') {
-            input.name = `number_${key}`;
-            input.value = value.toString();
-          } else if (key.includes('Date')) {
-            input.name = `date_${key}`;
-            input.value = value.toString();
-          } else {
-            input.name = `text_${key}`;
-            input.value = value.toString();
-          }
-          
-          form.appendChild(input);
-          console.log(`Added form field: ${input.name} = ${input.value}`);
-        }
-      });
-
-      // Add form to iframe document
-      iframeDoc.body.appendChild(form);
-
-      // Set up response handling
-      let responseReceived = false;
-      const timeoutId = setTimeout(() => {
-        if (!responseReceived) {
-          console.log('Salesforce submission timeout - assuming success');
-          cleanup();
-          resolve('SUCCESS_TIMEOUT'); // Assume success on timeout
-        }
-      }, 10000);
-
-      const cleanup = () => {
-        responseReceived = true;
-        clearTimeout(timeoutId);
-        if (iframe.parentNode) {
-          iframe.parentNode.removeChild(iframe);
-        }
-      };
-
-      // Listen for iframe load events
-      iframe.onload = () => {
-        if (!responseReceived) {
-          try {
-            const iframeLocation = iframe.contentWindow?.location.href;
-            console.log('Iframe loaded:', iframeLocation);
-            
-            // Check if redirect indicates success
-            if (iframeLocation?.includes('success') || iframeLocation?.includes('id=')) {
-              const recordId = extractRecordIdFromUrl(iframeLocation);
-              console.log('Salesforce submission successful, record ID:', recordId);
-              cleanup();
-              resolve(recordId || 'SUCCESS');
-            } else {
-              console.log('Salesforce submission completed');
-              cleanup();
-              resolve('SUCCESS'); // Assume success if no error detected
-            }
-          } catch (e) {
-            // Cross-origin restriction - assume success
-            console.log('Cross-origin restriction on iframe - assuming success');
-            cleanup();
-            resolve('SUCCESS');
-          }
-        }
-      };
-
-      iframe.onerror = () => {
-        console.error('Iframe error during Salesforce submission');
-        cleanup();
-        resolve(null);
-      };
-
-      // Submit the form
-      console.log('Submitting form to Salesforce...');
-      form.submit();
-
-    } catch (error) {
-      console.error('Error in submitToSalesforce:', error);
-      resolve(null);
+      // Try to extract record ID from response
+      const recordId = extractRecordIdFromResponse(responseText);
+      console.log('Salesforce submission successful, record ID:', recordId || 'SUCCESS');
+      return recordId || 'SUCCESS';
+    } else {
+      console.error('Salesforce submission failed with status:', response.status);
+      return null;
     }
-  });
+
+  } catch (error) {
+    console.error('Error in submitToSalesforce:', error);
+    return null;
+  }
+}
+
+// Helper function to extract record ID from response text
+function extractRecordIdFromResponse(responseText: string): string | null {
+  try {
+    // Look for common patterns in Salesforce response that indicate record ID
+    // The w2x-engine.php might return the record ID in various formats
+    const idPattern = /id[=:]?\s*([a-zA-Z0-9]{15,18})/i;
+    const match = responseText.match(idPattern);
+    return match ? match[1] : null;
+  } catch (error) {
+    console.error('Error extracting record ID from response:', error);
+    return null;
+  }
 }
 
 // Helper function to extract record ID from URL
