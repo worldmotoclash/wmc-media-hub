@@ -300,7 +300,7 @@ const MediaUpload: React.FC = () => {
         
       const fields: Record<string, string> = {
         'sObj': 'ri1__Content__c',
-        'text_Name': 'Test Video Generation',
+        'text_Name': salesforceData.Name || 'Test Video Generation',
         'text_AI_Prompt__c': salesforceData.AI_Prompt__c || 'Test prompt',
         'number_ri1__Length_in_Seconds__c': (salesforceData.ri1__Length_in_Seconds__c || 5).toString(),
         'text_ri1__Status__c': salesforceData.ri1__Status__c || 'Generating'
@@ -319,32 +319,27 @@ const MediaUpload: React.FC = () => {
       console.log('Submitting form for ri1__Content__c...');
       form.submit();
       
-      // Open debug window to see results
-      const debugParams = new URLSearchParams(fields);
-      const debugUrl = `https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php?${debugParams.toString()}`;
-      console.log('🔗 Opening debug window:', debugUrl);
-      
-      const debugWindow = window.open(debugUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
-      
-      if (debugWindow) {
-        toast({
-          title: "Salesforce Submission",
-          description: "Submitted via iframe method - check debug window for results",
-        });
-      } else {
-        toast({
-          title: "Popup Blocked",
-          description: "Please allow popups to see Salesforce submission results",
-          variant: "destructive",
-        });
-      }
-      
-      // Clean up iframe after a delay
+      // Open debug window to see results - but wait a moment for the form to submit
       setTimeout(() => {
-        if (iframe && iframe.parentNode) {
-          document.body.removeChild(iframe);
+        const debugParams = new URLSearchParams(fields);
+        const debugUrl = `https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php?${debugParams.toString()}`;
+        console.log('🔗 Opening debug window:', debugUrl);
+        
+        const debugWindow = window.open(debugUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+        
+        if (debugWindow) {
+          toast({
+            title: "Salesforce Submission",
+            description: "Submitted via iframe method - check debug window for results",
+          });
+        } else {
+          toast({
+            title: "Popup Blocked",
+            description: "Please allow popups to see Salesforce submission results",
+            variant: "destructive",
+          });
         }
-      }, 5000);
+      }, 1000); // Wait 1 second before opening debug window
       
     } catch (error) {
       console.error('❌ Error in Salesforce iframe submission:', error);
