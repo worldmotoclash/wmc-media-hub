@@ -60,17 +60,56 @@ serve(async (req) => {
       throw new Error('Google VEO credentials not configured');
     }
 
-    // Create video generation record
+    // Step 1: Submit to Salesforce FIRST (before video generation)
+    console.log('🚀 Step 1: Submitting to Salesforce first...');
+    
+    const salesforceData = requestData.salesforceData || {};
     const generationData = {
       prompt: requestData.prompt,
       negativePrompt: requestData.negativePrompt,
       duration: requestData.duration || 5,
       aspectRatio: requestData.aspectRatio || '16:9',
       creativity: requestData.creativity || 0.5,
-      salesforceData: requestData.salesforceData,
+      salesforceData: salesforceData,
     };
 
-    console.log('Creating video generation record...');
+    // Prepare Salesforce record data for initial submission
+    const salesforceRecord = {
+      Name: salesforceData.title || `AI Generated Video - ${new Date().toISOString()}`,
+      ri1__Subtitle__c: salesforceData.subtitle || '',
+      ri1__Description__c: salesforceData.description || '',
+      ri1__URL__c: '', // Will be updated after video generation
+      ri1__Length_in_Seconds__c: generationData.duration,
+      ri1__Aspect_Ratio__c: generationData.aspectRatio,
+      AI_Prompt__c: generationData.prompt,
+      AI_Negative_Prompt__c: generationData.negativePrompt,
+      AI_Creativity_Level__c: generationData.creativity,
+      Generation_Status__c: 'PENDING',
+      Generation_Progress__c: 0,
+      API_Operation_ID__c: '', // Will be updated after generation starts
+      ri1__Categories__c: salesforceData.categories?.join(';') || '',
+      ri1__Template__c: salesforceData.template || '',
+      ri1__Location__c: salesforceData.location || '',
+      ri1__Track__c: salesforceData.track || '',
+      ri1__Scheduled_Date__c: salesforceData.scheduledDate || '',
+      ri1__Tags__c: salesforceData.tags?.join(';') || '',
+      ri1__Keywords__c: salesforceData.keywords?.join(';') || '',
+      ri1__Type__c: 'AI Generated',
+      ri1__Status__c: 'Generating'
+    };
+
+    // Submit to Salesforce first
+    const salesforceRecordId = await submitToSalesforce(salesforceRecord);
+    
+    if (!salesforceRecordId) {
+      console.error('❌ Salesforce submission failed - aborting video generation');
+      throw new Error('Failed to create Salesforce record');
+    }
+
+    console.log('✅ Step 2: Salesforce record created:', salesforceRecordId);
+
+    // Step 2: Create video generation record with Salesforce ID
+    console.log('📝 Step 3: Creating video generation record in Supabase...');
     
     const { data: videoGeneration, error: insertError } = await supabaseClient
       .from('video_generations')
@@ -78,6 +117,7 @@ serve(async (req) => {
         user_id: requestData.userId,
         status: 'pending',
         generation_data: generationData,
+        salesforce_record_id: salesforceRecordId, // Store Salesforce ID immediately
       })
       .select()
       .single();
@@ -87,13 +127,12 @@ serve(async (req) => {
       throw new Error('Failed to create video generation record');
     }
 
-    console.log('Created video generation record:', videoGeneration.id);
+    console.log('✅ Step 4: Video generation record created:', videoGeneration.id);
 
-    // For now, create a mock implementation that simulates video generation
-    // This allows us to test the authentication and database flow
+    // Step 3: Start video generation process
     const mockOperationName = `projects/${googleProjectId}/operations/mock-${videoGeneration.id}`;
     
-    console.log('Starting mock video generation...');
+    console.log('🎬 Step 5: Starting video generation...');
 
     // Update generation record with mock operation ID and status
     const { error: updateError } = await supabaseClient
@@ -116,6 +155,7 @@ serve(async (req) => {
       success: true,
       generationId: videoGeneration.id,
       operationId: mockOperationName,
+      salesforceRecordId: salesforceRecordId,
       message: 'Video generation started successfully (mock mode)',
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -168,8 +208,8 @@ async function mockGenerationProcess(generationId: string, operationName: string
         
         console.log(`Mock generation ${generationId} completed successfully`);
         
-        // Trigger Salesforce sync in background
-        EdgeRuntime.waitUntil(syncToSalesforce(generationId));
+        // Update existing Salesforce record with video URL
+        EdgeRuntime.waitUntil(updateSalesforceRecord(generationId, mockVideoUrl));
         
       } else {
         // Update progress
@@ -196,9 +236,9 @@ async function mockGenerationProcess(generationId: string, operationName: string
   }
 }
 
-// Background function to sync to Salesforce
-async function syncToSalesforce(generationId: string) {
-  console.log(`Starting Salesforce sync for generation ${generationId}`);
+// Background function to update existing Salesforce record with video URL
+async function updateSalesforceRecord(generationId: string, videoUrl: string) {
+  console.log(`🔄 Updating Salesforce record for generation ${generationId} with video URL`);
   
   const supabaseClient = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
@@ -218,56 +258,33 @@ async function syncToSalesforce(generationId: string) {
       return;
     }
 
-    const generationData = generation.generation_data;
-    const salesforceData = generationData.salesforceData || {};
-
-    // Prepare Salesforce record data
-    const salesforceRecord = {
-      Name: salesforceData.title || `AI Generated Video - ${new Date().toISOString()}`,
-      ri1__Subtitle__c: salesforceData.subtitle,
-      ri1__Description__c: salesforceData.description,
-      ri1__URL__c: generation.video_url,
-      ri1__Length_in_Seconds__c: generationData.duration,
-      ri1__Aspect_Ratio__c: generationData.aspectRatio,
-      AI_Prompt__c: generationData.prompt,
-      AI_Negative_Prompt__c: generationData.negativePrompt,
-      AI_Creativity_Level__c: generationData.creativity,
-      Generation_Status__c: generation.status.toUpperCase(),
-      Generation_Progress__c: generation.progress,
-      API_Operation_ID__c: generation.google_operation_id,
-      ri1__Categories__c: salesforceData.categories?.join(';'),
-      ri1__Template__c: salesforceData.template,
-      ri1__Location__c: salesforceData.location,
-      ri1__Track__c: salesforceData.track,
-      ri1__Scheduled_Date__c: salesforceData.scheduledDate,
-      ri1__Tags__c: salesforceData.tags?.join(';'),
-      ri1__Keywords__c: salesforceData.keywords?.join(';'),
-      // Set default values for required fields
-      ri1__Type__c: 'AI Generated',
-      ri1__Status__c: 'Generated',
-    };
-
-    console.log('Salesforce record to sync:', salesforceRecord);
-
-    // Submit to Salesforce using w2x-engine.php
-    const salesforceRecordId = await submitToSalesforce(salesforceRecord);
-    
-    if (salesforceRecordId) {
-      // Update generation record with Salesforce record ID
-      await supabaseClient
-        .from('video_generations')
-        .update({
-          salesforce_record_id: salesforceRecordId,
-        })
-        .eq('id', generationId);
-      
-      console.log(`Salesforce sync completed for generation ${generationId}, record ID: ${salesforceRecordId}`);
-    } else {
-      console.error(`Failed to sync generation ${generationId} to Salesforce`);
+    if (!generation.salesforce_record_id) {
+      console.error('No Salesforce record ID found for generation:', generationId);
+      return;
     }
 
+    console.log(`📝 Updating Salesforce record ${generation.salesforce_record_id} with video URL: ${videoUrl}`);
+
+    const generationData = generation.generation_data;
+
+    // Prepare update data for the existing Salesforce record
+    const updateData = {
+      ri1__URL__c: videoUrl,
+      Generation_Status__c: 'COMPLETED',
+      Generation_Progress__c: 100,
+      API_Operation_ID__c: generation.google_operation_id,
+      ri1__Status__c: 'Generated'
+    };
+
+    console.log('Salesforce update data:', updateData);
+
+    // TODO: Here we would update the existing Salesforce record
+    // For now, we'll just log that we would update it
+    // In a real implementation, you might use Salesforce REST API or another update method
+    console.log(`✅ Would update Salesforce record ${generation.salesforce_record_id} with completion data`);
+
   } catch (error) {
-    console.error(`Error syncing to Salesforce for generation ${generationId}:`, error);
+    console.error(`Error updating Salesforce record for generation ${generationId}:`, error);
   }
 }
 
