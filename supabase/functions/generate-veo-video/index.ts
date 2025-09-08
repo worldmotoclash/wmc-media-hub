@@ -274,15 +274,17 @@ async function syncToSalesforce(generationId: string) {
 // Function to submit data to Salesforce using direct HTTP POST
 async function submitToSalesforce(recordData: Record<string, any>): Promise<string | null> {
   try {
-    console.log('Submitting to Salesforce w2x-engine...');
+    console.log('🔄 Starting Salesforce w2x-engine submission...');
     
     // Prepare form data
     const formData = new FormData();
     
     // Add sObj field for ri1__Content__c
     formData.append('sObj', 'ri1__Content__c');
+    console.log('📝 Added sObj: ri1__Content__c');
 
     // Map record data to form fields
+    const formFields: Record<string, string> = {};
     Object.entries(recordData).forEach(([key, value]) => {
       if (value !== null && value !== undefined && value !== '') {
         // Determine field prefix based on data type
@@ -296,35 +298,68 @@ async function submitToSalesforce(recordData: Record<string, any>): Promise<stri
         }
         
         formData.append(fieldName, value.toString());
-        console.log(`Added form field: ${fieldName} = ${value}`);
+        formFields[fieldName] = value.toString();
+        console.log(`📝 Added form field: ${fieldName} = ${value}`);
       }
     });
+
+    // Create debug URL for manual testing
+    const debugUrl = createDebugUrl(formFields);
+    console.log('🔗 Debug URL (copy to browser to test manually):');
+    console.log(debugUrl);
+
+    // Log full request details
+    console.log('🚀 Submitting to: https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php');
+    console.log('📊 Total form fields:', Object.keys(formFields).length + 1); // +1 for sObj
 
     // Submit to Salesforce
     const response = await fetch('https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php', {
       method: 'POST',
       body: formData,
+      headers: {
+        'User-Agent': 'Supabase Edge Function'
+      }
     });
 
-    console.log('Salesforce response status:', response.status);
+    console.log('📈 Salesforce response status:', response.status);
+    console.log('📋 Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries())));
     
     if (response.ok) {
       const responseText = await response.text();
-      console.log('Salesforce response:', responseText.substring(0, 200) + '...');
+      console.log('✅ Salesforce response (first 500 chars):', responseText.substring(0, 500));
+      console.log('📝 Full response length:', responseText.length);
       
       // Try to extract record ID from response
       const recordId = extractRecordIdFromResponse(responseText);
-      console.log('Salesforce submission successful, record ID:', recordId || 'SUCCESS');
+      console.log('🎯 Extracted record ID:', recordId || 'No ID found');
       return recordId || 'SUCCESS';
     } else {
-      console.error('Salesforce submission failed with status:', response.status);
+      const errorText = await response.text();
+      console.error('❌ Salesforce submission failed with status:', response.status);
+      console.error('❌ Error response:', errorText);
       return null;
     }
 
   } catch (error) {
-    console.error('Error in submitToSalesforce:', error);
+    console.error('💥 Error in submitToSalesforce:', error);
     return null;
   }
+}
+
+// Helper function to create a debug URL for manual testing
+function createDebugUrl(formFields: Record<string, string>): string {
+  const baseUrl = 'https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php';
+  const params = new URLSearchParams();
+  
+  // Add sObj
+  params.append('sObj', 'ri1__Content__c');
+  
+  // Add all form fields
+  Object.entries(formFields).forEach(([key, value]) => {
+    params.append(key, value);
+  });
+  
+  return `${baseUrl}?${params.toString()}`;
 }
 
 // Helper function to extract record ID from response text
