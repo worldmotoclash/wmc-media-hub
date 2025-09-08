@@ -288,16 +288,24 @@ const MediaUpload: React.FC = () => {
 
   // Function to submit to Salesforce using iframe method with optional debug popup
   const submitToSalesforceViaFetch = async (salesforceData: Record<string, any>, generationId: string): Promise<void> => {
-    console.log(`[submitToSF] Starting Salesforce submission for generation ${generationId}...`);
-    console.log(`[submitToSF] Full salesforce data:`, salesforceData);
-    
-    // Prevent duplicate submissions for the same generation
-    const submissionKey = `sf_submission_${generationId}`;
-    if ((window as any)[submissionKey]) {
-      console.log(`[submitToSF] Already submitted for generation ${generationId}, skipping duplicate`);
+    // Prevent duplicate Salesforce submissions globally
+    if ((window as any).salesforceSubmissionInProgress) {
+      console.log(`[submitToSF] Salesforce submission already in progress, blocking duplicate`);
       return;
     }
-    (window as any)[submissionKey] = true;
+    (window as any).salesforceSubmissionInProgress = true;
+
+    try {
+      console.log(`[submitToSF] Starting Salesforce submission for generation ${generationId}...`);
+      console.log(`[submitToSF] Full salesforce data:`, salesforceData);
+
+      // Prevent duplicate submissions for the same generation
+      const submissionKey = `sf_submission_${generationId}`;
+      if ((window as any)[submissionKey]) {
+        console.log(`[submitToSF] Already submitted for generation ${generationId}, skipping duplicate`);
+        return;
+      }
+      (window as any)[submissionKey] = true;
     
     // MINIMAL REQUIRED FIELDS ONLY - Start simple and add more once working
     const fields: Record<string, string> = {
@@ -430,6 +438,13 @@ const MediaUpload: React.FC = () => {
         console.log(`[submitToSF] Iframe cleaned up`);
       }
     }, 5000);
+    
+    } finally {
+      // Always clean up the global lock after 10 seconds
+      setTimeout(() => {
+        (window as any).salesforceSubmissionInProgress = false;
+      }, 10000);
+    }
   };
 
   const handleTagAdd = (type: 'tags' | 'keywords' | 'categories', value: string) => {
