@@ -221,14 +221,10 @@ const MediaUpload: React.FC = () => {
         throw new Error(result.error || 'Unknown error occurred');
       }
 
-      // Open browser window to show Salesforce submission results
-      if (result.salesforceDebugUrl) {
-        console.log('Opening Salesforce debug URL:', result.salesforceDebugUrl);
-        window.open(result.salesforceDebugUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
-        toast({
-          title: "Salesforce Submission",
-          description: "Opened browser window to show Salesforce submission results",
-        });
+      // Submit to Salesforce using client-side iframe method
+      if (result.salesforceSubmissionData) {
+        console.log('Submitting to Salesforce using iframe method...');
+        await submitToSalesforceViaIframe(result.salesforceSubmissionData, result.generationId);
       }
 
       // Get the generation record to enable real-time updates
@@ -269,6 +265,115 @@ const MediaUpload: React.FC = () => {
         description: error instanceof Error ? error.message : 'Unknown error occurred',
         variant: "destructive",
       });
+    }
+  };
+
+  // Function to submit to Salesforce using iframe method (same as loginService)
+  const submitToSalesforceViaIframe = async (salesforceData: Record<string, any>, generationId: string): Promise<void> => {
+    try {
+      console.log('📝 Starting Salesforce iframe submission...');
+      
+      // Create a hidden iframe for submission
+      const trackingIframe = document.createElement('iframe');
+      trackingIframe.style.display = 'none';
+      
+      trackingIframe.onload = () => {
+        try {
+          console.log('📝 Iframe loaded, creating form...');
+          
+          const iframeDoc = trackingIframe.contentDocument || trackingIframe.contentWindow?.document;
+          if (!iframeDoc) {
+            console.error('❌ Could not access iframe document');
+            return;
+          }
+
+          const form = iframeDoc.createElement('form');
+          form.method = 'POST';
+          form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
+
+          // Add sObj field first
+          const sObjInput = iframeDoc.createElement('input');
+          sObjInput.type = 'hidden';
+          sObjInput.name = 'sObj';
+          sObjInput.value = 'ri1__Content__c';
+          form.appendChild(sObjInput);
+          console.log('📝 Added sObj: ri1__Content__c');
+
+          // Add all other fields with proper prefixes
+          Object.entries(salesforceData).forEach(([key, value]) => {
+            if (value !== null && value !== undefined && value !== '') {
+              const input = iframeDoc.createElement('input');
+              input.type = 'hidden';
+              
+              // Determine field prefix based on data type
+              let fieldName: string;
+              if (typeof value === 'number') {
+                fieldName = `number_${key}`;
+              } else if (key.includes('Date')) {
+                fieldName = `date_${key}`;
+              } else {
+                fieldName = `text_${key}`;
+              }
+              
+              input.name = fieldName;
+              input.value = value.toString();
+              form.appendChild(input);
+              console.log(`📝 Added field: ${fieldName} = ${value}`);
+            }
+          });
+
+          iframeDoc.body.appendChild(form);
+          console.log('🚀 Submitting form to Salesforce...');
+          form.submit();
+
+          // Open debug window to see results after a short delay
+          setTimeout(() => {
+            const debugParams = new URLSearchParams({
+              sObj: 'ri1__Content__c'
+            });
+            
+            Object.entries(salesforceData).forEach(([key, value]) => {
+              if (value !== null && value !== undefined && value !== '') {
+                let fieldName: string;
+                if (typeof value === 'number') {
+                  fieldName = `number_${key}`;
+                } else if (key.includes('Date')) {
+                  fieldName = `date_${key}`;
+                } else {
+                  fieldName = `text_${key}`;
+                }
+                debugParams.append(fieldName, value.toString());
+              }
+            });
+
+            const debugUrl = `https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php?${debugParams.toString()}`;
+            console.log('🔗 Opening debug window:', debugUrl);
+            window.open(debugUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+            
+            toast({
+              title: "Salesforce Submission",
+              description: "Submitted to Salesforce and opened debug window to show results",
+            });
+          }, 1000);
+          
+        } catch (err) {
+          console.error('❌ Error during form creation/submission:', err);
+        }
+      };
+      
+      document.body.appendChild(trackingIframe);
+      trackingIframe.src = 'about:blank';
+      
+      // Remove iframe after sufficient time
+      setTimeout(() => {
+        if (document.body.contains(trackingIframe)) {
+          document.body.removeChild(trackingIframe);
+          console.log('🗑️ Iframe removed');
+        }
+      }, 10000);
+      
+    } catch (error) {
+      console.error('❌ Error in Salesforce iframe submission:', error);
     }
   };
 

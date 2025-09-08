@@ -60,7 +60,6 @@ serve(async (req) => {
       throw new Error('Google VEO credentials not configured');
     }
 
-    // Step 1: Submit to Salesforce FIRST (before video generation)
     console.log('🚀 Step 1: Submitting to Salesforce first...');
     
     const salesforceData = requestData.salesforceData || {};
@@ -73,43 +72,8 @@ serve(async (req) => {
       salesforceData: salesforceData,
     };
 
-    // Prepare Salesforce record data for initial submission
-    const salesforceRecord = {
-      Name: salesforceData.title || `AI Generated Video - ${new Date().toISOString()}`,
-      ri1__Subtitle__c: salesforceData.subtitle || '',
-      ri1__Description__c: salesforceData.description || '',
-      ri1__URL__c: '', // Will be updated after video generation
-      ri1__Length_in_Seconds__c: generationData.duration,
-      ri1__Aspect_Ratio__c: generationData.aspectRatio,
-      AI_Prompt__c: generationData.prompt,
-      AI_Negative_Prompt__c: generationData.negativePrompt,
-      AI_Creativity_Level__c: generationData.creativity,
-      Generation_Status__c: 'PENDING',
-      Generation_Progress__c: 0,
-      API_Operation_ID__c: '', // Will be updated after generation starts
-      ri1__Categories__c: salesforceData.categories?.join(';') || '',
-      ri1__Template__c: salesforceData.template || '',
-      ri1__Location__c: salesforceData.location || '',
-      ri1__Track__c: salesforceData.track || '',
-      ri1__Scheduled_Date__c: salesforceData.scheduledDate || '',
-      ri1__Tags__c: salesforceData.tags?.join(';') || '',
-      ri1__Keywords__c: salesforceData.keywords?.join(';') || '',
-      ri1__Type__c: 'AI Generated',
-      ri1__Status__c: 'Generating'
-    };
-
-    // Submit to Salesforce first
-    const { recordId: salesforceRecordId, debugUrl } = await submitToSalesforce(salesforceRecord);
-    
-    if (!salesforceRecordId) {
-      console.error('❌ Salesforce submission failed - aborting video generation');
-      throw new Error('Failed to create Salesforce record');
-    }
-
-    console.log('✅ Step 2: Salesforce record created:', salesforceRecordId);
-
-    // Step 2: Create video generation record with Salesforce ID
-    console.log('📝 Step 3: Creating video generation record in Supabase...');
+    // Create Supabase record first, then we'll update it with Salesforce ID
+    console.log('📝 Step 2: Creating video generation record in Supabase...');
     
     const { data: videoGeneration, error: insertError } = await supabaseClient
       .from('video_generations')
@@ -117,7 +81,6 @@ serve(async (req) => {
         user_id: requestData.userId,
         status: 'pending',
         generation_data: generationData,
-        salesforce_record_id: salesforceRecordId, // Store Salesforce ID immediately
       })
       .select()
       .single();
@@ -127,12 +90,12 @@ serve(async (req) => {
       throw new Error('Failed to create video generation record');
     }
 
-    console.log('✅ Step 4: Video generation record created:', videoGeneration.id);
+    console.log('✅ Step 3: Video generation record created:', videoGeneration.id);
 
     // Step 3: Start video generation process
     const mockOperationName = `projects/${googleProjectId}/operations/mock-${videoGeneration.id}`;
     
-    console.log('🎬 Step 5: Starting video generation...');
+    console.log('🎬 Step 4: Starting video generation...');
 
     // Update generation record with mock operation ID and status
     const { error: updateError } = await supabaseClient
@@ -148,6 +111,31 @@ serve(async (req) => {
       console.error('Error updating video generation:', updateError);
     }
 
+    // Prepare data for client-side Salesforce submission
+    const salesforceSubmissionData = {
+      Name: salesforceData.title || `AI Generated Video - ${new Date().toISOString()}`,
+      ri1__Subtitle__c: salesforceData.subtitle || '',
+      ri1__Description__c: salesforceData.description || '',
+      ri1__URL__c: '', // Will be updated after video generation
+      ri1__Length_in_Seconds__c: generationData.duration,
+      ri1__Aspect_Ratio__c: generationData.aspectRatio,
+      AI_Prompt__c: generationData.prompt,
+      AI_Negative_Prompt__c: generationData.negativePrompt,
+      AI_Creativity_Level__c: generationData.creativity,
+      Generation_Status__c: 'PENDING',
+      Generation_Progress__c: 0,
+      API_Operation_ID__c: mockOperationName,
+      ri1__Categories__c: salesforceData.categories?.join(';') || '',
+      ri1__Template__c: salesforceData.template || '',
+      ri1__Location__c: salesforceData.location || '',
+      ri1__Track__c: salesforceData.track || '',
+      ri1__Scheduled_Date__c: salesforceData.scheduledDate || '',
+      ri1__Tags__c: salesforceData.tags?.join(';') || '',
+      ri1__Keywords__c: salesforceData.keywords?.join(';') || '',
+      ri1__Type__c: 'AI Generated',
+      ri1__Status__c: 'Generating'
+    };
+
     // Start background mock generation process
     EdgeRuntime.waitUntil(mockGenerationProcess(videoGeneration.id, mockOperationName));
 
@@ -155,8 +143,7 @@ serve(async (req) => {
       success: true,
       generationId: videoGeneration.id,
       operationId: mockOperationName,
-      salesforceRecordId: salesforceRecordId,
-      salesforceDebugUrl: debugUrl,
+      salesforceSubmissionData: salesforceSubmissionData,
       message: 'Video generation started successfully (mock mode)',
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
