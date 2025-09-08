@@ -277,98 +277,96 @@ const MediaUpload: React.FC = () => {
       const trackingIframe = document.createElement('iframe');
       trackingIframe.style.display = 'none';
       
-      trackingIframe.onload = () => {
-        try {
-          console.log('📝 Iframe loaded, creating form...');
-          
-          const iframeDoc = trackingIframe.contentDocument || trackingIframe.contentWindow?.document;
-          if (!iframeDoc) {
-            console.error('❌ Could not access iframe document');
-            return;
-          }
-
-          const form = iframeDoc.createElement('form');
-          form.method = 'POST';
-          form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
-
-          // Add sObj field first
-          const sObjInput = iframeDoc.createElement('input');
-          sObjInput.type = 'hidden';
-          sObjInput.name = 'sObj';
-          sObjInput.value = 'ri1__Content__c';
-          form.appendChild(sObjInput);
-          console.log('📝 Added sObj: ri1__Content__c');
-
-          // Add all other fields with proper prefixes
-          Object.entries(salesforceData).forEach(([key, value]) => {
-            if (value !== null && value !== undefined && value !== '') {
-              const input = iframeDoc.createElement('input');
-              input.type = 'hidden';
+          trackingIframe.onload = () => {
+            try {
+              console.log('📝 Iframe loaded, creating form...');
               
-              // Determine field prefix based on data type
-              let fieldName: string;
-              if (typeof value === 'number') {
-                fieldName = `number_${key}`;
-              } else if (key.includes('Date')) {
-                fieldName = `date_${key}`;
-              } else {
-                fieldName = `text_${key}`;
+              const iframeDoc = trackingIframe.contentDocument || trackingIframe.contentWindow?.document;
+              if (!iframeDoc) {
+                console.error('❌ Could not access iframe document');
+                return;
               }
+
+              // Create a simple test form with minimal fields to debug the sObj issue
+              const form = iframeDoc.createElement('form');
+              form.method = 'POST';
+              form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
               
-              input.name = fieldName;
-              input.value = value.toString();
-              form.appendChild(input);
-              console.log(`📝 Added field: ${fieldName} = ${value}`);
-            }
-          });
+              // Add sObj as the very first field
+              const sObjInput = iframeDoc.createElement('input');
+              sObjInput.type = 'hidden';
+              sObjInput.name = 'sObj';
+              sObjInput.value = 'ri1__Content__c';
+              form.appendChild(sObjInput);
+              console.log('📝 Added sObj field:', sObjInput.name, '=', sObjInput.value);
 
-          // Open debug window immediately to avoid popup blockers
-          const debugParams = new URLSearchParams({
-            sObj: 'ri1__Content__c'
-          });
-          
-          Object.entries(salesforceData).forEach(([key, value]) => {
-            if (value !== null && value !== undefined && value !== '') {
-              let fieldName: string;
-              if (typeof value === 'number') {
-                fieldName = `number_${key}`;
-              } else if (key.includes('Date')) {
-                fieldName = `date_${key}`;
+              // Add a simple test name field
+              const nameInput = iframeDoc.createElement('input');
+              nameInput.type = 'hidden';
+              nameInput.name = 'text_Name';
+              nameInput.value = 'Test Video Generation';
+              form.appendChild(nameInput);
+              console.log('📝 Added Name field:', nameInput.name, '=', nameInput.value);
+
+              // Add minimal required fields only
+              const requiredFields = {
+                'text_AI_Prompt__c': salesforceData.AI_Prompt__c || 'Test prompt',
+                'number_ri1__Length_in_Seconds__c': salesforceData.ri1__Length_in_Seconds__c || 5,
+                'text_ri1__Status__c': salesforceData.ri1__Status__c || 'Generating'
+              };
+
+              Object.entries(requiredFields).forEach(([fieldName, value]) => {
+                const input = iframeDoc.createElement('input');
+                input.type = 'hidden';
+                input.name = fieldName;
+                input.value = value.toString();
+                form.appendChild(input);
+                console.log(`📝 Added required field: ${fieldName} = ${value}`);
+              });
+
+              // Debug: Log form HTML before submission
+              console.log('🔍 Form HTML:', form.outerHTML);
+              
+              // Append form to iframe body
+              iframeDoc.body.appendChild(form);
+              
+              // Create debug URL with the same minimal fields
+              const debugParams = new URLSearchParams({
+                sObj: 'ri1__Content__c',
+                text_Name: 'Test Video Generation',
+                text_AI_Prompt__c: salesforceData.AI_Prompt__c || 'Test prompt',
+                number_ri1__Length_in_Seconds__c: (salesforceData.ri1__Length_in_Seconds__c || 5).toString(),
+                text_ri1__Status__c: salesforceData.ri1__Status__c || 'Generating'
+              });
+
+              const debugUrl = `https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php?${debugParams.toString()}`;
+              console.log('🔗 Debug URL (minimal test):', debugUrl);
+              
+              // Open debug window immediately
+              const debugWindow = window.open(debugUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+              
+              if (debugWindow) {
+                console.log('✅ Debug window opened successfully');
+                toast({
+                  title: "Salesforce Test Submission",
+                  description: "Testing minimal form with sObj - check debug window for results",
+                });
               } else {
-                fieldName = `text_${key}`;
+                console.warn('❌ Debug window blocked by popup blocker');
+                toast({
+                  title: "Popup Blocked", 
+                  description: "Please allow popups to see Salesforce submission results",
+                  variant: "destructive",
+                });
               }
-              debugParams.append(fieldName, value.toString());
+
+              console.log('🚀 Submitting form to Salesforce...');
+              form.submit();
+              
+            } catch (err) {
+              console.error('❌ Error during form creation/submission:', err);
             }
-          });
-
-          const debugUrl = `https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php?${debugParams.toString()}`;
-          console.log('🔗 Opening debug window:', debugUrl);
-          
-          // Open debug window immediately
-          const debugWindow = window.open(debugUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
-          
-          if (debugWindow) {
-            console.log('✅ Debug window opened successfully');
-            toast({
-              title: "Salesforce Submission",
-              description: "Submitted to Salesforce and opened debug window to show results",
-            });
-          } else {
-            console.warn('❌ Debug window blocked by popup blocker');
-            toast({
-              title: "Popup Blocked",
-              description: "Please allow popups to see Salesforce submission results",
-              variant: "destructive",
-            });
-          }
-
-          console.log('🚀 Submitting form to Salesforce...');
-          form.submit();
-          
-        } catch (err) {
-          console.error('❌ Error during form creation/submission:', err);
-        }
-      };
+          };
       
       document.body.appendChild(trackingIframe);
       trackingIframe.src = 'about:blank';
