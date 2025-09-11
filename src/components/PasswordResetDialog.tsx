@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { fetchInvestorData } from '@/services/loginService';
+import { fetchMemberByEmail } from '@/services/loginService';
 import { requestPasswordReset } from '@/services/passwordResetService';
 
 interface PasswordResetDialogProps {
@@ -48,14 +48,9 @@ const PasswordResetDialog: React.FC<PasswordResetDialogProps> = ({
     setErrorMessage('');
     
     try {
-      // First, fetch investor data to find the contact ID
+      // Fetch the specific investor data by email
       console.log('Fetching investor data to find contact ID for:', email);
-      const investorData = await fetchInvestorData();
-      
-      // Find the investor by email (case-insensitive)
-      const investor = investorData.find((inv: any) => 
-        inv.email && inv.email.toLowerCase() === email.toLowerCase()
-      );
+      const investor = await fetchMemberByEmail(email);
       
       if (!investor) {
         setErrorMessage('Email not found. Please check your email address.');
