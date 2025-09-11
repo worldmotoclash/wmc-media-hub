@@ -258,14 +258,32 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
         body: JSON.stringify(veoRequest),
       }
     );
+    // Safely parse response (JSON or text)
+    const contentType = veoResponse.headers.get('content-type') || '';
+    let responseData: any = null;
+    let rawBody: string | null = null;
+    try {
+      if (contentType.includes('application/json')) {
+        responseData = await veoResponse.json();
+      } else {
+        rawBody = await veoResponse.text();
+      }
+    } catch (e) {
+      // Fallback to text if JSON parsing fails
+      try { rawBody = await veoResponse.text(); } catch {}
+    }
 
-    const responseData = await veoResponse.json();
     console.log('📋 VEO API Response Status:', veoResponse.status);
-    console.log('📄 Response data keys:', Object.keys(responseData));
+    if (responseData) {
+      console.log('📄 Response data keys:', Object.keys(responseData));
+    } else {
+      console.log('📄 Non-JSON response body (first 200 chars):', (rawBody || '').slice(0, 200));
+    }
     
     if (!veoResponse.ok) {
-      console.error('❌ VEO API Error Response:', JSON.stringify(responseData, null, 2));
-      throw new Error(`VEO API Error (${veoResponse.status}): ${responseData.error?.message || JSON.stringify(responseData)}`);
+      console.error('❌ VEO API Error Response:', responseData ? JSON.stringify(responseData, null, 2) : (rawBody || '<empty>'));
+      const errMsg = responseData?.error?.message || (rawBody ? rawBody.slice(0, 200) : 'Unknown error');
+      throw new Error(`VEO API Error (${veoResponse.status}): ${errMsg}`);
     }
 
     // Update progress: Processing response
@@ -277,7 +295,7 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       .eq('id', generationId);
 
     // Check if response contains video content
-    if (responseData.candidates && responseData.candidates[0]?.content?.parts) {
+    if (responseData && responseData.candidates && responseData.candidates[0]?.content?.parts) {
       const parts = responseData.candidates[0].content.parts;
       console.log('📹 Response parts:', parts.length);
       
@@ -309,7 +327,7 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
           .eq('id', generationId);
         
         console.log(`✅ VEO generation ${generationId} completed successfully`);
-        console.log(`🎥 Video URL: ${videoUrl.substring(0, 100)}...`);
+        console.log(`🎥 Video URL: ${String(videoUrl).substring(0, 100)}...`);
         
       } else {
         console.error('❌ No video content found in VEO response parts');
@@ -317,8 +335,10 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
         throw new Error('No video content found in VEO API response');
       }
     } else {
-      console.error('❌ Invalid VEO response structure');
-      console.log('📄 Full response for debugging:', JSON.stringify(responseData, null, 2));
+      console.error('❌ Invalid or empty VEO response structure');
+      if (responseData) {
+        console.log('📄 Full response for debugging:', JSON.stringify(responseData, null, 2));
+      }
       throw new Error('Invalid response structure from VEO API - no candidates found');
     }
     
@@ -350,13 +370,30 @@ async function getAccessToken(credentials: any): Promise<string> {
     body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
   });
   
-  const tokenData = await tokenResponse.json();
-  
-  if (!tokenResponse.ok) {
-    throw new Error(`Failed to get access token: ${tokenData.error_description}`);
+  // Safely parse token response
+  let tokenData: any = null;
+  let tokenRaw: string | null = null;
+  try {
+    const ct = tokenResponse.headers.get('content-type') || '';
+    if (ct.includes('application/json')) {
+      tokenData = await tokenResponse.json();
+    } else {
+      tokenRaw = await tokenResponse.text();
+    }
+  } catch (e) {
+    try { tokenRaw = await tokenResponse.text(); } catch {}
   }
   
-  return tokenData.access_token;
+  if (!tokenResponse.ok) {
+    const msg = tokenData?.error_description || tokenData?.error || (tokenRaw ? tokenRaw.slice(0, 200) : 'Unknown token error');
+    throw new Error(`Failed to get access token: ${msg}`);
+  }
+  
+  const access = tokenData?.access_token;
+  if (!access) {
+    throw new Error('Access token missing from token response');
+  }
+  return access;
 }
 
 // Helper function to create JWT for service account authentication
