@@ -259,27 +259,49 @@ const MediaUpload: React.FC = () => {
         await submitToSalesforceViaFetch(result.salesforceSubmissionData, result.generationId);
       }
 
-      // Get the generation record to enable real-time updates
-      const { data: generationRecord, error: fetchError } = await supabase
-        .from('video_generations')
-        .select('*')
-        .eq('id', result.generationId)
-        .single();
+      // Seed currentGeneration using public edge function (bypasses RLS)
+      try {
+        const { data: statusData, error: statusError } = await supabase.functions.invoke('get-video-generation', {
+          body: { id: result.generationId },
+        });
 
-      if (fetchError) {
-        console.error('Error fetching generation record:', fetchError);
-      } else {
-        const typedRecord: VideoGeneration = {
-          id: generationRecord.id,
-          status: generationRecord.status as 'pending' | 'generating' | 'completed' | 'failed',
-          progress: generationRecord.progress,
-          generation_data: generationRecord.generation_data,
-          video_url: generationRecord.video_url,
-          error_message: generationRecord.error_message,
-          created_at: generationRecord.created_at,
-          updated_at: generationRecord.updated_at,
-        };
-        setCurrentGeneration(typedRecord);
+        if (statusError) {
+          console.warn('Status function error, falling back to minimal seed:', statusError);
+        }
+
+        if (statusData?.success) {
+          const typedRecord: VideoGeneration = {
+            id: statusData.id,
+            status: statusData.status,
+            progress: statusData.progress,
+            generation_data: { model: statusData.model },
+            video_url: statusData.video_url,
+            error_message: statusData.error_message,
+            created_at: statusData.updated_at,
+            updated_at: statusData.updated_at,
+          };
+          setCurrentGeneration(typedRecord);
+        } else {
+          // Minimal seed to start polling
+          setCurrentGeneration({
+            id: result.generationId,
+            status: 'generating',
+            progress: 10,
+            generation_data: { model: genData.model },
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          } as VideoGeneration);
+        }
+      } catch (e) {
+        console.warn('Seeding generation failed, using minimal seed:', e);
+        setCurrentGeneration({
+          id: result.generationId,
+          status: 'generating',
+          progress: 10,
+          generation_data: { model: genData.model },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as VideoGeneration);
       }
 
       setGenerationStatus('Video is being generated...');
