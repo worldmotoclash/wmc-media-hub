@@ -96,36 +96,43 @@ const MediaUpload: React.FC = () => {
     }
   }, [user, navigate, toast]);
 
-  // Real-time subscription for generation updates
+  // Polling subscription for generation updates (replaces real-time due to RLS issues)
   useEffect(() => {
     if (!user || !currentGeneration) return;
 
-    const subscription = supabase
-      .channel('video-generation-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'video_generations',
-          filter: `id=eq.${currentGeneration.id}`,
-        },
-        (payload) => {
-          const updatedGeneration = payload.new as any;
+    console.log(`🔄 Starting polling for generation ${currentGeneration.id}`);
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        const { data: statusData, error } = await supabase.functions.invoke('get-video-generation', {
+          body: { id: currentGeneration.id },
+        });
+
+        if (error) {
+          console.error('Error polling generation status:', error);
+          return;
+        }
+
+        if (statusData?.success) {
+          const updatedGeneration = statusData;
           const typedGeneration: VideoGeneration = {
             id: updatedGeneration.id,
             status: updatedGeneration.status as 'pending' | 'generating' | 'completed' | 'failed',
             progress: updatedGeneration.progress,
-            generation_data: updatedGeneration.generation_data,
+            generation_data: { model: updatedGeneration.model }, // simplified for now
             video_url: updatedGeneration.video_url,
             error_message: updatedGeneration.error_message,
-            created_at: updatedGeneration.created_at,
+            created_at: updatedGeneration.updated_at,
             updated_at: updatedGeneration.updated_at,
           };
+          
           setCurrentGeneration(typedGeneration);
           setGenerationProgress(typedGeneration.progress);
           
+          console.log(`📊 Generation ${currentGeneration.id}: ${typedGeneration.status} (${typedGeneration.progress}%)`);
+          
           if (updatedGeneration.status === 'completed') {
+            clearInterval(pollInterval);
             setGenerationStatus('Video generated successfully!');
             setIsGenerating(false);
             toast({
@@ -138,6 +145,7 @@ const MediaUpload: React.FC = () => {
               navigate('/admin/media/library');
             }, 2000);
           } else if (updatedGeneration.status === 'failed') {
+            clearInterval(pollInterval);
             setGenerationStatus('Generation failed');
             setIsGenerating(false);
             toast({
@@ -149,11 +157,15 @@ const MediaUpload: React.FC = () => {
             setGenerationStatus(`Generating video... ${updatedGeneration.progress}%`);
           }
         }
-      )
-      .subscribe();
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 3000); // Poll every 3 seconds
 
+    // Cleanup interval on component unmount or when generation changes
     return () => {
-      subscription.unsubscribe();
+      clearInterval(pollInterval);
+      console.log(`⏹️ Stopped polling for generation ${currentGeneration.id}`);
     };
   }, [user, currentGeneration, navigate, toast]);
 

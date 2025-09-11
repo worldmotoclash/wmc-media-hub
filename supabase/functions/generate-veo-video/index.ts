@@ -14,6 +14,8 @@ interface VeoGenerationRequest {
   duration?: number;
   aspectRatio?: string;
   creativity?: number;
+  model?: 'veo-2' | 'veo-3';
+  location?: string;
   salesforceData?: Record<string, any>;
 }
 
@@ -49,12 +51,19 @@ Deno.serve(async (req) => {
     }
 
     const salesforceData = requestData.salesforceData || {};
+    const model = requestData.model || 'veo-3';
+    const location = requestData.location || 'us-central1';
+    
+    console.log(`🎯 Using model: ${model} in location: ${location}`);
+    
     const generationData = {
       prompt: requestData.prompt,
       negativePrompt: requestData.negativePrompt,
       duration: requestData.duration || 5,
       aspectRatio: requestData.aspectRatio || '16:9',
       creativity: requestData.creativity || 0.5,
+      model: model,
+      location: location,
       salesforceData: salesforceData,
     };
 
@@ -123,7 +132,7 @@ Deno.serve(async (req) => {
     };
 
     // Start real VEO generation process
-    EdgeRuntime.waitUntil(startVeoGeneration(videoGeneration.id, generationData, googleProjectId, googleApiKey));
+    EdgeRuntime.waitUntil(startVeoGeneration(videoGeneration.id, generationData, googleProjectId, googleApiKey, model, location));
 
     return new Response(JSON.stringify({
       success: true,
@@ -148,7 +157,7 @@ Deno.serve(async (req) => {
 });
 
 // Real VEO generation process using Google Vertex AI
-async function startVeoGeneration(generationId: string, generationData: any, projectId: string, apiKey: string) {
+async function startVeoGeneration(generationId: string, generationData: any, projectId: string, apiKey: string, model: string, location: string) {
   console.log(`🎬 Starting real VEO generation for ${generationId}`);
   
   const supabaseClient = createClient(
@@ -195,12 +204,12 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
           text: `Create a ${generationData.duration}-second video in ${generationData.aspectRatio} aspect ratio: ${generationData.prompt}`
         }]
       }],
-      generation_config: {
+      generationConfig: {
         // Remove invalid parameters - VEO doesn't use response_modalities or response_mime_type
-        max_output_tokens: 1024,
+        maxOutputTokens: 1024,
         ...(generationData.creativity && generationData.creativity !== 1.0 && { temperature: generationData.creativity })
       },
-      safety_settings: [
+      safetySettings: [
         {
           category: "HARM_CATEGORY_HATE_SPEECH",
           threshold: "BLOCK_MEDIUM_AND_ABOVE"
@@ -236,9 +245,10 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       })
       .eq('id', generationId);
     
-    // Call Vertex AI VEO API
+    // Call Vertex AI VEO API using v1beta endpoint with correct model
+    console.log(`🔧 Calling VEO ${model} via v1beta endpoint in ${location}`);
     const veoResponse = await fetch(
-      `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/veo-001:generateContent`,
+      `https://${location}-aiplatform.googleapis.com/v1beta/projects/${projectId}/locations/${location}/publishers/google/models/${model}:generateContent`,
       {
         method: 'POST',
         headers: {
