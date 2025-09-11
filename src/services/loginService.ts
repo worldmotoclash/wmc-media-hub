@@ -140,40 +140,45 @@ export const getIPLocation = async (ip: string): Promise<{country: string, city:
   }
 };
 
-// Fetch investor data from the API
-export const fetchInvestorData = async () => {
-  const apiUrl = `https://api.realintelligence.com/api/specific-investor-list.py?orgId=00D5e000000HEcP&campaignId=7014V000002lcY2&sandbox=False`;
+// Fetch member data by email from the new efficient API
+export const fetchMemberByEmail = async (email: string) => {
+  const apiUrl = `https://api.realintelligence.com/api/specific-wmc-member-email.py?orgId=00D5e000000HEcP&email=${encodeURIComponent(email)}&sandbox=False`;
   
   const response = await fetch(apiUrl);
   
   if (!response.ok) {
-    throw new Error('Failed to fetch investor data');
+    throw new Error('Failed to fetch member data');
   }
   
   const contentType = response.headers.get('content-type');
-  let data;
 
   if (contentType?.includes('xml')) {
     // Parse XML response
     const text = await response.text();
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(text, 'text/xml');
-    const memberElements = xmlDoc.getElementsByTagName('member');
+    const memberElement = xmlDoc.getElementsByTagName('member')[0];
     
-    return Array.from(memberElements).map(member => ({
-      id: member.getElementsByTagName('id')[0]?.textContent || '',
-      email: member.getElementsByTagName('email')[0]?.textContent || '',
-      ripassword: member.getElementsByTagName('ripassword')[0]?.textContent || '',
-      name: member.getElementsByTagName('name')[0]?.textContent || '',
-      status: member.getElementsByTagName('status')[0]?.textContent || '',
-      phone: member.getElementsByTagName('phone')[0]?.textContent || '',
-      mobile: member.getElementsByTagName('mobile')[0]?.textContent || '',
-      mailingstreet: member.getElementsByTagName('mailingstreet')[0]?.textContent || '',
-      ipaddress: member.getElementsByTagName('ipaddress')[0]?.textContent || ''
-    }));
+    if (!memberElement) {
+      return null; // No member found
+    }
+    
+    return {
+      id: memberElement.getElementsByTagName('id')[0]?.textContent || '',
+      email: memberElement.getElementsByTagName('email')[0]?.textContent || '',
+      ripassword: memberElement.getElementsByTagName('ripassword')[0]?.textContent || '',
+      name: memberElement.getElementsByTagName('name')[0]?.textContent || '',
+      status: memberElement.getElementsByTagName('status')[0]?.textContent || '',
+      phone: memberElement.getElementsByTagName('phone')[0]?.textContent || '',
+      mobile: memberElement.getElementsByTagName('mobile')[0]?.textContent || '',
+      mailingstreet: memberElement.getElementsByTagName('mailingstreet')[0]?.textContent || '',
+      ipaddress: memberElement.getElementsByTagName('ipaddress')[0]?.textContent || '',
+      mediahubaccess: memberElement.getElementsByTagName('mediahubaccess')[0]?.textContent || 'Viewer'
+    };
   } else {
-    // Assume JSON response
-    return await response.json();
+    // Assume JSON response - parse first member if it's an array
+    const data = await response.json();
+    return Array.isArray(data) && data.length > 0 ? data[0] : data;
   }
 };
 
@@ -391,14 +396,7 @@ export const trackDocumentClick = async (
 // Authenticate user
 export const authenticateUser = async (email: string, password: string, isGoogleAuth: boolean = false): Promise<User | null> => {
   try {
-    const data = await fetchInvestorData();
-    
-    console.log('Parsed investor data:', data);
-    
-    // Find the investor by email (case-insensitive comparison)
-    const investor = data.find((inv: any) => 
-      inv.email && inv.email.toLowerCase() === email.toLowerCase()
-    );
+    const investor = await fetchMemberByEmail(email);
     
     console.log('Found investor:', investor);
     
@@ -451,6 +449,9 @@ export const authenticateUser = async (email: string, password: string, isGoogle
         // Set ndaSigned based on investor status
         const isQualifiedOrSecured = investor.status === "Qualified Investor" || investor.status === "Secured Investor";
         
+        // Determine media hub access level with fallback
+        const mediaHubAccess = investor.mediahubaccess as 'Admin' | 'Editor' | 'Viewer' || 'Viewer';
+        
         // Return user data
         const userData: User = {
           id: investor.id,
@@ -461,7 +462,8 @@ export const authenticateUser = async (email: string, password: string, isGoogle
           mobile: investor.mobile,
           mailingstreet: investor.mailingstreet,
           ipaddress: investor.ipaddress,
-          ndaSigned: isQualifiedOrSecured // Set ndaSigned based on investor status
+          ndaSigned: isQualifiedOrSecured, // Set ndaSigned based on investor status
+          mediaHubAccess: mediaHubAccess
         };
         
         // Track the successful login
