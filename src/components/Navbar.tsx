@@ -3,8 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AnimatedLogo from './AnimatedLogo';
-import { Button } from '@/components/ui/button';
 import { useUser } from '@/contexts/UserContext';
+import ProfileDropdown from '@/components/ui/profile-dropdown';
 
 const Navbar: React.FC = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -51,73 +51,17 @@ const Navbar: React.FC = () => {
         </div>
         
         <nav className="hidden md:flex items-center space-x-8">
-          {user ? (
-            <>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2, duration: 0.5 }}
-              >
-                <Link
-                  to="/admin/media/library"
-                  className="text-sm font-medium hover:text-gray-600 transition-colors"
-                >
-                  Media Library
-                </Link>
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3, duration: 0.5 }}
-              >
-                <Link
-                  to="/admin/media/upload"
-                  className="text-sm font-medium hover:text-gray-600 transition-colors"
-                >
-                  Upload
-                </Link>
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.4, duration: 0.5 }}
-              >
-                <Button 
-                  onClick={handleLogout}
-                  variant="outline" 
-                  className="border-science-blue text-science-blue hover:bg-science-blue/5"
-                >
-                  Logout
-                </Button>
-              </motion.div>
-            </>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5, duration: 0.5 }}
-            >
-              <Button asChild className="bg-science-blue hover:bg-science-blue/80 text-white rounded-md">
-                <Link to="/login">Login</Link>
-              </Button>
-            </motion.div>
-          )}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+          >
+            <ProfileDropdown onSignOut={handleLogout} variant="navbar" />
+          </motion.div>
         </nav>
         
         <div className="md:hidden">
-          {user ? (
-            <Button 
-              onClick={handleLogout}
-              variant="outline" 
-              className="border-science-blue text-science-blue hover:bg-science-blue/5"
-            >
-              Logout
-            </Button>
-          ) : (
-            <Button asChild variant="outline" className="border-science-blue text-science-blue hover:bg-science-blue/5">
-              <Link to="/login">Login</Link>
-            </Button>
-          )}
+          <ProfileDropdown onSignOut={handleLogout} variant="navbar" />
         </div>
       </div>
     </motion.header>
