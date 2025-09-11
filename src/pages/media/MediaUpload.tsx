@@ -334,7 +334,7 @@ const MediaUpload: React.FC = () => {
       const fields: Record<string, string> = {
         'sObj': 'ri1__Content__c',
         'string_Name': salesforceData.Name || `AI Video - ${new Date().toISOString()}`,
-        'string_AI_Prompt__c': salesforceData.AI_Prompt__c || '',
+        'string_ri1__AI_Prompt__c': salesforceData.AI_Prompt__c || '',
         'number_ri1__Length_in_Seconds__c': String(salesforceData.ri1__Length_in_Seconds__c || 5),
         'id_ri1__Contact__c': salesforceData.ri1__Contact__c || '',
         'string_ri1__Categories__c': salesforceData.ri1__Categories__c || '',
