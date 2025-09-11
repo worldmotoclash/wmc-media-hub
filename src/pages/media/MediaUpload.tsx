@@ -60,6 +60,7 @@ const MediaUpload: React.FC = () => {
   // AI Generation form state with Salesforce fields
   const [genData, setGenData] = useState({
     provider: 'veo',
+    model: 'veo-3',
     mainPrompt: '',
     negativePrompt: '',
     duration: [5],
@@ -226,6 +227,7 @@ const MediaUpload: React.FC = () => {
           duration: genData.duration[0],
           aspectRatio: genData.aspectRatio,
           creativity: genData.creativity[0],
+          model: genData.model,
           salesforceData,
         },
       });
@@ -572,6 +574,24 @@ const MediaUpload: React.FC = () => {
                     {/* AI Generation Settings */}
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold">AI Generation Settings</h3>
+                      
+                      <div>
+                        <Label htmlFor="model" className="text-sm font-medium">
+                          Model <span className="text-destructive">*</span>
+                        </Label>
+                        <Select 
+                          value={genData.model} 
+                          onValueChange={(value) => setGenData({...genData, model: value})}
+                        >
+                          <SelectTrigger className="mt-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="veo-2">VEO 2</SelectItem>
+                            <SelectItem value="veo-3">VEO 3</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                       
                       <div>
                         <Label htmlFor="mainPrompt" className="text-sm font-medium">
