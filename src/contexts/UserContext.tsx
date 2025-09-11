@@ -26,7 +26,6 @@ export interface UserContextType {
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  console.log('UserProvider initializing...');
   const [user, setUser] = useState<User | null>(null);
 
   const isAdmin = () => user?.mediaHubAccess === 'Admin';
@@ -36,22 +35,16 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return user.mediaHubAccess === 'Admin' || user.id === videoUserId;
   };
 
-  const contextValue = { user, setUser, isAdmin, isEditor, canDelete };
-  console.log('UserProvider context value:', contextValue);
-
   return (
-    <UserContext.Provider value={contextValue}>
+    <UserContext.Provider value={{ user, setUser, isAdmin, isEditor, canDelete }}>
       {children}
     </UserContext.Provider>
   );
 };
 
 export const useUser = (): UserContextType => {
-  console.log('useUser hook called');
   const context = useContext(UserContext);
-  console.log('useUser context:', context);
   if (context === undefined) {
-    console.error('useUser called outside of UserProvider!');
     throw new Error('useUser must be used within a UserProvider');
   }
   return context;

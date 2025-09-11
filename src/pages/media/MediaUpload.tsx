@@ -286,164 +286,66 @@ const MediaUpload: React.FC = () => {
     }
   };
 
-  // Function to submit to Salesforce using iframe method with optional debug popup
   const submitToSalesforceViaFetch = async (salesforceData: Record<string, any>, generationId: string): Promise<void> => {
-    // Prevent duplicate Salesforce submissions globally
-    if ((window as any).salesforceSubmissionInProgress) {
-      console.log(`[submitToSF] Salesforce submission already in progress, blocking duplicate`);
+    // Prevent duplicate submissions for the same generation
+    const submissionKey = `sf_submission_${generationId}`;
+    if ((window as any)[submissionKey]) {
       return;
     }
-    (window as any).salesforceSubmissionInProgress = true;
+    (window as any)[submissionKey] = true;
 
     try {
-      console.log(`[submitToSF] Starting Salesforce submission for generation ${generationId}...`);
-      console.log(`[submitToSF] Full salesforce data:`, salesforceData);
-
-      // Prevent duplicate submissions for the same generation
-      const submissionKey = `sf_submission_${generationId}`;
-      if ((window as any)[submissionKey]) {
-        console.log(`[submitToSF] Already submitted for generation ${generationId}, skipping duplicate`);
-        return;
-      }
-      (window as any)[submissionKey] = true;
-    
-    // MINIMAL REQUIRED FIELDS ONLY - Start simple and add more once working
-    const fields: Record<string, string> = {
-      'sObj': 'ri1__Content__c',
+      const fields: Record<string, string> = {
+        'sObj': 'ri1__Content__c',
+        'string_Name': salesforceData.Name || `AI Video - ${new Date().toISOString()}`,
+        'string_AI_Prompt__c': salesforceData.AI_Prompt__c || '',
+        'number_ri1__Length_in_Seconds__c': String(salesforceData.ri1__Length_in_Seconds__c || 5),
+        'id_ri1__Contact__c': salesforceData.ri1__Contact__c || '',
+        'string_ri1__Categories__c': salesforceData.ri1__Categories__c || '',
+        'string_ri1__Subtitle__c': salesforceData.ri1__Subtitle__c || '',
+      };
       
-      // Essential fields only
-      'string_Name': salesforceData.Name || `AI Video - ${new Date().toISOString()}`,
-      'string_AI_Prompt__c': salesforceData.AI_Prompt__c || '',
-      'number_ri1__Length_in_Seconds__c': String(salesforceData.ri1__Length_in_Seconds__c || 5),
-      'id_ri1__Contact__c': salesforceData.ri1__Contact__c || '', // Fixed: Use id_ prefix for ID fields
+      // Hidden iframe for background submission
+      const trackingIframe = document.createElement('iframe');
+      trackingIframe.style.display = 'none';
       
-      // Adding more fields gradually
-      'string_ri1__Categories__c': salesforceData.ri1__Categories__c || '',
-      'string_ri1__Subtitle__c': salesforceData.ri1__Subtitle__c || '',
-    };
-    
-    // Enhanced logging - show each field value
-    console.log(`[submitToSF] FIELDS (now with Categories and Subtitle):`);
-    console.log(`[submitToSF] - sObj: "${fields.sObj}"`);
-    console.log(`[submitToSF] - Name: "${fields.string_Name}"`);
-    console.log(`[submitToSF] - AI_Prompt__c: "${fields.string_AI_Prompt__c}"`);
-    console.log(`[submitToSF] - ri1__Length_in_Seconds__c: "${fields['number_ri1__Length_in_Seconds__c']}"`);
-    console.log(`[submitToSF] - ri1__Contact__c: "${fields['id_ri1__Contact__c']}"`);
-    console.log(`[submitToSF] - ri1__Categories__c: "${fields['string_ri1__Categories__c']}"`);
-    console.log(`[submitToSF] - ri1__Subtitle__c: "${fields['string_ri1__Subtitle__c']}"`);
-    console.log(`[submitToSF] Total fields count:`, Object.keys(fields).length);
-    
-    console.log(`[submitToSF] Prepared fields:`, fields);
-    
-    // 1. Hidden iframe for background tracking (keeps existing functionality)
-    const trackingIframe = document.createElement('iframe');
-    trackingIframe.style.display = 'none';
-    
-    trackingIframe.onload = () => {
-      try {
-        console.log(`[submitToSF] Iframe loaded, creating form...`);
-        
-        const iframeDoc = trackingIframe.contentDocument || trackingIframe.contentWindow?.document;
-        if (!iframeDoc) {
-          console.log(`[submitToSF] ERROR: Could not access iframe document`);
-          return;
-        }
+      trackingIframe.onload = () => {
+        try {
+          const iframeDoc = trackingIframe.contentDocument || trackingIframe.contentWindow?.document;
+          if (!iframeDoc) return;
 
-        const form = iframeDoc.createElement('form');
-        form.method = 'POST';
-        form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
+          const form = iframeDoc.createElement('form');
+          form.method = 'POST';
+          form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
+            
+          Object.entries(fields).forEach(([name, value]) => {
+            const input = iframeDoc.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            form.appendChild(input);
+          });
+
+          iframeDoc.body.appendChild(form);
+          form.submit();
           
-        Object.entries(fields).forEach(([name, value]) => {
-          const input = iframeDoc.createElement('input');
-          input.type = 'hidden';
-          input.name = name;
-          input.value = value;
-          form.appendChild(input);
-          console.log(`[submitToSF] Added field: ${name} = ${value}`);
-        });
-
-        iframeDoc.body.appendChild(form);
-        console.log(`[submitToSF] Submitting form for: ri1__Content__c`);
-        form.submit();
-        
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown iframe error';
-        console.log(`[submitToSF] Error during form creation/submission: ${errorMessage}`);
-      }
-    };
-    
-    document.body.appendChild(trackingIframe);
-    trackingIframe.src = 'about:blank';
-    
-    // 2. Debug popup window (shows Salesforce submission result using POST)
-    try {
-      // Create a new popup window with a form that will POST the data
-      const popup = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+        } catch (err) {
+          console.error('Salesforce submission error:', err);
+        }
+      };
       
-      if (!popup) {
-        console.log(`[submitToSF] Popup blocked - you may need to allow popups for this site`);
-        toast({
-          title: "Popup Blocked",
-          description: "Please allow popups to see Salesforce submission result",
-        });
-      } else {
-        // Write HTML with a form that will POST to Salesforce
-        const formHtml = `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Salesforce Submission</title>
-          </head>
-          <body>
-            <h2>Submitting to Salesforce...</h2>
-            <form id="salesforceForm" method="POST" action="https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php">
-              ${Object.entries(fields).map(([name, value]) => 
-                `<input type="hidden" name="${name}" value="${value}">`
-              ).join('')}
-              <p>Data being sent:</p>
-              <ul>
-                ${Object.entries(fields).map(([name, value]) => 
-                  `<li><strong>${name}:</strong> ${value}</li>`
-                ).join('')}
-              </ul>
-              <button type="submit">Submit to Salesforce</button>
-            </form>
-            <script>
-              // Auto-submit the form after a short delay
-              setTimeout(() => {
-                document.getElementById('salesforceForm').submit();
-              }, 1000);
-            </script>
-          </body>
-          </html>
-        `;
-        
-        popup.document.write(formHtml);
-        popup.document.close();
-        
-        console.log(`[submitToSF] Debug popup opened with POST form`);
-        toast({
-          title: "Salesforce Submission Sent",
-          description: "Check the popup window for results - form will auto-submit",
-        });
-      }
-    } catch (popupErr) {
-      console.log(`[submitToSF] Error opening popup: ${popupErr}`);
-    }
-    
-    // Remove iframe after sufficient time for request to complete
-    setTimeout(() => {
-      if (document.body.contains(trackingIframe)) {
-        document.body.removeChild(trackingIframe);
-        console.log(`[submitToSF] Iframe cleaned up`);
-      }
-    }, 5000);
-    
-    } finally {
-      // Always clean up the global lock after 10 seconds
+      document.body.appendChild(trackingIframe);
+      trackingIframe.src = 'about:blank';
+      
+      // Remove iframe after submission
       setTimeout(() => {
-        (window as any).salesforceSubmissionInProgress = false;
-      }, 10000);
+        if (document.body.contains(trackingIframe)) {
+          document.body.removeChild(trackingIframe);
+        }
+      }, 5000);
+      
+    } catch (error) {
+      console.error('Salesforce submission error:', error);
     }
   };
 
