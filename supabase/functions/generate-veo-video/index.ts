@@ -41,18 +41,17 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
 
-    // Get Google VEO credentials
+    // Get Google VEO configuration
     const googleProjectId = Deno.env.get('GOOGLE_VEO_PROJECT_ID');
-    const googleApiKey = Deno.env.get('GOOGLE_VEO_API_KEY');
 
-    if (!googleProjectId || !googleApiKey) {
-      console.error('Missing Google VEO credentials');
+    if (!googleProjectId || !Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY')) {
+      console.error('Missing Google VEO configuration (project or service account)');
       throw new Error('Google VEO credentials not configured');
     }
 
     const salesforceData = requestData.salesforceData || {};
-    const model = requestData.model || 'veo-3';
-    const location = requestData.location || 'us-central1';
+    const model: 'veo-2' | 'veo-3' = (requestData.model as 'veo-2' | 'veo-3') || 'veo-3';
+    const location = requestData.location || Deno.env.get('GOOGLE_VEO_LOCATION') || 'us-central1';
     
     console.log(`🎯 Using model: ${model} in location: ${location}`);
     
@@ -87,23 +86,19 @@ Deno.serve(async (req) => {
 
     console.log('✅ Video generation record created:', videoGeneration.id);
 
-    // Step 3: Start video generation process
-    const mockOperationName = `projects/${googleProjectId}/operations/mock-${videoGeneration.id}`;
-    
+    // Mark record as generating while we start the operation in background
     console.log('🎬 Starting video generation...');
 
-    // Update generation record with mock operation ID and status
     const { error: updateError } = await supabaseClient
       .from('video_generations')
       .update({
-        google_operation_id: mockOperationName,
         status: 'generating',
         progress: 10,
       })
       .eq('id', videoGeneration.id);
 
     if (updateError) {
-      console.error('Error updating video generation:', updateError);
+      console.error('Error updating video generation status:', updateError);
     }
 
     // Prepare data for client-side Salesforce submission
@@ -119,7 +114,7 @@ Deno.serve(async (req) => {
       AI_Creativity_Level__c: generationData.creativity,
       Generation_Status__c: 'PENDING',
       Generation_Progress__c: 0,
-      API_Operation_ID__c: mockOperationName,
+      API_Operation_ID__c: '',
       ri1__Categories__c: salesforceData.categories?.join(';') || '',
       ri1__Template__c: salesforceData.template || '',
       ri1__Location__c: salesforceData.location || '',
@@ -132,14 +127,14 @@ Deno.serve(async (req) => {
     };
 
     // Start real VEO generation process
-    EdgeRuntime.waitUntil(startVeoGeneration(videoGeneration.id, generationData, googleProjectId, googleApiKey, model, location));
+    EdgeRuntime.waitUntil(startVeoGeneration(videoGeneration.id, generationData, googleProjectId, model, location));
 
     return new Response(JSON.stringify({
       success: true,
       generationId: videoGeneration.id,
-      operationId: mockOperationName,
+      operationId: null,
       salesforceSubmissionData: salesforceSubmissionData,
-      message: 'Video generation started successfully (mock mode)',
+      message: 'Video generation started',
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -157,7 +152,7 @@ Deno.serve(async (req) => {
 });
 
 // Real VEO generation process using Google Vertex AI
-async function startVeoGeneration(generationId: string, generationData: any, projectId: string, apiKey: string, model: string, location: string) {
+async function startVeoGeneration(generationId: string, generationData: any, projectId: string, model: 'veo-2' | 'veo-3', location: string) {
   console.log(`🎬 Starting real VEO generation for ${generationId}`);
   
   const supabaseClient = createClient(
@@ -196,27 +191,18 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       })
       .eq('id', generationId);
     
-    // Build Vertex AI predictLongRunning payload for VEO
-    const resolvedModel = (() => {
-      // Map short names to full model IDs
-      if (typeof model === 'string' && model.includes('-generate-')) return model;
-      if (model === 'veo-2') return 'veo-2.0-generate-001';
-      return 'veo-3.0-generate-001';
-    })();
+    // Build Vertex AI generateVideo payload for VEO
+    const targetModel: 'veo-2' | 'veo-3' = model === 'veo-2' ? 'veo-2' : 'veo-3';
 
-    const instances = [
-      {
-        prompt: generationData.prompt,
-        negativePrompt: generationData.negativePrompt || undefined,
-        durationSeconds: Number(generationData.duration) || 5,
-        aspectRatio: generationData.aspectRatio || '16:9',
-        creativity: generationData.creativity ?? 0.5,
-      },
-    ];
+    const requestBody = {
+      prompt: generationData.prompt,
+      negativePrompt: generationData.negativePrompt || undefined,
+      durationSeconds: Number(generationData.duration) || 5,
+      aspectRatio: generationData.aspectRatio || '16:9',
+      creativity: generationData.creativity ?? 0.5,
+    } as Record<string, unknown>;
 
-    const parameters: Record<string, unknown> = {};
-
-    console.log('🚀 Calling Google Vertex AI VEO predictLongRunning...');
+    console.log('🚀 Calling Google Vertex AI VEO generateVideo...');
     console.log('📝 Prompt (truncated):', String(generationData.prompt).slice(0, 120));
 
     // Update progress: Calling VEO API
@@ -227,8 +213,8 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       })
       .eq('id', generationId);
 
-    const modelPath = `projects/${projectId}/locations/${location}/publishers/google/models/${resolvedModel}`;
-    const startUrl = `https://${location}-aiplatform.googleapis.com/v1/${modelPath}:predictLongRunning`;
+    const modelPath = `projects/${projectId}/locations/${location}/publishers/google/models/${targetModel}`;
+    const startUrl = `https://${location}-aiplatform.googleapis.com/v1/${modelPath}:generateVideo`;
     console.log('🔧 Endpoint:', startUrl);
 
     const startRes = await fetch(startUrl, {
@@ -237,7 +223,7 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ instances, parameters }),
+      body: JSON.stringify(requestBody),
     });
 
     const startContentType = startRes.headers.get('content-type') || '';
@@ -267,6 +253,7 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
     // Extract operation ID from the full operation name
     // VEO returns: projects/{project}/locations/{location}/publishers/google/models/{model}/operations/{id}
     // But we need: projects/{project}/locations/{location}/operations/{id}
+    const operationParts = operationName.split('/');
     const operationId = operationParts[operationParts.length - 1];
     console.log('🔎 Extracted operationId:', operationId);
     
