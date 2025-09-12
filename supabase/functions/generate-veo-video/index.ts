@@ -50,10 +50,10 @@ Deno.serve(async (req) => {
     }
 
     const salesforceData = requestData.salesforceData || {};
-    const model: 'veo-2' | 'veo-3' = (requestData.model as 'veo-2' | 'veo-3') || 'veo-3';
+    const model: 'veo-2' | 'veo-3' = (requestData.model as 'veo-2' | 'veo-3') || 'veo-2';
     const location = requestData.location || Deno.env.get('GOOGLE_VEO_LOCATION') || 'us-central1';
     
-    console.log(`🎯 Using model: ${model} in location: ${location}`);
+    console.log(`🎯 Using model preference: ${model} (fallback enabled) in location: ${location}`);
     
     const generationData = {
       prompt: requestData.prompt,
@@ -191,18 +191,17 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       })
       .eq('id', generationId);
     
-    // Build Vertex AI generateVideo payload for VEO
-    const targetModel: 'veo-2' | 'veo-3' = model === 'veo-2' ? 'veo-2' : 'veo-3';
+    // Attempt Vertex AI VEO predict with fallback models
+    const candidateModels: ('veo-3' | 'veo-2')[] = model === 'veo-3' ? ['veo-3', 'veo-2'] : ['veo-2', 'veo-3'];
+    let chosenModel: 'veo-2' | 'veo-3' | null = null;
+    let startData: any = null;
 
-    // Build Vertex AI predict payload for VEO (v1beta1)
-    const modelPath = `projects/${projectId}/locations/${location}/publishers/google/models/${targetModel}`;
-    const startUrl = `https://${location}-aiplatform.googleapis.com/v1beta1/${modelPath}:predict`;
-    const requestBody = {
+    // Common request body builder
+    const buildRequestBody = () => ({
       instances: [
         {
           prompt: generationData.prompt,
           negative_prompt: generationData.negativePrompt || undefined,
-          // Provide both snake_case and camelCase keys for broader compatibility
           duration_seconds: Number(generationData.duration) || 5,
           durationSeconds: Number(generationData.duration) || 5,
           aspect_ratio: generationData.aspectRatio || '16:9',
@@ -210,40 +209,65 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
           creativity: generationData.creativity ?? 0.5,
         },
       ],
-      parameters: {
-        sampleCount: 1,
-      },
-    } as Record<string, unknown>;
-
-    console.log('🚀 Calling Vertex AI VEO predict...');
-    console.log('🔧 Endpoint:', startUrl);
-    console.log('📝 Prompt (truncated):', String(generationData.prompt).slice(0, 120));
-
-    // Update progress: Calling VEO API
-    await supabaseClient
-      .from('video_generations')
-      .update({
-        progress: 60,
-      })
-      .eq('id', generationId);
-
-    const startRes = await fetch(startUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
+      parameters: { sampleCount: 1 },
     });
 
-    const startContentType = startRes.headers.get('content-type') || '';
-    const startData = startContentType.includes('application/json') ? await startRes.json() : { raw: await startRes.text() };
-    console.log('📋 Start status:', startRes.status);
+    let lastError: any = null;
+    for (const m of candidateModels) {
+      try {
+        const modelPath = `projects/${projectId}/locations/${location}/publishers/google/models/${m}`;
+        const startUrl = `https://${location}-aiplatform.googleapis.com/v1beta1/${modelPath}:predict`;
 
-    if (!startRes.ok) {
-      console.error('❌ VEO start error:', typeof startData === 'string' ? startData : JSON.stringify(startData, null, 2));
-      const errMsg = (startData && startData.error && startData.error.message) || (typeof startData === 'string' ? startData.slice(0, 200) : 'Unknown error');
-      throw new Error(`VEO API Error (${startRes.status}): ${errMsg}`);
+        console.log(`🚀 Calling Vertex AI VEO predict (model: ${m})`);
+        console.log('🔧 Endpoint:', startUrl);
+        console.log('📝 Prompt (truncated):', String(generationData.prompt).slice(0, 120));
+
+        await supabaseClient
+          .from('video_generations')
+          .update({ progress: 60 })
+          .eq('id', generationId);
+
+        const startRes = await fetch(startUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(buildRequestBody()),
+        });
+
+        const ct = startRes.headers.get('content-type') || '';
+        const data = ct.includes('application/json') ? await startRes.json() : { raw: await startRes.text() };
+        console.log('📋 Start status:', startRes.status);
+
+        if (!startRes.ok) {
+          const errMsg = (data && data.error && data.error.message) || (typeof data === 'string' ? data.slice(0, 200) : 'Unknown error');
+          console.error(`❌ VEO start error for ${m}:`, typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+          // Try next model when NOT_FOUND
+          if (startRes.status === 404 || /not found/i.test(String(errMsg))) {
+            lastError = new Error(`Model ${m} not found`);
+            continue;
+          }
+          throw new Error(`VEO API Error (${startRes.status}): ${errMsg}`);
+        }
+        // Success
+        chosenModel = m;
+        startData = data;
+        // Persist the model we actually used
+        await supabaseClient
+          .from('video_generations')
+          .update({ generation_data: { ...generationData, model: m } })
+          .eq('id', generationId);
+        break;
+      } catch (err) {
+        console.warn(`⚠️ Attempt with model ${m} failed:`, err?.message || String(err));
+        lastError = err;
+        continue;
+      }
+    }
+
+    if (!startData) {
+      throw lastError || new Error('Failed to start VEO generation with any model');
     }
 
     const operationName: string | undefined = startData?.name;
