@@ -341,44 +341,34 @@ const MediaUpload: React.FC = () => {
         'string_ri1__Subtitle__c': salesforceData.ri1__Subtitle__c || '',
       };
       
-      // Hidden iframe for background submission
+      // Hidden iframe target submit (no cross-origin document access)
+      const iframeName = `sf_submit_${generationId}`;
       const trackingIframe = document.createElement('iframe');
+      trackingIframe.name = iframeName;
       trackingIframe.style.display = 'none';
-      
-      const handleIframeLoad = () => {
-        try {
-          const iframeDoc = trackingIframe.contentDocument || trackingIframe.contentWindow?.document;
-          if (!iframeDoc) return;
-
-          const form = iframeDoc.createElement('form');
-          form.method = 'POST';
-          form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
-          
-          Object.entries(fields).forEach(([name, value]) => {
-            const input = iframeDoc.createElement('input');
-            input.type = 'hidden';
-            input.name = name;
-            input.value = value;
-            form.appendChild(input);
-          });
-
-          iframeDoc.body.appendChild(form);
-          form.submit();
-          
-        } catch (err) {
-          console.error('Salesforce submission error:', err);
-        }
-      };
-      trackingIframe.addEventListener('load', handleIframeLoad, { once: true });
-      
       document.body.appendChild(trackingIframe);
-      trackingIframe.src = 'about:blank';
-      
-      // Remove iframe after submission
+
+      // Build a form in the parent document and target it to the iframe
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
+      form.target = iframeName;
+
+      Object.entries(fields).forEach(([name, value]) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      });
+
+      document.body.appendChild(form);
+      form.submit();
+
+      // Cleanup
       setTimeout(() => {
-        if (document.body.contains(trackingIframe)) {
-          document.body.removeChild(trackingIframe);
-        }
+        if (document.body.contains(form)) document.body.removeChild(form);
+        if (document.body.contains(trackingIframe)) document.body.removeChild(trackingIframe);
       }, 5000);
       
     } catch (error) {

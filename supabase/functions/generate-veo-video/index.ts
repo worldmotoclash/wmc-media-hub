@@ -267,15 +267,17 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
     // Extract operation ID from the full operation name
     // VEO returns: projects/{project}/locations/{location}/publishers/google/models/{model}/operations/{id}
     // But we need: projects/{project}/locations/{location}/operations/{id}
-    const operationParts = operationName.split('/');
     const operationId = operationParts[operationParts.length - 1];
+    console.log('🔎 Extracted operationId:', operationId);
     
     if (!operationId) {
       throw new Error('Could not extract operation ID from: ' + operationName);
     }
     
-    const opUrl = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/operations/${operationId}`;
-    console.log('📡 Poll URL:', opUrl);
+    const opUrlNormalized = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/operations/${operationId}`;
+    const opUrlRaw = `https://${location}-aiplatform.googleapis.com/v1/${operationName}`;
+    console.log('📡 Poll URL (normalized):', opUrlNormalized);
+    console.log('📡 Poll URL (raw):', opUrlRaw);
 
     const maxAttempts = 120; // ~10 minutes @ 5s
     let attempt = 0;
@@ -285,10 +287,21 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       attempt++;
       await new Promise((r) => setTimeout(r, 5000));
 
-      const opRes = await fetch(opUrl, {
+      // Try normalized first
+      let opRes = await fetch(opUrlNormalized, {
         method: 'GET',
         headers: { Authorization: `Bearer ${accessToken}` },
       });
+
+      // Fallback to raw path on 400/404
+      if (!opRes.ok && (opRes.status === 400 || opRes.status === 404)) {
+        console.warn(`⚠️ Poll ${opRes.status} on normalized path, trying raw path...`);
+        opRes = await fetch(opUrlRaw, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+      }
+
       const opCt = opRes.headers.get('content-type') || '';
       const opData = opCt.includes('application/json') ? await opRes.json() : { raw: await opRes.text() };
 
