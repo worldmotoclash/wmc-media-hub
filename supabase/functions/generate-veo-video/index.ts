@@ -264,7 +264,20 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
 
     console.log('⏳ Polling operation:', operationName);
 
-    const opUrl = `https://${location}-aiplatform.googleapis.com/v1/${operationName}`;
+    // Normalize operation polling path. Some responses include the model segment in the operation name,
+    // but polling must use the standard operations endpoint:
+    // projects/{project}/locations/{location}/operations/{id}
+    const opIdPart = operationName.includes('/operations/')
+      ? operationName.split('/operations/').pop()
+      : undefined;
+
+    const normalizedOpPath = opIdPart
+      ? `projects/${projectId}/locations/${location}/operations/${opIdPart}`
+      : operationName;
+
+    const opUrl = `https://${location}-aiplatform.googleapis.com/v1/${normalizedOpPath}`;
+    console.log('📡 Poll URL:', opUrl);
+
     const maxAttempts = 120; // ~10 minutes @ 5s
     let attempt = 0;
     let videoUrl: string | null = null;
