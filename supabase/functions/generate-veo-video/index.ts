@@ -196,47 +196,29 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       })
       .eq('id', generationId);
     
-    // Prepare VEO generation request
-    const veoRequest = {
-      contents: [{
-        role: "user", 
-        parts: [{
-          text: `Create a ${generationData.duration}-second video in ${generationData.aspectRatio} aspect ratio: ${generationData.prompt}`
-        }]
-      }],
-      generationConfig: {
-        // Remove invalid parameters - VEO doesn't use response_modalities or response_mime_type
-        maxOutputTokens: 1024,
-        ...(generationData.creativity && generationData.creativity !== 1.0 && { temperature: generationData.creativity })
+    // Build Vertex AI predictLongRunning payload for VEO
+    const resolvedModel = (() => {
+      // Map short names to full model IDs
+      if (typeof model === 'string' && model.includes('-generate-')) return model;
+      if (model === 'veo-2') return 'veo-2.0-generate-001';
+      return 'veo-3.0-generate-001';
+    })();
+
+    const instances = [
+      {
+        prompt: generationData.prompt,
+        negativePrompt: generationData.negativePrompt || undefined,
+        durationSeconds: Number(generationData.duration) || 5,
+        aspectRatio: generationData.aspectRatio || '16:9',
+        creativity: generationData.creativity ?? 0.5,
       },
-      safetySettings: [
-        {
-          category: "HARM_CATEGORY_HATE_SPEECH",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
-        },
-        {
-          category: "HARM_CATEGORY_DANGEROUS_CONTENT", 
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
-        },
-        {
-          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
-        },
-        {
-          category: "HARM_CATEGORY_HARASSMENT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
-        }
-      ]
-    };
+    ];
 
-    // If negative prompt is provided, add it to the main prompt
-    if (generationData.negativePrompt) {
-      veoRequest.contents[0].parts[0].text += `. Avoid: ${generationData.negativePrompt}`;
-    }
+    const parameters: Record<string, unknown> = {};
 
-    console.log('🚀 Calling Google Vertex AI VEO API...');
-    console.log('📝 Request prompt:', veoRequest.contents[0].parts[0].text);
-    
+    console.log('🚀 Calling Google Vertex AI VEO predictLongRunning...');
+    console.log('📝 Prompt (truncated):', String(generationData.prompt).slice(0, 120));
+
     // Update progress: Calling VEO API
     await supabaseClient
       .from('video_generations')
@@ -244,47 +226,98 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
         progress: 60,
       })
       .eq('id', generationId);
-    
-    // Call Vertex AI VEO API using v1beta endpoint with correct model
-    console.log(`🔧 Calling VEO ${model} via v1beta endpoint in ${location}`);
-    const veoResponse = await fetch(
-      `https://${location}-aiplatform.googleapis.com/v1beta/projects/${projectId}/locations/${location}/publishers/google/models/${model}:generateContent`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(veoRequest),
-      }
-    );
-    // Safely parse response (JSON or text)
-    const contentType = veoResponse.headers.get('content-type') || '';
-    let responseData: any = null;
-    let rawBody: string | null = null;
-    try {
-      if (contentType.includes('application/json')) {
-        responseData = await veoResponse.json();
-      } else {
-        rawBody = await veoResponse.text();
-      }
-    } catch (e) {
-      // Fallback to text if JSON parsing fails
-      try { rawBody = await veoResponse.text(); } catch {}
+
+    const modelPath = `projects/${projectId}/locations/${location}/publishers/google/models/${resolvedModel}`;
+    const startUrl = `https://${location}-aiplatform.googleapis.com/v1/${modelPath}:predictLongRunning`;
+    console.log('🔧 Endpoint:', startUrl);
+
+    const startRes = await fetch(startUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ instances, parameters }),
+    });
+
+    const startContentType = startRes.headers.get('content-type') || '';
+    const startData = startContentType.includes('application/json') ? await startRes.json() : { raw: await startRes.text() };
+    console.log('📋 Start status:', startRes.status);
+
+    if (!startRes.ok) {
+      console.error('❌ VEO start error:', typeof startData === 'string' ? startData : JSON.stringify(startData, null, 2));
+      const errMsg = (startData && startData.error && startData.error.message) || (typeof startData === 'string' ? startData.slice(0, 200) : 'Unknown error');
+      throw new Error(`VEO API Error (${startRes.status}): ${errMsg}`);
     }
 
-    console.log('📋 VEO API Response Status:', veoResponse.status);
-    if (responseData) {
-      console.log('📄 Response data keys:', Object.keys(responseData));
-    } else {
-      console.log('📄 Non-JSON response body (first 200 chars):', (rawBody || '').slice(0, 200));
+    const operationName: string | undefined = startData?.name;
+    if (!operationName) {
+      console.error('❌ Missing operation name in response:', JSON.stringify(startData, null, 2));
+      throw new Error('VEO API did not return an operation name');
     }
-    
-    if (!veoResponse.ok) {
-      console.error('❌ VEO API Error Response:', responseData ? JSON.stringify(responseData, null, 2) : (rawBody || '<empty>'));
-      const errMsg = responseData?.error?.message || (rawBody ? rawBody.slice(0, 200) : 'Unknown error');
-      throw new Error(`VEO API Error (${veoResponse.status}): ${errMsg}`);
+
+    // Persist real operation ID
+    await supabaseClient
+      .from('video_generations')
+      .update({ google_operation_id: operationName })
+      .eq('id', generationId);
+
+    console.log('⏳ Polling operation:', operationName);
+
+    const opUrl = `https://${location}-aiplatform.googleapis.com/v1/${operationName}`;
+    const maxAttempts = 120; // ~10 minutes @ 5s
+    let attempt = 0;
+    let videoUrl: string | null = null;
+
+    while (attempt < maxAttempts) {
+      attempt++;
+      await new Promise((r) => setTimeout(r, 5000));
+
+      const opRes = await fetch(opUrl, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const opCt = opRes.headers.get('content-type') || '';
+      const opData = opCt.includes('application/json') ? await opRes.json() : { raw: await opRes.text() };
+
+      if (!opRes.ok) {
+        console.error('❌ Operation polling error:', typeof opData === 'string' ? opData : JSON.stringify(opData, null, 2));
+        throw new Error(`VEO operation error (${opRes.status})`);
+      }
+
+      const progress = opData?.metadata?.progressPercent;
+      if (typeof progress === 'number') {
+        await supabaseClient
+          .from('video_generations')
+          .update({ progress })
+          .eq('id', generationId);
+      }
+
+      if (opData?.done) {
+        if (opData.error) {
+          const m = opData.error.message || 'Unknown operation error';
+          throw new Error(m);
+        }
+        // Try to extract a video URL from known fields
+        const predictions = opData?.response?.predictions || [];
+        const maybeUri =
+          opData?.response?.outputUri ||
+          opData?.response?.videoUri ||
+          (Array.isArray(predictions) && (predictions[0]?.contentUri || predictions[0]?.videoUri || predictions[0]?.mediaUri || predictions[0]?.uri || predictions[0]?.gcsUri));
+
+        if (typeof maybeUri === 'string') {
+          videoUrl = maybeUri;
+        }
+        break;
+      }
     }
+
+    console.log('🏁 Polling finished. Video URL found:', Boolean(videoUrl));
+
+    if (!videoUrl) {
+      console.warn('⚠️ No video URL discovered in operation response. Saving completion without URL.');
+    }
+
 
     // Update progress: Processing response
     await supabaseClient
@@ -294,52 +327,30 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       })
       .eq('id', generationId);
 
-    // Check if response contains video content
-    if (responseData && responseData.candidates && responseData.candidates[0]?.content?.parts) {
-      const parts = responseData.candidates[0].content.parts;
-      console.log('📹 Response parts:', parts.length);
-      
-      // Look for video content in the parts
-      let videoUrl = null;
-      for (const part of parts) {
-        if (part.inline_data && part.inline_data.mime_type === 'video/mp4') {
-          console.log('✅ Video content found in response');
-          // For demo purposes, create a data URL (in production, upload to storage)
-          const videoBase64 = part.inline_data.data;
-          videoUrl = `data:video/mp4;base64,${videoBase64}`;
-          break;
-        } else if (part.file_data && part.file_data.mime_type === 'video/mp4') {
-          console.log('✅ Video file reference found in response');
-          videoUrl = part.file_data.file_uri;
-          break;
-        }
-      }
-      
-      if (videoUrl) {
-        // Update generation record with completed status
-        await supabaseClient
-          .from('video_generations')
-          .update({
-            status: 'completed',
-            progress: 100,
-            video_url: videoUrl,
-          })
-          .eq('id', generationId);
-        
-        console.log(`✅ VEO generation ${generationId} completed successfully`);
-        console.log(`🎥 Video URL: ${String(videoUrl).substring(0, 100)}...`);
-        
-      } else {
-        console.error('❌ No video content found in VEO response parts');
-        console.log('📄 Full response for debugging:', JSON.stringify(responseData, null, 2));
-        throw new Error('No video content found in VEO API response');
-      }
+    if (videoUrl) {
+      await supabaseClient
+        .from('video_generations')
+        .update({
+          status: 'completed',
+          progress: 100,
+          video_url: videoUrl,
+          error_message: null,
+        })
+        .eq('id', generationId);
+
+      console.log(`✅ VEO generation ${generationId} completed successfully`);
+      console.log(`🎥 Video URL: ${String(videoUrl).substring(0, 120)}...`);
     } else {
-      console.error('❌ Invalid or empty VEO response structure');
-      if (responseData) {
-        console.log('📄 Full response for debugging:', JSON.stringify(responseData, null, 2));
-      }
-      throw new Error('Invalid response structure from VEO API - no candidates found');
+      // Mark as completed but without a URL so client can take follow-up action
+      await supabaseClient
+        .from('video_generations')
+        .update({
+          status: 'completed',
+          progress: 100,
+          error_message: 'Completed but no video URL returned by VEO operation',
+        })
+        .eq('id', generationId);
+      console.warn('❕ Completed without a video URL. Full operation response was logged earlier.');
     }
     
   } catch (error) {
