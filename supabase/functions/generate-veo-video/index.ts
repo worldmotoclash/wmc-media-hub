@@ -194,15 +194,29 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
     // Build Vertex AI generateVideo payload for VEO
     const targetModel: 'veo-2' | 'veo-3' = model === 'veo-2' ? 'veo-2' : 'veo-3';
 
+    // Build Vertex AI predict payload for VEO (v1beta1)
+    const modelPath = `projects/${projectId}/locations/${location}/publishers/google/models/${targetModel}`;
+    const startUrl = `https://${location}-aiplatform.googleapis.com/v1beta1/${modelPath}:predict`;
     const requestBody = {
-      prompt: generationData.prompt,
-      negativePrompt: generationData.negativePrompt || undefined,
-      durationSeconds: Number(generationData.duration) || 5,
-      aspectRatio: generationData.aspectRatio || '16:9',
-      creativity: generationData.creativity ?? 0.5,
+      instances: [
+        {
+          prompt: generationData.prompt,
+          negative_prompt: generationData.negativePrompt || undefined,
+          // Provide both snake_case and camelCase keys for broader compatibility
+          duration_seconds: Number(generationData.duration) || 5,
+          durationSeconds: Number(generationData.duration) || 5,
+          aspect_ratio: generationData.aspectRatio || '16:9',
+          aspectRatio: generationData.aspectRatio || '16:9',
+          creativity: generationData.creativity ?? 0.5,
+        },
+      ],
+      parameters: {
+        sampleCount: 1,
+      },
     } as Record<string, unknown>;
 
-    console.log('🚀 Calling Google Vertex AI VEO generateVideo...');
+    console.log('🚀 Calling Vertex AI VEO predict...');
+    console.log('🔧 Endpoint:', startUrl);
     console.log('📝 Prompt (truncated):', String(generationData.prompt).slice(0, 120));
 
     // Update progress: Calling VEO API
@@ -212,10 +226,6 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
         progress: 60,
       })
       .eq('id', generationId);
-
-    const modelPath = `projects/${projectId}/locations/${location}/publishers/google/models/${targetModel}`;
-    const startUrl = `https://${location}-aiplatform.googleapis.com/v1/${modelPath}:generateVideo`;
-    console.log('🔧 Endpoint:', startUrl);
 
     const startRes = await fetch(startUrl, {
       method: 'POST',
