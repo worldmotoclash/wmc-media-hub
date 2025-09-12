@@ -21,6 +21,7 @@ export type Database = {
           generation_data: Json
           google_operation_id: string | null
           id: string
+          media_url_key: string | null
           progress: number
           salesforce_record_id: string | null
           status: string
@@ -34,6 +35,7 @@ export type Database = {
           generation_data: Json
           google_operation_id?: string | null
           id?: string
+          media_url_key?: string | null
           progress?: number
           salesforce_record_id?: string | null
           status?: string
@@ -47,6 +49,7 @@ export type Database = {
           generation_data?: Json
           google_operation_id?: string | null
           id?: string
+          media_url_key?: string | null
           progress?: number
           salesforce_record_id?: string | null
           status?: string

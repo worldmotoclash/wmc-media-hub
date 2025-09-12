@@ -16,6 +16,7 @@ interface VeoGenerationRequest {
   creativity?: number;
   model?: 'veo-2' | 'veo-3';
   location?: string;
+  mediaUrlKey?: string;
   salesforceData?: Record<string, any>;
 }
 
@@ -82,6 +83,7 @@ Deno.serve(async (req) => {
         user_id: requestData.userId,
         status: 'pending',
         generation_data: generationData,
+        media_url_key: requestData.mediaUrlKey,
       })
       .select()
       .single();

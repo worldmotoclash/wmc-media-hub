@@ -214,6 +214,10 @@ const MediaUpload: React.FC = () => {
     setGenerationStatus('Initializing video generation...');
 
     try {
+      // Generate unique Media URL Key for Salesforce tracking
+      const mediaUrlKey = `veo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      console.log(`Generated Media URL Key: ${mediaUrlKey}`);
+      
       // Prepare Salesforce data
       const salesforceData: SalesforceData = {
         title: genData.title,
@@ -240,6 +244,7 @@ const MediaUpload: React.FC = () => {
           aspectRatio: genData.aspectRatio,
           creativity: genData.creativity[0],
           model: genData.model,
+          mediaUrlKey,
           salesforceData,
         },
       });
@@ -256,7 +261,7 @@ const MediaUpload: React.FC = () => {
       // Submit to Salesforce using direct fetch method
       if (result.salesforceSubmissionData) {
         console.log('Submitting to Salesforce using direct fetch method...');
-        await submitToSalesforceViaFetch(result.salesforceSubmissionData, result.generationId);
+        await submitToSalesforceViaFetch(result.salesforceSubmissionData, result.generationId, mediaUrlKey);
       }
 
       // Seed currentGeneration using public edge function (bypasses RLS)
@@ -322,7 +327,7 @@ const MediaUpload: React.FC = () => {
     }
   };
 
-  const submitToSalesforceViaFetch = async (salesforceData: Record<string, any>, generationId: string): Promise<void> => {
+  const submitToSalesforceViaFetch = async (salesforceData: Record<string, any>, generationId: string, mediaUrlKey: string): Promise<void> => {
     // Prevent duplicate submissions for the same generation
     const submissionKey = `sf_submission_${generationId}`;
     if ((window as any)[submissionKey]) {
@@ -339,6 +344,7 @@ const MediaUpload: React.FC = () => {
         'id_ri1__Contact__c': salesforceData.ri1__Contact__c || '',
         'string_ri1__Categories__c': salesforceData.ri1__Categories__c || '',
         'string_ri1__Subtitle__c': salesforceData.ri1__Subtitle__c || '',
+        'string_ri1__AI_Gen_Key__c': mediaUrlKey, // Add the Media URL Key for tracking
       };
       
       // Hidden iframe target submit (no cross-origin document access)
