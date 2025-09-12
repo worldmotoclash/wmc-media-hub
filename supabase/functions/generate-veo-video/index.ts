@@ -19,6 +19,13 @@ interface VeoGenerationRequest {
   salesforceData?: Record<string, any>;
 }
 
+// Allowed durations for VEO text_to_video
+const VEO_ALLOWED_DURATIONS = [4, 6, 8] as const;
+function normalizeDuration(input?: number): number {
+  const n = Number(input);
+  return (VEO_ALLOWED_DURATIONS as readonly number[]).includes(n) ? n : 6;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -58,7 +65,7 @@ Deno.serve(async (req) => {
     const generationData = {
       prompt: requestData.prompt,
       negativePrompt: requestData.negativePrompt,
-      duration: requestData.duration || 5,
+      duration: normalizeDuration(requestData.duration),
       aspectRatio: requestData.aspectRatio || '16:9',
       creativity: requestData.creativity || 0.5,
       model: modelId,
@@ -202,7 +209,7 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       ],
       parameters: {
         ...(generationData.negativePrompt ? { negativePrompt: String(generationData.negativePrompt) } : {}),
-        durationSeconds: Number(generationData.duration) || 5,
+        durationSeconds: Number(normalizeDuration(generationData.duration)),
         aspectRatio: String(generationData.aspectRatio || '16:9'),
         generateAudio: false,
       },

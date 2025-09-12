@@ -63,7 +63,7 @@ const MediaUpload: React.FC = () => {
     model: 'veo-3',
     mainPrompt: '',
     negativePrompt: '',
-    duration: [5],
+    duration: [6],
     aspectRatio: '16:9',
     creativity: [0.5],
     // Salesforce fields
@@ -653,9 +653,9 @@ const MediaUpload: React.FC = () => {
                           <Slider
                             value={genData.duration}
                             onValueChange={(value) => setGenData({...genData, duration: value})}
-                            max={10}
-                            min={3}
-                            step={1}
+                            max={8}
+                            min={4}
+                            step={2}
                             className="mt-2"
                           />
                         </div>

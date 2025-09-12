@@ -272,7 +272,7 @@ export const createMockVeoService = () => ({
     // Return mock video URL
     return {
       videoUri: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4',
-      duration: 5,
+      duration: 6,
       status: 'COMPLETED'
     };
   },
