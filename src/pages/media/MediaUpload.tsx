@@ -345,7 +345,7 @@ const MediaUpload: React.FC = () => {
       const trackingIframe = document.createElement('iframe');
       trackingIframe.style.display = 'none';
       
-      trackingIframe.onload = () => {
+      const handleIframeLoad = () => {
         try {
           const iframeDoc = trackingIframe.contentDocument || trackingIframe.contentWindow?.document;
           if (!iframeDoc) return;
@@ -353,7 +353,7 @@ const MediaUpload: React.FC = () => {
           const form = iframeDoc.createElement('form');
           form.method = 'POST';
           form.action = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
-            
+          
           Object.entries(fields).forEach(([name, value]) => {
             const input = iframeDoc.createElement('input');
             input.type = 'hidden';
@@ -369,6 +369,7 @@ const MediaUpload: React.FC = () => {
           console.error('Salesforce submission error:', err);
         }
       };
+      trackingIframe.addEventListener('load', handleIframeLoad, { once: true });
       
       document.body.appendChild(trackingIframe);
       trackingIframe.src = 'about:blank';
