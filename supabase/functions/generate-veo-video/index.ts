@@ -191,9 +191,12 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       })
       .eq('id', generationId);
     
-    // Attempt Vertex AI VEO predict with fallback models
+    // Attempt Vertex AI VEO predict with fallback models and locations
     const candidateModels: ('veo-3' | 'veo-2')[] = model === 'veo-3' ? ['veo-3', 'veo-2'] : ['veo-2', 'veo-3'];
+    const candidateLocations = Array.from(new Set([location, 'us-central1', 'us-east5']));
+
     let chosenModel: 'veo-2' | 'veo-3' | null = null;
+    let chosenLocation: string | null = null;
     let startData: any = null;
 
     // Common request body builder
@@ -213,61 +216,77 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
     });
 
     let lastError: any = null;
-    for (const m of candidateModels) {
-      try {
-        const modelPath = `projects/${projectId}/locations/${location}/publishers/google/models/${m}`;
-        const startUrl = `https://${location}-aiplatform.googleapis.com/v1beta1/${modelPath}:predict`;
 
-        console.log(`🚀 Calling Vertex AI VEO predict (model: ${m})`);
-        console.log('🔧 Endpoint:', startUrl);
-        console.log('📝 Prompt (truncated):', String(generationData.prompt).slice(0, 120));
+    // Try all combinations until one works
+    outer: for (const loc of candidateLocations) {
+      for (const m of candidateModels) {
+        try {
+          const modelPath = `projects/${projectId}/locations/${loc}/publishers/google/models/${m}`;
+          const startUrl = `https://${loc}-aiplatform.googleapis.com/v1beta1/${modelPath}:predict`;
 
-        await supabaseClient
-          .from('video_generations')
-          .update({ progress: 60 })
-          .eq('id', generationId);
+          console.log(`🚀 Calling Vertex AI VEO predict (model: ${m}, location: ${loc})`);
+          console.log('🔧 Endpoint:', startUrl);
+          console.log('📝 Prompt (truncated):', String(generationData.prompt).slice(0, 120));
 
-        const startRes = await fetch(startUrl, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(buildRequestBody()),
-        });
+          await supabaseClient
+            .from('video_generations')
+            .update({ progress: 60 })
+            .eq('id', generationId);
 
-        const ct = startRes.headers.get('content-type') || '';
-        const data = ct.includes('application/json') ? await startRes.json() : { raw: await startRes.text() };
-        console.log('📋 Start status:', startRes.status);
+          const startRes = await fetch(startUrl, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(buildRequestBody()),
+          });
 
-        if (!startRes.ok) {
-          const errMsg = (data && data.error && data.error.message) || (typeof data === 'string' ? data.slice(0, 200) : 'Unknown error');
-          console.error(`❌ VEO start error for ${m}:`, typeof data === 'string' ? data : JSON.stringify(data, null, 2));
-          // Try next model when NOT_FOUND
-          if (startRes.status === 404 || /not found/i.test(String(errMsg))) {
-            lastError = new Error(`Model ${m} not found`);
-            continue;
+          const ct = startRes.headers.get('content-type') || '';
+          const data = ct.includes('application/json') ? await startRes.json() : { raw: await startRes.text() };
+          console.log('📋 Start status:', startRes.status);
+
+          if (!startRes.ok) {
+            const errMsg = (data && data.error && data.error.message) || (typeof data === 'string' ? data.slice(0, 200) : 'Unknown error');
+            console.error(`❌ VEO start error for ${m} @ ${loc}:`, typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+            // Try next model/location when NOT_FOUND
+            if (startRes.status === 404 || /not found/i.test(String(errMsg))) {
+              lastError = new Error(`Model ${m} not found in ${loc}`);
+              continue;
+            }
+            throw new Error(`VEO API Error (${startRes.status}) @ ${loc}: ${errMsg}`);
           }
-          throw new Error(`VEO API Error (${startRes.status}): ${errMsg}`);
+          // Success
+          chosenModel = m;
+          chosenLocation = loc;
+          startData = data;
+          // Persist the model/location actually used
+          await supabaseClient
+            .from('video_generations')
+            .update({ generation_data: { ...generationData, model: m, location: loc } })
+            .eq('id', generationId);
+          break outer;
+        } catch (err) {
+          console.warn(`⚠️ Attempt with model ${m} @ ${loc} failed:`, err?.message || String(err));
+          lastError = err;
+          continue;
         }
-        // Success
-        chosenModel = m;
-        startData = data;
-        // Persist the model we actually used
-        await supabaseClient
-          .from('video_generations')
-          .update({ generation_data: { ...generationData, model: m } })
-          .eq('id', generationId);
-        break;
-      } catch (err) {
-        console.warn(`⚠️ Attempt with model ${m} failed:`, err?.message || String(err));
-        lastError = err;
-        continue;
       }
     }
 
     if (!startData) {
-      throw lastError || new Error('Failed to start VEO generation with any model');
+      // Extra debug: list available publisher models in the last attempted location
+      try {
+        const loc = candidateLocations[0];
+        const listUrl = `https://${loc}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${loc}/publishers/google/models`;
+        const listRes = await fetch(listUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
+        const listCt = listRes.headers.get('content-type') || '';
+        const listData = listCt.includes('application/json') ? await listRes.json() : { raw: await listRes.text() };
+        console.log('📚 Available publisher models sample:', JSON.stringify(listData?.models?.slice?.(0, 5)?.map?.((m:any)=>m?.name) || listData).slice(0, 500));
+      } catch (e) {
+        console.warn('⚠️ Could not list publisher models:', e?.message || String(e));
+      }
+      throw lastError || new Error('Failed to start VEO generation with any model or location');
     }
 
     const operationName: string | undefined = startData?.name;
@@ -295,8 +314,9 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       throw new Error('Could not extract operation ID from: ' + operationName);
     }
     
-    const opUrlNormalized = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/operations/${operationId}`;
-    const opUrlRaw = `https://${location}-aiplatform.googleapis.com/v1/${operationName}`;
+    const pollLoc = chosenLocation || location;
+    const opUrlNormalized = `https://${pollLoc}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${pollLoc}/operations/${operationId}`;
+    const opUrlRaw = `https://${pollLoc}-aiplatform.googleapis.com/v1/${operationName}`;
     console.log('📡 Poll URL (normalized):', opUrlNormalized);
     console.log('📡 Poll URL (raw):', opUrlRaw);
 
