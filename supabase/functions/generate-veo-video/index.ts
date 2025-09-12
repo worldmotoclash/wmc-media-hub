@@ -50,10 +50,10 @@ Deno.serve(async (req) => {
     }
 
     const salesforceData = requestData.salesforceData || {};
-    const model: 'veo-2' | 'veo-3' = (requestData.model as 'veo-2' | 'veo-3') || 'veo-2';
-    const location = requestData.location || Deno.env.get('GOOGLE_VEO_LOCATION') || 'us-central1';
+    const model: 'veo-2' | 'veo-3' = 'veo-3';
+    const location = 'us-central1';
     
-    console.log(`🎯 Using model preference: ${model} (fallback enabled) in location: ${location}`);
+    console.log(`🎯 Using model: ${model} in location: ${location}`);
     
     const generationData = {
       prompt: requestData.prompt,
@@ -191,109 +191,51 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       })
       .eq('id', generationId);
     
-    // Attempt Vertex AI VEO predict with fallback models and locations
-    const candidateModels: ('veo-3' | 'veo-2')[] = model === 'veo-3' ? ['veo-3', 'veo-2'] : ['veo-2', 'veo-3'];
-    const candidateLocations = Array.from(new Set([location, 'us-central1', 'us-east5']));
+    // Build request for Vertex AI VEO generateVideo (veo-3, us-central1)
+    const modelPath = `projects/${projectId}/locations/us-central1/publishers/google/models/veo-3`;
+    const startUrl = `https://us-central1-aiplatform.googleapis.com/v1/${modelPath}:generateVideo`;
+    const requestBody = {
+      prompt: generationData.prompt,
+      ...(generationData.negativePrompt ? { negativePrompt: generationData.negativePrompt } : {}),
+      durationSeconds: Number(generationData.duration) || 5,
+      aspectRatio: generationData.aspectRatio || '16:9',
+    } as Record<string, unknown>;
 
-    let chosenModel: 'veo-2' | 'veo-3' | null = null;
-    let chosenLocation: string | null = null;
-    let startData: any = null;
+    console.log('🚀 Calling Vertex AI VEO generateVideo (veo-3)');
+    console.log('🔧 Endpoint:', startUrl);
+    console.log('📝 Prompt (truncated):', String(generationData.prompt).slice(0, 120));
 
-    // Common request body builder
-    const buildRequestBody = () => ({
-      instances: [
-        {
-          prompt: generationData.prompt,
-          negative_prompt: generationData.negativePrompt || undefined,
-          duration_seconds: Number(generationData.duration) || 5,
-          durationSeconds: Number(generationData.duration) || 5,
-          aspect_ratio: generationData.aspectRatio || '16:9',
-          aspectRatio: generationData.aspectRatio || '16:9',
-          creativity: generationData.creativity ?? 0.5,
-        },
-      ],
-      parameters: { sampleCount: 1 },
+    // Update progress: Calling VEO API
+    await supabaseClient
+      .from('video_generations')
+      .update({ progress: 60 })
+      .eq('id', generationId);
+
+    const startRes = await fetch(startUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
     });
 
-    let lastError: any = null;
+    const ct = startRes.headers.get('content-type') || '';
+    const startData = ct.includes('application/json') ? await startRes.json() : { raw: await startRes.text() };
+    console.log('📋 Start status:', startRes.status);
 
-    // Try all combinations until one works
-    outer: for (const loc of candidateLocations) {
-      for (const m of candidateModels) {
-        try {
-          const modelPath = `projects/${projectId}/locations/${loc}/publishers/google/models/${m}`;
-          const startUrl = `https://${loc}-aiplatform.googleapis.com/v1beta1/${modelPath}:predict`;
-
-          console.log(`🚀 Calling Vertex AI VEO predict (model: ${m}, location: ${loc})`);
-          console.log('🔧 Endpoint:', startUrl);
-          console.log('📝 Prompt (truncated):', String(generationData.prompt).slice(0, 120));
-
-          await supabaseClient
-            .from('video_generations')
-            .update({ progress: 60 })
-            .eq('id', generationId);
-
-          const startRes = await fetch(startUrl, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(buildRequestBody()),
-          });
-
-          const ct = startRes.headers.get('content-type') || '';
-          const data = ct.includes('application/json') ? await startRes.json() : { raw: await startRes.text() };
-          console.log('📋 Start status:', startRes.status);
-
-          if (!startRes.ok) {
-            const errMsg = (data && data.error && data.error.message) || (typeof data === 'string' ? data.slice(0, 200) : 'Unknown error');
-            console.error(`❌ VEO start error for ${m} @ ${loc}:`, typeof data === 'string' ? data : JSON.stringify(data, null, 2));
-            // Try next model/location when NOT_FOUND
-            if (startRes.status === 404 || /not found/i.test(String(errMsg))) {
-              lastError = new Error(`Model ${m} not found in ${loc}`);
-              continue;
-            }
-            throw new Error(`VEO API Error (${startRes.status}) @ ${loc}: ${errMsg}`);
-          }
-          // Success
-          chosenModel = m;
-          chosenLocation = loc;
-          startData = data;
-          // Persist the model/location actually used
-          await supabaseClient
-            .from('video_generations')
-            .update({ generation_data: { ...generationData, model: m, location: loc } })
-            .eq('id', generationId);
-          break outer;
-        } catch (err) {
-          console.warn(`⚠️ Attempt with model ${m} @ ${loc} failed:`, err?.message || String(err));
-          lastError = err;
-          continue;
-        }
-      }
+    if (!startRes.ok) {
+      console.error('❌ VEO start error:', typeof startData === 'string' ? startData : JSON.stringify(startData, null, 2));
+      const errMsg = (startData && startData.error && startData.error.message) || (typeof startData === 'string' ? startData.slice(0, 200) : 'Unknown error');
+      throw new Error(`VEO API Error (${startRes.status}): ${errMsg}`);
     }
 
-    if (!startData) {
-      // Extra debug: list available publisher models in the last attempted location
-      try {
-        const loc = candidateLocations[0];
-        const listUrl = `https://${loc}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${loc}/publishers/google/models`;
-        const listRes = await fetch(listUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
-        const listCt = listRes.headers.get('content-type') || '';
-        const listData = listCt.includes('application/json') ? await listRes.json() : { raw: await listRes.text() };
-        console.log('📚 Available publisher models sample:', JSON.stringify(listData?.models?.slice?.(0, 5)?.map?.((m:any)=>m?.name) || listData).slice(0, 500));
-      } catch (e) {
-        console.warn('⚠️ Could not list publisher models:', e?.message || String(e));
-      }
-      throw lastError || new Error('Failed to start VEO generation with any model or location');
-    }
+    // Persist the model/location actually used
+    await supabaseClient
+      .from('video_generations')
+      .update({ generation_data: { ...generationData, model: 'veo-3', location: 'us-central1' } })
+      .eq('id', generationId);
 
-    const operationName: string | undefined = startData?.name;
-    if (!operationName) {
-      console.error('❌ Missing operation name in response:', JSON.stringify(startData, null, 2));
-      throw new Error('VEO API did not return an operation name');
-    }
 
     // Persist real operation ID
     await supabaseClient
@@ -314,7 +256,7 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       throw new Error('Could not extract operation ID from: ' + operationName);
     }
     
-    const pollLoc = chosenLocation || location;
+    const pollLoc = location;
     const opUrlNormalized = `https://${pollLoc}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${pollLoc}/operations/${operationId}`;
     const opUrlRaw = `https://${pollLoc}-aiplatform.googleapis.com/v1/${operationName}`;
     console.log('📡 Poll URL (normalized):', opUrlNormalized);
