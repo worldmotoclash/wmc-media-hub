@@ -50,10 +50,10 @@ Deno.serve(async (req) => {
     }
 
     const salesforceData = requestData.salesforceData || {};
-    const model: 'veo-2' | 'veo-3' = 'veo-3';
-    const location = 'us-central1';
+    const location = Deno.env.get('GOOGLE_VEO_LOCATION') || 'us-central1';
+    const modelId = Deno.env.get('GOOGLE_VEO_MODEL') || 'veo-3.0-generate-001';
     
-    console.log(`🎯 Using model: ${model} in location: ${location}`);
+    console.log(`🎯 Using modelId: ${modelId} in location: ${location}`);
     
     const generationData = {
       prompt: requestData.prompt,
@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
       duration: requestData.duration || 5,
       aspectRatio: requestData.aspectRatio || '16:9',
       creativity: requestData.creativity || 0.5,
-      model: model,
+      model: modelId,
       location: location,
       salesforceData: salesforceData,
     };
@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
     };
 
     // Start real VEO generation process
-    EdgeRuntime.waitUntil(startVeoGeneration(videoGeneration.id, generationData, googleProjectId, model, location));
+    EdgeRuntime.waitUntil(startVeoGeneration(videoGeneration.id, generationData, googleProjectId, modelId, location));
 
     return new Response(JSON.stringify({
       success: true,
@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
 });
 
 // Real VEO generation process using Google Vertex AI
-async function startVeoGeneration(generationId: string, generationData: any, projectId: string, model: 'veo-2' | 'veo-3', location: string) {
+async function startVeoGeneration(generationId: string, generationData: any, projectId: string, modelId: string, location: string) {
   console.log(`🎬 Starting real VEO generation for ${generationId}`);
   
   const supabaseClient = createClient(
@@ -191,17 +191,24 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       })
       .eq('id', generationId);
     
-    // Build request for Vertex AI VEO generateVideo (veo-3, us-central1)
-    const modelPath = `projects/${projectId}/locations/us-central1/publishers/google/models/veo-3`;
-    const startUrl = `https://us-central1-aiplatform.googleapis.com/v1/${modelPath}:generateVideo`;
+    // Build request for Vertex AI VEO (predictLongRunning)
+    const modelPath = `projects/${projectId}/locations/${location}/publishers/google/models/${modelId}`;
+    const startUrl = `https://${location}-aiplatform.googleapis.com/v1/${modelPath}:predictLongRunning`;
     const requestBody = {
-      prompt: generationData.prompt,
-      ...(generationData.negativePrompt ? { negativePrompt: generationData.negativePrompt } : {}),
-      durationSeconds: Number(generationData.duration) || 5,
-      aspectRatio: generationData.aspectRatio || '16:9',
+      instances: [
+        {
+          prompt: String(generationData.prompt || ''),
+        },
+      ],
+      parameters: {
+        ...(generationData.negativePrompt ? { negativePrompt: String(generationData.negativePrompt) } : {}),
+        durationSeconds: Number(generationData.duration) || 5,
+        aspectRatio: String(generationData.aspectRatio || '16:9'),
+        generateAudio: false,
+      },
     } as Record<string, unknown>;
 
-    console.log('🚀 Calling Vertex AI VEO generateVideo (veo-3)');
+    console.log('🚀 Calling Vertex AI VEO predictLongRunning');
     console.log('🔧 Endpoint:', startUrl);
     console.log('📝 Prompt (truncated):', String(generationData.prompt).slice(0, 120));
 
@@ -233,7 +240,7 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
     // Persist the model/location actually used
     await supabaseClient
       .from('video_generations')
-      .update({ generation_data: { ...generationData, model: 'veo-3', location: 'us-central1' } })
+      .update({ generation_data: { ...generationData, model: modelId, location } })
       .eq('id', generationId);
 
     // Determine operation name from response
@@ -272,11 +279,8 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       throw new Error('Could not extract operation ID from: ' + operationName);
     }
     
-    const pollLoc = location;
-    const opUrlNormalized = `https://${pollLoc}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${pollLoc}/operations/${operationId}`;
-    const opUrlRaw = `https://${pollLoc}-aiplatform.googleapis.com/v1/${operationName}`;
-    console.log('📡 Poll URL (normalized):', opUrlNormalized);
-    console.log('📡 Poll URL (raw):', opUrlRaw);
+    const pollUrl = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${modelId}:fetchPredictOperation`;
+    console.log('📡 Poll URL:', pollUrl);
 
     const maxAttempts = 120; // ~10 minutes @ 5s
     let attempt = 0;
@@ -286,20 +290,11 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       attempt++;
       await new Promise((r) => setTimeout(r, 5000));
 
-      // Try normalized first
-      let opRes = await fetch(opUrlNormalized, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${accessToken}` },
+      const opRes = await fetch(pollUrl, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operationName }),
       });
-
-      // Fallback to raw path on 400/404
-      if (!opRes.ok && (opRes.status === 400 || opRes.status === 404)) {
-        console.warn(`⚠️ Poll ${opRes.status} on normalized path, trying raw path...`);
-        opRes = await fetch(opUrlRaw, {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-      }
 
       const opCt = opRes.headers.get('content-type') || '';
       const opData = opCt.includes('application/json') ? await opRes.json() : { raw: await opRes.text() };
@@ -322,15 +317,9 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
           const m = opData.error.message || 'Unknown operation error';
           throw new Error(m);
         }
-        // Try to extract a video URL from known fields
-        const predictions = opData?.response?.predictions || [];
-        const maybeUri =
-          opData?.response?.outputUri ||
-          opData?.response?.videoUri ||
-          (Array.isArray(predictions) && (predictions[0]?.contentUri || predictions[0]?.videoUri || predictions[0]?.mediaUri || predictions[0]?.uri || predictions[0]?.gcsUri));
-
-        if (typeof maybeUri === 'string') {
-          videoUrl = maybeUri;
+        const videos = opData?.response?.videos;
+        if (Array.isArray(videos) && videos.length > 0 && typeof videos[0]?.gcsUri === 'string') {
+          videoUrl = videos[0].gcsUri;
         }
         break;
       }
