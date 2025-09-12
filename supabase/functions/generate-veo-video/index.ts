@@ -236,6 +236,22 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       .update({ generation_data: { ...generationData, model: 'veo-3', location: 'us-central1' } })
       .eq('id', generationId);
 
+    // Determine operation name from response
+    let operationName: string | null = null;
+    try {
+      const maybe: any = startData;
+      if (maybe) {
+        if (typeof maybe.name === 'string') operationName = maybe.name;
+        else if (typeof maybe.operation === 'string') operationName = maybe.operation;
+        else if (maybe.operation && typeof maybe.operation.name === 'string') operationName = maybe.operation.name;
+        else if (typeof maybe.id === 'string') operationName = maybe.id;
+      }
+    } catch (_) {}
+    console.log('🆔 Operation name from start response:', operationName);
+
+    if (!operationName) {
+      throw new Error('Start response missing operation name');
+    }
 
     // Persist real operation ID
     await supabaseClient

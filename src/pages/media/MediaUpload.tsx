@@ -612,7 +612,6 @@ const MediaUpload: React.FC = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="veo-2">VEO 2</SelectItem>
                             <SelectItem value="veo-3">VEO 3</SelectItem>
                           </SelectContent>
                         </Select>
