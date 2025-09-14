@@ -340,7 +340,6 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       console.warn('⚠️ No video URL discovered in operation response. Saving completion without URL.');
     }
 
-
     // Update progress: Processing response
     await supabaseClient
       .from('video_generations')
@@ -350,6 +349,33 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       .eq('id', generationId);
 
     if (videoUrl) {
+      // Update progress: Updating Salesforce
+      await supabaseClient
+        .from('video_generations')
+        .update({
+          progress: 90,
+        })
+        .eq('id', generationId);
+
+      // Get the media_url_key for Salesforce integration
+      const { data: generationRecord } = await supabaseClient
+        .from('video_generations')
+        .select('media_url_key')
+        .eq('id', generationId)
+        .single();
+
+      // Update Salesforce if media_url_key exists
+      if (generationRecord?.media_url_key) {
+        try {
+          console.log(`🔄 Updating Salesforce for Media URL Key: ${generationRecord.media_url_key}`);
+          await updateSalesforceContent(generationRecord.media_url_key, videoUrl);
+          console.log(`✅ Salesforce content updated successfully for key: ${generationRecord.media_url_key}`);
+        } catch (salesforceError) {
+          console.error(`❌ Failed to update Salesforce content:`, salesforceError);
+          // Don't fail the whole operation for Salesforce errors, just log them
+        }
+      }
+
       await supabaseClient
         .from('video_generations')
         .update({
@@ -498,9 +524,108 @@ function pemToArrayBuffer(pem: string): ArrayBuffer {
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
   }
-  
+
   return bytes.buffer;
 }
 
-// Note: All Salesforce operations are now handled client-side using iframe method
-// This ensures proper form submission with sObj=ri1__Content__c and avoids server-side CORS issues
+// Helper function to query Salesforce for Content record ID using Media URL Key
+async function querySalesforceContentId(mediaUrlKey: string): Promise<string | null> {
+  try {
+    const queryUrl = `https://api.realintelligence.com/api/wmc-content-by-key.py?orgId=00D5e000000HEcP&keyId=${encodeURIComponent(mediaUrlKey)}&sandbox=False`;
+    console.log(`🔍 Querying Salesforce for Media URL Key: ${mediaUrlKey}`);
+    console.log(`📡 Query URL: ${queryUrl}`);
+    
+    const response = await fetch(queryUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ Salesforce query failed (${response.status}):`, errorText);
+      throw new Error(`Salesforce query failed: ${response.status} - ${errorText}`);
+    }
+
+    const responseText = await response.text();
+    console.log(`📋 Salesforce query response:`, responseText);
+    
+    // Try to parse as JSON
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      // If not JSON, treat as plain text content ID
+      const contentId = responseText.trim();
+      if (contentId && contentId.length > 0) {
+        console.log(`✅ Found Content ID: ${contentId}`);
+        return contentId;
+      }
+      throw new Error('Empty or invalid response from Salesforce query');
+    }
+
+    // Handle JSON response
+    if (data && data.Id) {
+      console.log(`✅ Found Content ID from JSON: ${data.Id}`);
+      return data.Id;
+    } else if (data && data.contentId) {
+      console.log(`✅ Found Content ID from JSON: ${data.contentId}`);
+      return data.contentId;
+    } else if (typeof data === 'string' && data.trim().length > 0) {
+      console.log(`✅ Found Content ID as string: ${data.trim()}`);
+      return data.trim();
+    }
+
+    console.warn(`⚠️ No Content ID found in response:`, data);
+    return null;
+  } catch (error) {
+    console.error(`❌ Error querying Salesforce for Media URL Key ${mediaUrlKey}:`, error);
+    throw error;
+  }
+}
+
+// Helper function to update Salesforce Content record with video URL
+async function updateSalesforceContent(mediaUrlKey: string, videoUrl: string): Promise<void> {
+  try {
+    // First, query Salesforce to get the Content record ID
+    const contentId = await querySalesforceContentId(mediaUrlKey);
+    
+    if (!contentId) {
+      throw new Error(`No Content record found for Media URL Key: ${mediaUrlKey}`);
+    }
+
+    console.log(`🔄 Updating Salesforce Content record ${contentId} with video URL`);
+    
+    // Update the Salesforce Content record with the video URL
+    const updateUrl = 'https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/update-engine-content.php';
+    
+    const formData = new FormData();
+    formData.append('contentId', contentId);
+    formData.append('videoUrl', videoUrl);
+    formData.append('status', 'Generated');
+    
+    console.log(`📡 Updating Salesforce Content via: ${updateUrl}`);
+    console.log(`📝 Content ID: ${contentId}`);
+    console.log(`🎥 Video URL: ${videoUrl.substring(0, 120)}...`);
+    
+    const response = await fetch(updateUrl, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ Salesforce update failed (${response.status}):`, errorText);
+      throw new Error(`Salesforce update failed: ${response.status} - ${errorText}`);
+    }
+
+    const responseText = await response.text();
+    console.log(`✅ Salesforce update response:`, responseText);
+    
+  } catch (error) {
+    console.error(`❌ Error updating Salesforce content for Media URL Key ${mediaUrlKey}:`, error);
+    throw error;
+  }
+}
