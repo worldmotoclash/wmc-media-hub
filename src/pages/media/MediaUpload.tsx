@@ -66,6 +66,12 @@ const MediaUpload: React.FC = () => {
     duration: [6],
     aspectRatio: '16:9',
     creativity: [0.5],
+    resolution: '720p',
+    // Wavespeed-specific fields
+    characterImages: [] as string[],
+    logoImages: [] as string[],
+    audioUrl: '',
+    imageUrl: '',
     // Salesforce fields
     title: '',
     subtitle: '',
@@ -215,7 +221,7 @@ const MediaUpload: React.FC = () => {
 
     try {
       // Generate unique Media URL Key for Salesforce tracking
-      const mediaUrlKey = `veo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const mediaUrlKey = `${genData.provider}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       console.log(`Generated Media URL Key: ${mediaUrlKey}`);
       
       // Prepare Salesforce data
@@ -232,22 +238,47 @@ const MediaUpload: React.FC = () => {
         keywords: genData.keywords,
       };
 
-      // Call the edge function with custom user ID
-      console.log(`[handleGenerateSubmit] Submission #${currentCount} calling edge function...`);
+      // Route to appropriate edge function based on provider
+      console.log(`[handleGenerateSubmit] Submission #${currentCount} calling ${genData.provider} edge function...`);
       setGenerationStatus('Starting generation...');
-      const response = await supabase.functions.invoke('generate-veo-video', {
-        body: {
-          userId: user.id,
-          prompt: genData.mainPrompt,
-          negativePrompt: genData.negativePrompt || undefined,
-          duration: genData.duration[0],
-          aspectRatio: genData.aspectRatio,
-          creativity: genData.creativity[0],
-          model: genData.model,
-          mediaUrlKey,
-          salesforceData,
-        },
-      });
+      
+      let response;
+      if (genData.provider === 'wavespeed') {
+        response = await supabase.functions.invoke('generate-wavespeed-video', {
+          body: {
+            userId: user.id,
+            model: genData.model,
+            prompt: genData.mainPrompt,
+            durationSec: genData.duration[0],
+            resolution: genData.resolution,
+            aspectRatio: genData.aspectRatio,
+            references: {
+              characterImages: genData.characterImages,
+              logoImages: genData.logoImages,
+            },
+            audioUrl: genData.audioUrl || undefined,
+            imageUrl: genData.imageUrl || undefined,
+            extras: {},
+            mediaUrlKey,
+            salesforceData,
+          },
+        });
+      } else {
+        // VEO provider (existing)
+        response = await supabase.functions.invoke('generate-veo-video', {
+          body: {
+            userId: user.id,
+            prompt: genData.mainPrompt,
+            negativePrompt: genData.negativePrompt || undefined,
+            duration: genData.duration[0],
+            aspectRatio: genData.aspectRatio,
+            creativity: genData.creativity[0],
+            model: genData.model,
+            mediaUrlKey,
+            salesforceData,
+          },
+        });
+      }
 
       if (response.error) {
         throw new Error(response.error.message);
@@ -606,6 +637,32 @@ const MediaUpload: React.FC = () => {
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold">AI Generation Settings</h3>
                       
+                      {/* Provider Selection */}
+                      <div>
+                        <Label htmlFor="provider" className="text-sm font-medium">
+                          AI Provider <span className="text-destructive">*</span>
+                        </Label>
+                        <Select 
+                          value={genData.provider} 
+                          onValueChange={(value) => {
+                            setGenData({
+                              ...genData, 
+                              provider: value,
+                              model: value === 'veo' ? 'veo-3' : 'vidu_ref2' // Default model for each provider
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="mt-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="veo">Google VEO 3 (High Quality)</SelectItem>
+                            <SelectItem value="wavespeed">Wavespeed (Multi-Model)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      {/* Model Selection */}
                       <div>
                         <Label htmlFor="model" className="text-sm font-medium">
                           Model <span className="text-destructive">*</span>
@@ -618,18 +675,51 @@ const MediaUpload: React.FC = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="veo-3">VEO 3</SelectItem>
+                            {genData.provider === 'veo' ? (
+                              <SelectItem value="veo-3">VEO 3</SelectItem>
+                            ) : (
+                              <>
+                                <SelectItem value="vidu_ref2">Vidu Reference-to-Video 2.0</SelectItem>
+                                <SelectItem value="wan_fun">WAN 2.2 Fun Control</SelectItem>
+                                <SelectItem value="infinitetalk">InfiniteTalk (Talking Head)</SelectItem>
+                              </>
+                            )}
                           </SelectContent>
                         </Select>
+                        {genData.provider === 'wavespeed' && (
+                          <div className="mt-2 text-sm text-muted-foreground">
+                            {genData.model === 'vidu_ref2' && 'Multi-entity consistency with reference images'}
+                            {genData.model === 'wan_fun' && 'Fast generation with fun control variants'}
+                            {genData.model === 'infinitetalk' && 'Create talking/singing heads from image + audio'}
+                          </div>
+                        )}
                       </div>
+
+                      {/* Cost Estimation for Wavespeed */}
+                      {genData.provider === 'wavespeed' && (
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            Estimated cost: ${(() => {
+                              const costs = { vidu_ref2: 0.25, wan_fun: 0.20, infinitetalk: 0.15 };
+                              const blocks = Math.ceil(genData.duration[0] / 5);
+                              return (blocks * (costs[genData.model as keyof typeof costs] || 0.20)).toFixed(2);
+                            })()} for {genData.duration[0]}s video
+                          </AlertDescription>
+                        </Alert>
+                      )}
                       
                       <div>
                         <Label htmlFor="mainPrompt" className="text-sm font-medium">
-                          Main Prompt <span className="text-destructive">*</span>
+                          {genData.model === 'infinitetalk' ? 'Character Description' : 'Main Prompt'} <span className="text-destructive">*</span>
                         </Label>
                         <Textarea
                           id="mainPrompt"
-                          placeholder="A high-speed motocross race through muddy terrain with spectacular jumps, dynamic camera angles, professional cinematography, 4K resolution..."
+                          placeholder={
+                            genData.model === 'infinitetalk' 
+                              ? "Describe the character, setting, and style for the talking head video..."
+                              : "A high-speed motocross race through muddy terrain with spectacular jumps, dynamic camera angles, professional cinematography, 4K resolution..."
+                          }
                           value={genData.mainPrompt}
                           onChange={(e) => setGenData({...genData, mainPrompt: e.target.value})}
                           className="mt-2"
@@ -638,18 +728,128 @@ const MediaUpload: React.FC = () => {
                         />
                       </div>
 
-                      <div>
-                        <Label htmlFor="negativePrompt">Negative Prompt</Label>
-                        <Textarea
-                          id="negativePrompt"
-                          placeholder="Low quality, blurry, static camera, poor lighting..."
-                          value={genData.negativePrompt}
-                          onChange={(e) => setGenData({...genData, negativePrompt: e.target.value})}
-                          className="mt-2"
-                          rows={2}
-                        />
-                      </div>
+                      {/* VEO-specific fields */}
+                      {genData.provider === 'veo' && (
+                        <div>
+                          <Label htmlFor="negativePrompt">Negative Prompt</Label>
+                          <Textarea
+                            id="negativePrompt"
+                            placeholder="Low quality, blurry, static camera, poor lighting..."
+                            value={genData.negativePrompt}
+                            onChange={(e) => setGenData({...genData, negativePrompt: e.target.value})}
+                            className="mt-2"
+                            rows={2}
+                          />
+                        </div>
+                      )}
 
+                      {/* Wavespeed Reference Images for Vidu */}
+                      {genData.provider === 'wavespeed' && genData.model === 'vidu_ref2' && (
+                        <div className="space-y-4">
+                          <div>
+                            <Label>Character Reference Images</Label>
+                            <Input
+                              type="url"
+                              placeholder="https://example.com/character.jpg"
+                              className="mt-2"
+                              onBlur={(e) => {
+                                if (e.target.value && !genData.characterImages.includes(e.target.value)) {
+                                  setGenData({
+                                    ...genData,
+                                    characterImages: [...genData.characterImages, e.target.value]
+                                  });
+                                  e.target.value = '';
+                                }
+                              }}
+                            />
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {genData.characterImages.map((url, index) => (
+                                <Badge key={index} variant="secondary" className="text-xs">
+                                  Character {index + 1}
+                                  <button
+                                    type="button"
+                                    onClick={() => setGenData({
+                                      ...genData,
+                                      characterImages: genData.characterImages.filter((_, i) => i !== index)
+                                    })}
+                                    className="ml-1 text-destructive hover:text-destructive/80"
+                                  >
+                                    ×
+                                  </button>
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <Label>Logo Reference Images</Label>
+                            <Input
+                              type="url"
+                              placeholder="https://example.com/logo.png"
+                              className="mt-2"
+                              onBlur={(e) => {
+                                if (e.target.value && !genData.logoImages.includes(e.target.value)) {
+                                  setGenData({
+                                    ...genData,
+                                    logoImages: [...genData.logoImages, e.target.value]
+                                  });
+                                  e.target.value = '';
+                                }
+                              }}
+                            />
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {genData.logoImages.map((url, index) => (
+                                <Badge key={index} variant="secondary" className="text-xs">
+                                  Logo {index + 1}
+                                  <button
+                                    type="button"
+                                    onClick={() => setGenData({
+                                      ...genData,
+                                      logoImages: genData.logoImages.filter((_, i) => i !== index)
+                                    })}
+                                    className="ml-1 text-destructive hover:text-destructive/80"
+                                  >
+                                    ×
+                                  </button>
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* InfiniteTalk-specific fields */}
+                      {genData.provider === 'wavespeed' && genData.model === 'infinitetalk' && (
+                        <div className="space-y-4">
+                          <div>
+                            <Label htmlFor="imageUrl">Character Image URL <span className="text-destructive">*</span></Label>
+                            <Input
+                              id="imageUrl"
+                              type="url"
+                              placeholder="https://example.com/character-photo.jpg"
+                              value={genData.imageUrl}
+                              onChange={(e) => setGenData({...genData, imageUrl: e.target.value})}
+                              className="mt-2"
+                              required={genData.model === 'infinitetalk'}
+                            />
+                          </div>
+                          
+                          <div>
+                            <Label htmlFor="audioUrl">Audio URL <span className="text-destructive">*</span></Label>
+                            <Input
+                              id="audioUrl"
+                              type="url"
+                              placeholder="https://example.com/speech.mp3"
+                              value={genData.audioUrl}
+                              onChange={(e) => setGenData({...genData, audioUrl: e.target.value})}
+                              className="mt-2"
+                              required={genData.model === 'infinitetalk'}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Generation Parameters */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
                           <Label className="flex items-center gap-2">
@@ -659,9 +859,9 @@ const MediaUpload: React.FC = () => {
                           <Slider
                             value={genData.duration}
                             onValueChange={(value) => setGenData({...genData, duration: value})}
-                            max={8}
-                            min={4}
-                            step={2}
+                            max={genData.provider === 'wavespeed' ? 10 : 8}
+                            min={genData.provider === 'wavespeed' ? 5 : 4}
+                            step={1}
                             className="mt-2"
                           />
                         </div>
@@ -686,17 +886,36 @@ const MediaUpload: React.FC = () => {
                           </Select>
                         </div>
 
-                        <div>
-                          <Label>Creativity: {genData.creativity[0]}</Label>
-                          <Slider
-                            value={genData.creativity}
-                            onValueChange={(value) => setGenData({...genData, creativity: value})}
-                            max={1}
-                            min={0}
-                            step={0.1}
-                            className="mt-2"
-                          />
-                        </div>
+                        {genData.provider === 'wavespeed' ? (
+                          <div>
+                            <Label>Resolution</Label>
+                            <Select 
+                              value={genData.resolution} 
+                              onValueChange={(value) => setGenData({...genData, resolution: value})}
+                            >
+                              <SelectTrigger className="mt-2">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="480p">480p</SelectItem>
+                                <SelectItem value="720p">720p</SelectItem>
+                                <SelectItem value="1080p">1080p</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ) : (
+                          <div>
+                            <Label>Creativity: {genData.creativity[0]}</Label>
+                            <Slider
+                              value={genData.creativity}
+                              onValueChange={(value) => setGenData({...genData, creativity: value})}
+                              max={1}
+                              min={0}
+                              step={0.1}
+                              className="mt-2"
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
 

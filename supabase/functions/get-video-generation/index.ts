@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
     // Get generation record using service key (bypasses RLS)
     const { data: generation, error } = await supabaseClient
       .from('video_generations')
-      .select('id, status, progress, video_url, error_message, updated_at, generation_data')
+      .select('id, status, progress, video_url, error_message, updated_at, generation_data, provider')
       .eq('id', id)
       .maybeSingle();
 
@@ -62,6 +62,7 @@ Deno.serve(async (req) => {
       video_url: generation.video_url,
       error_message: generation.error_message,
       updated_at: generation.updated_at,
+      provider: generation.provider || 'veo',
       model: generation.generation_data?.model || 'unknown',
     };
 
