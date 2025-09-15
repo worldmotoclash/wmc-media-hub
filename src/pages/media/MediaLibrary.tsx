@@ -376,29 +376,68 @@ const MediaLibrary: React.FC = () => {
                 <p className="text-muted-foreground">
                   Browse videos, manage library & playlists
                 </p>
-                <div className="ml-auto flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      const key = prompt('Enter Media URL Key to verify Salesforce record:');
-                      if (key) {
-                        window.open(`https://api.realintelligence.com/api/wmc-content-by-key.py?orgId=00D5e000000HEcP&keyId=${encodeURIComponent(key)}&sandbox=False`, '_blank');
-                      }
-                    }}
-                  >
-                    <Eye className="w-4 h-4 mr-2" />
-                    Verify by Key
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => handleTabChange('playlists')}
-                  >
-                    <FolderOpen className="w-4 h-4 mr-2" />
-                    View All Playlists
-                  </Button>
-                </div>
+                 <div className="ml-auto flex gap-2">
+                   <Button 
+                     variant="outline" 
+                     size="sm"
+                     onClick={() => {
+                       setIsLoading(true);
+                       setJustSaved(false);
+                       setHasUnsavedChanges(false);
+                       // Force refresh of videos
+                       if (playlistId) {
+                         getVideosByPlaylist(playlistId).then(data => {
+                           setVideos(data);
+                           setFilteredVideos(data);
+                           setOriginalVideos(data);
+                           setIsLoading(false);
+                           toast.success('Videos refreshed');
+                         }).catch(error => {
+                           console.error('Error refreshing videos:', error);
+                           toast.error('Failed to refresh videos');
+                           setIsLoading(false);
+                         });
+                       } else {
+                         fetchVideoContent().then(data => {
+                           setVideos(data);
+                           setFilteredVideos(data);
+                           setOriginalVideos(data);
+                           setIsLoading(false);
+                           toast.success('Videos refreshed');
+                         }).catch(error => {
+                           console.error('Error refreshing videos:', error);
+                           toast.error('Failed to refresh videos');
+                           setIsLoading(false);
+                         });
+                       }
+                     }}
+                     disabled={isLoading}
+                   >
+                     {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
+                     {isLoading ? 'Loading...' : 'Refresh'}
+                   </Button>
+                   <Button 
+                     variant="outline" 
+                     size="sm"
+                     onClick={() => {
+                       const key = prompt('Enter Media URL Key to verify Salesforce record:');
+                       if (key) {
+                         window.open(`https://api.realintelligence.com/api/wmc-content-by-key.py?orgId=00D5e000000HEcP&keyId=${encodeURIComponent(key)}&sandbox=False`, '_blank');
+                       }
+                     }}
+                   >
+                     <Eye className="w-4 h-4 mr-2" />
+                     Verify by Key
+                   </Button>
+                   <Button 
+                     variant="outline" 
+                     size="sm"
+                     onClick={() => handleTabChange('playlists')}
+                   >
+                     <FolderOpen className="w-4 h-4 mr-2" />
+                     View All Playlists
+                   </Button>
+                 </div>
               </div>
             )}
             

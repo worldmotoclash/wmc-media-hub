@@ -64,15 +64,23 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
       sandbox: API_CONFIG.sandbox
     });
 
-    // Always include a playlist ID - use default if none provided
-    const targetPlaylistId = playlistId || API_CONFIG.defaultPlaylistId;
-    params.append('playlistId', targetPlaylistId);
-
-    if (searchQuery) {
-      params.append('search', searchQuery);
+    // If no playlist ID provided, fetch all content including generated videos
+    let url: string;
+    if (playlistId) {
+      params.append('playlistId', playlistId);
+      url = `${API_CONFIG.baseUrl}/wmc-content-playlist.py?${params.toString()}`;
+    } else {
+      // Use general content endpoint to get all videos including generated ones
+      url = `${API_CONFIG.baseUrl}/wmc-content.py?${params.toString()}`;
+      
+      // If search query exists, try playlist endpoint with default playlist as fallback
+      if (searchQuery) {
+        params.append('search', searchQuery);
+        params.append('playlistId', API_CONFIG.defaultPlaylistId);
+        url = `${API_CONFIG.baseUrl}/wmc-content-playlist.py?${params.toString()}`;
+      }
     }
 
-    const url = `${API_CONFIG.baseUrl}/wmc-content-playlist.py?${params.toString()}`;
     console.log('Fetching video content from:', url);
 
     const response = await fetch(url, {
@@ -127,7 +135,7 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
       data = data.map((video: any, index: number) => ({
         ...video,
         playlistPosition: video.playlistPosition || (index + 1),
-        junctionId: video.junctionId || video.ri1__Content_to_Playlist__c || `playlist_${targetPlaylistId}_content_${video.Id || index}`
+        junctionId: video.junctionId || video.ri1__Content_to_Playlist__c || `playlist_${playlistId || API_CONFIG.defaultPlaylistId}_content_${video.Id || index}`
       }));
     }
 

@@ -390,12 +390,12 @@ async function pollWavespeedStatus(
   throw new Error('Wavespeed generation timed out');
 }
 
-// Update Salesforce content
+// Update Salesforce content and assign to default playlist
 async function updateSalesforceContent(mediaUrlKey: string, videoUrl: string) {
   console.log(`📝 Updating Salesforce - Media Key: ${mediaUrlKey}, Video URL: ${videoUrl}`);
   
   try {
-    // Create form data for Salesforce update
+    // Update the main content record
     const formData = new FormData();
     formData.append('sObj', 'ri1__Content__c');
     formData.append('string_ri1__AI_Gen_Key__c', mediaUrlKey);
@@ -411,6 +411,29 @@ async function updateSalesforceContent(mediaUrlKey: string, videoUrl: string) {
     
     if (response.ok) {
       console.log('✅ Successfully updated Salesforce with video URL');
+      
+      // Try to assign to default playlist if not already assigned
+      try {
+        const playlistFormData = new FormData();
+        playlistFormData.append('sObj', 'ri1__Content_to_Playlist__c');
+        playlistFormData.append('string_ri1__AI_Gen_Key__c', mediaUrlKey);
+        playlistFormData.append('string_ri1__Playlist__c', 'a2H5e000002JD7g'); // Default playlist ID
+        playlistFormData.append('number_ri1__Playlist_Order__c', '999'); // Add at end
+        
+        const playlistResponse = await fetch('https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php', {
+          method: 'POST',
+          body: playlistFormData,
+        });
+        
+        if (playlistResponse.ok) {
+          console.log('✅ Successfully assigned video to default playlist');
+        } else {
+          console.log('ℹ️ Could not assign to playlist (may already be assigned):', playlistResponse.status);
+        }
+      } catch (playlistError) {
+        console.log('ℹ️ Playlist assignment failed (may already exist):', playlistError);
+      }
+      
     } else {
       console.error('❌ Failed to update Salesforce:', response.status, response.statusText);
     }
