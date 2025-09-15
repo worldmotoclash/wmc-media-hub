@@ -11,6 +11,7 @@ import { PresetBar, PresetSettings } from "@/components/model-marketplace/Preset
 import { FilterSidebar, ModelFilters } from "@/components/model-marketplace/FilterSidebar";
 import { ModelCard } from "@/components/model-marketplace/ModelCard";
 import { ModelDetailsDrawer } from "@/components/model-marketplace/ModelDetailsDrawer";
+import { GenerationFormModal } from "@/components/model-marketplace/GenerationFormModal";
 
 // Import services
 import { MODEL_REGISTRY, AIModel } from "@/services/modelRegistry";
@@ -26,6 +27,7 @@ const ModelMarketplace: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
   const [comparisonModels, setComparisonModels] = useState<AIModel[]>([]);
   const [detailsModel, setDetailsModel] = useState<AIModel | null>(null);
+  const [isGenerationModalOpen, setIsGenerationModalOpen] = useState(false);
 
   // Settings state
   const [presetSettings, setPresetSettings] = useState<PresetSettings>({
@@ -175,11 +177,7 @@ const ModelMarketplace: React.FC = () => {
 
   const handleModelSelect = (model: AIModel) => {
     setSelectedModel(model);
-    // Here you would typically navigate to the generation form with the selected model
-    toast({
-      title: "Model Selected",
-      description: `${model.displayName} is ready for video generation`,
-    });
+    setIsGenerationModalOpen(true);
   };
 
   const handleQuickPreview = (model: AIModel) => {
@@ -210,6 +208,11 @@ const ModelMarketplace: React.FC = () => {
 
   const handleCloseDetails = () => {
     setDetailsModel(null);
+  };
+
+  const handleChangeModel = () => {
+    setIsGenerationModalOpen(false);
+    setSelectedModel(null);
   };
 
   if (!user) {
@@ -334,6 +337,14 @@ const ModelMarketplace: React.FC = () => {
           isOpen={!!detailsModel}
           onOpenChange={(open) => !open && handleCloseDetails()}
           onSelectModel={handleModelSelect}
+        />
+
+        {/* Generation Form Modal */}
+        <GenerationFormModal
+          isOpen={isGenerationModalOpen}
+          onOpenChange={setIsGenerationModalOpen}
+          selectedModel={selectedModel}
+          onChangeModel={handleChangeModel}
         />
 
         {/* Comparison Tray */}
