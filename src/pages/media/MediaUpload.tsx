@@ -59,8 +59,8 @@ const MediaUpload: React.FC = () => {
   
   // AI Generation form state with Salesforce fields
   const [genData, setGenData] = useState({
-    provider: 'veo',
-    model: 'veo-3',
+    provider: 'wavespeed',
+    model: 'infinitetalk',
     mainPrompt: '',
     negativePrompt: '',
     duration: [6],
@@ -648,7 +648,7 @@ const MediaUpload: React.FC = () => {
                             setGenData({
                               ...genData, 
                               provider: value,
-                              model: value === 'veo' ? 'veo-3' : 'vidu_ref2' // Default model for each provider
+                              model: value === 'veo' ? 'veo-3' : 'infinitetalk' // Default model for each provider (cheapest)
                             });
                           }}
                         >
@@ -656,8 +656,8 @@ const MediaUpload: React.FC = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="veo">Google VEO 3 (High Quality)</SelectItem>
                             <SelectItem value="wavespeed">Wavespeed (Multi-Model)</SelectItem>
+                            <SelectItem value="veo">Google VEO 3 (High Quality)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -679,18 +679,18 @@ const MediaUpload: React.FC = () => {
                               <SelectItem value="veo-3">VEO 3</SelectItem>
                             ) : (
                               <>
-                                <SelectItem value="vidu_ref2">Vidu Reference-to-Video 2.0</SelectItem>
-                                <SelectItem value="wan_fun">WAN 2.2 Fun Control</SelectItem>
-                                <SelectItem value="infinitetalk">InfiniteTalk (Talking Head)</SelectItem>
+                                <SelectItem value="infinitetalk">InfiniteTalk (Talking Head) - $0.15/5s</SelectItem>
+                                <SelectItem value="wan_fun">WAN 2.2 Fun Control - $0.20/5s</SelectItem>
+                                <SelectItem value="vidu_ref2">Vidu Reference-to-Video 2.0 - $0.25/5s</SelectItem>
                               </>
                             )}
                           </SelectContent>
                         </Select>
                         {genData.provider === 'wavespeed' && (
                           <div className="mt-2 text-sm text-muted-foreground">
-                            {genData.model === 'vidu_ref2' && 'Multi-entity consistency with reference images'}
-                            {genData.model === 'wan_fun' && 'Fast generation with fun control variants'}
-                            {genData.model === 'infinitetalk' && 'Create talking/singing heads from image + audio'}
+                            {genData.model === 'infinitetalk' && 'Create talking/singing heads from image + audio (cheapest option)'}
+                            {genData.model === 'wan_fun' && 'Fast generation with fun control variants (mid-price)'}
+                            {genData.model === 'vidu_ref2' && 'Multi-entity consistency with reference images (premium)'}
                           </div>
                         )}
                       </div>
