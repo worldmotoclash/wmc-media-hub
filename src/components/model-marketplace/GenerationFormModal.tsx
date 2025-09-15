@@ -216,11 +216,26 @@ export const GenerationFormModal: React.FC<GenerationFormModalProps> = ({
       setGenerationStatus('Starting generation...');
       
       let response;
-      if (selectedModel.vendor === 'WaveSpeed') {
+      const vendor = selectedModel.vendor;
+
+      // Map marketplace model ids to wavespeed function-supported ids
+      const mapWavespeedModel = (id: string) => {
+        switch (id) {
+          case 'infinitetalk':
+            return 'infinitetalk';
+          case 'vidu_ref2':
+            return 'vidu_ref2';
+          default:
+            return 'wan_fun'; // sensible default supported by the function
+        }
+      };
+      
+      if (vendor === 'WaveSpeed') {
+        const wsModel = mapWavespeedModel(genData.model);
         response = await supabase.functions.invoke('generate-wavespeed-video', {
           body: {
             userId: user?.id,
-            model: genData.model,
+            model: wsModel,
             prompt: genData.mainPrompt,
             durationSec: genData.duration[0],
             resolution: genData.resolution,
@@ -236,7 +251,7 @@ export const GenerationFormModal: React.FC<GenerationFormModalProps> = ({
             salesforceData,
           },
         });
-      } else {
+      } else if (vendor === 'Google') {
         response = await supabase.functions.invoke('generate-veo-video', {
           body: {
             userId: user?.id,
@@ -245,15 +260,19 @@ export const GenerationFormModal: React.FC<GenerationFormModalProps> = ({
             duration: genData.duration[0],
             aspectRatio: genData.aspectRatio,
             creativity: genData.creativity[0],
-            model: genData.model,
+            model: genData.model, // ignored by edge fn today; uses env model
             mediaUrlKey,
             salesforceData,
           },
         });
+      } else {
+        throw new Error(`${vendor} models are not supported yet in generation. Please pick Google or WaveSpeed.`);
       }
 
       if (response.error) {
-        throw new Error(response.error.message);
+        // Surface a clearer message when edge fn returns non-2xx
+        const msg = response.error.message || 'Edge Function returned a non-2xx status code';
+        throw new Error(msg);
       }
 
       const result = response.data;
