@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft, Sparkles, Wand2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 
@@ -11,23 +11,23 @@ import { PresetBar, PresetSettings } from "@/components/model-marketplace/Preset
 import { FilterSidebar, ModelFilters } from "@/components/model-marketplace/FilterSidebar";
 import { ModelCard } from "@/components/model-marketplace/ModelCard";
 import { ModelDetailsDrawer } from "@/components/model-marketplace/ModelDetailsDrawer";
-import { GenerationFormModal } from "@/components/model-marketplace/GenerationFormModal";
 
 // Import services
 import { MODEL_REGISTRY, AIModel } from "@/services/modelRegistry";
 import { PricingService, GenerationSettings } from "@/services/pricingService";
+import { DefaultModelService } from "@/services/defaultModelService";
 
 const ModelMarketplace: React.FC = () => {
   const { user } = useUser();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
 
-  // State
-  const [selectedPreset, setSelectedPreset] = useState('teaser');
-  const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
+  // Get preset from URL params or default to 'teaser'
+  const initialPreset = searchParams.get('preset') || 'teaser';
+  const [selectedPreset, setSelectedPreset] = useState(initialPreset);
   const [comparisonModels, setComparisonModels] = useState<AIModel[]>([]);
   const [detailsModel, setDetailsModel] = useState<AIModel | null>(null);
-  const [isGenerationModalOpen, setIsGenerationModalOpen] = useState(false);
 
   // Settings state
   const [presetSettings, setPresetSettings] = useState<PresetSettings>({
@@ -165,6 +165,10 @@ const ModelMarketplace: React.FC = () => {
   // Event handlers
   const handlePresetChange = (preset: string) => {
     setSelectedPreset(preset);
+    // Update URL without navigation
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set('preset', preset);
+    window.history.replaceState(null, '', `?${newSearchParams.toString()}`);
   };
 
   const handleSettingsChange = (newSettings: Partial<PresetSettings>) => {
@@ -176,8 +180,13 @@ const ModelMarketplace: React.FC = () => {
   };
 
   const handleModelSelect = (model: AIModel) => {
-    setSelectedModel(model);
-    setIsGenerationModalOpen(true);
+    // Set this model as the default for the current preset
+    DefaultModelService.setDefaultModel(selectedPreset, model.id);
+    
+    toast({
+      title: "Default Model Set",
+      description: `${model.displayName} is now the default for ${selectedPreset}`,
+    });
   };
 
   const handleQuickPreview = (model: AIModel) => {
@@ -210,9 +219,8 @@ const ModelMarketplace: React.FC = () => {
     setDetailsModel(null);
   };
 
-  const handleChangeModel = () => {
-    setIsGenerationModalOpen(false);
-    setSelectedModel(null);
+  const handleGenerateVideo = () => {
+    navigate(`/admin/media/generate?preset=${selectedPreset}`);
   };
 
   if (!user) {
@@ -233,22 +241,29 @@ const ModelMarketplace: React.FC = () => {
             Back to Media Hub
           </Button>
           
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <h1 className="text-4xl font-bold mb-4 text-foreground flex items-center gap-3">
-              <Sparkles className="w-8 h-8 text-primary" />
-              AI Video Marketplace
-            </h1>
-            <p className="text-xl text-muted-foreground mb-2">
-              Zero-friction model picking with apples-to-apples pricing
-            </p>
-            <p className="text-muted-foreground">
-              Choose the perfect AI model for your racing content creation
-            </p>
-          </motion.div>
+          <div className="flex items-center justify-between">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <h1 className="text-4xl font-bold mb-4 text-foreground flex items-center gap-3">
+                <Sparkles className="w-8 h-8 text-primary" />
+                AI Video Marketplace
+              </h1>
+              <p className="text-xl text-muted-foreground mb-2">
+                Set default models for each use-case and browse available options
+              </p>
+              <p className="text-muted-foreground">
+                Click on any model to set it as the default for {selectedPreset}
+              </p>
+            </motion.div>
+
+            <Button size="lg" onClick={handleGenerateVideo} className="ml-4">
+              <Wand2 className="w-4 h-4 mr-2" />
+              Generate Video
+            </Button>
+          </div>
         </div>
 
         {/* Preset Bar */}
@@ -312,7 +327,7 @@ const ModelMarketplace: React.FC = () => {
                     onCompare={handleCompare}
                     onDetails={handleDetails}
                     onSelect={handleModelSelect}
-                    isSelected={selectedModel?.id === model.id}
+                    isSelected={false}
                     isComparing={comparisonModels.some(m => m.id === model.id)}
                   />
                 );
@@ -337,14 +352,6 @@ const ModelMarketplace: React.FC = () => {
           isOpen={!!detailsModel}
           onOpenChange={(open) => !open && handleCloseDetails()}
           onSelectModel={handleModelSelect}
-        />
-
-        {/* Generation Form Modal */}
-        <GenerationFormModal
-          isOpen={isGenerationModalOpen}
-          onOpenChange={setIsGenerationModalOpen}
-          selectedModel={selectedModel}
-          onChangeModel={handleChangeModel}
         />
 
         {/* Comparison Tray */}

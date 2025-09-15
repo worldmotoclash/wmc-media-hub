@@ -25,6 +25,7 @@ import TestTracking from "./pages/TestTracking";
 import TestLoginTracking from "./pages/TestLoginTracking";
 import MediaLibrary from "./pages/media/MediaLibrary";
 import MediaUpload from "./pages/media/MediaUpload";
+import Generate from "./pages/media/Generate";
 import ModelMarketplace from "./pages/media/ModelMarketplace";
 import PlaylistManager from "./pages/media/PlaylistManager";
 
@@ -55,7 +56,8 @@ const App = () => (
                 <Route path="/thankyouinvestor" element={<Navigate to="/thankyou" replace />} />
                 <Route path="/admin/media/library" element={<MediaLibrary />} />
                 <Route path="/admin/media/upload" element={<MediaUpload />} />
-                <Route path="/admin/media/generate" element={<ModelMarketplace />} />
+                <Route path="/admin/media/models" element={<ModelMarketplace />} />
+                <Route path="/admin/media/generate" element={<Generate />} />
                 <Route path="/admin/media/playlists" element={<PlaylistManager />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                 <Route path="/terms-of-service" element={<TermsOfService />} />

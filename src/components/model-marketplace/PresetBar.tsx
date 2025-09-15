@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Zap, Film, MessageSquare, Grid3X3, Smartphone, DollarSign, Clock } from "lucide-react";
+import { DefaultModelService } from "@/services/defaultModelService";
 
 export interface PresetSettings {
   duration: number[];
@@ -92,21 +93,28 @@ export const PresetBar: React.FC<PresetBarProps> = ({
             {PRESETS.map((preset) => {
               const Icon = preset.icon;
               const isSelected = selectedPreset === preset.id;
+              const defaultModel = DefaultModelService.getDefaultModel(preset.id);
               
               return (
-                <Button
-                  key={preset.id}
-                  variant={isSelected ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => handlePresetClick(preset.id)}
-                  className={`flex items-center gap-2 ${isSelected ? preset.color : ''}`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span className="font-medium">{preset.name}</span>
-                  <Badge variant="secondary" className="text-xs">
-                    {preset.description}
-                  </Badge>
-                </Button>
+                <div key={preset.id} className="flex flex-col items-center">
+                  <Button
+                    variant={isSelected ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handlePresetClick(preset.id)}
+                    className={`flex items-center gap-2 mb-1 ${isSelected ? preset.color : ''}`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span className="font-medium">{preset.name}</span>
+                    <Badge variant="secondary" className="text-xs">
+                      {preset.description}
+                    </Badge>
+                  </Button>
+                  {defaultModel && (
+                    <div className="text-xs text-muted-foreground text-center max-w-24 truncate">
+                      {defaultModel.displayName}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
