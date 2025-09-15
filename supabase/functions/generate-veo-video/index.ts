@@ -541,83 +541,96 @@ function pemToArrayBuffer(pem: string): ArrayBuffer {
 
 // Helper function to find video URL in VEO response with comprehensive search
 function findVideoUrlInResponse(responseData: any): string | null {
-  // Log all response keys for debugging
-  const logResponseStructure = (obj: any, path = ''): void => {
-    if (obj && typeof obj === 'object') {
-      Object.keys(obj).forEach(key => {
-        const fullPath = path ? `${path}.${key}` : key;
-        console.log(`🔑 Response key: ${fullPath} (${typeof obj[key]})`);
-        if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
-          logResponseStructure(obj[key], fullPath);
-        } else if (Array.isArray(obj[key]) && obj[key].length > 0) {
-          console.log(`📋 Array ${fullPath} has ${obj[key].length} items`);
-          if (typeof obj[key][0] === 'object') {
-            logResponseStructure(obj[key][0], `${fullPath}[0]`);
-          }
-        }
-      });
-    }
-  };
-  
-  logResponseStructure(responseData);
-
-  // Search patterns for video URLs
+  // Targeted search for known response shapes (covers Vertex variants you mentioned)
   const searchPaths = [
-    // Standard VEO paths
+    // Standard and common shapes
     'response.videos[0].gcsUri',
     'response.videos[0].uri',
     'response.videos[0].url',
     'response.videos[0].videoUri',
-    'response.videos[0].downloadUrl',
-    
-    // Alternative response structures
-    'response.predictions[0].gcsUri',
-    'response.predictions[0].uri', 
-    'response.predictions[0].url',
+    'response.videos[0].downloadUri', // note: Uri variant
+
+    // Output shortcuts on response
     'response.output.gcsUri',
     'response.output.uri',
     'response.output.url',
-    
-    // Direct response paths
-    'videos[0].gcsUri',
-    'videos[0].uri',
-    'videos[0].url',
-    'predictions[0].gcsUri',
-    'predictions[0].uri',
-    'output.gcsUri',
-    'output.uri',
-    'gcsUri',
-    'uri',
-    'url'
+    'response.outputUri',
+    'response.videoUri',
+
+    // Predictions variants
+    'response.predictions[0].gcsUri',
+    'response.predictions[0].uri',
+    'response.predictions[0].url',
+    'response.predictions[0].content[0].video.uri',
+
+    // Result and artifacts variants
+    'response.result.outputUri',
+    'response.artifacts[0].uri',
+
+    // Direct (non-nested) fallbacks sometimes returned
+    'videos[0].gcsUri', 'videos[0].uri', 'videos[0].url',
+    'artifacts[0].uri',
+    'result.outputUri',
+    'content[0].video.uri',
+
+    // Absolute minimal paths
+    'gcsUri', 'uri', 'url', 'videoUri', 'downloadUri', 'outputUri'
   ];
+
+  const getByPath = (obj: any, path: string) => {
+    let current = obj;
+    const parts = path.split('.');
+    for (const part of parts) {
+      if (part.includes('[') && part.includes(']')) {
+        const [arrayKey, indexStr] = part.split('[');
+        const index = parseInt(indexStr.replace(']', ''));
+        current = current?.[arrayKey]?.[index];
+      } else {
+        current = current?.[part];
+      }
+      if (current === undefined || current === null) break;
+    }
+    return current;
+  };
 
   for (const path of searchPaths) {
     try {
-      let current = responseData;
-      const parts = path.split('.');
-      
-      for (const part of parts) {
-        if (part.includes('[') && part.includes(']')) {
-          const [arrayKey, indexStr] = part.split('[');
-          const index = parseInt(indexStr.replace(']', ''));
-          current = current?.[arrayKey]?.[index];
-        } else {
-          current = current?.[part];
-        }
-        
-        if (current === undefined || current === null) break;
+      const val = getByPath(responseData, path);
+      if (typeof val === 'string' && (val.startsWith('gs://') || val.startsWith('http'))) {
+        console.log(`✅ Found video URL at path ${path}: ${val}`);
+        return val;
       }
-      
-      if (typeof current === 'string' && (current.startsWith('gs://') || current.startsWith('http'))) {
-        console.log(`✅ Found video URL at path ${path}: ${current}`);
-        return current;
-      }
-    } catch (e) {
-      // Continue searching
-    }
+    } catch (_) {}
   }
-  
-  console.warn('❌ No video URL found in any expected response path');
+
+  // Generic recursive fallback: find any field named *uri/*url with a usable value
+  const candidates: string[] = [];
+  const visit = (obj: any) => {
+    if (!obj) return;
+    if (Array.isArray(obj)) { for (const item of obj) visit(item); return; }
+    if (typeof obj !== 'object') return;
+    for (const [key, value] of Object.entries(obj)) {
+      if (typeof value === 'string' && (value.startsWith('gs://') || value.startsWith('http'))) {
+        if (/(^|[^a-zA-Z])(uri|url)$/i.test(key) || /video/i.test(key)) {
+          candidates.push(value);
+        }
+      } else if (value && typeof value === 'object') {
+        visit(value);
+      }
+    }
+  };
+  visit(responseData);
+
+  if (candidates.length > 0) {
+    // Prefer HTTPS over GS if available
+    const httpsCandidate = candidates.find(c => c.startsWith('http'));
+    const chosen = httpsCandidate || candidates[0];
+    console.log('🔎 Fallback URI candidates:', candidates);
+    console.log('✅ Selected fallback video URL:', chosen);
+    return chosen;
+  }
+
+  console.warn('❌ No video URL found in any expected response path or fallback scan');
   return null;
 }
 
