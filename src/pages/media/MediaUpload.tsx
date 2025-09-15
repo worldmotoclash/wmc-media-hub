@@ -621,6 +621,25 @@ const MediaUpload: React.FC = () => {
                       </div>
 
                       <div>
+                        <Label htmlFor="mainPrompt" className="text-sm font-medium">
+                          {genData.model === 'infinitetalk' ? 'Character Description' : 'Main Prompt'} <span className="text-destructive">*</span>
+                        </Label>
+                        <Textarea
+                          id="mainPrompt"
+                          placeholder={
+                            genData.model === 'infinitetalk' 
+                              ? "Describe the character, setting, and style for the talking head video..."
+                              : "A high-speed motocross race through muddy terrain with spectacular jumps, dynamic camera angles, professional cinematography, 4K resolution..."
+                          }
+                          value={genData.mainPrompt}
+                          onChange={(e) => setGenData({...genData, mainPrompt: e.target.value})}
+                          className="mt-2"
+                          rows={4}
+                          required
+                        />
+                      </div>
+
+                      <div>
                         <Label htmlFor="description">Description</Label>
                         <Textarea
                           id="description"
@@ -709,25 +728,6 @@ const MediaUpload: React.FC = () => {
                         </Alert>
                       )}
                       
-                      <div>
-                        <Label htmlFor="mainPrompt" className="text-sm font-medium">
-                          {genData.model === 'infinitetalk' ? 'Character Description' : 'Main Prompt'} <span className="text-destructive">*</span>
-                        </Label>
-                        <Textarea
-                          id="mainPrompt"
-                          placeholder={
-                            genData.model === 'infinitetalk' 
-                              ? "Describe the character, setting, and style for the talking head video..."
-                              : "A high-speed motocross race through muddy terrain with spectacular jumps, dynamic camera angles, professional cinematography, 4K resolution..."
-                          }
-                          value={genData.mainPrompt}
-                          onChange={(e) => setGenData({...genData, mainPrompt: e.target.value})}
-                          className="mt-2"
-                          rows={4}
-                          required
-                        />
-                      </div>
-
                       {/* VEO-specific fields */}
                       {genData.provider === 'veo' && (
                         <div>
