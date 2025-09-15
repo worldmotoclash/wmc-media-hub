@@ -376,15 +376,29 @@ const MediaLibrary: React.FC = () => {
                 <p className="text-muted-foreground">
                   Browse videos, manage library & playlists
                 </p>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => handleTabChange('playlists')}
-                  className="ml-auto"
-                >
-                  <FolderOpen className="w-4 h-4 mr-2" />
-                  View All Playlists
-                </Button>
+                <div className="ml-auto flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      const key = prompt('Enter Media URL Key to verify Salesforce record:');
+                      if (key) {
+                        window.open(`https://api.realintelligence.com/api/wmc-content-by-key.py?orgId=00D5e000000HEcP&keyId=${encodeURIComponent(key)}&sandbox=False`, '_blank');
+                      }
+                    }}
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    Verify by Key
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleTabChange('playlists')}
+                  >
+                    <FolderOpen className="w-4 h-4 mr-2" />
+                    View All Playlists
+                  </Button>
+                </div>
               </div>
             )}
             

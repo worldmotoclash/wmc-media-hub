@@ -326,9 +326,17 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
           const m = opData.error.message || 'Unknown operation error';
           throw new Error(m);
         }
-        const videos = opData?.response?.videos;
-        if (Array.isArray(videos) && videos.length > 0 && typeof videos[0]?.gcsUri === 'string') {
-          videoUrl = videos[0].gcsUri;
+        
+        // Enhanced VEO response parsing - log full response for debugging
+        console.log('🔍 Full VEO operation response:', JSON.stringify(opData, null, 2));
+        
+        // Comprehensive search for video URLs in the response
+        videoUrl = findVideoUrlInResponse(opData);
+        
+        if (videoUrl) {
+          console.log('✅ Found video URL:', videoUrl);
+        } else {
+          console.warn('⚠️ No video URL found in response structure');
         }
         break;
       }
@@ -337,7 +345,23 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
     console.log('🏁 Polling finished. Video URL found:', Boolean(videoUrl));
 
     if (!videoUrl) {
-      console.warn('⚠️ No video URL discovered in operation response. Saving completion without URL.');
+      console.error('❌ No video URL discovered in VEO operation response after completion');
+      throw new Error('VEO generation completed but returned no video URL');
+    }
+
+    // Convert gs:// URI to usable public URL
+    let publicVideoUrl: string;
+    if (videoUrl.startsWith('gs://')) {
+      console.log('🔄 Converting Google Storage URI to public URL...');
+      try {
+        publicVideoUrl = await convertGsUriToPublicUrl(videoUrl, supabaseClient, generationId);
+        console.log('✅ Successfully converted to public URL:', publicVideoUrl.substring(0, 120) + '...');
+      } catch (convertError) {
+        console.error('❌ Failed to convert gs:// URI to public URL:', convertError);
+        throw new Error(`Failed to make video accessible: ${convertError.message}`);
+      }
+    } else {
+      publicVideoUrl = videoUrl;
     }
 
     // Update progress: Processing response
@@ -348,58 +372,45 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       })
       .eq('id', generationId);
 
-    if (videoUrl) {
-      // Update progress: Updating Salesforce
-      await supabaseClient
-        .from('video_generations')
-        .update({
-          progress: 90,
-        })
-        .eq('id', generationId);
+    // Update progress: Updating Salesforce
+    await supabaseClient
+      .from('video_generations')
+      .update({
+        progress: 90,
+      })
+      .eq('id', generationId);
 
-      // Get the media_url_key for Salesforce integration
-      const { data: generationRecord } = await supabaseClient
-        .from('video_generations')
-        .select('media_url_key')
-        .eq('id', generationId)
-        .single();
+    // Get the media_url_key for Salesforce integration
+    const { data: generationRecord } = await supabaseClient
+      .from('video_generations')
+      .select('media_url_key')
+      .eq('id', generationId)
+      .single();
 
-      // Update Salesforce if media_url_key exists
-      if (generationRecord?.media_url_key) {
-        try {
-          console.log(`🔄 Updating Salesforce for Media URL Key: ${generationRecord.media_url_key}`);
-          await updateSalesforceContent(generationRecord.media_url_key, videoUrl);
-          console.log(`✅ Salesforce content updated successfully for key: ${generationRecord.media_url_key}`);
-        } catch (salesforceError) {
-          console.error(`❌ Failed to update Salesforce content:`, salesforceError);
-          // Don't fail the whole operation for Salesforce errors, just log them
-        }
+    // Update Salesforce if media_url_key exists
+    if (generationRecord?.media_url_key) {
+      try {
+        console.log(`🔄 Updating Salesforce for Media URL Key: ${generationRecord.media_url_key}`);
+        await updateSalesforceContent(generationRecord.media_url_key, publicVideoUrl);
+        console.log(`✅ Salesforce content updated successfully for key: ${generationRecord.media_url_key}`);
+      } catch (salesforceError) {
+        console.error(`❌ Failed to update Salesforce content:`, salesforceError);
+        // Don't fail the whole operation for Salesforce errors, just log them
       }
-
-      await supabaseClient
-        .from('video_generations')
-        .update({
-          status: 'completed',
-          progress: 100,
-          video_url: videoUrl,
-          error_message: null,
-        })
-        .eq('id', generationId);
-
-      console.log(`✅ VEO generation ${generationId} completed successfully`);
-      console.log(`🎥 Video URL: ${String(videoUrl).substring(0, 120)}...`);
-    } else {
-      // Mark as completed but without a URL so client can take follow-up action
-      await supabaseClient
-        .from('video_generations')
-        .update({
-          status: 'completed',
-          progress: 100,
-          error_message: 'Completed but no video URL returned by VEO operation',
-        })
-        .eq('id', generationId);
-      console.warn('❕ Completed without a video URL. Full operation response was logged earlier.');
     }
+
+    await supabaseClient
+      .from('video_generations')
+      .update({
+        status: 'completed',
+        progress: 100,
+        video_url: publicVideoUrl,
+        error_message: null,
+      })
+      .eq('id', generationId);
+
+    console.log(`✅ VEO generation ${generationId} completed successfully`);
+    console.log(`🎥 Public Video URL: ${publicVideoUrl.substring(0, 120)}...`);
     
   } catch (error) {
     console.error(`❌ Error in VEO generation for ${generationId}:`, error);
@@ -526,6 +537,162 @@ function pemToArrayBuffer(pem: string): ArrayBuffer {
   }
 
   return bytes.buffer;
+}
+
+// Helper function to find video URL in VEO response with comprehensive search
+function findVideoUrlInResponse(responseData: any): string | null {
+  // Log all response keys for debugging
+  const logResponseStructure = (obj: any, path = ''): void => {
+    if (obj && typeof obj === 'object') {
+      Object.keys(obj).forEach(key => {
+        const fullPath = path ? `${path}.${key}` : key;
+        console.log(`🔑 Response key: ${fullPath} (${typeof obj[key]})`);
+        if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
+          logResponseStructure(obj[key], fullPath);
+        } else if (Array.isArray(obj[key]) && obj[key].length > 0) {
+          console.log(`📋 Array ${fullPath} has ${obj[key].length} items`);
+          if (typeof obj[key][0] === 'object') {
+            logResponseStructure(obj[key][0], `${fullPath}[0]`);
+          }
+        }
+      });
+    }
+  };
+  
+  logResponseStructure(responseData);
+
+  // Search patterns for video URLs
+  const searchPaths = [
+    // Standard VEO paths
+    'response.videos[0].gcsUri',
+    'response.videos[0].uri',
+    'response.videos[0].url',
+    'response.videos[0].videoUri',
+    'response.videos[0].downloadUrl',
+    
+    // Alternative response structures
+    'response.predictions[0].gcsUri',
+    'response.predictions[0].uri', 
+    'response.predictions[0].url',
+    'response.output.gcsUri',
+    'response.output.uri',
+    'response.output.url',
+    
+    // Direct response paths
+    'videos[0].gcsUri',
+    'videos[0].uri',
+    'videos[0].url',
+    'predictions[0].gcsUri',
+    'predictions[0].uri',
+    'output.gcsUri',
+    'output.uri',
+    'gcsUri',
+    'uri',
+    'url'
+  ];
+
+  for (const path of searchPaths) {
+    try {
+      let current = responseData;
+      const parts = path.split('.');
+      
+      for (const part of parts) {
+        if (part.includes('[') && part.includes(']')) {
+          const [arrayKey, indexStr] = part.split('[');
+          const index = parseInt(indexStr.replace(']', ''));
+          current = current?.[arrayKey]?.[index];
+        } else {
+          current = current?.[part];
+        }
+        
+        if (current === undefined || current === null) break;
+      }
+      
+      if (typeof current === 'string' && (current.startsWith('gs://') || current.startsWith('http'))) {
+        console.log(`✅ Found video URL at path ${path}: ${current}`);
+        return current;
+      }
+    } catch (e) {
+      // Continue searching
+    }
+  }
+  
+  console.warn('❌ No video URL found in any expected response path');
+  return null;
+}
+
+// Helper function to convert gs:// URI to public URL via Supabase storage
+async function convertGsUriToPublicUrl(gsUri: string, supabaseClient: any, generationId: string): Promise<string> {
+  console.log('📥 Downloading video from Google Storage:', gsUri);
+  
+  // Extract bucket and object path from gs:// URI
+  const gsMatch = gsUri.match(/^gs:\/\/([^\/]+)\/(.+)$/);
+  if (!gsMatch) {
+    throw new Error('Invalid gs:// URI format');
+  }
+  
+  const [, bucket, objectPath] = gsMatch;
+  
+  // Get Google Cloud credentials for accessing the file
+  const serviceAccountKey = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_KEY');
+  if (!serviceAccountKey) {
+    throw new Error('Google Service Account Key not found');
+  }
+  
+  const credentials = JSON.parse(serviceAccountKey);
+  const accessToken = await getAccessToken(credentials);
+  
+  // Download the video file from Google Cloud Storage
+  const downloadUrl = `https://storage.googleapis.com/storage/v1/b/${bucket}/o/${encodeURIComponent(objectPath)}?alt=media`;
+  console.log('⬇️ Downloading from:', downloadUrl);
+  
+  const downloadResponse = await fetch(downloadUrl, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`
+    }
+  });
+  
+  if (!downloadResponse.ok) {
+    throw new Error(`Failed to download video: ${downloadResponse.status} ${downloadResponse.statusText}`);
+  }
+  
+  const videoBlob = await downloadResponse.blob();
+  const videoBuffer = await videoBlob.arrayBuffer();
+  
+  console.log('📦 Downloaded video size:', Math.round(videoBuffer.byteLength / 1024 / 1024), 'MB');
+  
+  // Generate a unique filename
+  const fileName = `veo-${generationId}-${Date.now()}.mp4`;
+  const filePath = `generated/${fileName}`;
+  
+  // Upload to Supabase storage
+  console.log('☁️ Uploading to Supabase storage:', filePath);
+  
+  const { data: uploadData, error: uploadError } = await supabaseClient.storage
+    .from('generated-videos')
+    .upload(filePath, new Uint8Array(videoBuffer), {
+      contentType: 'video/mp4',
+      cacheControl: '3600',
+      upsert: false
+    });
+    
+  if (uploadError) {
+    console.error('❌ Supabase storage upload error:', uploadError);
+    throw new Error(`Failed to upload video to Supabase: ${uploadError.message}`);
+  }
+  
+  console.log('✅ Successfully uploaded to Supabase storage');
+  
+  // Get the public URL
+  const { data: urlData } = supabaseClient.storage
+    .from('generated-videos')
+    .getPublicUrl(filePath);
+    
+  if (!urlData?.publicUrl) {
+    throw new Error('Failed to generate public URL for uploaded video');
+  }
+  
+  return urlData.publicUrl;
 }
 
 // Helper function to query Salesforce for Content record ID using Media URL Key
