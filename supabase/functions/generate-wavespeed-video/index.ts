@@ -49,10 +49,13 @@ const WAVESPEED_MODELS: Record<string, {
     url: 'https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.2/t2v-720p',
     buildPayload: ({ prompt, durationSec, aspectRatio, resolution, extras }) => {
       const size = (aspectRatio === '9:16' || resolution === 'vertical') ? '720*1280' : '1280*720';
+      const allowedDurations = [5, 8] as const;
+      const d = typeof durationSec === 'number' ? durationSec : 5;
+      const duration = allowedDurations.includes(d as any) ? d : (d >= 8 ? 8 : 5);
       return {
         prompt,
         size,
-        duration: durationSec || 5,
+        duration,
         seed: -1,
         ...extras
       };
