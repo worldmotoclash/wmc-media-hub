@@ -60,7 +60,7 @@ const MediaUpload: React.FC = () => {
   // AI Generation form state with Salesforce fields
   const [genData, setGenData] = useState({
     provider: 'wavespeed',
-    model: 'infinitetalk',
+    model: 'wan_ultrafast',
     mainPrompt: '',
     negativePrompt: '',
     duration: [6],
@@ -667,7 +667,7 @@ const MediaUpload: React.FC = () => {
                             setGenData({
                               ...genData, 
                               provider: value,
-                              model: value === 'veo' ? 'veo-3' : 'infinitetalk' // Default model for each provider (cheapest)
+                              model: value === 'veo' ? 'veo-3' : 'wan_ultrafast' // Default model for each provider (cheapest)
                             });
                           }}
                         >
@@ -698,18 +698,34 @@ const MediaUpload: React.FC = () => {
                               <SelectItem value="veo-3">VEO 3</SelectItem>
                             ) : (
                               <>
-                                <SelectItem value="infinitetalk">InfiniteTalk (Talking Head) - $0.15/5s</SelectItem>
-                                <SelectItem value="wan_fun">WAN 2.2 Fun Control - $0.20/5s</SelectItem>
-                                <SelectItem value="vidu_ref2">Vidu Reference-to-Video 2.0 - $0.25/5s</SelectItem>
+                                <SelectItem value="wan_ultrafast">WAN Ultra-Fast (480p/720p) - $0.10/run</SelectItem>
+                                <SelectItem value="infinitetalk">InfiniteTalk (Talking Head) - $0.15/run</SelectItem>
+                                <SelectItem value="wan_standard">WAN Standard (480p-720p) - $0.15/run</SelectItem>
+                                <SelectItem value="seedance_standard">Seedance Standard (480p-720p) - $0.18/run</SelectItem>
+                                <SelectItem value="pixverse_standard">PixVerse Standard (480p-720p) - $0.20/run</SelectItem>
+                                <SelectItem value="dreamina_1080p">Dreamina 1080p - $0.60/run</SelectItem>
+                                <SelectItem value="seedance_1080p">Seedance 1080p - $0.65/run</SelectItem>
+                                <SelectItem value="pixverse_1080p">PixVerse 1080p Premium - $1.00/run</SelectItem>
+                                <SelectItem value="luma_ray">Luma Ray - $1.50/run</SelectItem>
+                                <SelectItem value="kling_master">Kling Master - $2.00/run</SelectItem>
+                                <SelectItem value="sora_wavespeed">OpenAI Sora (via WaveSpeed) - $4.00/run</SelectItem>
                               </>
                             )}
                           </SelectContent>
                         </Select>
                         {genData.provider === 'wavespeed' && (
                           <div className="mt-2 text-sm text-muted-foreground">
-                            {genData.model === 'infinitetalk' && 'Create talking/singing heads from image + audio (cheapest option)'}
-                            {genData.model === 'wan_fun' && 'Fast generation with fun control variants (mid-price)'}
-                            {genData.model === 'vidu_ref2' && 'Multi-entity consistency with reference images (premium)'}
+                            {genData.model === 'wan_ultrafast' && 'Fastest generation, basic quality (480p/720p)'}
+                            {genData.model === 'infinitetalk' && 'Create talking/singing heads from image + audio'}
+                            {genData.model === 'wan_standard' && 'Standard WAN generation (480p-720p)'}
+                            {genData.model === 'seedance_standard' && 'Seedance standard quality (480p-720p)'}
+                            {genData.model === 'pixverse_standard' && 'PixVerse standard generation (480p-720p)'}
+                            {genData.model === 'dreamina_1080p' && 'High-resolution Dreamina generation (1080p)'}
+                            {genData.model === 'seedance_1080p' && 'High-resolution Seedance generation (1080p)'}
+                            {genData.model === 'pixverse_1080p' && 'Premium PixVerse generation (1080p)'}
+                            {genData.model === 'luma_ray' && 'Premium Luma Ray generation with advanced features'}
+                            {genData.model === 'kling_master' && 'Top-tier Kling generation with master quality'}
+                            {genData.model === 'sora_wavespeed' && 'OpenAI Sora via WaveSpeed - highest quality'}
                           </div>
                         )}
                       </div>
@@ -720,10 +736,21 @@ const MediaUpload: React.FC = () => {
                           <AlertCircle className="h-4 w-4" />
                           <AlertDescription>
                             Estimated cost: ${(() => {
-                              const costs = { vidu_ref2: 0.25, wan_fun: 0.20, infinitetalk: 0.15 };
-                              const blocks = Math.ceil(genData.duration[0] / 5);
-                              return (blocks * (costs[genData.model as keyof typeof costs] || 0.20)).toFixed(2);
-                            })()} for {genData.duration[0]}s video
+                              const costs = { 
+                                wan_ultrafast: 0.10,
+                                infinitetalk: 0.15,
+                                wan_standard: 0.15,
+                                seedance_standard: 0.18,
+                                pixverse_standard: 0.20,
+                                dreamina_1080p: 0.60,
+                                seedance_1080p: 0.65,
+                                pixverse_1080p: 1.00,
+                                luma_ray: 1.50,
+                                kling_master: 2.00,
+                                sora_wavespeed: 4.00
+                              };
+                              return (costs[genData.model as keyof typeof costs] || 0.15).toFixed(2);
+                            })()} per generation
                           </AlertDescription>
                         </Alert>
                       )}
