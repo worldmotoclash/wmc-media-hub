@@ -105,10 +105,18 @@ export const GenerationFormModal: React.FC<GenerationFormModalProps> = ({
   // Update form when model changes
   useEffect(() => {
     if (selectedModel) {
+      // Get valid duration for this model
+      const supportedDurations = selectedModel.specs.supportedDurations || [5, 8];
+      const currentDuration = genData.duration[0];
+      const validDuration = supportedDurations.includes(currentDuration) 
+        ? currentDuration 
+        : supportedDurations[0];
+
       setGenData(prev => ({
         ...prev,
         provider: selectedModel.vendor,
         model: selectedModel.id,
+        duration: [validDuration],
       }));
     }
   }, [selectedModel]);
@@ -225,8 +233,14 @@ export const GenerationFormModal: React.FC<GenerationFormModalProps> = ({
             return 'infinitetalk';
           case 'vidu_ref2':
             return 'vidu_ref2';
+          case 'wan_fun':
+            return 'wan_fun'; // Direct mapping
+          case 'wan_standard':
+            return 'wan_fun'; // Map to same endpoint
+          case 'wan_ultrafast':
+            return 'wan_fun'; // Map to same endpoint
           default:
-            return 'wan_fun'; // sensible default supported by the function
+            return 'wan_fun'; // Default to wan 2.2 t2v 720p
         }
       };
       
@@ -496,14 +510,23 @@ export const GenerationFormModal: React.FC<GenerationFormModalProps> = ({
                   <Clock className="w-4 h-4" />
                   Duration: {genData.duration[0]}s
                 </Label>
-                <Slider
-                  value={genData.duration}
-                  onValueChange={(value) => setGenData({...genData, duration: value})}
-                  max={selectedModel.vendor === 'WaveSpeed' ? 10 : 8}
-                  min={selectedModel.vendor === 'WaveSpeed' ? 5 : 4}
-                  step={1}
-                  className="mt-2"
-                />
+                {selectedModel?.specs.supportedDurations.length > 1 ? (
+                  <Slider
+                    value={genData.duration}
+                    onValueChange={(value) => setGenData({...genData, duration: value})}
+                    max={Math.max(...selectedModel.specs.supportedDurations)}
+                    min={Math.min(...selectedModel.specs.supportedDurations)}
+                    step={1}
+                    className="mt-2"
+                  />
+                ) : (
+                  <div className="mt-2 p-2 bg-muted rounded-md text-sm text-muted-foreground">
+                    Fixed at {selectedModel?.specs.supportedDurations[0]}s
+                  </div>
+                )}
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Supported: {selectedModel?.specs.supportedDurations.join(', ')}s
+                </div>
               </div>
 
               <div>

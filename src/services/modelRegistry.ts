@@ -12,6 +12,7 @@ interface ModelPricing {
 
 interface ModelSpec {
   maxDuration: number;
+  supportedDurations: number[]; // Specific duration values supported
   maxResolution: string;
   aspectRatios: string[];
   fpsOptions: number[];
@@ -46,6 +47,37 @@ export interface AIModel {
 
 export const MODEL_REGISTRY: AIModel[] = [
   {
+    id: 'wan_fun',
+    name: 'wan_fun',
+    displayName: 'WAN 2.2 Fun Control',
+    vendor: 'WaveSpeed',
+    pricing: { basis: 'per_run', basePrice: 0.20, currency: 'USD' },
+    capabilities: ['fun_control', 'balanced'],
+    qualityTier: '720p',
+    speedTier: 'Standard',
+    specs: {
+      maxDuration: 8,
+      supportedDurations: [5, 8],
+      maxResolution: '720p',
+      aspectRatios: ['16:9', '9:16'],
+      fpsOptions: [24, 30],
+      audioSupport: false
+    },
+    latency: { typical: 45, range: [30, 60] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['Fun Control', 'Balanced', 'Cost-effective'],
+    description: 'WAN 2.2 Fun Control for dynamic video generation.',
+    promptTips: [
+      'Good for dynamic content',
+      'Supports moderate complexity',
+      'Best for 5-8 second clips'
+    ],
+    sampleVideos: [],
+    changelog: ['v2.2: Improved control', 'v2.1: Speed optimizations'],
+    uptime: 97.5
+  },
+  {
     id: 'wan_ultrafast',
     name: 'wan_ultrafast',
     displayName: 'Wan Ultra-Fast',
@@ -56,6 +88,7 @@ export const MODEL_REGISTRY: AIModel[] = [
     speedTier: 'Ultra-fast',
     specs: {
       maxDuration: 10,
+      supportedDurations: [5, 8, 10],
       maxResolution: '480p',
       aspectRatios: ['16:9', '9:16', '1:1'],
       fpsOptions: [24, 30],
@@ -86,6 +119,7 @@ export const MODEL_REGISTRY: AIModel[] = [
     speedTier: 'Standard',
     specs: {
       maxDuration: 15,
+      supportedDurations: [5, 8],
       maxResolution: '720p',
       aspectRatios: ['16:9', '9:16', '1:1'],
       fpsOptions: [24, 30],
@@ -116,6 +150,7 @@ export const MODEL_REGISTRY: AIModel[] = [
     speedTier: 'High-fidelity',
     specs: {
       maxDuration: 20,
+      supportedDurations: [5, 8, 10, 15, 20],
       maxResolution: '1080p',
       aspectRatios: ['16:9', '9:16', '1:1', '21:9'],
       fpsOptions: [24, 30, 60],
@@ -146,6 +181,7 @@ export const MODEL_REGISTRY: AIModel[] = [
     speedTier: 'High-fidelity',
     specs: {
       maxDuration: 25,
+      supportedDurations: [5, 8, 10, 15, 20, 25],
       maxResolution: '1080p',
       aspectRatios: ['16:9', '9:16', '1:1'],
       fpsOptions: [24, 30, 60],
@@ -176,6 +212,7 @@ export const MODEL_REGISTRY: AIModel[] = [
     speedTier: 'Standard',
     specs: {
       maxDuration: 30,
+      supportedDurations: [5, 8, 10, 15, 20, 25, 30],
       maxResolution: '1080p',
       aspectRatios: ['16:9', '9:16', '1:1'],
       fpsOptions: [24, 30],
@@ -206,6 +243,7 @@ export const MODEL_REGISTRY: AIModel[] = [
     speedTier: 'High-fidelity',
     specs: {
       maxDuration: 60,
+      supportedDurations: [5, 8, 10, 15, 20, 25, 30, 45, 60],
       maxResolution: '1080p',
       aspectRatios: ['16:9', '9:16', '1:1', '21:9'],
       fpsOptions: [24, 30, 60],
@@ -236,6 +274,7 @@ export const MODEL_REGISTRY: AIModel[] = [
     speedTier: 'High-fidelity',
     specs: {
       maxDuration: 60,
+      supportedDurations: [5, 10, 15, 20, 30, 45, 60],
       maxResolution: '1080p',
       aspectRatios: ['16:9', '9:16', '1:1', '21:9'],
       fpsOptions: [24, 30, 60],
@@ -259,6 +298,7 @@ export const MODEL_REGISTRY: AIModel[] = [
 
 export const MODEL_CAPABILITIES: ModelCapability[] = [
   { id: 'ultra_fast', name: 'Ultra-Fast', description: 'Generates in under 30 seconds' },
+  { id: 'fun_control', name: 'Fun Control', description: 'Advanced control mechanisms for dynamic video' },
   { id: 'audio_generation', name: 'Audio', description: 'Includes audio generation' },
   { id: 'lip_sync', name: 'Lip-Sync', description: 'Accurate lip synchronization' },
   { id: 'multi_shot', name: 'Multi-Shot', description: 'Maintains coherence across shots' },
