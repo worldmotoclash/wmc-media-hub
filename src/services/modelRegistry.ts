@@ -293,6 +293,258 @@ export const MODEL_REGISTRY: AIModel[] = [
     sampleVideos: [],
     changelog: ['v1.2: Improved consistency', 'v1.1: Beta release'],
     uptime: 92.3
+  },
+  // Luma Models
+  {
+    id: 'luma_dream_machine',
+    name: 'luma_dream_machine',
+    displayName: 'Dream Machine 1.6',
+    vendor: 'Luma',
+    pricing: { basis: 'per_run', basePrice: 0.80, currency: 'USD' },
+    capabilities: ['image_to_video', 'realistic_motion', 'high_quality'],
+    qualityTier: '1080p',
+    speedTier: 'Standard',
+    specs: {
+      maxDuration: 5,
+      supportedDurations: [5],
+      maxResolution: '1080p',
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      fpsOptions: [24, 30],
+      audioSupport: false
+    },
+    latency: { typical: 90, range: [60, 120] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['Image-to-video', 'Realistic motion', 'Quality'],
+    description: 'Luma\'s flagship model for high-quality video generation from text and images.',
+    promptTips: [
+      'Great for realistic motion',
+      'Excels with image inputs',
+      'Good for natural movements'
+    ],
+    sampleVideos: [],
+    changelog: ['v1.6: Enhanced motion quality', 'v1.5: Image conditioning'],
+    uptime: 95.8
+  },
+  {
+    id: 'luma_ray',
+    name: 'luma_ray',
+    displayName: 'Luma Ray (Fast)',
+    vendor: 'Luma',
+    pricing: { basis: 'per_run', basePrice: 0.35, currency: 'USD' },
+    capabilities: ['ultra_fast', 'image_to_video', 'cost_effective'],
+    qualityTier: '720p',
+    speedTier: 'Ultra-fast',
+    specs: {
+      maxDuration: 5,
+      supportedDurations: [5],
+      maxResolution: '720p',
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      fpsOptions: [24, 30],
+      audioSupport: false
+    },
+    latency: { typical: 45, range: [30, 60] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['Speed', 'Cost', 'Image-to-video'],
+    description: 'Fast and cost-effective video generation with image conditioning.',
+    promptTips: [
+      'Best for quick iterations',
+      'Good with simple motions',
+      'Cost-effective for testing'
+    ],
+    sampleVideos: [],
+    changelog: ['v1.2: Speed optimizations', 'v1.1: Initial release'],
+    uptime: 97.2
+  },
+  // Pika Models
+  {
+    id: 'pika_1_5',
+    name: 'pika_1_5',
+    displayName: 'Pika 1.5',
+    vendor: 'Pika',
+    pricing: { basis: 'per_run', basePrice: 0.60, currency: 'USD' },
+    capabilities: ['creative_effects', 'image_to_video', 'style_control'],
+    qualityTier: '1080p',
+    speedTier: 'Standard',
+    specs: {
+      maxDuration: 4,
+      supportedDurations: [3, 4],
+      maxResolution: '1080p',
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      fpsOptions: [24, 30],
+      audioSupport: false
+    },
+    latency: { typical: 75, range: [50, 100] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['Creative effects', 'Style control', 'Artistic'],
+    description: 'Latest Pika model with enhanced creative effects and style control.',
+    promptTips: [
+      'Great for creative and artistic content',
+      'Excels with style effects',
+      'Good for social media content'
+    ],
+    sampleVideos: [],
+    changelog: ['v1.5: Enhanced effects', 'v1.4: Better style control'],
+    uptime: 94.1
+  },
+  {
+    id: 'pika_1_0',
+    name: 'pika_1_0',
+    displayName: 'Pika 1.0',
+    vendor: 'Pika',
+    pricing: { basis: 'per_run', basePrice: 0.40, currency: 'USD' },
+    capabilities: ['creative_effects', 'image_to_video', 'cost_effective'],
+    qualityTier: '720p',
+    speedTier: 'Standard',
+    specs: {
+      maxDuration: 3,
+      supportedDurations: [3],
+      maxResolution: '720p',
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      fpsOptions: [24, 30],
+      audioSupport: false
+    },
+    latency: { typical: 60, range: [45, 90] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['Creative effects', 'Cost-effective', 'Reliable'],
+    description: 'Original Pika model offering creative video effects at affordable pricing.',
+    promptTips: [
+      'Good for creative experiments',
+      'Cost-effective for testing',
+      'Simple creative effects'
+    ],
+    sampleVideos: [],
+    changelog: ['v1.0.3: Stability improvements', 'v1.0.2: Bug fixes'],
+    uptime: 96.7
+  },
+  // Kling Models
+  {
+    id: 'kling_pro',
+    name: 'kling_pro',
+    displayName: 'Kling Pro',
+    vendor: 'Kling',
+    pricing: { basis: 'per_run', basePrice: 1.20, currency: 'USD' },
+    capabilities: ['high_quality', 'long_form', 'realistic_motion', 'cinematic'],
+    qualityTier: '1080p',
+    speedTier: 'High-fidelity',
+    specs: {
+      maxDuration: 10,
+      supportedDurations: [5, 10],
+      maxResolution: '1080p',
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      fpsOptions: [24, 30],
+      audioSupport: false
+    },
+    latency: { typical: 150, range: [120, 200] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['High quality', 'Long duration', 'Cinematic'],
+    description: 'Premium Kling model for high-quality, longer-duration video generation.',
+    promptTips: [
+      'Excellent for detailed scenes',
+      'Supports complex movements',
+      'Good for cinematic content'
+    ],
+    sampleVideos: [],
+    changelog: ['v2.1: Quality improvements', 'v2.0: Pro features'],
+    uptime: 93.4
+  },
+  {
+    id: 'kling_standard',
+    name: 'kling_standard',
+    displayName: 'Kling Standard',
+    vendor: 'Kling',
+    pricing: { basis: 'per_run', basePrice: 0.70, currency: 'USD' },
+    capabilities: ['balanced', 'realistic_motion', 'standard_quality'],
+    qualityTier: '720p',
+    speedTier: 'Standard',
+    specs: {
+      maxDuration: 5,
+      supportedDurations: [5],
+      maxResolution: '720p',
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      fpsOptions: [24, 30],
+      audioSupport: false
+    },
+    latency: { typical: 90, range: [70, 120] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['Balanced', 'Reliable', 'Good motion'],
+    description: 'Standard Kling model offering balanced quality and performance.',
+    promptTips: [
+      'Good for general content',
+      'Reliable motion quality',
+      'Balanced cost/quality'
+    ],
+    sampleVideos: [],
+    changelog: ['v1.8: Motion improvements', 'v1.7: Stability fixes'],
+    uptime: 96.1
+  },
+  // MiniMax Models
+  {
+    id: 'minimax_video_01',
+    name: 'minimax_video_01',
+    displayName: 'MiniMax Video-01',
+    vendor: 'MiniMax',
+    pricing: { basis: 'per_run', basePrice: 0.90, currency: 'USD' },
+    capabilities: ['high_quality', 'balanced', 'realistic_motion'],
+    qualityTier: '1080p',
+    speedTier: 'Standard',
+    specs: {
+      maxDuration: 6,
+      supportedDurations: [6],
+      maxResolution: '1080p',
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      fpsOptions: [25, 30],
+      audioSupport: false
+    },
+    latency: { typical: 100, range: [80, 140] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['High quality', 'Consistent', 'Good detail'],
+    description: 'MiniMax\'s flagship video generation model with high quality output.',
+    promptTips: [
+      'Great for detailed content',
+      'Consistent quality',
+      'Good for realistic scenes'
+    ],
+    sampleVideos: [],
+    changelog: ['v1.3: Quality enhancements', 'v1.2: Performance improvements'],
+    uptime: 95.5
+  },
+  {
+    id: 'minimax_lite',
+    name: 'minimax_lite',
+    displayName: 'MiniMax Lite',
+    vendor: 'MiniMax',
+    pricing: { basis: 'per_run', basePrice: 0.45, currency: 'USD' },
+    capabilities: ['cost_effective', 'fast_turnaround', 'balanced'],
+    qualityTier: '720p',
+    speedTier: 'Standard',
+    specs: {
+      maxDuration: 6,
+      supportedDurations: [6],
+      maxResolution: '720p',
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      fpsOptions: [25, 30],
+      audioSupport: false
+    },
+    latency: { typical: 70, range: [50, 90] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['Cost-effective', 'Fast', 'Reliable'],
+    description: 'Lightweight MiniMax model for cost-effective video generation.',
+    promptTips: [
+      'Good for quick content',
+      'Cost-effective option',
+      'Reliable for simple scenes'
+    ],
+    sampleVideos: [],
+    changelog: ['v1.1: Speed optimizations', 'v1.0: Initial release'],
+    uptime: 97.8
   }
 ];
 
@@ -305,7 +557,18 @@ export const MODEL_CAPABILITIES: ModelCapability[] = [
   { id: 'cinematic', name: 'Cinematic', description: 'Film-quality visuals' },
   { id: 'long_form', name: 'Long-Form', description: 'Supports longer durations' },
   { id: 'cost_effective', name: 'Cost Effective', description: 'Budget-friendly pricing' },
-  { id: 'premium', name: 'Premium', description: 'Highest quality available' }
+  { id: 'premium', name: 'Premium', description: 'Highest quality available' },
+  { id: 'image_to_video', name: 'Image-to-Video', description: 'Converts images to video' },
+  { id: 'creative_effects', name: 'Creative Effects', description: 'Artistic and creative video effects' },
+  { id: 'style_control', name: 'Style Control', description: 'Advanced style and aesthetic control' },
+  { id: 'realistic_motion', name: 'Realistic Motion', description: 'Natural and realistic movement' },
+  { id: 'high_quality', name: 'High Quality', description: 'Superior visual quality' },
+  { id: 'balanced', name: 'Balanced', description: 'Good balance of quality, speed, and cost' },
+  { id: 'standard_quality', name: 'Standard Quality', description: 'Reliable standard quality output' },
+  { id: 'fast_turnaround', name: 'Fast Turnaround', description: 'Quick generation times' },
+  { id: 'google_quality', name: 'Google Quality', description: 'Google AI powered generation' },
+  { id: 'openai_quality', name: 'OpenAI Quality', description: 'OpenAI powered generation' },
+  { id: 'premium_quality', name: 'Premium Quality', description: 'Premium tier quality' }
 ];
 
 export const getModelById = (id: string): AIModel | undefined => {
