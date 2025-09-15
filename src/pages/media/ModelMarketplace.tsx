@@ -11,7 +11,7 @@ import { PresetBar, PresetSettings } from "@/components/model-marketplace/Preset
 import { FilterSidebar, ModelFilters } from "@/components/model-marketplace/FilterSidebar";
 import { ModelCard } from "@/components/model-marketplace/ModelCard";
 import { ModelDetailsDrawer } from "@/components/model-marketplace/ModelDetailsDrawer";
-import { GenerationPanel } from "@/components/model-marketplace/GenerationPanel";
+import { GenerationFormModal } from "@/components/model-marketplace/GenerationFormModal";
 
 // Import services
 import { MODEL_REGISTRY, AIModel } from "@/services/modelRegistry";
@@ -27,7 +27,7 @@ const ModelMarketplace: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
   const [comparisonModels, setComparisonModels] = useState<AIModel[]>([]);
   const [detailsModel, setDetailsModel] = useState<AIModel | null>(null);
-  const [showModelSelection, setShowModelSelection] = useState(false);
+  const [isGenerationModalOpen, setIsGenerationModalOpen] = useState(false);
 
   // Settings state
   const [presetSettings, setPresetSettings] = useState<PresetSettings>({
@@ -47,22 +47,6 @@ const ModelMarketplace: React.FC = () => {
     commercialUse: [],
     availability: []
   });
-
-  // Get default model for selected preset
-  const defaultModel = useMemo(() => {
-    const presets = [
-      { id: 'teaser', defaultModel: 'wan_ultrafast' },
-      { id: 'cinematic', defaultModel: 'veo_2' },
-      { id: 'lip-sync', defaultModel: 'infinitetalk' },
-      { id: 'multi-shot', defaultModel: 'veo_2' },
-      { id: 'social', defaultModel: 'wan_fun' }
-    ];
-    const currentPreset = presets.find(p => p.id === selectedPreset);
-    if (currentPreset?.defaultModel) {
-      return MODEL_REGISTRY.find(m => m.id === currentPreset.defaultModel) || selectedModel;
-    }
-    return selectedModel;
-  }, [selectedPreset, selectedModel]);
 
   // Check authentication
   useEffect(() => {
@@ -193,11 +177,7 @@ const ModelMarketplace: React.FC = () => {
 
   const handleModelSelect = (model: AIModel) => {
     setSelectedModel(model);
-    setShowModelSelection(false);
-  };
-
-  const handleChangeModel = () => {
-    setShowModelSelection(!showModelSelection);
+    setIsGenerationModalOpen(true);
   };
 
   const handleQuickPreview = (model: AIModel) => {
@@ -230,6 +210,10 @@ const ModelMarketplace: React.FC = () => {
     setDetailsModel(null);
   };
 
+  const handleChangeModel = () => {
+    setIsGenerationModalOpen(false);
+    setSelectedModel(null);
+  };
 
   if (!user) {
     return null;
@@ -279,63 +263,69 @@ const ModelMarketplace: React.FC = () => {
             settings={presetSettings}
             onSettingsChange={handleSettingsChange}
             effectivePrice={effectivePrice}
-            defaultModel={defaultModel}
-            onChangeModel={handleChangeModel}
-            showModelSelection={showModelSelection}
           />
         </motion.div>
 
         {/* Main Content */}
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Model Selection Area (Conditionally Shown) */}
-          {showModelSelection && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.4, ease: "easeInOut" }}
-              className="w-full lg:w-80 order-1 lg:order-none"
-            >
-              <FilterSidebar
-                filters={filters}
-                onFiltersChange={handleFiltersChange}
-                modelCounts={modelCounts}
-              />
-              
-              {/* Model Grid */}
-              <div className="mt-6 space-y-4">
-                <h3 className="text-lg font-semibold">Available Models ({filteredModels.length})</h3>
-                <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto">
-                  {filteredModels.map((model) => {
-                    const pricing = PricingService.calculateNormalizedPricing(model, generationSettings);
-                    return (
-                      <ModelCard
-                        key={model.id}
-                        model={model}
-                        pricing={pricing}
-                        onQuickPreview={handleQuickPreview}
-                        onCompare={handleCompare}
-                        onDetails={handleDetails}
-                        onSelect={handleModelSelect}
-                        isSelected={selectedModel?.id === model.id}
-                        isComparing={comparisonModels.some(m => m.id === model.id)}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Generation Panel */}
+        <div className="flex gap-6">
+          {/* Filter Sidebar */}
           <motion.div
-            className="flex-1 order-2 lg:order-none"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+          >
+            <FilterSidebar
+              filters={filters}
+              onFiltersChange={handleFiltersChange}
+              modelCounts={modelCounts}
+            />
+          </motion.div>
+
+          {/* Model Grid */}
+          <motion.div
+            className="flex-1"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.4 }}
-            layout
+            transition={{ delay: 0.3, duration: 0.6 }}
           >
-            <GenerationPanel selectedModel={selectedModel || defaultModel} />
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold mb-2">
+                Available Models ({filteredModels.length})
+              </h2>
+              {recommendedModels.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Recommended for {selectedPreset}: {recommendedModels.slice(0, 3).map(m => m.displayName).join(', ')}
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredModels.map((model) => {
+                const pricing = PricingService.calculateNormalizedPricing(model, generationSettings);
+                
+                return (
+                  <ModelCard
+                    key={model.id}
+                    model={model}
+                    pricing={pricing}
+                    onQuickPreview={handleQuickPreview}
+                    onCompare={handleCompare}
+                    onDetails={handleDetails}
+                    onSelect={handleModelSelect}
+                    isSelected={selectedModel?.id === model.id}
+                    isComparing={comparisonModels.some(m => m.id === model.id)}
+                  />
+                );
+              })}
+            </div>
+
+            {filteredModels.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">
+                  No models match your current filters. Try adjusting your selection.
+                </p>
+              </div>
+            )}
           </motion.div>
         </div>
 
@@ -347,6 +337,14 @@ const ModelMarketplace: React.FC = () => {
           isOpen={!!detailsModel}
           onOpenChange={(open) => !open && handleCloseDetails()}
           onSelectModel={handleModelSelect}
+        />
+
+        {/* Generation Form Modal */}
+        <GenerationFormModal
+          isOpen={isGenerationModalOpen}
+          onOpenChange={setIsGenerationModalOpen}
+          selectedModel={selectedModel}
+          onChangeModel={handleChangeModel}
         />
 
         {/* Comparison Tray */}
