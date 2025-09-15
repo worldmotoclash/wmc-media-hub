@@ -155,8 +155,8 @@ Deno.serve(async (req) => {
       ri1__Aspect_Ratio__c: generationData.aspectRatio,
       AI_Prompt__c: generationData.prompt,
       AI_Model__c: requestData.model,
-      Generation_Status__c: 'PENDING',
-      Generation_Progress__c: 0,
+      ri1__Generation_Status__c: 'PENDING',
+      ri1__Generation_Progress__c: 0,
       ri1__Categories__c: salesforceData.categories?.join(';') || '',
       ri1__Template__c: salesforceData.template || '',
       ri1__Location__c: salesforceData.location || '',
@@ -400,8 +400,8 @@ async function updateSalesforceContent(mediaUrlKey: string, videoUrl: string) {
     formData.append('sObj', 'ri1__Content__c');
     formData.append('string_ri1__AI_Gen_Key__c', mediaUrlKey);
     formData.append('string_ri1__URL__c', videoUrl);
-    formData.append('string_Generation_Status__c', 'COMPLETED');
-    formData.append('number_Generation_Progress__c', '100');
+    formData.append('string_ri1__Generation_Status__c', 'COMPLETED');
+    formData.append('number_ri1__Generation_Progress__c', '100');
     
     // Submit to Salesforce via web2case endpoint
     const response = await fetch('https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php', {
