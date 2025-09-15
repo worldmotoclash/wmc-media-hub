@@ -6,7 +6,8 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Zap, Film, MessageSquare, Grid3X3, Smartphone, DollarSign, Clock } from "lucide-react";
+import { Zap, Film, MessageSquare, Grid3X3, Smartphone, DollarSign, Clock, Settings } from "lucide-react";
+import { AIModel } from "@/services/modelRegistry";
 
 export interface PresetSettings {
   duration: number[];
@@ -22,6 +23,9 @@ interface PresetBarProps {
   settings: PresetSettings;
   onSettingsChange: (settings: Partial<PresetSettings>) => void;
   effectivePrice: { perRun: string; perSecond: string };
+  defaultModel?: AIModel | null;
+  onChangeModel: () => void;
+  showModelSelection: boolean;
 }
 
 const PRESETS = [
@@ -31,7 +35,8 @@ const PRESETS = [
     description: 'Fast & cheap',
     icon: Zap,
     color: 'bg-emerald-500',
-    settings: { duration: [5], resolution: '720p', fps: 24, audio: false, aspectRatio: '16:9' }
+    settings: { duration: [5], resolution: '720p', fps: 24, audio: false, aspectRatio: '16:9' },
+    defaultModel: 'wan_ultrafast'
   },
   {
     id: 'cinematic',
@@ -39,7 +44,8 @@ const PRESETS = [
     description: '1080p+',
     icon: Film,
     color: 'bg-purple-500',
-    settings: { duration: [10], resolution: '1080p', fps: 30, audio: false, aspectRatio: '21:9' }
+    settings: { duration: [10], resolution: '1080p', fps: 30, audio: false, aspectRatio: '21:9' },
+    defaultModel: 'veo_2'
   },
   {
     id: 'lip-sync',
@@ -47,7 +53,8 @@ const PRESETS = [
     description: 'Talking head',
     icon: MessageSquare,
     color: 'bg-blue-500',
-    settings: { duration: [8], resolution: '1080p', fps: 30, audio: true, aspectRatio: '16:9' }
+    settings: { duration: [8], resolution: '1080p', fps: 30, audio: true, aspectRatio: '16:9' },
+    defaultModel: 'infinitetalk'
   },
   {
     id: 'multi-shot',
@@ -55,7 +62,8 @@ const PRESETS = [
     description: 'Coherent',
     icon: Grid3X3,
     color: 'bg-orange-500',
-    settings: { duration: [15], resolution: '1080p', fps: 24, audio: false, aspectRatio: '16:9' }
+    settings: { duration: [15], resolution: '1080p', fps: 24, audio: false, aspectRatio: '16:9' },
+    defaultModel: 'veo_2'
   },
   {
     id: 'social',
@@ -63,7 +71,8 @@ const PRESETS = [
     description: 'Vertical',
     icon: Smartphone,
     color: 'bg-pink-500',
-    settings: { duration: [6], resolution: '720p', fps: 30, audio: false, aspectRatio: '9:16' }
+    settings: { duration: [6], resolution: '720p', fps: 30, audio: false, aspectRatio: '9:16' },
+    defaultModel: 'wan_fun'
   }
 ];
 
@@ -73,6 +82,9 @@ export const PresetBar: React.FC<PresetBarProps> = ({
   settings,
   onSettingsChange,
   effectivePrice,
+  defaultModel,
+  onChangeModel,
+  showModelSelection,
 }) => {
   const handlePresetClick = (presetId: string) => {
     const preset = PRESETS.find(p => p.id === presetId);
@@ -109,6 +121,32 @@ export const PresetBar: React.FC<PresetBarProps> = ({
                 </Button>
               );
             })}
+          </div>
+          
+          {/* Default Model Display */}
+          <div className="mt-4 p-3 bg-muted/30 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium">Selected Model:</Label>
+                {defaultModel ? (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">{defaultModel.vendor}</Badge>
+                    <span className="text-sm">{defaultModel.displayName}</span>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">No model selected</span>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onChangeModel}
+                className="flex items-center gap-2"
+              >
+                <Settings className="w-4 h-4" />
+                {showModelSelection ? 'Hide Models' : 'Change Model'}
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -224,3 +262,5 @@ export const PresetBar: React.FC<PresetBarProps> = ({
     </Card>
   );
 };
+
+export { PRESETS };
