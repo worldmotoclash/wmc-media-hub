@@ -46,13 +46,17 @@ const WAVESPEED_MODELS: Record<string, {
     estimatedCostPer5s: 0.25
   },
   'wan_fun': {
-    url: 'https://api.wavespeed.ai/api/wan2.2/fun-control',
-    buildPayload: ({ prompt, durationSec, resolution, extras }) => ({
-      prompt,
-      duration: durationSec,
-      resolution: resolution || '720p',
-      ...extras
-    }),
+    url: 'https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.2/t2v-720p',
+    buildPayload: ({ prompt, durationSec, aspectRatio, resolution, extras }) => {
+      const size = (aspectRatio === '9:16' || resolution === 'vertical') ? '720*1280' : '1280*720';
+      return {
+        prompt,
+        size,
+        duration: durationSec || 5,
+        seed: -1,
+        ...extras
+      };
+    },
     estimatedCostPer5s: 0.20
   },
   'infinitetalk': {
@@ -251,8 +255,8 @@ async function startWavespeedGeneration(
     const responseData = await response.json();
     console.log('📋 Wavespeed response:', JSON.stringify(responseData, null, 2));
 
-    // Extract job/task ID from response
-    const jobId = responseData.task_id || responseData.job_id || responseData.id;
+    // Extract job/task ID from response (supports wrapper {data:{id}})
+    const jobId = responseData.data?.id || responseData.task_id || responseData.job_id || responseData.id;
     if (!jobId) {
       throw new Error('No job ID returned from Wavespeed API');
     }
@@ -301,8 +305,8 @@ async function pollWavespeedStatus(
     await new Promise(resolve => setTimeout(resolve, 5000));
 
     try {
-      // Poll Wavespeed status endpoint (adjust URL based on actual API)
-      const statusUrl = `https://api.wavespeed.ai/api/status/${jobId}`;
+      // Poll Wavespeed result endpoint (v3)
+      const statusUrl = `https://api.wavespeed.ai/api/v3/predictions/${jobId}/result`;
       const statusResponse = await fetch(statusUrl, {
         headers: {
           'Authorization': `Bearer ${apiKey}`,
@@ -314,7 +318,8 @@ async function pollWavespeedStatus(
         continue;
       }
 
-      const statusData = await statusResponse.json();
+      const raw = await statusResponse.json();
+      const statusData = raw.data || raw;
       console.log(`📊 Poll ${attempt}: Job ${jobId} status:`, statusData.status);
 
       // Update progress if available
@@ -327,7 +332,7 @@ async function pollWavespeedStatus(
 
       // Check if completed
       if (statusData.status === 'succeeded' || statusData.status === 'completed') {
-        const videoUrl = statusData.video_url || statusData.result_url || statusData.output_url;
+        const videoUrl = statusData.outputs?.[0] || statusData.video_url || statusData.result_url || statusData.output_url;
         const thumbnailUrl = statusData.thumbnail_url;
 
         if (!videoUrl) {
