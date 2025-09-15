@@ -158,14 +158,8 @@ export const GenerationFormModal: React.FC<GenerationFormModalProps> = ({
             setIsGenerating(false);
             toast({
               title: "Success!",
-              description: "Video generated successfully! You can now view it in the Media Library.",
+              description: "Video generated successfully!",
             });
-            
-            // Close modal and navigate after delay
-            setTimeout(() => {
-              onOpenChange(false);
-              navigate('/admin/media/library');
-            }, 2000);
           } else if (updatedGeneration.status === 'failed') {
             clearInterval(pollInterval);
             setGenerationStatus('Generation failed');
@@ -425,7 +419,59 @@ export const GenerationFormModal: React.FC<GenerationFormModalProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleGenerateSubmit} className="space-y-8">
+        {/* Video Completed Display */}
+        {currentGeneration?.status === 'completed' && currentGeneration.video_url && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-6 space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="w-5 h-5 text-green-600" />
+              <span className="text-lg font-medium text-green-800">Video Generated Successfully!</span>
+            </div>
+            <div className="space-y-3">
+              <video
+                controls
+                className="w-full rounded-lg bg-black"
+                src={currentGeneration.video_url}
+                style={{ maxHeight: '400px' }}
+              >
+                Your browser does not support the video tag.
+              </video>
+              <p className="text-sm text-green-700">
+                <a
+                  href={currentGeneration.video_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-green-900"
+                >
+                  {currentGeneration.video_url}
+                </a>
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/admin/media/library')}
+                >
+                  View in Media Library
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    setCurrentGeneration(null);
+                    setGenData(prev => ({ ...prev, title: '', mainPrompt: '', description: '' }));
+                  }}
+                >
+                  Generate Another Video
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Form - Hidden when video is completed */}
+        {currentGeneration?.status !== 'completed' && (
+          <form onSubmit={handleGenerateSubmit} className="space-y-8">
           {/* Basic Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Basic Information</h3>
@@ -768,6 +814,7 @@ export const GenerationFormModal: React.FC<GenerationFormModalProps> = ({
             </Button>
           </div>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );

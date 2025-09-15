@@ -390,12 +390,31 @@ async function pollWavespeedStatus(
   throw new Error('Wavespeed generation timed out');
 }
 
-// Update Salesforce content (simplified version)
+// Update Salesforce content
 async function updateSalesforceContent(mediaUrlKey: string, videoUrl: string) {
-  // This would typically call your Salesforce update endpoint
-  // For now, just log the update
-  console.log(`📝 Salesforce update - Media Key: ${mediaUrlKey}, Video URL: ${videoUrl}`);
+  console.log(`📝 Updating Salesforce - Media Key: ${mediaUrlKey}, Video URL: ${videoUrl}`);
   
-  // TODO: Implement actual Salesforce API call or webhook
-  // This should match the pattern used in the VEO function
+  try {
+    // Create form data for Salesforce update
+    const formData = new FormData();
+    formData.append('sObj', 'ri1__Content__c');
+    formData.append('string_ri1__AI_Gen_Key__c', mediaUrlKey);
+    formData.append('string_ri1__URL__c', videoUrl);
+    formData.append('string_Generation_Status__c', 'COMPLETED');
+    formData.append('number_Generation_Progress__c', '100');
+    
+    // Submit to Salesforce via web2case endpoint
+    const response = await fetch('https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php', {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (response.ok) {
+      console.log('✅ Successfully updated Salesforce with video URL');
+    } else {
+      console.error('❌ Failed to update Salesforce:', response.status, response.statusText);
+    }
+  } catch (error) {
+    console.error('❌ Salesforce update error:', error);
+  }
 }
