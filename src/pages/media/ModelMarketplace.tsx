@@ -286,14 +286,15 @@ const ModelMarketplace: React.FC = () => {
         </motion.div>
 
         {/* Main Content */}
-        <div className="flex gap-6">
+        <div className="flex flex-col lg:flex-row gap-6">
           {/* Model Selection Area (Conditionally Shown) */}
           {showModelSelection && (
             <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2, duration: 0.6 }}
-              className="w-80"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.4, ease: "easeInOut" }}
+              className="w-full lg:w-80 order-1 lg:order-none"
             >
               <FilterSidebar
                 filters={filters}
@@ -304,7 +305,7 @@ const ModelMarketplace: React.FC = () => {
               {/* Model Grid */}
               <div className="mt-6 space-y-4">
                 <h3 className="text-lg font-semibold">Available Models ({filteredModels.length})</h3>
-                <div className="space-y-3 max-h-96 overflow-y-auto">
+                <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto">
                   {filteredModels.map((model) => {
                     const pricing = PricingService.calculateNormalizedPricing(model, generationSettings);
                     return (
@@ -328,10 +329,11 @@ const ModelMarketplace: React.FC = () => {
 
           {/* Generation Panel */}
           <motion.div
-            className="flex-1"
+            className="flex-1 order-2 lg:order-none"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.6 }}
+            transition={{ delay: 0.2, duration: 0.4 }}
+            layout
           >
             <GenerationPanel selectedModel={selectedModel || defaultModel} />
           </motion.div>
