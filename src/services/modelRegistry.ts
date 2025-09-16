@@ -28,7 +28,7 @@ export interface AIModel {
   id: string;
   name: string;
   displayName: string;
-  vendor: 'Google' | 'ByteDance' | 'WaveSpeed' | 'Luma' | 'Pika' | 'PixVerse' | 'Kling' | 'MiniMax' | 'OpenAI';
+  vendor: 'Google' | 'ByteDance' | 'WaveSpeed' | 'Luma' | 'Pika' | 'PixVerse' | 'MiniMax' | 'OpenAI';
   pricing: ModelPricing;
   capabilities: string[];
   qualityTier: '480p' | '720p' | '1080p' | '2K' | '4K';
@@ -425,7 +425,7 @@ export const MODEL_REGISTRY: AIModel[] = [
     id: 'kling_pro',
     name: 'kling_pro',
     displayName: 'Kling Pro',
-    vendor: 'Kling',
+    vendor: 'WaveSpeed',
     pricing: { basis: 'per_run', basePrice: 1.20, currency: 'USD' },
     capabilities: ['high_quality', 'long_form', 'realistic_motion', 'cinematic'],
     qualityTier: '1080p',
@@ -456,7 +456,7 @@ export const MODEL_REGISTRY: AIModel[] = [
     id: 'kling_standard',
     name: 'kling_standard',
     displayName: 'Kling Standard',
-    vendor: 'Kling',
+    vendor: 'WaveSpeed',
     pricing: { basis: 'per_run', basePrice: 0.70, currency: 'USD' },
     capabilities: ['balanced', 'realistic_motion', 'standard_quality'],
     qualityTier: '720p',

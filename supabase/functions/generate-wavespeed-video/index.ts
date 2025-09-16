@@ -71,6 +71,34 @@ const WAVESPEED_MODELS: Record<string, {
       resolution: resolution || '480p'
     }),
     estimatedCostPer5s: 0.15
+  },
+  'kling_pro': {
+    url: 'https://api.wavespeed.ai/api/kling/pro',
+    buildPayload: ({ prompt, durationSec, aspectRatio, resolution, extras }) => {
+      const duration = Math.min(Math.max(durationSec || 5, 5), 10);
+      return {
+        prompt,
+        duration,
+        aspect_ratio: aspectRatio || '16:9',
+        resolution: resolution || '1080p',
+        ...extras
+      };
+    },
+    estimatedCostPer5s: 1.20
+  },
+  'kling_standard': {
+    url: 'https://api.wavespeed.ai/api/kling/standard',
+    buildPayload: ({ prompt, durationSec, aspectRatio, resolution, extras }) => {
+      const duration = Math.min(durationSec || 5, 5);
+      return {
+        prompt,
+        duration,
+        aspect_ratio: aspectRatio || '16:9',
+        resolution: resolution || '720p',
+        ...extras
+      };
+    },
+    estimatedCostPer5s: 0.70
   }
 };
 
