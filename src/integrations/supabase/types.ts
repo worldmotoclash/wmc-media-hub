@@ -14,6 +14,206 @@ export type Database = {
   }
   public: {
     Tables: {
+      content_review_activities: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          media_asset_id: string
+          performed_by: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          media_asset_id: string
+          performed_by?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          media_asset_id?: string
+          performed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_review_activities_media_asset_id_fkey"
+            columns: ["media_asset_id"]
+            isOneToOne: false
+            referencedRelation: "media_assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      media_asset_tags: {
+        Row: {
+          created_at: string
+          id: string
+          media_asset_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          media_asset_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          media_asset_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_asset_tags_media_asset_id_fkey"
+            columns: ["media_asset_id"]
+            isOneToOne: false
+            referencedRelation: "media_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_asset_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "media_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      media_assets: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          duration: number | null
+          file_format: string | null
+          file_size: number | null
+          file_url: string | null
+          id: string
+          metadata: Json | null
+          resolution: string | null
+          source: Database["public"]["Enums"]["media_source"]
+          source_id: string | null
+          status: string | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration?: number | null
+          file_format?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          metadata?: Json | null
+          resolution?: string | null
+          source: Database["public"]["Enums"]["media_source"]
+          source_id?: string | null
+          status?: string | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration?: number | null
+          file_format?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          metadata?: Json | null
+          resolution?: string | null
+          source?: Database["public"]["Enums"]["media_source"]
+          source_id?: string | null
+          status?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      media_tags: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      s3_bucket_configs: {
+        Row: {
+          access_key_id: string
+          bucket_name: string
+          created_at: string
+          endpoint_url: string
+          id: string
+          is_active: boolean | null
+          last_scanned_at: string | null
+          name: string
+          region: string | null
+          scan_frequency_hours: number | null
+          updated_at: string
+        }
+        Insert: {
+          access_key_id: string
+          bucket_name: string
+          created_at?: string
+          endpoint_url: string
+          id?: string
+          is_active?: boolean | null
+          last_scanned_at?: string | null
+          name: string
+          region?: string | null
+          scan_frequency_hours?: number | null
+          updated_at?: string
+        }
+        Update: {
+          access_key_id?: string
+          bucket_name?: string
+          created_at?: string
+          endpoint_url?: string
+          id?: string
+          is_active?: boolean | null
+          last_scanned_at?: string | null
+          name?: string
+          region?: string | null
+          scan_frequency_hours?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       video_generations: {
         Row: {
           created_at: string
@@ -70,7 +270,12 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      media_source:
+        | "salesforce"
+        | "s3_bucket"
+        | "youtube"
+        | "generated"
+        | "local_upload"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -197,6 +402,14 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      media_source: [
+        "salesforce",
+        "s3_bucket",
+        "youtube",
+        "generated",
+        "local_upload",
+      ],
+    },
   },
 } as const
