@@ -196,7 +196,7 @@ const Generate: React.FC = () => {
 
   // Polling for generation updates
   useEffect(() => {
-    if (!user || !currentGeneration) return;
+    if (!user || !currentGeneration || currentGeneration.status === 'completed' || currentGeneration.status === 'failed') return;
 
     const pollInterval = setInterval(async () => {
       try {
@@ -252,7 +252,7 @@ const Generate: React.FC = () => {
     }, 3000);
 
     return () => clearInterval(pollInterval);
-  }, [user, currentGeneration, toast]);
+  }, [user, currentGeneration?.id, toast]);
 
   const handlePresetChange = (presetId: string) => {
     setSelectedPreset(presetId);
