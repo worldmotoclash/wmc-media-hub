@@ -429,14 +429,27 @@ const MediaLibrary: React.FC = () => {
                      <Eye className="w-4 h-4 mr-2" />
                      Verify by Key
                    </Button>
-                   <Button 
-                     variant="outline" 
-                     size="sm"
-                     onClick={() => handleTabChange('playlists')}
-                   >
-                     <FolderOpen className="w-4 h-4 mr-2" />
-                     View All Playlists
-                   </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleTabChange('playlists')}
+                    >
+                      <FolderOpen className="w-4 h-4 mr-2" />
+                      View All Playlists
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        const newSearchParams = new URLSearchParams(searchParams);
+                        newSearchParams.set('playlistId', 'a2H5e000002JD7g');
+                        newSearchParams.set('tab', 'videos');
+                        setSearchParams(newSearchParams);
+                      }}
+                    >
+                      <Video className="w-4 h-4 mr-2" />
+                      Test Playlist API
+                    </Button>
                  </div>
               </div>
             )}

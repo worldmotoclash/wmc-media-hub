@@ -85,6 +85,7 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
 
     const response = await fetch(url, {
       method: 'GET',
+      mode: 'cors',
       headers: {
         'Accept': 'application/json, text/xml, */*',
         'Content-Type': 'application/x-www-form-urlencoded'
