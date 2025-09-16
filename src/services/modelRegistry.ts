@@ -28,7 +28,7 @@ export interface AIModel {
   id: string;
   name: string;
   displayName: string;
-  vendor: 'Google' | 'ByteDance' | 'WaveSpeed' | 'Luma' | 'Pika' | 'PixVerse' | 'MiniMax' | 'OpenAI';
+  vendor: 'Google' | 'ByteDance' | 'WaveSpeed' | 'Luma' | 'Pika' | 'PixVerse' | 'OpenAI';
   pricing: ModelPricing;
   capabilities: string[];
   qualityTier: '480p' | '720p' | '1080p' | '2K' | '4K';
@@ -488,7 +488,7 @@ export const MODEL_REGISTRY: AIModel[] = [
     id: 'minimax_video_01',
     name: 'minimax_video_01',
     displayName: 'MiniMax Video-01',
-    vendor: 'MiniMax',
+    vendor: 'WaveSpeed',
     pricing: { basis: 'per_run', basePrice: 0.90, currency: 'USD' },
     capabilities: ['high_quality', 'balanced', 'realistic_motion'],
     qualityTier: '1080p',
@@ -519,7 +519,7 @@ export const MODEL_REGISTRY: AIModel[] = [
     id: 'minimax_lite',
     name: 'minimax_lite',
     displayName: 'MiniMax Lite',
-    vendor: 'MiniMax',
+    vendor: 'WaveSpeed',
     pricing: { basis: 'per_run', basePrice: 0.45, currency: 'USD' },
     capabilities: ['cost_effective', 'fast_turnaround', 'balanced'],
     qualityTier: '720p',

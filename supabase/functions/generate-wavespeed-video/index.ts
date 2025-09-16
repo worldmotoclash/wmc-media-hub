@@ -99,6 +99,34 @@ const WAVESPEED_MODELS: Record<string, {
       };
     },
     estimatedCostPer5s: 0.70
+  },
+  'minimax_video_01': {
+    url: 'https://api.wavespeed.ai/api/minimax/video-01',
+    buildPayload: ({ prompt, durationSec, aspectRatio, resolution, extras }) => {
+      const duration = Math.min(durationSec || 6, 6);
+      return {
+        prompt,
+        duration,
+        aspect_ratio: aspectRatio || '16:9',
+        resolution: resolution || '1080p',
+        ...extras
+      };
+    },
+    estimatedCostPer5s: 0.90
+  },
+  'minimax_lite': {
+    url: 'https://api.wavespeed.ai/api/minimax/lite',
+    buildPayload: ({ prompt, durationSec, aspectRatio, resolution, extras }) => {
+      const duration = Math.min(durationSec || 6, 6);
+      return {
+        prompt,
+        duration,
+        aspect_ratio: aspectRatio || '16:9',
+        resolution: resolution || '720p',
+        ...extras
+      };
+    },
+    estimatedCostPer5s: 0.45
   }
 };
 
@@ -420,6 +448,7 @@ async function pollWavespeedStatus(
 
 // Update Salesforce content and assign to default playlist
 async function updateSalesforceContent(mediaUrlKey: string, videoUrl: string) {
+  console.log(`🔄 Updating Salesforce for Media URL Key: ${mediaUrlKey}`);
   console.log(`📝 Updating Salesforce - Media Key: ${mediaUrlKey}, Video URL: ${videoUrl}`);
   
   try {
@@ -431,14 +460,26 @@ async function updateSalesforceContent(mediaUrlKey: string, videoUrl: string) {
     formData.append('string_ri1__Generation_Status__c', 'COMPLETED');
     formData.append('number_ri1__Generation_Progress__c', '100');
     
+    console.log(`📤 Sending to Salesforce endpoint with payload:`, {
+      sObj: 'ri1__Content__c',
+      mediaUrlKey,
+      videoUrl,
+      status: 'COMPLETED',
+      progress: '100'
+    });
+    
     // Submit to Salesforce via web2case endpoint
     const response = await fetch('https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php', {
       method: 'POST',
       body: formData,
     });
     
+    console.log(`📥 Salesforce response status: ${response.status} ${response.statusText}`);
+    
     if (response.ok) {
+      const responseText = await response.text();
       console.log('✅ Successfully updated Salesforce with video URL');
+      console.log(`📄 Salesforce response body:`, responseText);
       
       // Try to assign to default playlist if not already assigned
       try {
@@ -463,9 +504,14 @@ async function updateSalesforceContent(mediaUrlKey: string, videoUrl: string) {
       }
       
     } else {
+      const errorText = await response.text();
       console.error('❌ Failed to update Salesforce:', response.status, response.statusText);
+      console.error('❌ Salesforce error response:', errorText);
     }
   } catch (error) {
     console.error('❌ Salesforce update error:', error);
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.error('❌ Network error - check Salesforce endpoint accessibility');
+    }
   }
 }
