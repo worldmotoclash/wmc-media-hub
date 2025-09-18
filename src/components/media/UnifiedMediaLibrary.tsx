@@ -177,13 +177,6 @@ export const UnifiedMediaLibrary: React.FC = () => {
             Manage content from Salesforce, S3 buckets, and other sources
           </p>
         </div>
-        
-        <div className="flex gap-2">
-          <Button onClick={() => loadAssets()} disabled={isLoading}>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
-        </div>
       </div>
 
       {/* Search and Filters */}
