@@ -177,6 +177,7 @@ export type Database = {
           access_key_id: string
           bucket_name: string
           created_at: string
+          created_by: string | null
           endpoint_url: string
           id: string
           is_active: boolean | null
@@ -190,6 +191,7 @@ export type Database = {
           access_key_id: string
           bucket_name: string
           created_at?: string
+          created_by?: string | null
           endpoint_url: string
           id?: string
           is_active?: boolean | null
@@ -203,6 +205,7 @@ export type Database = {
           access_key_id?: string
           bucket_name?: string
           created_at?: string
+          created_by?: string | null
           endpoint_url?: string
           id?: string
           is_active?: boolean | null
