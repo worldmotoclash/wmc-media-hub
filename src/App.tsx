@@ -23,7 +23,7 @@ import CookiePolicy from "./pages/CookiePolicy";
 import InvestmentOpportunity from "./pages/InvestmentOpportunity";
 import TestTracking from "./pages/TestTracking";
 import TestLoginTracking from "./pages/TestLoginTracking";
-import MediaLibrary from "./pages/media/MediaLibrary";
+import { UnifiedMediaLibrary } from "./components/media/UnifiedMediaLibrary";
 import MediaUpload from "./pages/media/MediaUpload";
 import Generate from "./pages/media/Generate";
 import ModelMarketplace from "./pages/media/ModelMarketplace";
@@ -54,7 +54,7 @@ const App = () => (
                 <Route path="/test-login-tracking" element={<TestLoginTracking />} />
                 <Route path="/thankyou" element={<ThankYou />} />
                 <Route path="/thankyouinvestor" element={<Navigate to="/thankyou" replace />} />
-                <Route path="/admin/media/library" element={<MediaLibrary />} />
+                <Route path="/admin/media/library" element={<UnifiedMediaLibrary />} />
                 <Route path="/admin/media/upload" element={<MediaUpload />} />
                 <Route path="/admin/media/models" element={<ModelMarketplace />} />
                 <Route path="/admin/media/generate" element={<Generate />} />
