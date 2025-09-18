@@ -192,6 +192,13 @@ export async function updateMediaAssetTags(assetId: string, tagIds: string[]): P
     return;
   }
 
+  // Validate UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(assetId)) {
+    console.error('Invalid UUID format for asset ID:', assetId);
+    throw new Error(`Invalid UUID format: ${assetId}`);
+  }
+
   // Remove existing tags
   await supabase
     .from('media_asset_tags')
@@ -231,6 +238,13 @@ export async function updateMediaAssetStatus(assetId: string, status: string): P
   if (assetId.startsWith('sf_')) {
     console.warn('Cannot update status for Salesforce assets:', assetId);
     return;
+  }
+
+  // Validate UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(assetId)) {
+    console.error('Invalid UUID format for asset ID:', assetId);
+    throw new Error(`Invalid UUID format: ${assetId}`);
   }
 
   const { error } = await supabase

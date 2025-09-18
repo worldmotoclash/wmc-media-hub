@@ -37,6 +37,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [workflowAsset, setWorkflowAsset] = useState<MediaAsset | null>(null);
   const [filters, setFilters] = useState<SearchFilters>({});
   const [isScanning, setIsScanning] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('library');
   const { user } = useUser();
   const navigate = useNavigate();
 
@@ -48,10 +49,18 @@ export const UnifiedMediaLibrary: React.FC = () => {
   }, [user, navigate]);
 
   useEffect(() => {
-    loadInitialData();
-  }, []);
+    // Only load initial data for the active tab
+    if (activeTab === 'library') {
+      loadLibraryData();
+    } else if (activeTab === 's3-config') {
+      loadS3ConfigData();
+    }
+  }, [activeTab]);
 
   useEffect(() => {
+    // Only search/load assets when on library tab
+    if (activeTab !== 'library') return;
+    
     const delayedSearch = setTimeout(() => {
       if (searchQuery || Object.keys(filters).length > 0) {
         searchAssets();
@@ -61,22 +70,34 @@ export const UnifiedMediaLibrary: React.FC = () => {
     }, 300);
 
     return () => clearTimeout(delayedSearch);
-  }, [searchQuery, filters]);
+  }, [searchQuery, filters, activeTab]);
 
-  const loadInitialData = async () => {
+  const loadLibraryData = async () => {
     try {
-      const [assetsData, tagsData, bucketsData] = await Promise.all([
+      setIsLoading(true);
+      const [assetsData, tagsData] = await Promise.all([
         fetchAllMediaAssets(),
-        fetchMediaTags(),
-        fetchS3BucketConfigs()
+        fetchMediaTags()
       ]);
 
       setAssets(assetsData.assets);
       setTags(tagsData);
+    } catch (error) {
+      console.error('Error loading library data:', error);
+      toast.error('Failed to load media library data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadS3ConfigData = async () => {
+    try {
+      setIsLoading(true);
+      const bucketsData = await fetchS3BucketConfigs();
       setBucketConfigs(bucketsData);
     } catch (error) {
-      console.error('Error loading initial data:', error);
-      toast.error('Failed to load media library data');
+      console.error('Error loading S3 config data:', error);
+      toast.error('Failed to load S3 configurations');
     } finally {
       setIsLoading(false);
     }
@@ -196,7 +217,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <Tabs defaultValue="library" className="space-y-6">
+      <Tabs defaultValue="library" className="space-y-6" onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="library">Media Library</TabsTrigger>
           <TabsTrigger value="s3-config">S3 Configuration</TabsTrigger>
@@ -445,7 +466,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="s3-config" className="space-y-6">
-          <S3BucketConfigManager onConfigChange={() => loadInitialData()} />
+          <S3BucketConfigManager onConfigChange={() => loadS3ConfigData()} />
         </TabsContent>
       </Tabs>
 

@@ -85,6 +85,7 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
       // Refresh configs to show updated last_scanned_at
       setTimeout(() => {
         loadConfigs();
+        // Only refresh S3 config data, not all media assets
         onConfigChange();
       }, 2000);
     } catch (error: any) {
@@ -117,6 +118,7 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
       });
 
       loadConfigs();
+      // Only refresh S3 config data, not all media assets
       onConfigChange();
     } catch (error: any) {
       toast({
@@ -129,6 +131,7 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
 
   const handleConfigAdded = () => {
     loadConfigs();
+    // Only refresh S3 config data, not all media assets
     onConfigChange();
   };
 
