@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useUser } from '@/contexts/UserContext';
 import { Trash2, RefreshCw, Clock } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { S3BucketConfigDialog } from './S3BucketConfigDialog';
@@ -29,6 +30,7 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
   const [loading, setLoading] = useState(true);
   const [scanningIds, setScanningIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+  const { user } = useUser();
 
   useEffect(() => {
     loadConfigs();
@@ -36,9 +38,16 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
 
   const loadConfigs = async () => {
     try {
+      if (!user) {
+        setConfigs([]);
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('s3_bucket_configs')
         .select('*')
+        .eq('created_by', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
