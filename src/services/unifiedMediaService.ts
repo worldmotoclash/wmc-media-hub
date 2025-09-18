@@ -108,12 +108,24 @@ export async function fetchAllMediaAssets(
     // Transform database results
     const transformedAssets: MediaAsset[] = (dbAssets || []).map(transformDatabaseAsset);
 
-    // Fetch Salesforce content if no source filter or salesforce is included
+    // Fetch Salesforce content if no source filter or salesforce/youtube is included
     let salesforceAssets: MediaAsset[] = [];
-    if (!filters?.sources?.length || filters.sources.includes('salesforce')) {
+    const includesSalesforce = !filters?.sources?.length || filters.sources.includes('salesforce');
+    const includesYoutube = !filters?.sources?.length || filters.sources.includes('youtube');
+    
+    if (includesSalesforce || includesYoutube) {
       try {
         const salesforceContent = await fetchVideoContent(undefined, searchQuery);
-        salesforceAssets = salesforceContent.map(transformSalesforceAsset);
+        const transformedSalesforceAssets = salesforceContent.map(transformSalesforceAsset);
+        
+        // Apply source filtering to transformed assets
+        if (filters?.sources?.length) {
+          salesforceAssets = transformedSalesforceAssets.filter(asset => 
+            filters.sources!.includes(asset.source)
+          );
+        } else {
+          salesforceAssets = transformedSalesforceAssets;
+        }
       } catch (error) {
         console.warn('Failed to fetch Salesforce content:', error);
       }
@@ -321,11 +333,17 @@ function transformDatabaseAsset(dbAsset: any): MediaAsset {
 
 // Transform Salesforce content to unified format
 function transformSalesforceAsset(salesforceContent: any): MediaAsset {
+  // Determine source based on content type
+  const getSource = (contentType?: string): MediaAsset['source'] => {
+    if (contentType === 'Youtube') return 'youtube';
+    return 'salesforce';
+  };
+
   return {
     id: `sf_${salesforceContent.id}`,
     title: salesforceContent.title,
     description: salesforceContent.description,
-    source: 'salesforce',
+    source: getSource(salesforceContent.contentType),
     sourceId: salesforceContent.id,
     fileUrl: salesforceContent.videoSrc,
     thumbnailUrl: salesforceContent.thumbnail,

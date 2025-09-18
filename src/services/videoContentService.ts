@@ -45,6 +45,7 @@ export interface VideoContent {
   tags?: string[];
   playlistPosition?: number; // Order position in playlist (1-based)
   junctionId?: string; // Junction record ID for playlist-video relationship
+  youtubeId?: string; // YouTube video ID for YouTube content
 }
 
 // API configuration
@@ -300,8 +301,8 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
   const formatDuration = (duration?: string): string => {
     if (!duration) return '0:00';
     
-    const seconds = parseInt(duration);
-    if (isNaN(seconds)) return duration;
+    const seconds = Math.floor(parseFloat(duration));
+    if (isNaN(seconds)) return '0:00';
     
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -310,9 +311,11 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
 
   // Format upload date to relative time
   const formatUploadDate = (dateString?: string): string => {
-    if (!dateString) return 'Unknown';
+    if (!dateString || dateString.trim() === '') return 'Date not available';
     
     const uploadDate = new Date(dateString);
+    if (isNaN(uploadDate.getTime())) return 'Date not available';
+    
     const now = new Date();
     const diffMs = now.getTime() - uploadDate.getTime();
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
@@ -379,6 +382,11 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
       : '/lovable-uploads/sponsor-primier-thumbnail.png';
   };
 
+  // Extract YouTube ID for metadata
+  const youtubeId = salesforceVideo.ri__Content_Type__c === 'Youtube' 
+    ? extractYouTubeId(salesforceVideo.ri__Content_URL__c || '') 
+    : null;
+
   return {
     id: salesforceVideo.Id,
     title: salesforceVideo.Name || 'Untitled Video',
@@ -393,7 +401,8 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
     contentType: salesforceVideo.ri__Content_Type__c,
     tags: parseTags(salesforceVideo.ri__Tags__c),
     playlistPosition: (salesforceVideo as any).playlistPosition,
-    junctionId: (salesforceVideo as any).junctionId
+    junctionId: (salesforceVideo as any).junctionId,
+    youtubeId: youtubeId
   };
 };
 
