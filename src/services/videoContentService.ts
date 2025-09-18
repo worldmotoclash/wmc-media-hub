@@ -109,9 +109,9 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
       const videoElements = xmlDoc.getElementsByTagName('content');
       
       data = Array.from(videoElements).map((video, index) => ({
-        Id: video.getElementsByTagName('contentid')[0]?.textContent || '',
-        Name: video.getElementsByTagName('contentname')[0]?.textContent || video.getElementsByTagName('name')[0]?.textContent || '',
-        ri__Content_URL__c: video.getElementsByTagName('contenturl')[0]?.textContent || '',
+        Id: video.getElementsByTagName('id')[0]?.textContent || '',
+        Name: video.getElementsByTagName('name')[0]?.textContent || '',
+        ri__Content_URL__c: video.getElementsByTagName('url')[0]?.textContent || '',
         ri__Thumbnail_URL__c: '', // Not provided in API
         ri__Status__c: video.getElementsByTagName('approved')[0]?.textContent || '',
         ri__Duration__c: video.getElementsByTagName('lengthinseconds')[0]?.textContent || '',
@@ -146,29 +146,10 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
 
   } catch (error) {
     console.error('Error fetching video content:', error);
-    toast.error('Failed to load video content. Using demo data.');
+    toast.error('Failed to load video content from Salesforce API');
     
-    // Return actual Miguel data based on your SFDC feed
-    const miguelData: VideoContent[] = [
-      {
-        id: 'a2F5e00000L6F8T',
-        title: 'MIGUEL DUHAMEL',
-        thumbnail: '/lovable-uploads/miguel-podium.jpg',
-        status: 'Draft',
-        duration: '133:20',
-        uploadedAt: 'Date not available',
-        views: 0,
-        videoSrc: 'https://www.youtube.com/embed/YboT6kMWjoY?autoplay=1&mute=1&loop=1&playlist=YboT6kMWjoY&controls=0&showinfo=0&rel=0&disablekb=1&modestbranding=1',
-        description: 'YouTube content: MIGUEL DUHAMEL',
-        fileSize: 0,
-        contentType: 'Youtube',
-        tags: [],
-        youtubeId: 'YboT6kMWjoY',
-        junctionId: 'miguel-junction'
-      }
-    ];
-    
-    return miguelData;
+    // Return empty array instead of demo data since API should work now
+    return [];
   }
 };
 
