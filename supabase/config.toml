@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.get-video-generation]
 verify_jwt = false
+
+[functions.scan-s3-buckets]
+verify_jwt = false
