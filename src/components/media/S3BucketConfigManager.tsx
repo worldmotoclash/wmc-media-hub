@@ -50,12 +50,16 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
         .eq('created_by', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('S3 config loading error:', error);
+        throw error;
+      }
       setConfigs(data || []);
     } catch (error: any) {
+      console.error('Failed to load S3 bucket configurations:', error);
       toast({
         title: "Error",
-        description: "Failed to load S3 bucket configurations",
+        description: error.message || "Failed to load S3 bucket configurations",
         variant: "destructive",
       });
     } finally {

@@ -186,6 +186,12 @@ export async function createMediaTag(tag: Omit<MediaTag, 'id'>): Promise<MediaTa
 
 // Update media asset tags
 export async function updateMediaAssetTags(assetId: string, tagIds: string[]): Promise<void> {
+  // Skip if this is a Salesforce asset (IDs start with 'sf_')
+  if (assetId.startsWith('sf_')) {
+    console.warn('Cannot update tags for Salesforce assets:', assetId);
+    return;
+  }
+
   // Remove existing tags
   await supabase
     .from('media_asset_tags')
@@ -221,6 +227,12 @@ export async function updateMediaAssetTags(assetId: string, tagIds: string[]): P
 
 // Update media asset status
 export async function updateMediaAssetStatus(assetId: string, status: string): Promise<void> {
+  // Skip if this is a Salesforce asset (IDs start with 'sf_')
+  if (assetId.startsWith('sf_')) {
+    console.warn('Cannot update status for Salesforce assets:', assetId);
+    return;
+  }
+
   const { error } = await supabase
     .from('media_assets')
     .update({ 
