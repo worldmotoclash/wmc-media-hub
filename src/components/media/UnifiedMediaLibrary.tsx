@@ -10,6 +10,7 @@ import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink } from "lucide-
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useUser } from "@/contexts/UserContext";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useNavigate } from "react-router-dom";
 import {
   fetchAllMediaAssets,
@@ -39,6 +40,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [isScanning, setIsScanning] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('library');
   const { user } = useUser();
+  useSupabaseAuth(); // Ensure Supabase auth when user is logged in
   const navigate = useNavigate();
 
   useEffect(() => {

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/contexts/UserContext';
+import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
 import { Trash2, RefreshCw, Clock } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { S3BucketConfigDialog } from './S3BucketConfigDialog';
@@ -31,6 +32,7 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
   const [scanningIds, setScanningIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const { user } = useUser();
+  useSupabaseAuth(); // Ensure Supabase auth when user is logged in
 
   useEffect(() => {
     loadConfigs();

@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/contexts/UserContext';
+import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
 import { Plus, Loader2 } from 'lucide-react';
 
 interface S3BucketConfigDialogProps {
@@ -40,6 +41,7 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
   });
   const { toast } = useToast();
   const { user } = useUser();
+  useSupabaseAuth(); // Ensure Supabase auth when user is logged in
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
