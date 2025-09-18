@@ -251,7 +251,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
             {/* Source Filter */}
             <div className="space-y-3">
               <label className="text-sm font-medium mb-2 block">Sources</label>
-              <div className="grid grid-rows-5 gap-3">
+              <div className="grid grid-rows-5 gap-2">
                 {['salesforce', 's3_bucket', 'youtube', 'generated', 'local_upload'].map(source => (
                   <div key={source} className="min-h-8 flex items-center space-x-2">
                     <Checkbox
@@ -277,7 +277,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
             {/* Status Filter */}
             <div className="space-y-3">
               <label className="text-sm font-medium mb-2 block">Status</label>
-              <div className="grid grid-rows-5 gap-3">
+              <div className="grid grid-rows-5 gap-2">
                 {['pending', 'approved', 'rejected'].map(status => (
                   <div key={status} className="min-h-8 flex items-center space-x-2">
                     <Checkbox
@@ -306,7 +306,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
             {/* Tags Filter */}
             <div className="space-y-3">
               <label className="text-sm font-medium mb-2 block">Tags</label>
-              <div className="grid grid-rows-5 gap-3">
+              <div className="grid grid-rows-5 gap-2">
                 {(tags.slice(0, 5)).map(tag => (
                   <div key={tag.id} className="h-8 flex items-center space-x-2">
                     <Checkbox
@@ -322,7 +322,10 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       }}
                     />
                     <label htmlFor={tag.id} className="text-sm">
-                      <Badge style={{ backgroundColor: tag.color + '20', color: tag.color }}>
+                      <Badge 
+                        className="text-sm font-normal" 
+                        style={{ backgroundColor: tag.color + '20', color: tag.color }}
+                      >
                         {tag.name}
                       </Badge>
                     </label>
