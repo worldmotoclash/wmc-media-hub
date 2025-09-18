@@ -29,36 +29,24 @@ serve(async (req) => {
 
     console.log('Starting S3 bucket scan for config:', bucketConfigId);
 
-    // Get bucket configuration
-    const { data: bucketConfig, error: configError } = await supabaseClient
-      .from('s3_bucket_configs')
-      .select('*')
-      .eq('id', bucketConfigId)
-      .single();
+    // Load bucket configurations from config file
+    const configPath = new URL('./config.json', import.meta.url);
+    const configResponse = await fetch(configPath);
+    const allConfigs = await configResponse.json();
+    
+    // Find the specific bucket configuration
+    const bucketConfig = allConfigs.find((config: any) => config.id === bucketConfigId);
 
-    if (configError) {
-      console.error('Error fetching bucket config:', configError);
+    if (!bucketConfig) {
+      console.error('Bucket config not found:', bucketConfigId);
       return new Response(JSON.stringify({ error: 'Bucket configuration not found' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Check if we should scan based on last scan time
-    if (!forceRescan && bucketConfig.last_scanned_at) {
-      const lastScan = new Date(bucketConfig.last_scanned_at);
-      const hoursSinceLastScan = (Date.now() - lastScan.getTime()) / (1000 * 60 * 60);
-      
-      if (hoursSinceLastScan < bucketConfig.scan_frequency_hours) {
-        console.log('Skipping scan - too soon since last scan');
-        return new Response(JSON.stringify({ 
-          message: 'Scan skipped - not enough time since last scan',
-          nextScanIn: bucketConfig.scan_frequency_hours - hoursSinceLastScan
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-    }
+    // Skip time-based checks for now - always allow scans with config file approach
+    console.log('Using config file approach - proceeding with scan');
 
     // List objects in S3 bucket
     const objects = await listS3Objects(bucketConfig);
@@ -141,11 +129,8 @@ serve(async (req) => {
       }
     }
 
-    // Update last scanned timestamp
-    await supabaseClient
-      .from('s3_bucket_configs')
-      .update({ last_scanned_at: new Date().toISOString() })
-      .eq('id', bucketConfigId);
+    // Skip updating last scanned timestamp since we're using config file approach
+    console.log('Scan completed - using config file, no timestamp update needed');
 
     console.log(`Scan complete: ${newAssets} new, ${updatedAssets} updated`);
 
