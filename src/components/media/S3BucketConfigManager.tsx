@@ -40,12 +40,7 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
 
   const loadConfigs = async () => {
     try {
-      if (!user) {
-        setConfigs([]);
-        setLoading(false);
-        return;
-      }
-
+      // Load all S3 configs (shared across all users)
       const { data, error } = await supabase
         .from('s3_bucket_configs')
         .select('*')
@@ -105,7 +100,17 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
   };
 
   const handleDelete = async (configId: string) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "Must be logged in to delete configurations",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
+      // RLS policies will ensure users can only delete their own configs
       const { error } = await supabase
         .from('s3_bucket_configs')
         .delete()
