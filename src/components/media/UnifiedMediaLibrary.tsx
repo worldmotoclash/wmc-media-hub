@@ -247,11 +247,11 @@ export const UnifiedMediaLibrary: React.FC = () => {
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">{/* Note: Changed from 4 to 3 columns */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Source Filter */}
-            <div>
+            <div className="space-y-3">
               <label className="text-sm font-medium mb-2 block">Sources</label>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {['salesforce', 's3_bucket', 'youtube', 'generated', 'local_upload'].map(source => (
                   <div key={source} className="flex items-center space-x-2">
                     <Checkbox
@@ -275,9 +275,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
             </div>
 
             {/* Status Filter */}
-            <div>
+            <div className="space-y-3">
               <label className="text-sm font-medium mb-2 block">Status</label>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {['pending', 'approved', 'rejected'].map(status => (
                   <div key={status} className="flex items-center space-x-2">
                     <Checkbox
@@ -297,13 +297,16 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     </label>
                   </div>
                 ))}
+                {/* Add empty divs to match height of sources column */}
+                <div className="h-6"></div>
+                <div className="h-6"></div>
               </div>
             </div>
 
             {/* Tags Filter */}
-            <div>
+            <div className="space-y-3">
               <label className="text-sm font-medium mb-2 block">Tags</label>
-              <div className="space-y-2 max-h-32 overflow-y-auto">
+              <div className="space-y-3">
                 {tags.map(tag => (
                   <div key={tag.id} className="flex items-center space-x-2">
                     <Checkbox
