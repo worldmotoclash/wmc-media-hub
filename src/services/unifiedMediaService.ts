@@ -108,21 +108,30 @@ export async function fetchAllMediaAssets(
     // Transform database results
     const transformedAssets: MediaAsset[] = (dbAssets || []).map(transformDatabaseAsset);
 
-    // Fetch Salesforce content if no source filter or salesforce/youtube is included
+    // Fetch Salesforce content if no source filter or salesforce/youtube/generated is included
     let salesforceAssets: MediaAsset[] = [];
     const includesSalesforce = !filters?.sources?.length || filters.sources.includes('salesforce');
     const includesYoutube = !filters?.sources?.length || filters.sources.includes('youtube');
+    const includesGenerated = !filters?.sources?.length || filters.sources.includes('generated');
     
-    if (includesSalesforce || includesYoutube) {
+    if (includesSalesforce || includesYoutube || includesGenerated) {
       try {
         const salesforceContent = await fetchVideoContent(undefined, searchQuery);
         const transformedSalesforceAssets = salesforceContent.map(transformSalesforceAsset);
         
         // Apply source filtering to transformed assets
         if (filters?.sources?.length) {
-          salesforceAssets = transformedSalesforceAssets.filter(asset => 
-            filters.sources!.includes(asset.source)
-          );
+          salesforceAssets = transformedSalesforceAssets.filter(asset => {
+            // Include if the asset's source is in the selected sources
+            if (filters.sources!.includes(asset.source)) {
+              return true;
+            }
+            // Also include if 'generated' is selected and this asset has Generated status
+            if (filters.sources!.includes('generated') && asset.status === 'Generated') {
+              return true;
+            }
+            return false;
+          });
         } else {
           salesforceAssets = transformedSalesforceAssets;
         }
