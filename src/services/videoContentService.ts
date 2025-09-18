@@ -14,6 +14,7 @@ export interface SalesforceVideo {
   ri__File_Size__c?: number;
   ri__Content_Type__c?: string;
   ri__Tags__c?: string;
+  ri__AI_Percentage__c?: string;
   CreatedDate: string;
   LastModifiedDate: string;
 }
@@ -34,7 +35,7 @@ export interface VideoContent {
   id: string;
   title: string;
   thumbnail: string;
-  status: 'Draft' | 'Synced' | 'Error' | 'Processing';
+  status: 'Draft' | 'Synced' | 'Error' | 'Processing' | 'Generated';
   duration: string;
   uploadedAt: string;
   views: number;
@@ -121,6 +122,7 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
         ri__File_Size__c: 0, // Not provided in API
         ri__Content_Type__c: video.getElementsByTagName('contenttype')[0]?.textContent || '',
         ri__Tags__c: '', // Not provided in API
+        ri__AI_Percentage__c: video.getElementsByTagName('aipercentage')[0]?.textContent || '0',
         CreatedDate: '',
         LastModifiedDate: '',
         playlistPosition: parseFloat(video.getElementsByTagName('playlistorder')[0]?.textContent || '') || (index + 1),
@@ -251,7 +253,13 @@ export const fetchPlaylistData = async (): Promise<SalesforcePlaylist[]> => {
 // Transform Salesforce video data to UI format
 const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
   // Map Salesforce status to UI status
-  const mapStatus = (sfStatus?: string): VideoContent['status'] => {
+  const mapStatus = (sfStatus?: string, aiPercentage?: string): VideoContent['status'] => {
+    // Check if it's AI generated first
+    const aiPercent = parseFloat(aiPercentage || '0');
+    if (aiPercent > 0) {
+      return 'Generated'; // AI generated content
+    }
+    
     if (!sfStatus) return 'Draft';
     
     const approvedValue = parseFloat(sfStatus);
@@ -365,7 +373,7 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
     id: salesforceVideo.Id,
     title: salesforceVideo.Name || 'Untitled Video',
     thumbnail: getThumbnail(),
-    status: mapStatus(salesforceVideo.ri__Status__c),
+    status: mapStatus(salesforceVideo.ri__Status__c, salesforceVideo.ri__AI_Percentage__c),
     duration: formatDuration(salesforceVideo.ri__Duration__c),
     uploadedAt: formatUploadDate(salesforceVideo.ri__Upload_Date__c || salesforceVideo.CreatedDate),
     views: salesforceVideo.ri__Views__c || 0,
