@@ -62,11 +62,28 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, on
                 </video>
               )
             ) : (
-              <div className="w-full h-full flex items-center justify-center">
+              <div className="w-full h-full flex items-center justify-center bg-gray-900">
                 <img 
                   src={video.thumbnail} 
                   alt={video.title}
                   className="max-w-full max-h-full object-contain"
+                  onError={(e) => {
+                    // Fallback to different YouTube thumbnail if the current one fails
+                    const currentSrc = e.currentTarget.src;
+                    if (currentSrc.includes('youtube.com') && currentSrc.includes('/2.jpg')) {
+                      // Try frame at 25% of video
+                      e.currentTarget.src = currentSrc.replace('/2.jpg', '/1.jpg');
+                    } else if (currentSrc.includes('/1.jpg')) {
+                      // Try frame at 75% of video
+                      e.currentTarget.src = currentSrc.replace('/1.jpg', '/3.jpg');
+                    } else if (currentSrc.includes('/3.jpg')) {
+                      // Try high quality default
+                      e.currentTarget.src = currentSrc.replace('/3.jpg', '/hqdefault.jpg');
+                    } else if (currentSrc.includes('/hqdefault.jpg')) {
+                      // Final fallback to standard default
+                      e.currentTarget.src = currentSrc.replace('/hqdefault.jpg', '/default.jpg');
+                    }
+                  }}
                 />
               </div>
             )}

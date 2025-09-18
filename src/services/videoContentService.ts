@@ -334,19 +334,22 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
     return null;
   };
 
-  // Helper function to generate YouTube thumbnail URL
+  // Helper function to generate better YouTube thumbnail URLs
   const generateYouTubeThumbnail = (videoUrl: string): string | null => {
     const videoId = extractYouTubeId(videoUrl);
     if (videoId) {
-      return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+      // Try frame at 50% of video first (often avoids title cards)
+      return `https://img.youtube.com/vi/${videoId}/2.jpg`;
     }
     return null;
   };
 
-  // Generate appropriate thumbnail
+  // Generate appropriate thumbnail with better fallback strategy
   const getThumbnail = (): string => {
-    // First priority: Salesforce provided thumbnail
-    if (salesforceVideo.ri__Thumbnail_URL__c) {
+    // First priority: Salesforce provided thumbnail (but only if it's not obviously a title card)
+    if (salesforceVideo.ri__Thumbnail_URL__c && 
+        !salesforceVideo.ri__Thumbnail_URL__c.includes('title') &&
+        !salesforceVideo.ri__Thumbnail_URL__c.includes('intro')) {
       return salesforceVideo.ri__Thumbnail_URL__c;
     }
     
@@ -356,6 +359,11 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
       if (youtubeThumbnail) {
         return youtubeThumbnail;
       }
+    }
+    
+    // Third priority: Try Salesforce thumbnail even if it might be a title card
+    if (salesforceVideo.ri__Thumbnail_URL__c) {
+      return salesforceVideo.ri__Thumbnail_URL__c;
     }
     
     // Fallback to content type specific placeholders
