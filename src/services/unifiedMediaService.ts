@@ -77,9 +77,16 @@ export async function fetchAllMediaAssets(
       `)
       .order('created_at', { ascending: false });
 
-    // Apply filters
+    // Apply filters with AND logic between categories
     if (filters?.sources?.length) {
-      query = query.in('source', filters.sources as any);
+      // Filter out 'generated' from database sources since it's handled via status
+      const dbSources = filters.sources.filter(s => s !== 'generated');
+      if (dbSources.length > 0) {
+        query = query.in('source', dbSources as any);
+      } else if (filters.sources.includes('generated')) {
+        // If only 'generated' is selected, filter by status
+        query = query.eq('status', 'Generated');
+      }
     }
 
     if (filters?.status?.length) {
@@ -119,21 +126,36 @@ export async function fetchAllMediaAssets(
         const salesforceContent = await fetchVideoContent(undefined, searchQuery);
         const transformedSalesforceAssets = salesforceContent.map(transformSalesforceAsset);
         
-        // Apply source filtering to transformed assets
+        // Apply filters with AND logic between categories
+        salesforceAssets = transformedSalesforceAssets;
+
+        // Step 1: Apply source filtering
         if (filters?.sources?.length) {
-          salesforceAssets = transformedSalesforceAssets.filter(asset => {
-            // Include if the asset's source is in the selected sources
+          salesforceAssets = salesforceAssets.filter(asset => {
+            // Check if the asset's actual source is selected
             if (filters.sources!.includes(asset.source)) {
               return true;
             }
-            // Also include if 'generated' is selected and this asset has Generated status
+            // Handle 'generated' source: include if 'generated' is selected and status is 'Generated'
             if (filters.sources!.includes('generated') && asset.status === 'Generated') {
               return true;
             }
             return false;
           });
-        } else {
-          salesforceAssets = transformedSalesforceAssets;
+        }
+
+        // Step 2: Apply status filtering (AND with source filtering)
+        if (filters?.status?.length) {
+          salesforceAssets = salesforceAssets.filter(asset => 
+            filters.status!.includes(asset.status)
+          );
+        }
+
+        // Step 3: Apply tag filtering (AND with previous filters)
+        if (filters?.tags?.length) {
+          salesforceAssets = salesforceAssets.filter(asset => 
+            asset.tags.some(tag => filters.tags!.includes(tag.id) || filters.tags!.includes(tag.name))
+          );
         }
       } catch (error) {
         console.warn('Failed to fetch Salesforce content:', error);
