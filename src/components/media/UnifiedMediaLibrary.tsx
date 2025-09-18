@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { useUser } from "@/contexts/UserContext";
+import { useNavigate } from "react-router-dom";
 import {
   fetchAllMediaAssets,
   fetchMediaTags,
@@ -35,6 +37,15 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [workflowAsset, setWorkflowAsset] = useState<MediaAsset | null>(null);
   const [filters, setFilters] = useState<SearchFilters>({});
   const [isScanning, setIsScanning] = useState<string | null>(null);
+  const { user } = useUser();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) {
+      toast.error('Please log in to access the media library');
+      navigate('/login');
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     loadInitialData();
@@ -155,6 +166,10 @@ export const UnifiedMediaLibrary: React.FC = () => {
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
+
+  if (!user) {
+    return null;
+  }
 
   if (isLoading) {
     return (
