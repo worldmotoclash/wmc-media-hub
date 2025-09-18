@@ -47,7 +47,6 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
       const { data, error } = await supabase
         .from('s3_bucket_configs')
         .select('*')
-        .eq('created_by', user.id)
         .order('created_at', { ascending: false });
 
       if (error) {

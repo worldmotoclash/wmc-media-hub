@@ -46,13 +46,17 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
     setLoading(true);
 
     try {
-      if (!user) {
+      // Ensure Supabase auth user exists (used for created_by and RLS)
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      const authUser = authData?.user;
+      if (!authUser) {
         throw new Error('You must be logged in to add S3 bucket configurations');
       }
 
       const { error } = await supabase
         .from('s3_bucket_configs')
-        .insert([{ ...formData, created_by: user.id }]);
+        .insert([{ ...formData, created_by: authUser.id }]);
 
       if (error) throw error;
 
