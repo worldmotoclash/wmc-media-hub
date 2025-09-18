@@ -268,13 +268,18 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
 
   // Format duration from seconds to MM:SS format
   const formatDuration = (duration?: string): string => {
-    if (!duration) return '0:00';
+    if (!duration || duration.trim() === '') return '0:00';
     
-    const seconds = Math.floor(parseFloat(duration));
-    if (isNaN(seconds)) return '0:00';
+    const parsedDuration = parseFloat(duration);
+    if (isNaN(parsedDuration) || parsedDuration < 0) return '0:00';
     
+    const seconds = Math.floor(parsedDuration);
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
+    
+    // Ensure both minutes and remainingSeconds are valid numbers
+    if (isNaN(minutes) || isNaN(remainingSeconds)) return '0:00';
+    
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
