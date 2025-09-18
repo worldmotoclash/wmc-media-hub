@@ -12,6 +12,20 @@ interface S3BucketConfigDialogProps {
   onConfigAdded: () => void;
 }
 
+const getEndpointForRegion = (region: string) => {
+  const endpointMap: { [key: string]: string } = {
+    'us-east-1': 'https://s3.wasabisys.com',
+    'us-west-1': 'https://s3.us-west-1.wasabisys.com',
+    'us-west-2': 'https://s3.us-west-2.wasabisys.com',
+    'us-central-1': 'https://s3.us-central-1.wasabisys.com',
+    'ca-central-1': 'https://s3.ca-central-1.wasabisys.com',
+    'eu-west-1': 'https://s3.eu-west-1.wasabisys.com',
+    'eu-central-1': 'https://s3.eu-central-1.wasabisys.com',
+    'ap-southeast-1': 'https://s3.ap-southeast-1.wasabisys.com'
+  };
+  return endpointMap[region] || 'https://s3.wasabisys.com';
+};
+
 export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onConfigAdded }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -103,9 +117,12 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
               id="endpoint_url"
               value={formData.endpoint_url}
               onChange={(e) => setFormData(prev => ({ ...prev, endpoint_url: e.target.value }))}
-              placeholder="https://s3.wasabisys.com"
+              placeholder={`Example: ${getEndpointForRegion(formData.region)}`}
               required
             />
+            <p className="text-sm text-muted-foreground mt-1">
+              Endpoint will auto-populate based on region selection
+            </p>
           </div>
           
           <div>
@@ -121,7 +138,13 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
           
           <div>
             <Label htmlFor="region">Region</Label>
-            <Select value={formData.region} onValueChange={(value) => setFormData(prev => ({ ...prev, region: value }))}>
+            <Select value={formData.region} onValueChange={(value) => {
+              setFormData(prev => ({ 
+                ...prev, 
+                region: value,
+                endpoint_url: getEndpointForRegion(value)
+              }));
+            }}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -129,7 +152,10 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
                 <SelectItem value="us-east-1">US East 1</SelectItem>
                 <SelectItem value="us-west-1">US West 1</SelectItem>
                 <SelectItem value="us-west-2">US West 2</SelectItem>
+                <SelectItem value="us-central-1">US Central 1 (Texas)</SelectItem>
+                <SelectItem value="ca-central-1">Canada Central 1 (Toronto)</SelectItem>
                 <SelectItem value="eu-west-1">EU West 1</SelectItem>
+                <SelectItem value="eu-central-1">EU Central 1 (Amsterdam)</SelectItem>
                 <SelectItem value="ap-southeast-1">AP Southeast 1</SelectItem>
               </SelectContent>
             </Select>
