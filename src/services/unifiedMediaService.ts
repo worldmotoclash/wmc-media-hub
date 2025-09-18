@@ -81,10 +81,16 @@ export async function fetchAllMediaAssets(
     if (filters?.sources?.length) {
       // Filter out 'generated' from database sources since it's handled via status
       const dbSources = filters.sources.filter(s => s !== 'generated');
+      const includeGenerated = filters.sources.includes('generated');
       if (dbSources.length > 0) {
         query = query.in('source', dbSources as any);
-      } else if (filters.sources.includes('generated')) {
-        // If only 'generated' is selected, filter by status
+        // If 'generated' is also selected alongside real sources,
+        // require status to be 'Generated' as an AND condition
+        if (includeGenerated) {
+          query = query.eq('status', 'Generated');
+        }
+      } else if (includeGenerated) {
+        // If only 'generated' is selected, filter by status only
         query = query.eq('status', 'Generated');
       }
     }
@@ -131,16 +137,14 @@ export async function fetchAllMediaAssets(
 
         // Step 1: Apply source filtering
         if (filters?.sources?.length) {
+          const selectedSources = filters.sources!;
+          const realSources = selectedSources.filter(s => s !== 'generated');
+          const requireGenerated = selectedSources.includes('generated');
+
           salesforceAssets = salesforceAssets.filter(asset => {
-            // Check if the asset's actual source is selected
-            if (filters.sources!.includes(asset.source)) {
-              return true;
-            }
-            // Handle 'generated' source: include if 'generated' is selected and status is 'Generated'
-            if (filters.sources!.includes('generated') && asset.status === 'Generated') {
-              return true;
-            }
-            return false;
+            const sourceMatch = realSources.length > 0 ? realSources.includes(asset.source) : true;
+            const generatedMatch = requireGenerated ? asset.status === 'Generated' : true;
+            return sourceMatch && generatedMatch;
           });
         }
 
