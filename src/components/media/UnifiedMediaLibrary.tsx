@@ -251,7 +251,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
             {/* Source Filter */}
             <div className="space-y-3">
               <label className="text-sm font-medium mb-2 block">Sources</label>
-              <div className="grid grid-rows-5 gap-1">
+              <div className="space-y-1">
                 {['salesforce', 's3_bucket', 'youtube', 'generated', 'local_upload'].map(source => (
                   <div key={source} className="min-h-8 flex items-center space-x-2">
                     <Checkbox
@@ -277,8 +277,8 @@ export const UnifiedMediaLibrary: React.FC = () => {
             {/* Status Filter */}
             <div className="space-y-3">
               <label className="text-sm font-medium mb-2 block">Status</label>
-              <div className="grid grid-rows-5 gap-1">
-                {['pending', 'approved', 'rejected'].map(status => (
+              <div className="space-y-1">
+                {['pending', 'approved', 'rejected', 'Generated', 'Draft', 'Synced', 'Processing', 'Error'].map(status => (
                   <div key={status} className="min-h-8 flex items-center space-x-2">
                     <Checkbox
                       id={status}
@@ -297,18 +297,15 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     </label>
                   </div>
                 ))}
-                {Array.from({ length: Math.max(0, 5 - 3) }).map((_, i) => (
-                  <div key={`status-spacer-${i}`} className="h-8" />
-                ))}
               </div>
             </div>
 
             {/* Tags Filter */}
             <div className="space-y-3">
               <label className="text-sm font-medium mb-2 block">Tags</label>
-              <div className="grid grid-rows-5 gap-1">
-                {(tags.slice(0, 5)).map(tag => (
-                  <div key={tag.id} className="h-8 flex items-center space-x-2">
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {tags.map(tag => (
+                  <div key={tag.id} className="min-h-8 flex items-center space-x-2">
                     <Checkbox
                       id={tag.id}
                       checked={filters.tags?.includes(tag.id) || false}
@@ -330,9 +327,6 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       </Badge>
                     </label>
                   </div>
-                ))}
-                {Array.from({ length: Math.max(0, 5 - Math.min(5, tags.length)) }).map((_, i) => (
-                  <div key={`tag-spacer-${i}`} className="h-8" />
                 ))}
               </div>
             </div>
