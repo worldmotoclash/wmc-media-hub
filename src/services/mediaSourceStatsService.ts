@@ -28,12 +28,16 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
   try {
     // Get Salesforce count
     try {
-      const response = await fetch('https://api.realintelligence.com/api/wmc-content.py');
+      const response = await fetch('https://api.realintelligence.com/api/wmc-content.py?orgId=00D5e000000HEcP&sandbox=False');
       if (response.ok) {
-        const data = await response.json();
+        const xmlText = await response.text();
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+        const contentElements = xmlDoc.querySelectorAll('content');
+        
         stats.salesforce = {
           source: 'Salesforce',
-          count: Array.isArray(data) ? data.length : 0,
+          count: contentElements.length,
           status: 'healthy',
           lastUpdated: new Date().toISOString()
         };
