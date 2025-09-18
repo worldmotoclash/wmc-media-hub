@@ -21,6 +21,7 @@ import {
 } from "@/services/unifiedMediaService";
 import { LibrarianWorkflowDialog } from "./LibrarianWorkflowDialog";
 import VideoPreviewModal from "./VideoPreviewModal";
+import MediaSourceDashboard from "./MediaSourceDashboard";
 
 export const UnifiedMediaLibrary: React.FC = () => {
   const [assets, setAssets] = useState<MediaAsset[]>([]);
@@ -165,6 +166,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Media Source Dashboard */}
+      <MediaSourceDashboard />
+      
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
