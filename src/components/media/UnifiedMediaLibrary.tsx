@@ -267,7 +267,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       }}
                     />
                     <label htmlFor={source} className="text-sm capitalize">
-                      {getSourceIcon(source)} {source.replace('_', ' ')}
+                      {getSourceIcon(source)} {source === 'generated' ? 'AI Generated' : source.replace('_', ' ')}
                     </label>
                   </div>
                 ))}
