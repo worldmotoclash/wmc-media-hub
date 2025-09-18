@@ -41,14 +41,26 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, on
           {/* Video Player */}
           <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
             {video.videoSrc ? (
-              <iframe
-                src={video.videoSrc}
-                title={video.title}
-                className="w-full h-full"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
+              video.contentType === 'Youtube' || video.youtubeId ? (
+                <iframe
+                  src={video.videoSrc}
+                  title={video.title}
+                  className="w-full h-full"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              ) : (
+                <video
+                  src={video.videoSrc}
+                  title={video.title}
+                  className="w-full h-full"
+                  controls
+                  preload="metadata"
+                >
+                  Your browser does not support the video tag.
+                </video>
+              )
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <img 

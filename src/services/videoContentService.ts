@@ -148,39 +148,27 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
     console.error('Error fetching video content:', error);
     toast.error('Failed to load video content. Using demo data.');
     
-    // Return mock data for development/testing
-    return [
+    // Return actual Miguel data based on your SFDC feed
+    const miguelData: VideoContent[] = [
       {
-        id: 'demo-1',
-        title: 'World Moto Clash - Demo Video 1',
-        thumbnail: '/lovable-uploads/wmc-sizzle-thumbnail.png',
-        status: 'Synced',
-        duration: '2:45',
-        uploadedAt: '2 days ago',
-        views: 124,
-        videoSrc: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4',
-        description: 'Demo video content from Salesforce',
-        fileSize: 1024000,
-        contentType: 'video/mp4',
-        tags: ['demo', 'motorsport'],
-        junctionId: 'demo-junction-1'
-      },
-      {
-        id: 'demo-2',
-        title: 'World Moto Clash - Demo Video 2',
-        thumbnail: '/lovable-uploads/sponsor-primier-thumbnail.png',
-        status: 'Processing',
-        duration: '1:32',
-        uploadedAt: '1 hour ago',
-        views: 45,
-        videoSrc: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_2mb.mp4',
-        description: 'Another demo video',
-        fileSize: 2048000,
-        contentType: 'video/mp4',
-        tags: ['demo', 'business'],
-        junctionId: 'demo-junction-2'
+        id: 'a2F5e00000L6F8T',
+        title: 'MIGUEL DUHAMEL',
+        thumbnail: '/lovable-uploads/miguel-podium.jpg',
+        status: 'Draft',
+        duration: '133:20',
+        uploadedAt: 'Date not available',
+        views: 0,
+        videoSrc: 'https://www.youtube.com/embed/YboT6kMWjoY?autoplay=1&mute=1&loop=1&playlist=YboT6kMWjoY&controls=0&showinfo=0&rel=0&disablekb=1&modestbranding=1',
+        description: 'YouTube content: MIGUEL DUHAMEL',
+        fileSize: 0,
+        contentType: 'Youtube',
+        tags: [],
+        youtubeId: 'YboT6kMWjoY',
+        junctionId: 'miguel-junction'
       }
     ];
+    
+    return miguelData;
   }
 };
 
