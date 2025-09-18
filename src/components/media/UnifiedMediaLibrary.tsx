@@ -22,6 +22,7 @@ import {
 import { LibrarianWorkflowDialog } from "./LibrarianWorkflowDialog";
 import VideoPreviewModal from "./VideoPreviewModal";
 import MediaSourceDashboard from "./MediaSourceDashboard";
+import { S3BucketConfigManager } from "./S3BucketConfigManager";
 
 export const UnifiedMediaLibrary: React.FC = () => {
   const [assets, setAssets] = useState<MediaAsset[]>([]);
@@ -179,30 +180,38 @@ export const UnifiedMediaLibrary: React.FC = () => {
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="w-5 h-5" />
-            Search & Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <Input
-                placeholder="Search videos..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full"
-              />
-            </div>
-            <Button variant="outline" onClick={clearFilters}>
-              Clear Filters
-            </Button>
-          </div>
+      {/* Main Content */}
+      <Tabs defaultValue="library" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="library">Media Library</TabsTrigger>
+          <TabsTrigger value="s3-config">S3 Configuration</TabsTrigger>
+        </TabsList>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <TabsContent value="library" className="space-y-6">
+          {/* Search and Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="w-5 h-5" />
+                Search & Filters
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Search videos..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+                <Button variant="outline" onClick={clearFilters}>
+                  Clear Filters
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">{/* Note: Changed from 4 to 3 columns */}
             {/* Source Filter */}
             <div>
               <label className="text-sm font-medium mb-2 block">Sources</label>
@@ -283,29 +292,6 @@ export const UnifiedMediaLibrary: React.FC = () => {
               </div>
             </div>
 
-            {/* S3 Bucket Management */}
-            <div>
-              <label className="text-sm font-medium mb-2 block">S3 Buckets</label>
-              <div className="space-y-2">
-                {bucketConfigs.map(bucket => (
-                  <div key={bucket.id} className="flex items-center justify-between">
-                    <span className="text-sm">{bucket.name}</span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleScanBucket(bucket.id)}
-                      disabled={isScanning === bucket.id}
-                    >
-                      {isScanning === bucket.id ? (
-                        <RefreshCw className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <RefreshCw className="w-3 h-3" />
-                      )}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         </CardContent>
       </Card>
@@ -441,6 +427,12 @@ export const UnifiedMediaLibrary: React.FC = () => {
           <p className="text-muted-foreground">No media assets found matching your criteria.</p>
         </div>
       )}
+        </TabsContent>
+
+        <TabsContent value="s3-config" className="space-y-6">
+          <S3BucketConfigManager onConfigChange={() => loadInitialData()} />
+        </TabsContent>
+      </Tabs>
 
       {/* Modals */}
       {selectedAsset && (
