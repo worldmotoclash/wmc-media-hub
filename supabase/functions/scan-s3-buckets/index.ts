@@ -8,29 +8,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Use explicit region endpoints (Wasabi)
-const BUCKET_CONFIGS = [
-  {
-    id: "wasabi-main",
-    name: "Wasabi Main Bucket",
-    bucket_name: "wmc-main-bucket",
-    endpoint_url: "https://s3.us-central-1.wasabisys.com",
-    region: "us-central-1",
-    scan_frequency_hours: 24,
-    is_active: true,
-  },
-  {
-    id: "wasabi-archive",
-    name: "Wasabi Archive Bucket",
-    bucket_name: "wmc-archive-bucket",
-    endpoint_url: "https://s3.us-central-1.wasabisys.com",
-    region: "us-central-1",
-    scan_frequency_hours: 24,
-    is_active: true,
-  },
-] as const;
-
-type BucketConfig = (typeof BUCKET_CONFIGS)[number];
+interface BucketConfig {
+  id: string;
+  name: string;
+  bucket_name: string;
+  endpoint_url: string;
+  region?: string;
+  scan_frequency_hours?: number;
+  is_active?: boolean;
+  access_key_id: string;
+}
 
 interface S3Object {
   Key: string;
@@ -125,9 +112,24 @@ serve(async (req) => {
       });
     }
 
-    const bucket = BUCKET_CONFIGS.find((c) => c.id === bucketConfigId);
+    // Load bucket configuration from database
+    const { data: bucket, error: bucketError } = await supabase
+      .from('s3_bucket_configs')
+      .select('*')
+      .eq('id', bucketConfigId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (bucketError) {
+      console.error('[DB] Error loading bucket config:', bucketError);
+      return new Response(JSON.stringify({ error: 'Failed to load bucket configuration', details: bucketError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (!bucket) {
-      return new Response(JSON.stringify({ error: `Bucket configuration not found: ${bucketConfigId}` }), {
+      return new Response(JSON.stringify({ error: `Bucket configuration not found or inactive: ${bucketConfigId}` }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

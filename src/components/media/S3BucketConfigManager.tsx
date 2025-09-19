@@ -40,38 +40,29 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
 
   const loadConfigs = async () => {
     try {
-      // Load hardcoded configs to bypass auth issues
-      const hardcodedConfigs = [
-        {
-          id: 'wasabi-main',
-          name: 'Wasabi Main Bucket',
-          bucket_name: 'wmc-main-bucket', 
-          endpoint_url: 'https://s3.us-central-1.wasabisys.com',
-          region: 'us-central-1',
-          scan_frequency_hours: 24,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          last_scanned_at: null
-        },
-        {
-          id: 'wasabi-archive',
-          name: 'Wasabi Archive Bucket',
-          bucket_name: 'wmc-archive-bucket',
-          endpoint_url: 'https://s3.us-central-1.wasabisys.com', 
-          region: 'us-central-1',
-          scan_frequency_hours: 24,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          last_scanned_at: null
-        }
-      ];
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .from('s3_bucket_configs')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      setConfigs(hardcodedConfigs);
+      if (error) {
+        console.error('Error loading S3 configs:', error);
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load S3 configurations",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setConfigs(data || []);
     } catch (error: any) {
-      console.error('Failed to load S3 bucket configurations:', error);
+      console.error('Unexpected error loading configs:', error);
       toast({
-        title: "Error",
-        description: error.message || "Failed to load S3 bucket configurations",
+        title: "Error", 
+        description: error.message || "Failed to load S3 configurations",
         variant: "destructive",
       });
     } finally {
@@ -171,7 +162,7 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">S3 Bucket Configurations</h3>
-        <p className="text-sm text-muted-foreground">Using hardcoded configurations</p>
+        <S3BucketConfigDialog onConfigAdded={handleConfigAdded} />
       </div>
 
       {configs.length === 0 ? (
@@ -221,6 +212,28 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
                       <RefreshCw className={`w-4 h-4 mr-2 ${scanningIds.has(config.id) ? 'animate-spin' : ''}`} />
                       {scanningIds.has(config.id) ? 'Scanning...' : 'Scan Now'}
                     </Button>
+                    
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="outline">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Configuration</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete this S3 bucket configuration? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDelete(config.id)}>
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               </CardContent>
