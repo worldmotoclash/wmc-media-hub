@@ -53,7 +53,25 @@ async function listS3ObjectsPaginated(bucket: BucketConfig): Promise<S3Object[]>
     const body = await res.text();
     if (!res.ok) {
       console.error('[S3] Error', res.status, body.slice(0, 500));
-      throw new Error(`S3 list error ${res.status}: ${res.statusText}`);
+      
+      let errorMessage = `S3 list error ${res.status}: ${res.statusText}`;
+      
+      // Parse S3 error details
+      if (body.includes('<Code>')) {
+        const codeMatch = /<Code>(.*?)<\/Code>/.exec(body);
+        const messageMatch = /<Message>(.*?)<\/Message>/.exec(body);
+        if (codeMatch && messageMatch) {
+          errorMessage = `${codeMatch[1]}: ${messageMatch[1]}`;
+        }
+      }
+      
+      if (res.status === 403) {
+        errorMessage = 'Access denied - check your credentials and bucket permissions';
+      } else if (res.status === 404) {
+        errorMessage = 'Bucket not found - verify bucket name and region';
+      }
+      
+      throw new Error(errorMessage);
     }
 
     // Parse XML minimally
@@ -183,6 +201,16 @@ serve(async (req) => {
         if (!error) newVideos++;
         else console.error('[DB] Insert error', error);
       }
+    }
+
+    // Update last_scanned_at in the bucket configuration
+    const { error: updateError } = await supabase
+      .from('s3_bucket_configs')
+      .update({ last_scanned_at: new Date().toISOString() })
+      .eq('id', bucketConfigId);
+      
+    if (updateError) {
+      console.error('[DB] Failed to update last_scanned_at:', updateError);
     }
 
     const result = {

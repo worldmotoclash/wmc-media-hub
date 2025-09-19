@@ -99,7 +99,9 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Add S3 Bucket Configuration</DialogTitle>
-          <DialogDescription>Securely connect your S3-compatible bucket to the Media Hub.</DialogDescription>
+          <DialogDescription>
+            Connect your S3-compatible bucket. Credentials use the server's global Wasabi keys.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -134,7 +136,7 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
               required
             />
             <p className="text-sm text-muted-foreground mt-1">
-              Endpoint will auto-populate based on region selection
+              Auto-filled for Wasabi. For other providers, enter custom endpoint.
             </p>
           </div>
           

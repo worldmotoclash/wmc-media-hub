@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/contexts/UserContext';
 import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
-import { Trash2, RefreshCw, Clock } from 'lucide-react';
+import { Trash2, RefreshCw, Clock, Wifi, WifiOff } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { S3BucketConfigDialog } from './S3BucketConfigDialog';
 
@@ -30,6 +30,7 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
   const [configs, setConfigs] = useState<S3BucketConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanningIds, setScanningIds] = useState<Set<string>>(new Set());
+  const [testingIds, setTestingIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const { user } = useUser();
   useSupabaseAuth(); // Ensure Supabase auth when user is logged in
@@ -74,31 +75,76 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
     setScanningIds(prev => new Set(prev).add(configId));
     
     try {
-      const { error } = await supabase.functions.invoke('scan-s3-buckets', {
+      const { data, error } = await supabase.functions.invoke('scan-s3-buckets', {
         body: { bucketConfigId: configId, forceRescan: true }
       });
 
       if (error) throw error;
 
-      toast({
-        title: "Scan Started",
-        description: "S3 bucket scan initiated successfully",
-      });
+      // Handle the actual response data format
+      const result = data as any;
+      if (result?.success) {
+        toast({
+          title: "Scan Complete",
+          description: `Found ${result.totalVideos} videos (${result.newVideos} new, ${result.updatedVideos} updated)`,
+        });
+      } else {
+        throw new Error(result?.error || 'Scan failed');
+      }
 
       // Refresh configs to show updated last_scanned_at
       setTimeout(() => {
         loadConfigs();
-        // Only refresh S3 config data, not all media assets
         onConfigChange();
-      }, 2000);
+      }, 1000);
     } catch (error: any) {
+      console.error('Scan error:', error);
       toast({
         title: "Scan Failed",
-        description: error.message || "Failed to start S3 bucket scan",
+        description: error.message || "Failed to scan S3 bucket",
         variant: "destructive",
       });
     } finally {
       setScanningIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(configId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleTestConnection = async (configId: string) => {
+    setTestingIds(prev => new Set(prev).add(configId));
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('test-s3-connection', {
+        body: { bucketConfigId: configId }
+      });
+
+      if (error) throw error;
+
+      const result = data as any;
+      if (result?.success) {
+        toast({
+          title: "Connection Test Successful",
+          description: "S3 bucket is accessible and ready for scanning",
+        });
+      } else {
+        toast({
+          title: "Connection Test Failed", 
+          description: result?.error || "Unable to connect to S3 bucket",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error('Connection test error:', error);
+      toast({
+        title: "Connection Test Failed",
+        description: error.message || "Failed to test S3 connection",
+        variant: "destructive",
+      });
+    } finally {
+      setTestingIds(prev => {
         const newSet = new Set(prev);
         newSet.delete(configId);
         return newSet;
@@ -206,8 +252,22 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
                     <Button
                       size="sm"
                       variant="outline"
+                      onClick={() => handleTestConnection(config.id)}
+                      disabled={testingIds.has(config.id)}
+                    >
+                      {testingIds.has(config.id) ? (
+                        <WifiOff className="w-4 h-4 mr-2 animate-pulse" />
+                      ) : (
+                        <Wifi className="w-4 h-4 mr-2" />
+                      )}
+                      {testingIds.has(config.id) ? 'Testing...' : 'Test Connection'}
+                    </Button>
+                    
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={() => handleScan(config.id)}
-                      disabled={scanningIds.has(config.id)}
+                      disabled={scanningIds.has(config.id) || testingIds.has(config.id)}
                     >
                       <RefreshCw className={`w-4 h-4 mr-2 ${scanningIds.has(config.id) ? 'animate-spin' : ''}`} />
                       {scanningIds.has(config.id) ? 'Scanning...' : 'Scan Now'}
