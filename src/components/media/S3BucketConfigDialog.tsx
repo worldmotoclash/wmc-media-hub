@@ -6,8 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useUser } from '@/contexts/UserContext';
-import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
 import { Plus, Loader2 } from 'lucide-react';
 
 interface S3BucketConfigDialogProps {
@@ -35,30 +33,19 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
     name: '',
     bucket_name: '',
     endpoint_url: '',
-    access_key_id: '',
     region: 'us-east-1',
     scan_frequency_hours: 24
   });
   const { toast } = useToast();
-  const { user } = useUser();
-  useSupabaseAuth(); // Ensure Supabase auth when user is logged in
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Ensure Supabase auth user exists (used for created_by and RLS)
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError) throw authError;
-      const authUser = authData?.user;
-      if (!authUser) {
-        throw new Error('You must be logged in to add S3 bucket configurations');
-      }
-
       const { error } = await supabase
         .from('s3_bucket_configs')
-        .insert([{ ...formData, created_by: authUser.id }]);
+        .insert([formData]);
 
       if (error) throw error;
 
@@ -71,7 +58,6 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
         name: '',
         bucket_name: '',
         endpoint_url: '',
-        access_key_id: '',
         region: 'us-east-1',
         scan_frequency_hours: 24
       });
@@ -100,7 +86,7 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
         <DialogHeader>
           <DialogTitle>Add S3 Bucket Configuration</DialogTitle>
           <DialogDescription>
-            Connect your S3-compatible bucket. Credentials use the server's global Wasabi keys.
+            Connect your S3-compatible bucket. Authentication uses the server's global Wasabi credentials - you only need to specify the bucket details.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -140,16 +126,6 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
             </p>
           </div>
           
-          <div>
-            <Label htmlFor="access_key_id">Access Key ID</Label>
-            <Input
-              id="access_key_id"
-              value={formData.access_key_id}
-              onChange={(e) => setFormData(prev => ({ ...prev, access_key_id: e.target.value }))}
-              placeholder="Your S3 access key"
-              required
-            />
-          </div>
           
           <div>
             <Label htmlFor="region">Region</Label>

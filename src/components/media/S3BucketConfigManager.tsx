@@ -4,8 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useUser } from '@/contexts/UserContext';
-import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
 import { Trash2, RefreshCw, Clock, Wifi, WifiOff } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { S3BucketConfigDialog } from './S3BucketConfigDialog';
@@ -32,8 +30,6 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
   const [scanningIds, setScanningIds] = useState<Set<string>>(new Set());
   const [testingIds, setTestingIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
-  const { user } = useUser();
-  useSupabaseAuth(); // Ensure Supabase auth when user is logged in
 
   useEffect(() => {
     loadConfigs();
@@ -153,17 +149,7 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
   };
 
   const handleDelete = async (configId: string) => {
-    if (!user) {
-      toast({
-        title: "Error",
-        description: "Must be logged in to delete configurations",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
-      // RLS policies will ensure users can only delete their own configs
       const { error } = await supabase
         .from('s3_bucket_configs')
         .delete()
