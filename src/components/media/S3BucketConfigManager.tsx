@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useUser } from '@/contexts/UserContext';
 import { Trash2, RefreshCw, Clock, Wifi, WifiOff } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { S3BucketConfigDialog } from './S3BucketConfigDialog';
@@ -30,6 +31,7 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
   const [scanningIds, setScanningIds] = useState<Set<string>>(new Set());
   const [testingIds, setTestingIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+  const { user } = useUser();
 
   useEffect(() => {
     loadConfigs();
@@ -197,7 +199,17 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
         <S3BucketConfigDialog onConfigAdded={handleConfigAdded} />
       </div>
 
-      {configs.length === 0 ? (
+      {!user && (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-muted-foreground text-center">
+              Please log in to manage S3 bucket configurations.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {user && configs.length === 0 ? (
         <Card>
           <CardContent className="pt-6">
             <p className="text-muted-foreground text-center">
@@ -205,7 +217,7 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
             </p>
           </CardContent>
         </Card>
-      ) : (
+      ) : user && (
         <div className="grid gap-4">
           {configs.map((config) => (
             <Card key={config.id}>

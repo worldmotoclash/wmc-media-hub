@@ -174,7 +174,6 @@ export type Database = {
       }
       s3_bucket_configs: {
         Row: {
-          access_key_id: string | null
           bucket_name: string
           created_at: string
           created_by: string | null
@@ -188,7 +187,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          access_key_id?: string | null
           bucket_name: string
           created_at?: string
           created_by?: string | null
@@ -202,7 +200,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          access_key_id?: string | null
           bucket_name?: string
           created_at?: string
           created_by?: string | null
