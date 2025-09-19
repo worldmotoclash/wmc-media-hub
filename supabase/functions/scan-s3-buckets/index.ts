@@ -49,7 +49,6 @@ async function listS3ObjectsPaginated(bucket: BucketConfig): Promise<S3Object[]>
     secretAccessKey,
     service: 's3',
     region: bucket.region,
-    cache: 'no-store',
   });
 
   const all: S3Object[] = [];

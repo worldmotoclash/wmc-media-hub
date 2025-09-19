@@ -219,7 +219,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <Tabs defaultValue="library" className="space-y-6" onValueChange={setActiveTab}>
+      <Tabs value={activeTab} className="space-y-6" onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="library">Media Library</TabsTrigger>
           <TabsTrigger value="s3-config">S3 Configuration</TabsTrigger>
