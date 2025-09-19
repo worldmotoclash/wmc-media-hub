@@ -57,7 +57,10 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
     try {
       const { error } = await supabase
         .from('s3_bucket_configs')
-        .insert([formData]);
+        .insert([{
+          ...formData,
+          created_by: user?.id
+        }]);
 
       if (error) throw error;
 
