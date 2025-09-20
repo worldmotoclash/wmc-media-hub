@@ -185,53 +185,58 @@ export async function getMediaAssetSceneDetections(
   }));
 }
 
-// Process scene detection (calls the edge function)
-export async function processSceneDetection(
+// Client-side scene detection processing  
+export async function processClientSideSceneDetection(
   jobId: string,
-  input: { 
-    videoData?: string; 
-    filename?: string; 
-    videoUrl?: string; 
-    mediaAsset?: MediaAsset;
-    threshold: number;
-    mimeType?: string;
-  }
+  results: DetectionResult
 ): Promise<DetectionResult> {
-  // Update job status to processing
-  await updateSceneDetectionJob(jobId, {
-    processingStatus: 'processing'
-  });
-
+  console.log('Storing client-side scene detection results for job:', jobId);
+  
   try {
+    // Update job status to processing
+    await updateSceneDetectionJob(jobId, {
+      processingStatus: 'processing',
+      updatedAt: new Date().toISOString()
+    });
+
+    // Store the pre-processed results using the edge function
     const { data, error } = await supabase.functions.invoke('detect-video-scenes', {
       body: {
         jobId,
-        ...input
+        results
       }
     });
 
-    if (error) throw error;
-
-    if (data?.success) {
-      // Update job with successful results
+    if (error) {
+      console.error('Edge function error:', error);
       await updateSceneDetectionJob(jobId, {
-        processingStatus: 'completed',
-        totalScenes: data.result.totalScenes,
-        videoDuration: data.result.videoDuration,
-        results: data.result,
-        processedAt: new Date().toISOString()
+        processingStatus: 'failed',
+        errorMessage: error.message || 'Unknown error occurred',
+        updatedAt: new Date().toISOString()
       });
-
-      return data.result;
-    } else {
-      throw new Error(data?.error || 'Scene detection failed');
+      throw error;
     }
-  } catch (error: any) {
-    // Update job with error
+
+    if (!data?.success) {
+      const errorMessage = data?.error || 'Failed to store scene detection results';
+      console.error('Scene detection storage failed:', errorMessage);
+      await updateSceneDetectionJob(jobId, {
+        processingStatus: 'failed',
+        errorMessage: errorMessage,
+        updatedAt: new Date().toISOString()
+      });
+      throw new Error(errorMessage);
+    }
+
+    console.log('Scene detection results stored successfully');
+    return results;
+
+  } catch (error) {
+    console.error('Error storing scene detection results:', error);
     await updateSceneDetectionJob(jobId, {
       processingStatus: 'failed',
-      errorMessage: error.message,
-      processedAt: new Date().toISOString()
+      errorMessage: error.message || 'Unknown error occurred',
+      updatedAt: new Date().toISOString()
     });
     throw error;
   }
