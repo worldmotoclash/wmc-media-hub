@@ -262,7 +262,7 @@ export type Database = {
       video_scene_detections: {
         Row: {
           created_at: string
-          created_by: string | null
+          created_by: string
           error_message: string | null
           id: string
           media_asset_id: string | null
@@ -276,7 +276,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          created_by?: string | null
+          created_by?: string
           error_message?: string | null
           id?: string
           media_asset_id?: string | null
@@ -290,7 +290,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          created_by?: string | null
+          created_by?: string
           error_message?: string | null
           id?: string
           media_asset_id?: string | null

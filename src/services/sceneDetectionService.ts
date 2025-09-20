@@ -38,12 +38,16 @@ export async function createSceneDetectionJob(
   mediaAssetId: string,
   threshold: number
 ): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User must be authenticated');
+
   const { data, error } = await supabase
     .from('video_scene_detections')
     .insert({
       media_asset_id: mediaAssetId,
       threshold,
-      processing_status: 'pending'
+      processing_status: 'pending',
+      created_by: user.id
     })
     .select('id')
     .single();
@@ -57,12 +61,16 @@ export async function createUploadSceneDetectionJob(
   threshold: number,
   filename: string
 ): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User must be authenticated');
+
   const { data, error } = await supabase
     .from('video_scene_detections')
     .insert({
       threshold,
       processing_status: 'pending',
-      results: { metadata: { filename } }
+      results: { metadata: { filename } },
+      created_by: user.id
     })
     .select('id')
     .single();
