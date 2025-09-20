@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/contexts/UserContext';
-import { Plus, Loader2 } from 'lucide-react';
+import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
+import { Plus, Loader2, AlertTriangle } from 'lucide-react';
 
 interface S3BucketConfigDialogProps {
   onConfigAdded: () => void;
@@ -39,6 +40,7 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
   });
   const { toast } = useToast();
   const { user } = useUser();
+  const { hasValidSession, isReady, checkAndCreateSession } = useSupabaseAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +52,26 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
         variant: "destructive",
       });
       return;
+    }
+
+    // Check for valid Supabase session before proceeding
+    if (!hasValidSession()) {
+      toast({
+        title: "Database Authentication Required",
+        description: "Attempting to establish database connection...",
+        variant: "destructive",
+      });
+      
+      // Try to establish session
+      const sessionCreated = await checkAndCreateSession();
+      if (!sessionCreated) {
+        toast({
+          title: "Database Connection Failed",
+          description: "Unable to connect to database. Please enable Anonymous Authentication in Supabase settings.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
     
     setLoading(true);
@@ -89,9 +111,12 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button disabled={!user}>
+        <Button disabled={!user || !isReady}>
           <Plus className="w-4 h-4 mr-2" />
           Add S3 Bucket
+          {!hasValidSession() && isReady && (
+            <AlertTriangle className="w-4 h-4 ml-2 text-amber-500" />
+          )}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">
@@ -100,6 +125,14 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
           <DialogDescription>
             Connect your S3-compatible bucket. Authentication uses the server's global Wasabi credentials - you only need to specify the bucket details.
           </DialogDescription>
+          {!hasValidSession() && isReady && (
+            <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
+              <AlertTriangle className="w-4 h-4 text-amber-600" />
+              <p className="text-sm text-amber-800">
+                Database authentication not established. Anonymous Auth may be disabled in Supabase settings.
+              </p>
+            </div>
+          )}
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
