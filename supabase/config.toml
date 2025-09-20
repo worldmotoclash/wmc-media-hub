@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.detect-video-scenes]
 verify_jwt = false
+
+[functions.create-scene-detection-job]
+verify_jwt = false

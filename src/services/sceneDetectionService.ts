@@ -38,18 +38,31 @@ export async function createSceneDetectionJob(
   mediaAssetId: string,
   threshold: number
 ): Promise<string> {
-  const { data, error } = await supabase
-    .from('video_scene_detections')
-    .insert({
-      media_asset_id: mediaAssetId,
-      threshold,
-      processing_status: 'pending'
-    })
-    .select('id')
-    .single();
+  try {
+    console.log('Creating scene detection job for media asset:', mediaAssetId);
+    
+    const { data, error } = await supabase.functions.invoke('create-scene-detection-job', {
+      body: {
+        mediaAssetId,
+        threshold
+      }
+    });
 
-  if (error) throw error;
-  return data.id;
+    if (error) {
+      console.error('Error calling create-scene-detection-job function:', error);
+      throw new Error(`Failed to create scene detection job: ${error.message}`);
+    }
+
+    if (!data?.jobId) {
+      throw new Error('No job ID returned from create-scene-detection-job function');
+    }
+
+    console.log('Scene detection job created:', data.jobId);
+    return data.jobId;
+  } catch (error) {
+    console.error('Error in createSceneDetectionJob:', error);
+    throw error;
+  }
 }
 
 // Create a scene detection job for an uploaded file (no media asset)
@@ -57,18 +70,31 @@ export async function createUploadSceneDetectionJob(
   threshold: number,
   filename: string
 ): Promise<string> {
-  const { data, error } = await supabase
-    .from('video_scene_detections')
-    .insert({
-      threshold,
-      processing_status: 'pending',
-      results: { metadata: { filename } }
-    })
-    .select('id')
-    .single();
+  try {
+    console.log('Creating scene detection job for upload:', filename);
+    
+    const { data, error } = await supabase.functions.invoke('create-scene-detection-job', {
+      body: {
+        threshold,
+        filename
+      }
+    });
 
-  if (error) throw error;
-  return data.id;
+    if (error) {
+      console.error('Error calling create-scene-detection-job function:', error);
+      throw new Error(`Failed to create scene detection job: ${error.message}`);
+    }
+
+    if (!data?.jobId) {
+      throw new Error('No job ID returned from create-scene-detection-job function');
+    }
+
+    console.log('Upload scene detection job created:', data.jobId);
+    return data.jobId;
+  } catch (error) {
+    console.error('Error in createUploadSceneDetectionJob:', error);
+    throw error;
+  }
 }
 
 // Update scene detection job with results
