@@ -259,6 +259,59 @@ export type Database = {
         }
         Relationships: []
       }
+      video_scene_detections: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          id: string
+          media_asset_id: string | null
+          processed_at: string | null
+          processing_status: string
+          results: Json | null
+          threshold: number
+          total_scenes: number
+          updated_at: string
+          video_duration: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          media_asset_id?: string | null
+          processed_at?: string | null
+          processing_status?: string
+          results?: Json | null
+          threshold?: number
+          total_scenes?: number
+          updated_at?: string
+          video_duration?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          media_asset_id?: string | null
+          processed_at?: string | null
+          processing_status?: string
+          results?: Json | null
+          threshold?: number
+          total_scenes?: number
+          updated_at?: string
+          video_duration?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_scene_detections_media_asset_id_fkey"
+            columns: ["media_asset_id"]
+            isOneToOne: false
+            referencedRelation: "media_assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

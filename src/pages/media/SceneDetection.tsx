@@ -4,9 +4,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Upload, Play, Download, Scissors } from 'lucide-react';
+import { Upload, Play, Download, Scissors, Video, History } from 'lucide-react';
+import VideoSelector from '@/components/media/VideoSelector';
+import { MediaAsset } from '@/services/unifiedMediaService';
+import { 
+  processSceneDetection, 
+  createSceneDetectionJob, 
+  createUploadSceneDetectionJob,
+  getMediaAssetSceneDetections,
+  VideoSceneDetectionRecord
+} from '@/services/sceneDetectionService';
 
 interface SceneDetection {
   timestamp: number;
@@ -27,10 +37,13 @@ interface DetectionResult {
 
 export default function SceneDetection() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<MediaAsset | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<DetectionResult | null>(null);
   const [threshold, setThreshold] = useState(30.0);
+  const [activeTab, setActiveTab] = useState<'upload' | 'select'>('select');
+  const [detectionHistory, setDetectionHistory] = useState<VideoSceneDetectionRecord[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -63,51 +76,70 @@ export default function SceneDetection() {
   };
 
   const processVideo = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile && !selectedVideo) return;
 
     setIsProcessing(true);
     setProgress(0);
 
     try {
-      // Convert file to base64
-      const reader = new FileReader();
-      const fileData = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(selectedFile);
-      });
+      let jobId: string;
 
-      // Remove data URL prefix
-      const base64Data = fileData.split(',')[1];
+      // Create job based on input type
+      if (selectedVideo) {
+        jobId = await createSceneDetectionJob(selectedVideo.id, threshold);
+      } else if (selectedFile) {
+        jobId = await createUploadSceneDetectionJob(threshold, selectedFile.name);
+      } else {
+        throw new Error('No video selected');
+      }
 
       // Create progress simulation
       const progressInterval = setInterval(() => {
         setProgress(prev => Math.min(prev + 2, 90));
       }, 500);
 
-      // Call edge function
-      const { data, error } = await supabase.functions.invoke('detect-video-scenes', {
-        body: {
+      let detectionInput;
+      if (selectedVideo) {
+        // Process existing S3 video
+        detectionInput = {
+          videoUrl: selectedVideo.fileUrl,
+          mediaAsset: selectedVideo,
+          threshold,
+          filename: selectedVideo.title
+        };
+      } else if (selectedFile) {
+        // Process uploaded file
+        const reader = new FileReader();
+        const fileData = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(selectedFile);
+        });
+        
+        const base64Data = fileData.split(',')[1];
+        detectionInput = {
           videoData: base64Data,
           filename: selectedFile.name,
-          threshold: threshold,
+          threshold,
           mimeType: selectedFile.type
-        }
-      });
+        };
+      }
+
+      // Process scene detection
+      const result = await processSceneDetection(jobId, detectionInput!);
 
       clearInterval(progressInterval);
       setProgress(100);
 
-      if (error) throw error;
+      setResults(result);
+      toast({
+        title: "Scene Detection Complete",
+        description: `Found ${result.totalScenes} scenes in the video`,
+      });
 
-      if (data?.success) {
-        setResults(data.result);
-        toast({
-          title: "Scene Detection Complete",
-          description: `Found ${data.result.totalScenes} scenes in the video`,
-        });
-      } else {
-        throw new Error(data?.error || 'Scene detection failed');
+      // Refresh history if we processed a media asset
+      if (selectedVideo) {
+        loadDetectionHistory(selectedVideo.id);
       }
 
     } catch (error: any) {
@@ -133,6 +165,33 @@ export default function SceneDetection() {
     } finally {
       setIsProcessing(false);
       setProgress(0);
+    }
+  };
+
+  const loadDetectionHistory = async (mediaAssetId: string) => {
+    try {
+      const history = await getMediaAssetSceneDetections(mediaAssetId);
+      setDetectionHistory(history);
+    } catch (error) {
+      console.error('Error loading detection history:', error);
+    }
+  };
+
+  const handleVideoSelect = (video: MediaAsset) => {
+    setSelectedVideo(video);
+    setSelectedFile(null);
+    setResults(null);
+    loadDetectionHistory(video.id);
+  };
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value as 'upload' | 'select');
+    setResults(null);
+    if (value === 'upload') {
+      setSelectedVideo(null);
+      setDetectionHistory([]);
+    } else {
+      setSelectedFile(null);
     }
   };
 
@@ -173,71 +232,155 @@ export default function SceneDetection() {
         </p>
       </div>
 
-      {/* Upload Section */}
+      {/* Video Input Section */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Upload className="w-5 h-5" />
-            Upload Video
+            <Video className="w-5 h-5" />
+            Video Selection
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="video-upload">Select Video File</Label>
-            <Input
-              id="video-upload"
-              ref={fileInputRef}
-              type="file"
-              accept="video/*"
-              onChange={handleFileSelect}
-              disabled={isProcessing}
-            />
-          </div>
+        <CardContent>
+          <Tabs value={activeTab} onValueChange={handleTabChange}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="select" className="flex items-center gap-2">
+                <Video className="w-4 h-4" />
+                Select from Library
+              </TabsTrigger>
+              <TabsTrigger value="upload" className="flex items-center gap-2">
+                <Upload className="w-4 h-4" />
+                Upload New
+              </TabsTrigger>
+            </TabsList>
 
-          <div>
-            <Label htmlFor="threshold">Detection Threshold</Label>
-            <Input
-              id="threshold"
-              type="number"
-              min="1"
-              max="100"
-              step="0.1"
-              value={threshold}
-              onChange={(e) => setThreshold(parseFloat(e.target.value))}
-              disabled={isProcessing}
-            />
-            <p className="text-sm text-muted-foreground mt-1">
-              Lower values detect more scenes (more sensitive). Higher values detect fewer scenes.
-            </p>
-          </div>
+            <TabsContent value="select" className="space-y-4 mt-4">
+              <VideoSelector 
+                onVideoSelect={handleVideoSelect}
+                selectedVideo={selectedVideo}
+              />
+              
+              {selectedVideo && (
+                <div className="p-4 bg-muted rounded-lg">
+                  <p><strong>Selected:</strong> {selectedVideo.title}</p>
+                  <p><strong>Size:</strong> {selectedVideo.fileSize ? `${(selectedVideo.fileSize / (1024 * 1024)).toFixed(2)} MB` : 'Unknown'}</p>
+                  <p><strong>Duration:</strong> {selectedVideo.duration ? `${Math.floor(selectedVideo.duration / 60)}:${(selectedVideo.duration % 60).toString().padStart(2, '0')}` : 'Unknown'}</p>
+                  <p><strong>Source:</strong> {selectedVideo.source}</p>
+                </div>
+              )}
+            </TabsContent>
 
-          {selectedFile && (
-            <div className="p-4 bg-muted rounded-lg">
-              <p><strong>File:</strong> {selectedFile.name}</p>
-              <p><strong>Size:</strong> {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</p>
-              <p><strong>Type:</strong> {selectedFile.type}</p>
-            </div>
-          )}
+            <TabsContent value="upload" className="space-y-4 mt-4">
+              <div>
+                <Label htmlFor="video-upload">Select Video File</Label>
+                <Input
+                  id="video-upload"
+                  ref={fileInputRef}
+                  type="file"
+                  accept="video/*"
+                  onChange={handleFileSelect}
+                  disabled={isProcessing}
+                />
+              </div>
 
-          <Button
-            onClick={processVideo}
-            disabled={!selectedFile || isProcessing}
-            className="w-full"
-          >
-            <Scissors className="w-4 h-4 mr-2" />
-            {isProcessing ? 'Processing...' : 'Detect Scenes'}
-          </Button>
+              {selectedFile && (
+                <div className="p-4 bg-muted rounded-lg">
+                  <p><strong>File:</strong> {selectedFile.name}</p>
+                  <p><strong>Size:</strong> {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                  <p><strong>Type:</strong> {selectedFile.type}</p>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
 
-          {isProcessing && (
-            <div className="space-y-2">
-              <Progress value={progress} />
-              <p className="text-sm text-center text-muted-foreground">
-                Processing video... {progress}%
+          <div className="mt-6 space-y-4">
+            <div>
+              <Label htmlFor="threshold">Detection Threshold</Label>
+              <Input
+                id="threshold"
+                type="number"
+                min="1"
+                max="100"
+                step="0.1"
+                value={threshold}
+                onChange={(e) => setThreshold(parseFloat(e.target.value))}
+                disabled={isProcessing}
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                Lower values detect more scenes (more sensitive). Higher values detect fewer scenes.
               </p>
             </div>
-          )}
+
+            <Button
+              onClick={processVideo}
+              disabled={(!selectedFile && !selectedVideo) || isProcessing}
+              className="w-full"
+            >
+              <Scissors className="w-4 h-4 mr-2" />
+              {isProcessing ? 'Processing...' : 'Detect Scenes'}
+            </Button>
+
+            {isProcessing && (
+              <div className="space-y-2">
+                <Progress value={progress} />
+                <p className="text-sm text-center text-muted-foreground">
+                  Processing video... {progress}%
+                </p>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
+
+      {/* Detection History for Selected Media Asset */}
+      {selectedVideo && detectionHistory.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="w-5 h-5" />
+              Previous Detection Results
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {detectionHistory.map((detection) => (
+                <div key={detection.id} className="p-3 border rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <span className="font-medium">
+                        Threshold: {detection.threshold}
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {detection.totalScenes} scenes
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {new Date(detection.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        detection.processingStatus === 'completed' ? 'bg-green-100 text-green-800' :
+                        detection.processingStatus === 'failed' ? 'bg-red-100 text-red-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {detection.processingStatus}
+                      </span>
+                      {detection.processingStatus === 'completed' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setResults(detection.results)}
+                        >
+                          View Results
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Results Section */}
       {results && (

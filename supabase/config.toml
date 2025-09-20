@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.scan-s3-buckets]
 verify_jwt = false
+
+[functions.detect-video-scenes]
+verify_jwt = false

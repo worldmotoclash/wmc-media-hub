@@ -80,30 +80,64 @@ serve(async (req) => {
   }
 
   try {
-    const { videoData, filename, threshold, mimeType } = await req.json();
-
-    if (!videoData) {
-      throw new Error('No video data provided');
-    }
-
-    // Calculate approximate file size from base64 data
-    const estimatedSize = (videoData.length * 3) / 4; // Base64 to binary conversion ratio
-    const maxSizeBytes = 50 * 1024 * 1024; // 50MB limit
-
-    console.log(`Processing video: ${filename}, estimated size: ${(estimatedSize / (1024 * 1024)).toFixed(2)}MB, threshold: ${threshold}`);
-
-    // Check file size before processing
-    if (estimatedSize > maxSizeBytes) {
-      throw new Error(`File too large: ${(estimatedSize / (1024 * 1024)).toFixed(2)}MB. Maximum allowed: 50MB. Please use a smaller file or compress the video.`);
-    }
+    const body = await req.json();
+    const { videoData, videoUrl, mediaAsset, filename, threshold = 30.0, mimeType, jobId } = body;
+    
+    console.log('Received scene detection request', { 
+      hasVideoData: !!videoData, 
+      hasVideoUrl: !!videoUrl, 
+      filename, 
+      threshold,
+      jobId 
+    });
 
     let binaryData: Uint8Array;
-    try {
-      // Convert base64 to binary with memory management
-      binaryData = Uint8Array.from(atob(videoData), c => c.charCodeAt(0));
-      console.log(`Video data converted: ${binaryData.length} bytes`);
-    } catch (conversionError) {
-      throw new Error('Failed to process video data. The file may be corrupted or too large.');
+    let videoFilename = filename || 'unknown.mp4';
+
+    if (videoUrl) {
+      // Process video from S3 URL
+      console.log(`Fetching video from URL: ${videoUrl}`);
+      
+      const videoResponse = await fetch(videoUrl);
+      if (!videoResponse.ok) {
+        throw new Error(`Failed to fetch video from URL: ${videoResponse.statusText}`);
+      }
+
+      const videoBuffer = await videoResponse.arrayBuffer();
+      binaryData = new Uint8Array(videoBuffer);
+      
+      console.log(`Video fetched from S3: ${binaryData.length} bytes`);
+      
+      // Use media asset info if available
+      if (mediaAsset) {
+        videoFilename = mediaAsset.title || filename || 's3-video.mp4';
+      }
+
+      // Check if the S3 video is too large (higher limit for S3 since we're streaming)
+      const maxS3SizeBytes = 500 * 1024 * 1024; // 500MB limit for S3 videos
+      if (binaryData.length > maxS3SizeBytes) {
+        throw new Error(`Video file too large: ${(binaryData.length / (1024 * 1024)).toFixed(2)}MB. Maximum allowed for S3 videos: 500MB.`);
+      }
+
+    } else if (videoData && typeof videoData === 'string') {
+      // Process uploaded base64 video data (existing functionality)
+      const estimatedSize = (videoData.length * 3) / 4;
+      const maxUploadSizeBytes = 50 * 1024 * 1024; // 50MB limit for uploads
+
+      console.log(`Processing uploaded video: ${videoFilename}, estimated size: ${(estimatedSize / (1024 * 1024)).toFixed(2)}MB, threshold: ${threshold}`);
+
+      if (estimatedSize > maxUploadSizeBytes) {
+        throw new Error(`File too large: ${(estimatedSize / (1024 * 1024)).toFixed(2)}MB. Maximum allowed for uploads: 50MB. Please use a smaller file or select from existing S3 videos.`);
+      }
+
+      try {
+        binaryData = Uint8Array.from(atob(videoData), c => c.charCodeAt(0));
+        console.log(`Video data converted: ${binaryData.length} bytes`);
+      } catch (conversionError) {
+        throw new Error('Failed to process video data. The file may be corrupted or too large.');
+      }
+    } else {
+      throw new Error('No video data or URL provided');
     }
 
     // Perform scene detection
@@ -113,7 +147,7 @@ serve(async (req) => {
     binaryData = null as any;
 
     // Update metadata with actual filename
-    detectionResult.metadata.filename = filename || 'unknown.mp4';
+    detectionResult.metadata.filename = videoFilename;
 
     console.log(`Scene detection completed: ${detectionResult.totalScenes} scenes found`);
 
