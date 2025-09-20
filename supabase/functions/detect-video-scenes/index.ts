@@ -128,45 +128,10 @@ async function detectScenes(videoBuffer: Uint8Array, threshold: number = 30.0, f
     // Sort scenes by timestamp
     scenes.sort((a, b) => a.timestamp - b.timestamp);
     
-    // Extract thumbnail images for each scene
-    console.log(`Extracting thumbnails for ${scenes.length} scenes...`);
+    // Note: Thumbnail extraction requires FFmpeg subprocess which is not available in Supabase Edge Runtime
+    console.log(`Scene detection completed with ${scenes.length} scenes (thumbnails not available in Edge Runtime)`);
     
-    for (let i = 0; i < scenes.length; i++) {
-      const scene = scenes[i];
-      const thumbnailPath = `${framesDir}/scene_${i}_${scene.timestamp.toFixed(2)}s.jpg`;
-      
-      try {
-        // Extract frame at scene timestamp
-        const extractCmd = new Deno.Command("ffmpeg", {
-          args: [
-            "-i", inputPath,
-            "-ss", scene.timestamp.toString(),
-            "-vframes", "1",
-            "-q:v", "2", // High quality
-            "-vf", "scale=320:240", // Thumbnail size
-            thumbnailPath
-          ],
-          stdout: "piped",
-          stderr: "piped"
-        });
-        
-        const extractResult = await extractCmd.output();
-        if (extractResult.success) {
-          // Read the generated thumbnail and convert to base64
-          const thumbnailBuffer = await Deno.readFile(thumbnailPath);
-          const base64Image = btoa(String.fromCharCode(...thumbnailBuffer));
-          
-          // Add thumbnail data to scene
-          (scene as any).thumbnail = `data:image/jpeg;base64,${base64Image}`;
-          
-          console.log(`Generated thumbnail for scene ${i} at ${scene.timestamp}s`);
-        } else {
-          console.warn(`Failed to extract thumbnail for scene ${i}:`, new TextDecoder().decode(extractResult.stderr));
-        }
-      } catch (thumbError) {
-        console.warn(`Error extracting thumbnail for scene ${i}:`, thumbError);
-      }
-    }
+    // Thumbnails would be extracted here if FFmpeg was available
     
     const result: DetectionResult = {
       scenes,
