@@ -28,6 +28,7 @@ import MediaUpload from "./pages/media/MediaUpload";
 import Generate from "./pages/media/Generate";
 import ModelMarketplace from "./pages/media/ModelMarketplace";
 import PlaylistManager from "./pages/media/PlaylistManager";
+import SceneDetection from "./pages/media/SceneDetection";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,7 @@ const App = () => (
                 <Route path="/admin/media/models" element={<ModelMarketplace />} />
                 <Route path="/admin/media/generate" element={<Generate />} />
                 <Route path="/admin/media/playlists" element={<PlaylistManager />} />
+                <Route path="/admin/media/scene-detection" element={<SceneDetection />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                 <Route path="/terms-of-service" element={<TermsOfService />} />
                 <Route path="/cookie-policy" element={<CookiePolicy />} />

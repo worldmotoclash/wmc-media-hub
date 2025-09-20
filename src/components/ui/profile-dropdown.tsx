@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Sun, Moon, Settings, LogOut, User, ChevronDown } from 'lucide-react';
+import { Sun, Moon, Settings, LogOut, User, ChevronDown, Scissors } from 'lucide-react';
 
 interface ProfileDropdownProps {
   onSignOut: () => void;
@@ -102,6 +102,12 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut, variant = 
           <Link to="/admin/media/upload">
             <Settings className="mr-2 h-4 w-4" />
             <span>Upload Content</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <Link to="/admin/media/scene-detection">
+            <Scissors className="mr-2 h-4 w-4" />
+            <span>Scene Detection</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={toggleTheme} className="cursor-pointer">

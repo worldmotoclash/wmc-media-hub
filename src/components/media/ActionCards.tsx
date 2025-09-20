@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload, Sparkles, PlaySquare } from 'lucide-react';
+import { Upload, Sparkles, PlaySquare, Scissors } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const ActionCards: React.FC = () => {
@@ -23,6 +23,14 @@ const ActionCards: React.FC = () => {
       iconColor: 'text-cinnabar'
     },
     {
+      title: 'Scene Detection',
+      description: 'Automatically detect scenes and cuts in videos',
+      icon: Scissors,
+      href: '/admin/media/scene-detection',
+      color: 'from-purple-500/20 to-purple-500/10',
+      iconColor: 'text-purple-500'
+    },
+    {
       title: 'Manage Library',
       description: 'Browse videos, manage library & playlists',
       icon: PlaySquare,
@@ -39,7 +47,7 @@ const ActionCards: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-8"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"
         >
           {actions.map((action, index) => (
             <motion.div
