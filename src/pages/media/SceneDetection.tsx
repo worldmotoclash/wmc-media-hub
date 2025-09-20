@@ -38,11 +38,12 @@ interface DetectionResult {
 export default function SceneDetection() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<MediaAsset | null>(null);
+  const [videoUrl, setVideoUrl] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<DetectionResult | null>(null);
   const [threshold, setThreshold] = useState(30.0);
-  const [activeTab, setActiveTab] = useState<'upload' | 'select'>('select');
+  const [activeTab, setActiveTab] = useState<'upload' | 'select' | 'url'>('select');
   const [detectionHistory, setDetectionHistory] = useState<VideoSceneDetectionRecord[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -76,7 +77,7 @@ export default function SceneDetection() {
   };
 
   const processVideo = async () => {
-    if (!selectedFile && !selectedVideo) return;
+    if (!selectedFile && !selectedVideo && !videoUrl.trim()) return;
 
     setIsProcessing(true);
     setProgress(0);
@@ -89,6 +90,8 @@ export default function SceneDetection() {
         jobId = await createSceneDetectionJob(selectedVideo.id, threshold);
       } else if (selectedFile) {
         jobId = await createUploadSceneDetectionJob(threshold, selectedFile.name);
+      } else if (videoUrl.trim()) {
+        jobId = await createUploadSceneDetectionJob(threshold, videoUrl.split('/').pop() || 'url-video.mp4');
       } else {
         throw new Error('No video selected');
       }
@@ -106,6 +109,13 @@ export default function SceneDetection() {
           mediaAsset: selectedVideo,
           threshold,
           filename: selectedVideo.title
+        };
+      } else if (videoUrl.trim()) {
+        // Process video from URL
+        detectionInput = {
+          videoUrl: videoUrl.trim(),
+          threshold,
+          filename: videoUrl.split('/').pop() || 'url-video.mp4'
         };
       } else if (selectedFile) {
         // Process uploaded file
@@ -185,13 +195,19 @@ export default function SceneDetection() {
   };
 
   const handleTabChange = (value: string) => {
-    setActiveTab(value as 'upload' | 'select');
+    setActiveTab(value as 'upload' | 'select' | 'url');
     setResults(null);
     if (value === 'upload') {
       setSelectedVideo(null);
+      setVideoUrl('');
+      setDetectionHistory([]);
+    } else if (value === 'url') {
+      setSelectedVideo(null);
+      setSelectedFile(null);
       setDetectionHistory([]);
     } else {
       setSelectedFile(null);
+      setVideoUrl('');
     }
   };
 
@@ -242,10 +258,14 @@ export default function SceneDetection() {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={handleTabChange}>
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="select" className="flex items-center gap-2">
                 <Video className="w-4 h-4" />
                 Select from Library
+              </TabsTrigger>
+              <TabsTrigger value="url" className="flex items-center gap-2">
+                <Video className="w-4 h-4" />
+                Paste URL
               </TabsTrigger>
               <TabsTrigger value="upload" className="flex items-center gap-2">
                 <Upload className="w-4 h-4" />
@@ -265,6 +285,30 @@ export default function SceneDetection() {
                   <p><strong>Size:</strong> {selectedVideo.fileSize ? `${(selectedVideo.fileSize / (1024 * 1024)).toFixed(2)} MB` : 'Unknown'}</p>
                   <p><strong>Duration:</strong> {selectedVideo.duration ? `${Math.floor(selectedVideo.duration / 60)}:${(selectedVideo.duration % 60).toString().padStart(2, '0')}` : 'Unknown'}</p>
                   <p><strong>Source:</strong> {selectedVideo.source}</p>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="url" className="space-y-4 mt-4">
+              <div>
+                <Label htmlFor="video-url">S3 Video URL</Label>
+                <Input
+                  id="video-url"
+                  type="url"
+                  placeholder="https://bucket-name.s3.amazonaws.com/path/to/video.mp4"
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  disabled={isProcessing}
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  Paste the direct URL to an S3 video file. Supports up to 500MB files.
+                </p>
+              </div>
+
+              {videoUrl.trim() && (
+                <div className="p-4 bg-muted rounded-lg">
+                  <p><strong>URL:</strong> {videoUrl}</p>
+                  <p><strong>Source:</strong> S3 Direct URL</p>
                 </div>
               )}
             </TabsContent>
@@ -312,7 +356,7 @@ export default function SceneDetection() {
 
             <Button
               onClick={processVideo}
-              disabled={(!selectedFile && !selectedVideo) || isProcessing}
+              disabled={(!selectedFile && !selectedVideo && !videoUrl.trim()) || isProcessing}
               className="w-full"
             >
               <Scissors className="w-4 h-4 mr-2" />
