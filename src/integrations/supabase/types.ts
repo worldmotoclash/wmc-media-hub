@@ -176,7 +176,6 @@ export type Database = {
         Row: {
           bucket_name: string
           created_at: string
-          created_by: string | null
           endpoint_url: string
           id: string
           is_active: boolean | null
@@ -189,7 +188,6 @@ export type Database = {
         Insert: {
           bucket_name: string
           created_at?: string
-          created_by?: string | null
           endpoint_url: string
           id?: string
           is_active?: boolean | null
@@ -202,7 +200,6 @@ export type Database = {
         Update: {
           bucket_name?: string
           created_at?: string
-          created_by?: string | null
           endpoint_url?: string
           id?: string
           is_active?: boolean | null
