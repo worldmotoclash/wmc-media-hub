@@ -86,15 +86,31 @@ serve(async (req) => {
       throw new Error('No video data provided');
     }
 
-    console.log(`Processing video: ${filename}, threshold: ${threshold}`);
+    // Calculate approximate file size from base64 data
+    const estimatedSize = (videoData.length * 3) / 4; // Base64 to binary conversion ratio
+    const maxSizeBytes = 50 * 1024 * 1024; // 50MB limit
 
-    // Convert base64 to binary
-    const binaryData = Uint8Array.from(atob(videoData), c => c.charCodeAt(0));
-    
-    console.log(`Video data size: ${binaryData.length} bytes`);
+    console.log(`Processing video: ${filename}, estimated size: ${(estimatedSize / (1024 * 1024)).toFixed(2)}MB, threshold: ${threshold}`);
+
+    // Check file size before processing
+    if (estimatedSize > maxSizeBytes) {
+      throw new Error(`File too large: ${(estimatedSize / (1024 * 1024)).toFixed(2)}MB. Maximum allowed: 50MB. Please use a smaller file or compress the video.`);
+    }
+
+    let binaryData: Uint8Array;
+    try {
+      // Convert base64 to binary with memory management
+      binaryData = Uint8Array.from(atob(videoData), c => c.charCodeAt(0));
+      console.log(`Video data converted: ${binaryData.length} bytes`);
+    } catch (conversionError) {
+      throw new Error('Failed to process video data. The file may be corrupted or too large.');
+    }
 
     // Perform scene detection
     const detectionResult = await detectScenes(binaryData, threshold);
+
+    // Clear binary data from memory
+    binaryData = null as any;
 
     // Update metadata with actual filename
     detectionResult.metadata.filename = filename || 'unknown.mp4';
@@ -114,10 +130,19 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('Scene detection error:', error);
     
+    // Provide specific error messages for common issues
+    let errorMessage = error.message || 'Scene detection failed';
+    
+    if (error.message?.includes('Memory limit exceeded') || error.message?.includes('out of memory')) {
+      errorMessage = 'Video file is too large to process. Please try a smaller file (under 50MB) or compress the video.';
+    } else if (error.message?.includes('too large')) {
+      errorMessage = error.message; // Use the specific size error message
+    }
+    
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message || 'Scene detection failed'
+        error: errorMessage
       }),
       {
         status: 500,

@@ -47,11 +47,11 @@ export default function SceneDetection() {
         return;
       }
 
-      // Check file size (100MB limit)
-      if (file.size > 100 * 1024 * 1024) {
+      // Check file size (50MB limit to prevent memory issues)
+      if (file.size > 50 * 1024 * 1024) {
         toast({
           title: "File Too Large",
-          description: "Please select a video file smaller than 100MB",
+          description: "Please select a video file smaller than 50MB to prevent processing errors",
           variant: "destructive",
         });
         return;
@@ -112,9 +112,22 @@ export default function SceneDetection() {
 
     } catch (error: any) {
       console.error('Scene detection error:', error);
+      
+      // Provide helpful error messages based on the error type
+      let errorTitle = "Processing Failed";
+      let errorDescription = error.message || "Failed to process video";
+      
+      if (error.message?.includes('too large') || error.message?.includes('Memory limit')) {
+        errorTitle = "File Too Large";
+        errorDescription = error.message || "Video file is too large. Please try a smaller file or compress the video.";
+      } else if (error.message?.includes('corrupted')) {
+        errorTitle = "Invalid File";
+        errorDescription = "The video file appears to be corrupted or in an unsupported format.";
+      }
+      
       toast({
-        title: "Processing Failed",
-        description: error.message || "Failed to process video",
+        title: errorTitle,
+        description: errorDescription,
         variant: "destructive",
       });
     } finally {
