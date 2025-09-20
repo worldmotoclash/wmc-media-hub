@@ -10,6 +10,7 @@ interface SceneDetection {
   timestamp: number;
   frame: number;
   confidence: number;
+  thumbnail?: string; // Base64 encoded thumbnail image
 }
 
 interface DetectionResult {
@@ -23,15 +24,18 @@ interface DetectionResult {
   };
 }
 
-// Real scene detection using FFmpeg
+// Real scene detection using FFmpeg with frame extraction
 async function detectScenes(videoBuffer: Uint8Array, threshold: number = 30.0, filename: string = 'video.mp4'): Promise<DetectionResult> {
   const tempDir = await Deno.makeTempDir();
   const inputPath = `${tempDir}/input.mp4`;
-  const outputPath = `${tempDir}/scenes.txt`;
+  const framesDir = `${tempDir}/frames`;
   
   try {
     // Write video buffer to temp file
     await Deno.writeFile(inputPath, videoBuffer);
+    
+    // Create frames directory
+    await Deno.mkdir(framesDir, { recursive: true });
     
     // Get video metadata first
     const metadataCmd = new Deno.Command("ffprobe", {
@@ -123,6 +127,46 @@ async function detectScenes(videoBuffer: Uint8Array, threshold: number = 30.0, f
     
     // Sort scenes by timestamp
     scenes.sort((a, b) => a.timestamp - b.timestamp);
+    
+    // Extract thumbnail images for each scene
+    console.log(`Extracting thumbnails for ${scenes.length} scenes...`);
+    
+    for (let i = 0; i < scenes.length; i++) {
+      const scene = scenes[i];
+      const thumbnailPath = `${framesDir}/scene_${i}_${scene.timestamp.toFixed(2)}s.jpg`;
+      
+      try {
+        // Extract frame at scene timestamp
+        const extractCmd = new Deno.Command("ffmpeg", {
+          args: [
+            "-i", inputPath,
+            "-ss", scene.timestamp.toString(),
+            "-vframes", "1",
+            "-q:v", "2", // High quality
+            "-vf", "scale=320:240", // Thumbnail size
+            thumbnailPath
+          ],
+          stdout: "piped",
+          stderr: "piped"
+        });
+        
+        const extractResult = await extractCmd.output();
+        if (extractResult.success) {
+          // Read the generated thumbnail and convert to base64
+          const thumbnailBuffer = await Deno.readFile(thumbnailPath);
+          const base64Image = btoa(String.fromCharCode(...thumbnailBuffer));
+          
+          // Add thumbnail data to scene
+          (scene as any).thumbnail = `data:image/jpeg;base64,${base64Image}`;
+          
+          console.log(`Generated thumbnail for scene ${i} at ${scene.timestamp}s`);
+        } else {
+          console.warn(`Failed to extract thumbnail for scene ${i}:`, new TextDecoder().decode(extractResult.stderr));
+        }
+      } catch (thumbError) {
+        console.warn(`Error extracting thumbnail for scene ${i}:`, thumbError);
+      }
+    }
     
     const result: DetectionResult = {
       scenes,

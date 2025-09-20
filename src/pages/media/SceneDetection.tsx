@@ -22,6 +22,7 @@ interface SceneDetection {
   timestamp: number;
   frame: number;
   confidence: number;
+  thumbnail?: string; // Base64 encoded thumbnail image
 }
 
 interface DetectionResult {
@@ -463,14 +464,28 @@ export default function SceneDetection() {
               </div>
 
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                <div className="grid grid-cols-4 gap-4 p-3 bg-muted rounded-lg font-semibold">
+                <div className="grid grid-cols-5 gap-4 p-3 bg-muted rounded-lg font-semibold">
+                  <span>Thumbnail</span>
                   <span>Scene</span>
                   <span>Time</span>
                   <span>Frame</span>
                   <span>Confidence</span>
                 </div>
                 {results.scenes.map((scene, index) => (
-                  <div key={index} className="grid grid-cols-4 gap-4 p-3 border rounded-lg hover:bg-muted/50">
+                  <div key={index} className="grid grid-cols-5 gap-4 p-3 border rounded-lg hover:bg-muted/50 items-center">
+                    <div className="w-16 h-12 bg-muted rounded border overflow-hidden">
+                      {scene.thumbnail ? (
+                        <img 
+                          src={scene.thumbnail} 
+                          alt={`Scene ${index + 1} thumbnail`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                          No thumb
+                        </div>
+                      )}
+                    </div>
                     <span>#{index + 1}</span>
                     <span className="font-mono">{formatTime(scene.timestamp)}</span>
                     <span>{scene.frame.toLocaleString()}</span>

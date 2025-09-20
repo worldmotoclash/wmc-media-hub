@@ -5,6 +5,7 @@ export interface SceneDetection {
   timestamp: number;
   frame: number;
   confidence: number;
+  thumbnail?: string; // Base64 encoded thumbnail image
 }
 
 export interface DetectionResult {
