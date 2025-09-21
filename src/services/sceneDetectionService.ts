@@ -195,8 +195,7 @@ export async function processClientSideSceneDetection(
   try {
     // Update job status to processing
     await updateSceneDetectionJob(jobId, {
-      processingStatus: 'processing',
-      updatedAt: new Date().toISOString()
+      processingStatus: 'processing'
     });
 
     // Store the pre-processed results using the edge function
@@ -211,8 +210,7 @@ export async function processClientSideSceneDetection(
       console.error('Edge function error:', error);
       await updateSceneDetectionJob(jobId, {
         processingStatus: 'failed',
-        errorMessage: error.message || 'Unknown error occurred',
-        updatedAt: new Date().toISOString()
+        errorMessage: error.message || 'Unknown error occurred'
       });
       throw error;
     }
@@ -222,8 +220,7 @@ export async function processClientSideSceneDetection(
       console.error('Scene detection storage failed:', errorMessage);
       await updateSceneDetectionJob(jobId, {
         processingStatus: 'failed',
-        errorMessage: errorMessage,
-        updatedAt: new Date().toISOString()
+        errorMessage: errorMessage
       });
       throw new Error(errorMessage);
     }
@@ -235,8 +232,7 @@ export async function processClientSideSceneDetection(
     console.error('Error storing scene detection results:', error);
     await updateSceneDetectionJob(jobId, {
       processingStatus: 'failed',
-      errorMessage: error.message || 'Unknown error occurred',
-      updatedAt: new Date().toISOString()
+      errorMessage: error.message || 'Unknown error occurred'
     });
     throw error;
   }
