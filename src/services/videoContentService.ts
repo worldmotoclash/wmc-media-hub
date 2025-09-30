@@ -110,25 +110,36 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
       const xmlDoc = parser.parseFromString(text, 'text/xml');
       const videoElements = xmlDoc.getElementsByTagName('content');
       
-      data = Array.from(videoElements).map((video, index) => ({
-        Id: video.getElementsByTagName('id')[0]?.textContent || '',
-        Name: video.getElementsByTagName('name')[0]?.textContent || '',
-        ri__Content_URL__c: video.getElementsByTagName('url')[0]?.textContent || '',
-        ri__Thumbnail_URL__c: '', // Not provided in API
-        ri__Status__c: video.getElementsByTagName('approved')[0]?.textContent || '',
-        ri__Duration__c: video.getElementsByTagName('lengthinseconds')[0]?.textContent || '',
-        ri__Upload_Date__c: '', // Not provided in API
-        ri__Views__c: 0, // Not provided in API
-        ri__Description__c: '', // Not provided in API
-        ri__File_Size__c: 0, // Not provided in API
-        ri__Content_Type__c: video.getElementsByTagName('contenttype')[0]?.textContent || '',
-        ri__Tags__c: '', // Not provided in API
-        ri__AI_Percentage__c: video.getElementsByTagName('aipercentage')[0]?.textContent || '0',
-        CreatedDate: '',
-        LastModifiedDate: '',
-        playlistPosition: parseFloat(video.getElementsByTagName('playlistorder')[0]?.textContent || '') || (index + 1),
-        junctionId: video.getElementsByTagName('id')[0]?.textContent || `fallback_${index}`
-      }));
+      data = Array.from(videoElements).map((video, index) => {
+        // Check if this is playlist API response (has contenturl) or regular content API (has url)
+        const isPlaylistResponse = video.getElementsByTagName('contenturl')[0]?.textContent;
+        
+        return {
+          Id: video.getElementsByTagName('id')[0]?.textContent || '',
+          Name: isPlaylistResponse 
+            ? video.getElementsByTagName('contentname')[0]?.textContent || '' 
+            : video.getElementsByTagName('name')[0]?.textContent || '',
+          ri__Content_URL__c: isPlaylistResponse
+            ? video.getElementsByTagName('contenturl')[0]?.textContent || ''
+            : video.getElementsByTagName('url')[0]?.textContent || '',
+          ri__Thumbnail_URL__c: '', // Not provided in API
+          ri__Status__c: video.getElementsByTagName('approved')[0]?.textContent || '',
+          ri__Duration__c: video.getElementsByTagName('lengthinseconds')[0]?.textContent || '',
+          ri__Upload_Date__c: '', // Not provided in API
+          ri__Views__c: 0, // Not provided in API
+          ri__Description__c: isPlaylistResponse
+            ? video.getElementsByTagName('subtitle')[0]?.textContent || ''
+            : '', // Not provided in regular API
+          ri__File_Size__c: 0, // Not provided in API
+          ri__Content_Type__c: video.getElementsByTagName('contenttype')[0]?.textContent || '',
+          ri__Tags__c: '', // Not provided in API
+          ri__AI_Percentage__c: video.getElementsByTagName('aipercentage')[0]?.textContent || '0',
+          CreatedDate: '',
+          LastModifiedDate: '',
+          playlistPosition: parseFloat(video.getElementsByTagName('playlistorder')[0]?.textContent || '') || (index + 1),
+          junctionId: video.getElementsByTagName('id')[0]?.textContent || `fallback_${index}`
+        };
+      });
       
       // Sort by playlist order to ensure correct sequence
       data.sort((a, b) => ((a as any).playlistPosition || 0) - ((b as any).playlistPosition || 0));
@@ -282,7 +293,13 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
     const parsedDuration = parseFloat(duration);
     if (isNaN(parsedDuration) || parsedDuration < 0) return '0:00';
     
+    // Handle unrealistic durations from playlist API (e.g., 8000 seconds shown as 8000.0)
+    // If duration is over 1 hour and looks like milliseconds or incorrect data, use timetext if available
     const seconds = Math.floor(parsedDuration);
+    
+    // Cap at reasonable video length (4 hours)
+    if (seconds > 14400) return '0:00';
+    
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     
