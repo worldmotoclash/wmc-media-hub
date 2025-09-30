@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload, Sparkles, PlaySquare, Scissors } from 'lucide-react';
+import { Upload, Sparkles, PlaySquare, Scissors, ListVideo } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const ActionCards: React.FC = () => {
@@ -31,8 +31,16 @@ const ActionCards: React.FC = () => {
       iconColor: 'text-purple-500'
     },
     {
-      title: 'Manage Library',
-      description: 'Browse videos, manage library & playlists',
+      title: 'Manage Playlists',
+      description: 'Organize and manage Salesforce video playlists',
+      icon: ListVideo,
+      href: '/admin/media/playlists',
+      color: 'from-emerald-500/20 to-emerald-500/10',
+      iconColor: 'text-emerald-500'
+    },
+    {
+      title: 'Asset Library',
+      description: 'Browse S3 assets, tags, and media configurations',
       icon: PlaySquare,
       href: '/admin/media/library',
       color: 'from-malibu/20 to-malibu/10',
@@ -47,7 +55,7 @@ const ActionCards: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8"
         >
           {actions.map((action, index) => (
             <motion.div

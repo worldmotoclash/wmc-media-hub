@@ -29,6 +29,8 @@ import Generate from "./pages/media/Generate";
 import ModelMarketplace from "./pages/media/ModelMarketplace";
 import PlaylistManager from "./pages/media/PlaylistManager";
 import SceneDetection from "./pages/media/SceneDetection";
+import MediaHubHero from "./components/media/MediaHubHero";
+import ActionCards from "./components/media/ActionCards";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +57,12 @@ const App = () => (
                 <Route path="/test-login-tracking" element={<TestLoginTracking />} />
                 <Route path="/thankyou" element={<ThankYou />} />
                 <Route path="/thankyouinvestor" element={<Navigate to="/thankyou" replace />} />
+                <Route path="/admin/media" element={
+                  <>
+                    <MediaHubHero />
+                    <ActionCards />
+                  </>
+                } />
                 <Route path="/admin/media/library" element={<UnifiedMediaLibrary />} />
                 <Route path="/admin/media/upload" element={<MediaUpload />} />
                 <Route path="/admin/media/models" element={<ModelMarketplace />} />
