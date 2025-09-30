@@ -5,7 +5,7 @@ import { useUser } from '@/contexts/UserContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, FolderOpen, Loader2, PlayCircle, Video } from 'lucide-react';
+import { FolderOpen, Loader2, PlayCircle, Video } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchPlaylistData, SalesforcePlaylist } from '@/services/videoContentService';
 import { MediaNavigation } from '@/components/media/MediaNavigation';
@@ -71,15 +71,6 @@ const PlaylistManager: React.FC = () => {
       <MediaNavigation />
       <div className="container mx-auto px-6 py-12">
         <div className="mb-8">
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate('/')}
-            className="mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Media Hub
-          </Button>
-          
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

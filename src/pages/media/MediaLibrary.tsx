@@ -7,11 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Search, Filter, Grid, List, Loader2, PlayCircle, Clock, Eye, Save, RotateCcw, FolderOpen, Video } from 'lucide-react';
+import { Search, Filter, Grid, List, Loader2, PlayCircle, Clock, Eye, Save, RotateCcw, FolderOpen, Video } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchVideoContent, searchVideoContent, getVideosByPlaylist, VideoContent, fetchPlaylistData, SalesforcePlaylist, updatePlaylistOrder } from '@/services/videoContentService';
 import VideoPreviewModal from '@/components/media/VideoPreviewModal';
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import SortableVideoItem from '@/components/media/SortableVideoItem';
 import { MediaNavigation } from '@/components/media/MediaNavigation';
 import {
@@ -323,34 +322,6 @@ const MediaLibrary: React.FC = () => {
       <MediaNavigation />
       <div className="container mx-auto px-6 py-12">
         <div className="mb-8">
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate(playlistId ? '/admin/media/library' : '/')}
-            className="mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            {playlistId ? 'Back to Library' : 'Back to Media Hub'}
-          </Button>
-
-          {/* Breadcrumb Navigation */}
-          {playlistId && (
-            <Breadcrumb className="mb-4">
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink onClick={() => navigate('/admin/media/library')} className="cursor-pointer">
-                    Media Library
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>
-                    {isLoadingPlaylist ? 'Loading...' : (currentPlaylist?.Name || 'Unknown Playlist')}
-                  </BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          )}
-          
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
