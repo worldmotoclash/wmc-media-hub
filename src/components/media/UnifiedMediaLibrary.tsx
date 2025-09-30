@@ -26,6 +26,7 @@ import { LibrarianWorkflowDialog } from "./LibrarianWorkflowDialog";
 import VideoPreviewModal from "./VideoPreviewModal";
 import MediaSourceDashboard from "./MediaSourceDashboard";
 import { S3BucketConfigManager } from "./S3BucketConfigManager";
+import { MediaNavigation } from "./MediaNavigation";
 
 export const UnifiedMediaLibrary: React.FC = () => {
   const [assets, setAssets] = useState<MediaAsset[]>([]);
@@ -204,9 +205,11 @@ export const UnifiedMediaLibrary: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Media Source Dashboard */}
-      <MediaSourceDashboard />
+    <div className="min-h-screen bg-background">
+      <MediaNavigation />
+      <div className="container mx-auto px-6 py-8 space-y-6">
+        {/* Media Source Dashboard */}
+        <MediaSourceDashboard />
       
       {/* Header */}
       <div className="flex justify-between items-start">
@@ -512,6 +515,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
           }}
         />
       )}
+    </div>
     </div>
   );
 };

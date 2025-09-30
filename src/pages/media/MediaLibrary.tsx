@@ -13,6 +13,7 @@ import { fetchVideoContent, searchVideoContent, getVideosByPlaylist, VideoConten
 import VideoPreviewModal from '@/components/media/VideoPreviewModal';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import SortableVideoItem from '@/components/media/SortableVideoItem';
+import { MediaNavigation } from '@/components/media/MediaNavigation';
 import {
   DndContext,
   closestCenter,
@@ -319,6 +320,7 @@ const MediaLibrary: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <MediaNavigation />
       <div className="container mx-auto px-6 py-12">
         <div className="mb-8">
           <Button 

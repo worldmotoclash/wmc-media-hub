@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, FolderOpen, Loader2, PlayCircle, Video } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchPlaylistData, SalesforcePlaylist } from '@/services/videoContentService';
+import { MediaNavigation } from '@/components/media/MediaNavigation';
 
 const PlaylistManager: React.FC = () => {
   const { user } = useUser();
@@ -67,6 +68,7 @@ const PlaylistManager: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <MediaNavigation />
       <div className="container mx-auto px-6 py-12">
         <div className="mb-8">
           <Button 
