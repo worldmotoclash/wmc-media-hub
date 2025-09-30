@@ -31,6 +31,7 @@ import PlaylistManager from "./pages/media/PlaylistManager";
 import SceneDetection from "./pages/media/SceneDetection";
 import MediaHubHero from "./components/media/MediaHubHero";
 import ActionCards from "./components/media/ActionCards";
+import MediaLibrary from "./pages/media/MediaLibrary";
 
 const queryClient = new QueryClient();
 
@@ -64,6 +65,7 @@ const App = () => (
                   </>
                 } />
                 <Route path="/admin/media/library" element={<UnifiedMediaLibrary />} />
+                <Route path="/admin/media/content" element={<MediaLibrary />} />
                 <Route path="/admin/media/upload" element={<MediaUpload />} />
                 <Route path="/admin/media/models" element={<ModelMarketplace />} />
                 <Route path="/admin/media/generate" element={<Generate />} />

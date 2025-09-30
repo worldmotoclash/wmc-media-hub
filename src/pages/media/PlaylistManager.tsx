@@ -44,7 +44,7 @@ const PlaylistManager: React.FC = () => {
   }, [user]);
 
   const handlePlaylistClick = (playlistId: string) => {
-    navigate(`/admin/media/library?playlistId=${playlistId}`);
+    navigate(`/admin/media/content?playlistId=${playlistId}`);
   };
 
   const getStatusColor = (status?: string) => {
