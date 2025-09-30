@@ -47,6 +47,7 @@ export interface VideoContent {
   playlistPosition?: number; // Order position in playlist (1-based)
   junctionId?: string; // Junction record ID for playlist-video relationship
   youtubeId?: string; // YouTube video ID for YouTube content
+  thumbnailCandidates?: string[]; // Array of thumbnail URLs to try in order
 }
 
 // API configuration
@@ -320,9 +321,14 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
   // Helper function to extract YouTube video ID from URL
   const extractYouTubeId = (url: string): string | null => {
     if (!url) return null;
+    
+    // Handle various YouTube URL formats including complex embed URLs
     const patterns = [
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
-      /youtube\.com\/v\/([^&\n?#]+)/
+      /(?:youtube\.com\/watch\?v=)([^&\n?#]+)/,
+      /(?:youtu\.be\/)([^&\n?#]+)/,
+      /(?:youtube\.com\/embed\/)([^&\n?#]+)/,
+      /(?:youtube\.com\/v\/)([^&\n?#]+)/,
+      /[?&]v=([^&\n?#]+)/,  // Generic parameter matcher
     ];
     
     for (const pattern of patterns) {
@@ -334,13 +340,31 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
     return null;
   };
 
+  // Helper function to get YouTube thumbnail candidates (best to worst quality)
+  const getYouTubeThumbnailCandidates = (videoId: string): string[] => {
+    return [
+      `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+      `https://img.youtube.com/vi/${videoId}/sddefault.jpg`,
+      `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+      `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+      `https://img.youtube.com/vi/${videoId}/default.jpg`
+    ];
+  };
+
   // Helper function to generate YouTube thumbnail URL
   const generateYouTubeThumbnail = (videoUrl: string): string | null => {
     const videoId = extractYouTubeId(videoUrl);
     if (videoId) {
-      return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+      // Return the highest quality thumbnail URL
+      return getYouTubeThumbnailCandidates(videoId)[0];
     }
     return null;
+  };
+
+  // Check if URL is a YouTube URL
+  const isYouTubeUrl = (url?: string): boolean => {
+    if (!url) return false;
+    return url.includes('youtube.com') || url.includes('youtu.be');
   };
 
   // Generate appropriate thumbnail
@@ -350,42 +374,58 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
       return salesforceVideo.ri__Thumbnail_URL__c;
     }
     
-    // Second priority: Generate YouTube thumbnail if it's a YouTube video
-    if (salesforceVideo.ri__Content_Type__c === 'Youtube' && salesforceVideo.ri__Content_URL__c) {
+    // Second priority: Generate YouTube thumbnail from URL (even if contentType is empty/wrong)
+    if (salesforceVideo.ri__Content_URL__c && isYouTubeUrl(salesforceVideo.ri__Content_URL__c)) {
       const youtubeThumbnail = generateYouTubeThumbnail(salesforceVideo.ri__Content_URL__c);
       if (youtubeThumbnail) {
         return youtubeThumbnail;
       }
     }
     
-    // Fallback to content type specific placeholders
-    return salesforceVideo.ri__Content_Type__c === 'Youtube' 
+    // Fallback to placeholder images
+    return isYouTubeUrl(salesforceVideo.ri__Content_URL__c)
       ? '/lovable-uploads/wmc-sizzle-thumbnail.png' 
       : '/lovable-uploads/sponsor-primier-thumbnail.png';
   };
 
-  // Extract YouTube ID for metadata
-  const youtubeId = salesforceVideo.ri__Content_Type__c === 'Youtube' 
+  // Extract YouTube ID for metadata (check URL regardless of contentType)
+  const youtubeId = isYouTubeUrl(salesforceVideo.ri__Content_URL__c)
     ? extractYouTubeId(salesforceVideo.ri__Content_URL__c || '') 
     : null;
+
+  // Get thumbnail with YouTube ID for fallback
+  const thumbnail = getThumbnail();
+  const videoId = youtubeId;
 
   return {
     id: salesforceVideo.Id,
     title: salesforceVideo.Name || 'Untitled Video',
-    thumbnail: getThumbnail(),
+    thumbnail: thumbnail,
     status: mapStatus(salesforceVideo.ri__Status__c, salesforceVideo.ri__AI_Percentage__c),
     duration: formatDuration(salesforceVideo.ri__Duration__c),
     uploadedAt: formatUploadDate(salesforceVideo.ri__Upload_Date__c || salesforceVideo.CreatedDate),
     views: salesforceVideo.ri__Views__c || 0,
     videoSrc: salesforceVideo.ri__Content_URL__c,
-    description: salesforceVideo.ri__Description__c || `${salesforceVideo.ri__Content_Type__c} content: ${salesforceVideo.Name}`,
+    description: salesforceVideo.ri__Description__c || `${salesforceVideo.ri__Content_Type__c || 'Video'} content: ${salesforceVideo.Name}`,
     fileSize: salesforceVideo.ri__File_Size__c,
-    contentType: salesforceVideo.ri__Content_Type__c,
+    contentType: salesforceVideo.ri__Content_Type__c || (isYouTubeUrl(salesforceVideo.ri__Content_URL__c) ? 'Youtube' : undefined),
     tags: parseTags(salesforceVideo.ri__Tags__c),
     playlistPosition: (salesforceVideo as any).playlistPosition,
     junctionId: (salesforceVideo as any).junctionId,
-    youtubeId: youtubeId
+    youtubeId: videoId,
+    thumbnailCandidates: videoId ? getYouTubeThumbnailCandidates(videoId) : undefined
   };
+};
+
+// Export helper for use in components
+export const getYouTubeThumbnailCandidates = (videoId: string): string[] => {
+  return [
+    `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+    `https://img.youtube.com/vi/${videoId}/sddefault.jpg`,
+    `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+    `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+    `https://img.youtube.com/vi/${videoId}/default.jpg`
+  ];
 };
 
 // Search videos by query

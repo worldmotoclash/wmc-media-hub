@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PlayCircle, Clock, Eye, GripVertical } from 'lucide-react';
-import { VideoContent } from '@/services/videoContentService';
+import { VideoContent, getYouTubeThumbnailCandidates } from '@/services/videoContentService';
 
 interface SortableVideoItemProps {
   video: VideoContent;
@@ -30,11 +30,29 @@ const SortableVideoItem: React.FC<SortableVideoItemProps> = ({
     isDragging,
   } = useSortable({ id: video.id });
 
+  const [thumbnailSrc, setThumbnailSrc] = useState(video.thumbnail);
+  const [thumbnailIndex, setThumbnailIndex] = useState(0);
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     zIndex: isDragging ? 1000 : 1,
     opacity: isDragging ? 0.5 : 1,
+  };
+
+  // Handle thumbnail loading errors by trying fallbacks
+  const handleThumbnailError = () => {
+    const candidates = (video as any).thumbnailCandidates || 
+      (video.youtubeId ? getYouTubeThumbnailCandidates(video.youtubeId) : []);
+    
+    if (candidates.length > thumbnailIndex + 1) {
+      // Try next thumbnail quality
+      setThumbnailIndex(thumbnailIndex + 1);
+      setThumbnailSrc(candidates[thumbnailIndex + 1]);
+    } else {
+      // Use fallback placeholder
+      setThumbnailSrc('/lovable-uploads/wmc-sizzle-thumbnail.png');
+    }
   };
 
   if (viewMode === 'grid') {
@@ -62,9 +80,10 @@ const SortableVideoItem: React.FC<SortableVideoItemProps> = ({
 
           <div className="relative">
             <img 
-              src={video.thumbnail} 
+              src={thumbnailSrc} 
               alt={video.title}
               className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={handleThumbnailError}
             />
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
               <PlayCircle className="w-12 h-12 text-white" />
@@ -125,9 +144,10 @@ const SortableVideoItem: React.FC<SortableVideoItemProps> = ({
 
           <div className="relative w-48 h-32">
             <img 
-              src={video.thumbnail} 
+              src={thumbnailSrc} 
               alt={video.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={handleThumbnailError}
             />
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
               <PlayCircle className="w-8 h-8 text-white" />

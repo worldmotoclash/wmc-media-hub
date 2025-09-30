@@ -184,11 +184,20 @@ export const UnifiedMediaLibrary: React.FC = () => {
     return `${mb.toFixed(1)} MB`;
   };
 
-  const formatDuration = (seconds?: number) => {
-    if (!seconds) return 'Unknown';
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  const formatDuration = (duration?: number | string) => {
+    // Handle formatted duration string from metadata
+    if (typeof duration === 'string') {
+      return duration;
+    }
+    
+    // Handle numeric duration in seconds
+    if (typeof duration === 'number' && !isNaN(duration)) {
+      const mins = Math.floor(duration / 60);
+      const secs = duration % 60;
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+    
+    return 'Unknown';
   };
 
   if (!user) {
@@ -381,7 +390,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                 {asset.duration && (
                   <div className="absolute bottom-2 right-2">
                     <Badge variant="outline" className="bg-black/50 text-white border-white/20">
-                      {formatDuration(asset.duration)}
+                      {formatDuration(asset.duration || (asset.metadata?.formatted_duration))}
                     </Badge>
                   </div>
                 )}
@@ -423,7 +432,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                   {asset.resolution && (
                     <div>Resolution: {asset.resolution}</div>
                   )}
-                  <div>Created: {new Date(asset.createdAt).toLocaleDateString()}</div>
+                  <div>Created: {!isNaN(Date.parse(asset.createdAt)) ? new Date(asset.createdAt).toLocaleDateString() : 'Unknown'}</div>
                 </div>
 
                 <div className="flex gap-2">

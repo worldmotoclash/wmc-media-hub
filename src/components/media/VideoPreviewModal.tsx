@@ -43,7 +43,10 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, on
             {video.videoSrc ? (
               video.contentType === 'Youtube' || video.youtubeId ? (
                 <iframe
-                  src={video.videoSrc}
+                  src={video.youtubeId 
+                    ? `https://www.youtube.com/embed/${video.youtubeId}?autoplay=0&rel=0&modestbranding=1`
+                    : video.videoSrc
+                  }
                   title={video.title}
                   className="w-full h-full"
                   frameBorder="0"

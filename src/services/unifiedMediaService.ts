@@ -400,6 +400,32 @@ function transformSalesforceAsset(salesforceContent: any): MediaAsset {
     return 'salesforce';
   };
 
+  // Convert duration string (e.g., "3:45") to seconds
+  const parseDurationToSeconds = (duration: any): number | undefined => {
+    if (typeof duration === 'number') return duration;
+    if (typeof duration !== 'string') return undefined;
+    
+    const parts = duration.split(':').map(p => parseInt(p, 10));
+    if (parts.length === 2 && !parts.some(isNaN)) {
+      return parts[0] * 60 + parts[1];
+    }
+    return undefined;
+  };
+
+  // Generate a valid ISO date
+  const getValidDate = (dateString: any): string => {
+    if (!dateString) return new Date().toISOString();
+    
+    // If it's already an ISO string, validate and use it
+    const parsed = new Date(dateString);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+    
+    // Default to now for invalid dates
+    return new Date().toISOString();
+  };
+
   return {
     id: `sf_${salesforceContent.id}`,
     title: salesforceContent.title,
@@ -408,7 +434,7 @@ function transformSalesforceAsset(salesforceContent: any): MediaAsset {
     sourceId: salesforceContent.id,
     fileUrl: salesforceContent.videoSrc,
     thumbnailUrl: salesforceContent.thumbnail,
-    duration: salesforceContent.duration,
+    duration: parseDurationToSeconds(salesforceContent.duration),
     fileSize: undefined,
     resolution: undefined,
     fileFormat: 'mp4',
@@ -416,10 +442,11 @@ function transformSalesforceAsset(salesforceContent: any): MediaAsset {
     metadata: {
       views: salesforceContent.views,
       youtube_id: salesforceContent.youtubeId,
-      playlist_id: salesforceContent.playlistId
+      playlist_id: salesforceContent.playlistId,
+      formatted_duration: salesforceContent.duration
     },
-    createdAt: salesforceContent.uploadedAt,
-    updatedAt: salesforceContent.uploadedAt,
+    createdAt: getValidDate(salesforceContent.createdAt),
+    updatedAt: getValidDate(salesforceContent.updatedAt),
     tags: salesforceContent.tags?.map((tag: string) => ({
       id: `tag_${tag}`,
       name: tag,
