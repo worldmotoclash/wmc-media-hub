@@ -10,307 +10,491 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.4"
+    PostgrestVersion: "12.2.12 (cd3cf9e)"
   }
   public: {
     Tables: {
-      content_review_activities: {
+      album_pages: {
         Row: {
-          action: string
+          album_id: string
+          cached_image_url: string | null
           created_at: string
-          details: Json | null
-          id: string
-          media_asset_id: string
-          performed_by: string | null
-        }
-        Insert: {
-          action: string
-          created_at?: string
-          details?: Json | null
-          id?: string
-          media_asset_id: string
-          performed_by?: string | null
-        }
-        Update: {
-          action?: string
-          created_at?: string
-          details?: Json | null
-          id?: string
-          media_asset_id?: string
-          performed_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "content_review_activities_media_asset_id_fkey"
-            columns: ["media_asset_id"]
-            isOneToOne: false
-            referencedRelation: "media_assets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      media_asset_tags: {
-        Row: {
-          created_at: string
-          id: string
-          media_asset_id: string
-          tag_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          media_asset_id: string
-          tag_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          media_asset_id?: string
-          tag_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "media_asset_tags_media_asset_id_fkey"
-            columns: ["media_asset_id"]
-            isOneToOne: false
-            referencedRelation: "media_assets"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "media_asset_tags_tag_id_fkey"
-            columns: ["tag_id"]
-            isOneToOne: false
-            referencedRelation: "media_tags"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      media_assets: {
-        Row: {
-          approved_at: string | null
-          approved_by: string | null
-          created_at: string
-          created_by: string | null
-          description: string | null
-          duration: number | null
-          file_format: string | null
+          drive_file_id: string | null
           file_size: number | null
-          file_url: string | null
+          folder_path: string | null
+          google_base_url: string
+          google_drive_folder_id: string | null
+          google_media_item_id: string
           id: string
-          metadata: Json | null
-          resolution: string | null
-          source: Database["public"]["Enums"]["media_source"]
-          source_id: string | null
-          status: string | null
-          thumbnail_url: string | null
-          title: string
+          original_filename: string | null
+          page_number: number
           updated_at: string
         }
         Insert: {
-          approved_at?: string | null
-          approved_by?: string | null
+          album_id: string
+          cached_image_url?: string | null
           created_at?: string
-          created_by?: string | null
-          description?: string | null
-          duration?: number | null
-          file_format?: string | null
+          drive_file_id?: string | null
           file_size?: number | null
-          file_url?: string | null
+          folder_path?: string | null
+          google_base_url: string
+          google_drive_folder_id?: string | null
+          google_media_item_id: string
           id?: string
-          metadata?: Json | null
-          resolution?: string | null
-          source: Database["public"]["Enums"]["media_source"]
-          source_id?: string | null
-          status?: string | null
-          thumbnail_url?: string | null
-          title: string
+          original_filename?: string | null
+          page_number: number
           updated_at?: string
         }
         Update: {
-          approved_at?: string | null
-          approved_by?: string | null
+          album_id?: string
+          cached_image_url?: string | null
           created_at?: string
-          created_by?: string | null
-          description?: string | null
-          duration?: number | null
-          file_format?: string | null
+          drive_file_id?: string | null
           file_size?: number | null
-          file_url?: string | null
+          folder_path?: string | null
+          google_base_url?: string
+          google_drive_folder_id?: string | null
+          google_media_item_id?: string
           id?: string
-          metadata?: Json | null
-          resolution?: string | null
-          source?: Database["public"]["Enums"]["media_source"]
-          source_id?: string | null
-          status?: string | null
-          thumbnail_url?: string | null
-          title?: string
+          original_filename?: string | null
+          page_number?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "album_pages_album_id_fkey"
+            columns: ["album_id"]
+            isOneToOne: false
+            referencedRelation: "google_photos_albums"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      media_tags: {
+      drive_webhook_channels: {
         Row: {
-          color: string | null
+          channel_id: string
           created_at: string
-          description: string | null
+          expiration: string
+          folder_id: string
           id: string
-          name: string
-        }
-        Insert: {
-          color?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          name: string
-        }
-        Update: {
-          color?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          name?: string
-        }
-        Relationships: []
-      }
-      s3_bucket_configs: {
-        Row: {
-          bucket_name: string
-          created_at: string
-          endpoint_url: string
-          id: string
-          is_active: boolean | null
-          last_scanned_at: string | null
-          name: string
-          region: string | null
-          scan_frequency_hours: number | null
+          resource_id: string
           updated_at: string
+          user_id: string
         }
         Insert: {
-          bucket_name: string
+          channel_id: string
           created_at?: string
-          endpoint_url: string
+          expiration: string
+          folder_id: string
           id?: string
-          is_active?: boolean | null
-          last_scanned_at?: string | null
-          name: string
-          region?: string | null
-          scan_frequency_hours?: number | null
+          resource_id: string
           updated_at?: string
+          user_id: string
         }
         Update: {
-          bucket_name?: string
+          channel_id?: string
           created_at?: string
-          endpoint_url?: string
+          expiration?: string
+          folder_id?: string
           id?: string
-          is_active?: boolean | null
-          last_scanned_at?: string | null
-          name?: string
-          region?: string | null
-          scan_frequency_hours?: number | null
+          resource_id?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
-      video_generations: {
+      gallery_settings: {
         Row: {
           created_at: string
-          error_message: string | null
-          generation_data: Json
-          google_operation_id: string | null
           id: string
-          media_url_key: string | null
-          progress: number
-          provider: string
-          salesforce_record_id: string | null
+          root_folder_id: string
+          root_folder_name: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          root_folder_id: string
+          root_folder_name?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          root_folder_id?: string
+          root_folder_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      google_photos_albums: {
+        Row: {
+          album_name: string
+          cover_image_url: string | null
+          cover_photo_url: string | null
+          created_at: string
+          drive_file_id: string | null
+          folder_path: string | null
+          google_album_id: string
+          google_drive_folder_id: string | null
+          id: string
+          media_items_count: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          album_name: string
+          cover_image_url?: string | null
+          cover_photo_url?: string | null
+          created_at?: string
+          drive_file_id?: string | null
+          folder_path?: string | null
+          google_album_id: string
+          google_drive_folder_id?: string | null
+          id?: string
+          media_items_count?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          album_name?: string
+          cover_image_url?: string | null
+          cover_photo_url?: string | null
+          created_at?: string
+          drive_file_id?: string | null
+          folder_path?: string | null
+          google_album_id?: string
+          google_drive_folder_id?: string | null
+          id?: string
+          media_items_count?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      processing_jobs: {
+        Row: {
+          created_at: string
+          file_name: string | null
+          file_size: number | null
+          id: string
+          image_url: string
+          moved_to_out: boolean | null
+          processing_notes: string | null
+          results: Json | null
+          stamp_count: number | null
           status: string
           updated_at: string
           user_id: string
-          video_url: string | null
         }
         Insert: {
           created_at?: string
-          error_message?: string | null
-          generation_data: Json
-          google_operation_id?: string | null
+          file_name?: string | null
+          file_size?: number | null
           id?: string
-          media_url_key?: string | null
-          progress?: number
-          provider?: string
-          salesforce_record_id?: string | null
+          image_url: string
+          moved_to_out?: boolean | null
+          processing_notes?: string | null
+          results?: Json | null
+          stamp_count?: number | null
           status?: string
           updated_at?: string
           user_id: string
-          video_url?: string | null
         }
         Update: {
           created_at?: string
-          error_message?: string | null
-          generation_data?: Json
-          google_operation_id?: string | null
+          file_name?: string | null
+          file_size?: number | null
           id?: string
-          media_url_key?: string | null
-          progress?: number
-          provider?: string
-          salesforce_record_id?: string | null
+          image_url?: string
+          moved_to_out?: boolean | null
+          processing_notes?: string | null
+          results?: Json | null
+          stamp_count?: number | null
           status?: string
           updated_at?: string
           user_id?: string
-          video_url?: string | null
         }
         Relationships: []
       }
-      video_scene_detections: {
+      profiles: {
         Row: {
           created_at: string
-          created_by: string | null
-          error_message: string | null
+          drive_folder_id: string | null
+          full_name: string | null
+          google_access_token: string | null
+          google_photos_access_token: string | null
+          google_photos_refresh_token: string | null
+          google_photos_token_expires_at: string | null
+          google_refresh_token: string | null
+          google_sheet_id: string | null
+          google_token_expires_at: string | null
           id: string
-          media_asset_id: string | null
-          processed_at: string | null
-          processing_status: string
-          results: Json | null
-          threshold: number
-          total_scenes: number
+          in_folder_id: string | null
+          out_folder_id: string | null
+          subscription_status: string | null
           updated_at: string
-          video_duration: number | null
+          user_id: string
+          user_sheet_id: string | null
         }
         Insert: {
           created_at?: string
-          created_by?: string | null
-          error_message?: string | null
+          drive_folder_id?: string | null
+          full_name?: string | null
+          google_access_token?: string | null
+          google_photos_access_token?: string | null
+          google_photos_refresh_token?: string | null
+          google_photos_token_expires_at?: string | null
+          google_refresh_token?: string | null
+          google_sheet_id?: string | null
+          google_token_expires_at?: string | null
           id?: string
-          media_asset_id?: string | null
-          processed_at?: string | null
-          processing_status?: string
-          results?: Json | null
-          threshold?: number
-          total_scenes?: number
+          in_folder_id?: string | null
+          out_folder_id?: string | null
+          subscription_status?: string | null
           updated_at?: string
-          video_duration?: number | null
+          user_id: string
+          user_sheet_id?: string | null
         }
         Update: {
           created_at?: string
-          created_by?: string | null
-          error_message?: string | null
+          drive_folder_id?: string | null
+          full_name?: string | null
+          google_access_token?: string | null
+          google_photos_access_token?: string | null
+          google_photos_refresh_token?: string | null
+          google_photos_token_expires_at?: string | null
+          google_refresh_token?: string | null
+          google_sheet_id?: string | null
+          google_token_expires_at?: string | null
           id?: string
-          media_asset_id?: string | null
-          processed_at?: string | null
-          processing_status?: string
-          results?: Json | null
-          threshold?: number
-          total_scenes?: number
+          in_folder_id?: string | null
+          out_folder_id?: string | null
+          subscription_status?: string | null
           updated_at?: string
-          video_duration?: number | null
+          user_id?: string
+          user_sheet_id?: string | null
+        }
+        Relationships: []
+      }
+      stamp_sheet_items: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          position_on_sheet: number | null
+          stamp_id: string
+          stamp_sheet_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          position_on_sheet?: number | null
+          stamp_id: string
+          stamp_sheet_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          position_on_sheet?: number | null
+          stamp_id?: string
+          stamp_sheet_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "video_scene_detections_media_asset_id_fkey"
-            columns: ["media_asset_id"]
+            foreignKeyName: "fk_stamp_sheet_items_sheet"
+            columns: ["stamp_sheet_id"]
             isOneToOne: false
-            referencedRelation: "media_assets"
+            referencedRelation: "stamp_sheets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_stamp_sheet_items_stamp"
+            columns: ["stamp_id"]
+            isOneToOne: false
+            referencedRelation: "stamps"
             referencedColumns: ["id"]
           },
         ]
+      }
+      stamp_sheets: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          page_number: number | null
+          sheet_name: string
+          total_stamps: number | null
+          total_value_usd: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          page_number?: number | null
+          sheet_name?: string
+          total_stamps?: number | null
+          total_value_usd?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          page_number?: number | null
+          sheet_name?: string
+          total_stamps?: number | null
+          total_value_usd?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stamps: {
+        Row: {
+          cached_image_url: string | null
+          color: string | null
+          confidence_score: number | null
+          country: string | null
+          created_at: string
+          denomination: string | null
+          drive_file_id: string | null
+          estimated_value_usd: number | null
+          google_base_url: string | null
+          google_media_item_id: string | null
+          height: number | null
+          id: string
+          page_id: string | null
+          position_x: number | null
+          position_y: number | null
+          processing_job_id: string
+          stamp_description: string
+          thumbnail_url: string | null
+          updated_at: string
+          user_id: string
+          width: number | null
+          year: number | null
+        }
+        Insert: {
+          cached_image_url?: string | null
+          color?: string | null
+          confidence_score?: number | null
+          country?: string | null
+          created_at?: string
+          denomination?: string | null
+          drive_file_id?: string | null
+          estimated_value_usd?: number | null
+          google_base_url?: string | null
+          google_media_item_id?: string | null
+          height?: number | null
+          id?: string
+          page_id?: string | null
+          position_x?: number | null
+          position_y?: number | null
+          processing_job_id: string
+          stamp_description: string
+          thumbnail_url?: string | null
+          updated_at?: string
+          user_id: string
+          width?: number | null
+          year?: number | null
+        }
+        Update: {
+          cached_image_url?: string | null
+          color?: string | null
+          confidence_score?: number | null
+          country?: string | null
+          created_at?: string
+          denomination?: string | null
+          drive_file_id?: string | null
+          estimated_value_usd?: number | null
+          google_base_url?: string | null
+          google_media_item_id?: string | null
+          height?: number | null
+          id?: string
+          page_id?: string | null
+          position_x?: number | null
+          position_y?: number | null
+          processing_job_id?: string
+          stamp_description?: string
+          thumbnail_url?: string | null
+          updated_at?: string
+          user_id?: string
+          width?: number | null
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_stamps_processing_job"
+            columns: ["processing_job_id"]
+            isOneToOne: false
+            referencedRelation: "processing_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stamps_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "album_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_config: {
+        Row: {
+          config_key: string
+          config_value: Json
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          config_key: string
+          config_value: Json
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          config_key?: string
+          config_value?: Json
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_activities: {
+        Row: {
+          activity_data: Json | null
+          activity_type: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          activity_data?: Json | null
+          activity_type: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          activity_data?: Json | null
+          activity_type?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -320,12 +504,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      media_source:
-        | "salesforce"
-        | "s3_bucket"
-        | "youtube"
-        | "generated"
-        | "local_upload"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -452,14 +631,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      media_source: [
-        "salesforce",
-        "s3_bucket",
-        "youtube",
-        "generated",
-        "local_upload",
-      ],
-    },
+    Enums: {},
   },
 } as const
