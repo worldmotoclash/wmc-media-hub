@@ -1,13 +1,17 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import AnimatedLogo from './AnimatedLogo';
 import { Shield, FileText, Cookie, Upload, FolderOpen, Briefcase } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
 
 const Footer: React.FC = () => {
   const { user } = useUser();
+  const location = useLocation();
   const currentYear = new Date().getFullYear();
+  
+  // Hide investor portal link on media hub pages
+  const isMediaHubPage = location.pathname === '/' || location.pathname.startsWith('/admin/media');
   
   return (
     <footer className="py-16 bg-woodsmoke text-white">
@@ -38,12 +42,14 @@ const Footer: React.FC = () => {
                       Upload Content
                     </Link>
                   </li>
-                  <li>
-                    <Link to="/dashboard" className="text-gray-400 hover:text-white transition-colors flex items-center">
-                      <Briefcase className="w-4 h-4 mr-2" />
-                      Investor Portal
-                    </Link>
-                  </li>
+                  {!isMediaHubPage && (
+                    <li>
+                      <Link to="/dashboard" className="text-gray-400 hover:text-white transition-colors flex items-center">
+                        <Briefcase className="w-4 h-4 mr-2" />
+                        Investor Portal
+                      </Link>
+                    </li>
+                  )}
                   <li>
                     <a 
                       href="https://worldmotoclash.com" 
