@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SocialKitGeneratorModal } from "@/components/media/SocialKitGeneratorModal";
 import { GeneratedVariantsGrid } from "@/components/media/GeneratedVariantsGrid";
+import { MasterImageUploadDialog } from "@/components/media/MasterImageUploadDialog";
 import { fetchAllMediaAssets, MediaAsset } from "@/services/unifiedMediaService";
 import { SOCIAL_VARIANTS } from "@/constants/socialVariants";
 import { ArrowLeft, ImagePlus, Search, Image as ImageIcon, Layers, Tag, Upload } from "lucide-react";
@@ -21,6 +22,7 @@ export default function SocialKit() {
   const [selectedAsset, setSelectedAsset] = useState<MediaAsset | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedVariants, setSelectedVariants] = useState<Set<string>>(
     new Set(SOCIAL_VARIANTS.map(v => v.id))
   );
@@ -186,12 +188,10 @@ export default function SocialKit() {
               className="pl-10"
             />
           </div>
-          <Link to="/admin/media/upload">
-            <Button className="shrink-0">
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Master Image
-            </Button>
-          </Link>
+          <Button className="shrink-0" onClick={() => setUploadDialogOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Master Image
+          </Button>
         </div>
 
         {/* Loading State */}
@@ -312,6 +312,20 @@ export default function SocialKit() {
           onComplete={handleGenerateComplete}
         />
       )}
+
+      {/* Upload Dialog */}
+      <MasterImageUploadDialog
+        open={uploadDialogOpen}
+        onOpenChange={setUploadDialogOpen}
+        onUploadComplete={(file) => {
+          // For now, show a toast - full upload integration can be added later
+          toast({
+            title: "Image selected",
+            description: `${file.name} is ready. Full upload integration coming soon.`,
+          });
+          loadMasterImages();
+        }}
+      />
     </div>
   );
 }
