@@ -143,7 +143,7 @@ export function SocialKitGeneratorModal({
       }
 
       toast({
-        title: "Social Kit Generated",
+        title: "Images Generated",
         description: `Successfully generated ${completed} variants`
       });
 
@@ -173,7 +173,7 @@ export function SocialKitGeneratorModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ImagePlus className="h-5 w-5" />
-            Generate Social Kit
+            Generate Social Media Images
           </DialogTitle>
           <DialogDescription>
             {masterAsset.title ? `From: ${masterAsset.title}` : "Generate platform-specific image variants from your master image"}

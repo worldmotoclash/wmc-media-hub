@@ -253,7 +253,7 @@ export default function SocialKit() {
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <Button onClick={() => handleGenerateClick(asset)}>
                         <ImagePlus className="h-4 w-4 mr-2" />
-                        Generate Social Kit
+                        Generate Images
                       </Button>
                     </div>
                   </div>
