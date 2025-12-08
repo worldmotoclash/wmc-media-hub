@@ -317,12 +317,8 @@ export default function SocialKit() {
       <MasterImageUploadDialog
         open={uploadDialogOpen}
         onOpenChange={setUploadDialogOpen}
-        onUploadComplete={(file) => {
-          // For now, show a toast - full upload integration can be added later
-          toast({
-            title: "Image selected",
-            description: `${file.name} is ready. Full upload integration coming soon.`,
-          });
+        onUploadComplete={(asset) => {
+          // Refresh the list to show the new upload
           loadMasterImages();
         }}
       />
