@@ -1,3 +1,5 @@
+import { Instagram, Facebook, Twitter, Linkedin, Youtube, Music2, LucideIcon } from "lucide-react";
+
 export interface SocialVariant {
   id: string;
   platform: string;
@@ -7,6 +9,20 @@ export interface SocialVariant {
   aspectRatio: string;
   filename: string;
 }
+
+export interface PlatformConfig {
+  icon: LucideIcon;
+  colorClass: string;
+}
+
+export const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
+  "Instagram": { icon: Instagram, colorClass: "text-pink-500" },
+  "Facebook": { icon: Facebook, colorClass: "text-blue-600" },
+  "X / Twitter": { icon: Twitter, colorClass: "text-foreground" },
+  "LinkedIn": { icon: Linkedin, colorClass: "text-blue-700" },
+  "YouTube": { icon: Youtube, colorClass: "text-red-600" },
+  "TikTok": { icon: Music2, colorClass: "text-foreground" },
+};
 
 export const SOCIAL_VARIANTS: SocialVariant[] = [
   // Instagram (4 variants)
@@ -39,6 +55,20 @@ export const SOCIAL_VARIANTS: SocialVariant[] = [
 export const MAX_VARIANTS_PER_REQUEST = 14;
 export const MAX_INPUT_DIMENSION = 6000;
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/jpg"];
+
+// Get all unique platforms in order
+export const PLATFORMS = [...new Set(SOCIAL_VARIANTS.map(v => v.platform))];
+
+// Group variants by platform
+export function getVariantsByPlatform(): Record<string, SocialVariant[]> {
+  return SOCIAL_VARIANTS.reduce((acc, variant) => {
+    if (!acc[variant.platform]) {
+      acc[variant.platform] = [];
+    }
+    acc[variant.platform].push(variant);
+    return acc;
+  }, {} as Record<string, SocialVariant[]>);
+}
 
 export function getVariantLabel(variant: SocialVariant): string {
   return `${variant.platform} ${variant.variant} (${variant.width}×${variant.height})`;

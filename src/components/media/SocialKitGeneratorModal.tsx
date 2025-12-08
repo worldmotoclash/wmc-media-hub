@@ -1,16 +1,15 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { SOCIAL_VARIANTS, SocialVariant, MAX_VARIANTS_PER_REQUEST } from "@/constants/socialVariants";
+import { SOCIAL_VARIANTS, MAX_VARIANTS_PER_REQUEST } from "@/constants/socialVariants";
 import { generateSocialKit, processVariant, updateJobVariantStatus, VariantStatus } from "@/services/socialKitService";
 import { IMAGE_PROCESSING_MODELS, getAvailableImageProcessingModels } from "@/services/imageProcessingModels";
-import { CheckCircle2, XCircle, Loader2, ImagePlus, AlertCircle, Cpu, Sparkles } from "lucide-react";
+import { ImagePlus, AlertCircle, Cpu, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { PlatformVariantSelector } from "./PlatformVariantSelector";
 
 interface SocialKitGeneratorModalProps {
   open: boolean;
@@ -51,32 +50,6 @@ export function SocialKitGeneratorModal({
       setProgress(0);
     }
   }, [open]);
-
-  const toggleVariant = (variantId: string) => {
-    const newSelected = new Set(selectedVariants);
-    if (newSelected.has(variantId)) {
-      newSelected.delete(variantId);
-    } else {
-      if (newSelected.size >= MAX_VARIANTS_PER_REQUEST) {
-        toast({
-          title: "Limit Reached",
-          description: `Maximum ${MAX_VARIANTS_PER_REQUEST} variants allowed per request`,
-          variant: "destructive"
-        });
-        return;
-      }
-      newSelected.add(variantId);
-    }
-    setSelectedVariants(newSelected);
-  };
-
-  const selectAll = () => {
-    setSelectedVariants(new Set(SOCIAL_VARIANTS.slice(0, MAX_VARIANTS_PER_REQUEST).map(v => v.id)));
-  };
-
-  const deselectAll = () => {
-    setSelectedVariants(new Set());
-  };
 
   const handleGenerate = async () => {
     if (selectedVariants.size === 0) {
@@ -187,19 +160,6 @@ export function SocialKitGeneratorModal({
     }
   };
 
-  const getStatusIcon = (status: VariantStatus["status"]) => {
-    switch (status) {
-      case "completed":
-        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
-      case "failed":
-        return <XCircle className="h-4 w-4 text-destructive" />;
-      case "generating":
-        return <Loader2 className="h-4 w-4 animate-spin text-primary" />;
-      default:
-        return <div className="h-4 w-4 rounded-full border-2 border-muted" />;
-    }
-  };
-
   const getModelIcon = (modelId: string) => {
     if (modelId === "native_resize") {
       return <Cpu className="h-4 w-4" />;
@@ -209,7 +169,7 @@ export function SocialKitGeneratorModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ImagePlus className="h-5 w-5" />
@@ -220,7 +180,7 @@ export function SocialKitGeneratorModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 flex-1 overflow-hidden flex flex-col">
           {/* Model Selector */}
           {!isGenerating && (
             <div className="space-y-2">
@@ -251,23 +211,6 @@ export function SocialKitGeneratorModal({
             </div>
           )}
 
-          {/* Selection controls */}
-          {!isGenerating && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
-                {selectedVariants.size} of {SOCIAL_VARIANTS.length} selected
-              </span>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm" onClick={selectAll}>
-                  Select All
-                </Button>
-                <Button variant="ghost" size="sm" onClick={deselectAll}>
-                  Deselect All
-                </Button>
-              </div>
-            </div>
-          )}
-
           {/* Progress bar during generation */}
           {isGenerating && (
             <div className="space-y-2">
@@ -279,49 +222,14 @@ export function SocialKitGeneratorModal({
             </div>
           )}
 
-          {/* Variant list */}
-          <div className="space-y-2 max-h-[40vh] overflow-y-auto">
-            {SOCIAL_VARIANTS.map(variant => {
-              const status = variantStatuses.get(variant.id);
-              const isSelected = selectedVariants.has(variant.id);
-
-              return (
-                <div
-                  key={variant.id}
-                  className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                    isSelected ? "bg-accent/50 border-primary/30" : "bg-muted/30 border-border"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    {isGenerating ? (
-                      getStatusIcon(status?.status || "pending")
-                    ) : (
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => toggleVariant(variant.id)}
-                        disabled={isGenerating}
-                      />
-                    )}
-                    <div>
-                      <div className="font-medium text-sm">
-                        {variant.platform} {variant.variant}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {variant.width} × {variant.height}px • {variant.filename}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      {variant.aspectRatio}
-                    </Badge>
-                    {status?.error && (
-                      <span className="text-xs text-destructive">{status.error}</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          {/* Platform Variant Selector */}
+          <div className="flex-1 overflow-hidden">
+            <PlatformVariantSelector
+              selectedVariants={selectedVariants}
+              onSelectionChange={setSelectedVariants}
+              disabled={isGenerating}
+              variantStatuses={variantStatuses}
+            />
           </div>
 
           {/* Warning for no selection */}
