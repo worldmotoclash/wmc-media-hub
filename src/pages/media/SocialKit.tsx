@@ -10,7 +10,7 @@ import { SocialKitGeneratorModal } from "@/components/media/SocialKitGeneratorMo
 import { GeneratedVariantsGrid } from "@/components/media/GeneratedVariantsGrid";
 import { fetchAllMediaAssets, MediaAsset } from "@/services/unifiedMediaService";
 import { SOCIAL_VARIANTS } from "@/constants/socialVariants";
-import { ArrowLeft, ImagePlus, Search, Image as ImageIcon, Layers, Tag } from "lucide-react";
+import { ArrowLeft, ImagePlus, Search, Image as ImageIcon, Layers, Tag, Upload } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 export default function SocialKit() {
@@ -131,9 +131,9 @@ export default function SocialKit() {
           </Card>
         </motion.div>
 
-        {/* Search */}
-        <div className="mb-6">
-          <div className="relative max-w-md">
+        {/* Search and Upload */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+          <div className="relative w-full sm:max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search master images..."
@@ -142,6 +142,12 @@ export default function SocialKit() {
               className="pl-10"
             />
           </div>
+          <Link to="/admin/media/upload">
+            <Button className="shrink-0">
+              <Upload className="h-4 w-4 mr-2" />
+              Upload Master Image
+            </Button>
+          </Link>
         </div>
 
         {/* Loading State */}
