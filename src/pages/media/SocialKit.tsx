@@ -116,7 +116,7 @@ export default function SocialKit() {
               <div>
                 <h1 className="text-2xl font-bold flex items-center gap-2">
                   <Layers className="h-6 w-6 text-primary" />
-                  Social Kit Generator
+                  Social Media Image Generator
                 </h1>
                 <p className="text-sm text-muted-foreground">
                   Generate platform-specific variants from master images
