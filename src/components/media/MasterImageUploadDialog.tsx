@@ -6,7 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Upload, ImageIcon, X, Loader2 } from "lucide-react";
+import { Upload, ImageIcon, X, Loader2, Cloud } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface MasterImageUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUploadComplete?: (asset: { id: string; url: string; title: string }) => void;
+  onUploadComplete?: (asset: { id: string; url: string; title: string; masterId: string; salesforceId?: string }) => void;
 }
 
 interface ImageDimensions {
@@ -34,6 +34,20 @@ const getImageDimensions = (file: File): Promise<ImageDimensions> => {
       URL.revokeObjectURL(img.src);
     };
     img.src = URL.createObjectURL(file);
+  });
+};
+
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
+      const base64 = result.split(",")[1];
+      resolve(base64);
+    };
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
   });
 };
 
@@ -118,77 +132,46 @@ export function MasterImageUploadDialog({
       // Get image dimensions
       const dimensions = await getImageDimensions(selectedFile);
       
-      setUploadProgress("Uploading to storage...");
+      setUploadProgress("Converting image...");
       
-      // Generate unique filename
-      const timestamp = Date.now();
-      const sanitizedName = selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-      const filePath = `master-images/${timestamp}-${sanitizedName}`;
+      // Convert file to base64
+      const imageBase64 = await fileToBase64(selectedFile);
       
-      // Upload to Supabase Storage (master-images bucket)
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("master-images")
-        .upload(filePath, selectedFile, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+      setUploadProgress("Uploading to Wasabi S3...");
+      
+      // Call the upload-master-to-s3 edge function
+      const { data, error } = await supabase.functions.invoke("upload-master-to-s3", {
+        body: {
+          imageBase64,
+          filename: selectedFile.name,
+          mimeType: selectedFile.type,
+          width: dimensions.width,
+          height: dimensions.height,
+          title: selectedFile.name.replace(/\.[^/.]+$/, ""),
+        },
+      });
 
-      if (uploadError) {
-        // If bucket doesn't exist, show helpful message
-        if (uploadError.message.includes("Bucket not found")) {
-          throw new Error("Storage bucket 'master-images' not found. Please create it in Supabase Dashboard > Storage.");
-        }
-        throw uploadError;
+      if (error) {
+        throw new Error(error.message || "Upload failed");
       }
 
-      setUploadProgress("Getting public URL...");
-      
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from("master-images")
-        .getPublicUrl(uploadData.path);
-
-      const publicUrl = urlData.publicUrl;
-      
-      setUploadProgress("Creating media asset record...");
-      
-      // Insert into media_assets table (source must be a valid enum value)
-      const { data: assetData, error: assetError } = await supabase
-        .from("media_assets")
-        .insert({
-          title: selectedFile.name.replace(/\.[^/.]+$/, ""), // Remove extension
-          file_url: publicUrl,
-          thumbnail_url: publicUrl,
-          source: "local_upload" as const, // Valid enum value
-          status: "ready",
-          file_format: selectedFile.name.split(".").pop()?.toLowerCase() || "jpg",
-          file_size: selectedFile.size,
-          metadata: {
-            width: dimensions.width,
-            height: dimensions.height,
-            originalName: selectedFile.name,
-            mimeType: selectedFile.type,
-            uploadedAt: new Date().toISOString(),
-            isMasterImage: true,
-          },
-        })
-        .select()
-        .single();
-
-      if (assetError) {
-        console.error("Failed to create asset record:", assetError);
-        throw new Error("Failed to create media asset record");
+      if (!data.success) {
+        throw new Error(data.error || "Upload failed");
       }
+
+      setUploadProgress("Upload complete!");
 
       toast({
         title: "Upload complete",
-        description: `"${assetData.title}" has been uploaded successfully.`,
+        description: `Master image uploaded to S3 successfully.`,
       });
 
       onUploadComplete?.({
-        id: assetData.id,
-        url: publicUrl,
-        title: assetData.title,
+        id: data.assetId,
+        url: data.s3Url,
+        title: selectedFile.name.replace(/\.[^/.]+$/, ""),
+        masterId: data.masterId,
+        salesforceId: data.salesforceId,
       });
 
       handleClose();
@@ -226,8 +209,8 @@ export function MasterImageUploadDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Upload Master Image
+            <Cloud className="h-5 w-5 text-primary" />
+            Upload Master Image to S3
           </DialogTitle>
         </DialogHeader>
 
@@ -254,6 +237,9 @@ export function MasterImageUploadDialog({
               </p>
               <p className="text-xs text-muted-foreground">
                 Supports JPG, PNG, WebP (max 20MB)
+              </p>
+              <p className="text-xs text-primary mt-2">
+                Uploads directly to Wasabi S3
               </p>
             </div>
           ) : (
@@ -310,7 +296,10 @@ export function MasterImageUploadDialog({
                   Uploading...
                 </>
               ) : (
-                "Upload Image"
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload to S3
+                </>
               )}
             </Button>
           </div>
