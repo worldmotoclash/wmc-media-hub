@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.create-scene-detection-job]
 verify_jwt = false
+
+[functions.generate-social-variant]
+verify_jwt = false

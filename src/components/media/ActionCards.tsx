@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload, Sparkles, PlaySquare, Scissors, ListVideo } from 'lucide-react';
+import { Upload, Sparkles, PlaySquare, Scissors, ListVideo, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const ActionCards: React.FC = () => {
@@ -45,6 +45,14 @@ const ActionCards: React.FC = () => {
       href: '/admin/media/library',
       color: 'from-malibu/20 to-malibu/10',
       iconColor: 'text-malibu'
+    },
+    {
+      title: 'Social Kit',
+      description: 'Generate platform-specific variants from master images',
+      icon: Layers,
+      href: '/admin/media/social-kit',
+      color: 'from-amber-500/20 to-amber-500/10',
+      iconColor: 'text-amber-500'
     }
   ];
 
@@ -55,7 +63,7 @@ const ActionCards: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6"
         >
           {actions.map((action, index) => (
             <motion.div
@@ -66,14 +74,14 @@ const ActionCards: React.FC = () => {
             >
               <Link to={action.href}>
                 <Card className="h-full border-2 hover:border-primary/20 transition-all duration-300 hover:scale-105 hover:shadow-lg cursor-pointer group">
-                  <CardContent className="p-8 text-center">
-                    <div className={`w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br ${action.color} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                      <action.icon className={`w-10 h-10 ${action.iconColor}`} />
+                  <CardContent className="p-6 text-center">
+                    <div className={`w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br ${action.color} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                      <action.icon className={`w-8 h-8 ${action.iconColor}`} />
                     </div>
-                    <h3 className="text-xl font-bold mb-3 text-foreground group-hover:text-primary transition-colors">
+                    <h3 className="text-lg font-bold mb-2 text-foreground group-hover:text-primary transition-colors">
                       {action.title}
                     </h3>
-                    <p className="text-muted-foreground leading-relaxed">
+                    <p className="text-sm text-muted-foreground leading-relaxed">
                       {action.description}
                     </p>
                   </CardContent>
