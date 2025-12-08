@@ -1,0 +1,303 @@
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { SOCIAL_VARIANTS, SocialVariant, getVariantLabel, MAX_VARIANTS_PER_REQUEST } from "@/constants/socialVariants";
+import { generateSocialKit, processVariant, updateJobVariantStatus, VariantStatus } from "@/services/socialKitService";
+import { CheckCircle2, XCircle, Loader2, ImagePlus, AlertCircle } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+
+interface SocialKitGeneratorModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  masterAsset: {
+    id: string;
+    url: string;
+    title?: string;
+    salesforce_id?: string;
+  };
+  onComplete?: () => void;
+}
+
+export function SocialKitGeneratorModal({
+  open,
+  onOpenChange,
+  masterAsset,
+  onComplete
+}: SocialKitGeneratorModalProps) {
+  const [selectedVariants, setSelectedVariants] = useState<Set<string>>(
+    new Set(SOCIAL_VARIANTS.map(v => v.id))
+  );
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [variantStatuses, setVariantStatuses] = useState<Map<string, VariantStatus>>(new Map());
+  const [progress, setProgress] = useState(0);
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (open) {
+      setSelectedVariants(new Set(SOCIAL_VARIANTS.map(v => v.id)));
+      setIsGenerating(false);
+      setVariantStatuses(new Map());
+      setProgress(0);
+    }
+  }, [open]);
+
+  const toggleVariant = (variantId: string) => {
+    const newSelected = new Set(selectedVariants);
+    if (newSelected.has(variantId)) {
+      newSelected.delete(variantId);
+    } else {
+      if (newSelected.size >= MAX_VARIANTS_PER_REQUEST) {
+        toast({
+          title: "Limit Reached",
+          description: `Maximum ${MAX_VARIANTS_PER_REQUEST} variants allowed per request`,
+          variant: "destructive"
+        });
+        return;
+      }
+      newSelected.add(variantId);
+    }
+    setSelectedVariants(newSelected);
+  };
+
+  const selectAll = () => {
+    setSelectedVariants(new Set(SOCIAL_VARIANTS.slice(0, MAX_VARIANTS_PER_REQUEST).map(v => v.id)));
+  };
+
+  const deselectAll = () => {
+    setSelectedVariants(new Set());
+  };
+
+  const handleGenerate = async () => {
+    if (selectedVariants.size === 0) {
+      toast({
+        title: "No Variants Selected",
+        description: "Please select at least one variant to generate",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    const variants = SOCIAL_VARIANTS.filter(v => selectedVariants.has(v.id));
+
+    // Initialize statuses
+    const initialStatuses = new Map<string, VariantStatus>();
+    variants.forEach(v => {
+      initialStatuses.set(v.id, {
+        id: v.id,
+        platform: v.platform,
+        variant: v.variant,
+        width: v.width,
+        height: v.height,
+        status: "pending"
+      });
+    });
+    setVariantStatuses(initialStatuses);
+
+    try {
+      // Create the job
+      const job = await generateSocialKit({
+        masterAssetId: masterAsset.id,
+        masterImageUrl: masterAsset.url,
+        selectedVariants: variants,
+        salesforceMasterId: masterAsset.salesforce_id
+      });
+
+      // Process each variant
+      let completed = 0;
+      for (const variant of variants) {
+        // Update status to generating
+        setVariantStatuses(prev => {
+          const updated = new Map(prev);
+          updated.set(variant.id, { ...updated.get(variant.id)!, status: "generating" });
+          return updated;
+        });
+
+        await updateJobVariantStatus(job.id, variant.id, "generating");
+
+        // Process the variant
+        const result = await processVariant(
+          job.id,
+          variant,
+          masterAsset.url,
+          masterAsset.id,
+          masterAsset.salesforce_id
+        );
+
+        // Update status
+        const status: VariantStatus = {
+          id: variant.id,
+          platform: variant.platform,
+          variant: variant.variant,
+          width: variant.width,
+          height: variant.height,
+          status: result.success ? "completed" : "failed",
+          url: result.url,
+          error: result.error,
+          assetId: result.assetId
+        };
+
+        setVariantStatuses(prev => {
+          const updated = new Map(prev);
+          updated.set(variant.id, status);
+          return updated;
+        });
+
+        await updateJobVariantStatus(
+          job.id,
+          variant.id,
+          result.success ? "completed" : "failed",
+          result.url,
+          result.error,
+          result.assetId
+        );
+
+        completed++;
+        setProgress((completed / variants.length) * 100);
+      }
+
+      toast({
+        title: "Social Kit Generated",
+        description: `Successfully generated ${completed} variants`
+      });
+
+      onComplete?.();
+    } catch (error) {
+      console.error("Error generating social kit:", error);
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const getStatusIcon = (status: VariantStatus["status"]) => {
+    switch (status) {
+      case "completed":
+        return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      case "failed":
+        return <XCircle className="h-4 w-4 text-destructive" />;
+      case "generating":
+        return <Loader2 className="h-4 w-4 animate-spin text-primary" />;
+      default:
+        return <div className="h-4 w-4 rounded-full border-2 border-muted" />;
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ImagePlus className="h-5 w-5" />
+            Generate Social Kit
+          </DialogTitle>
+          <DialogDescription>
+            {masterAsset.title ? `From: ${masterAsset.title}` : "Generate platform-specific image variants from your master image"}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          {/* Selection controls */}
+          {!isGenerating && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">
+                {selectedVariants.size} of {SOCIAL_VARIANTS.length} selected
+              </span>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" onClick={selectAll}>
+                  Select All
+                </Button>
+                <Button variant="ghost" size="sm" onClick={deselectAll}>
+                  Deselect All
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Progress bar during generation */}
+          {isGenerating && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span>Generating variants...</span>
+                <span>{Math.round(progress)}%</span>
+              </div>
+              <Progress value={progress} className="h-2" />
+            </div>
+          )}
+
+          {/* Variant list */}
+          <div className="space-y-2">
+            {SOCIAL_VARIANTS.map(variant => {
+              const status = variantStatuses.get(variant.id);
+              const isSelected = selectedVariants.has(variant.id);
+
+              return (
+                <div
+                  key={variant.id}
+                  className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                    isSelected ? "bg-accent/50 border-primary/30" : "bg-muted/30 border-border"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    {isGenerating ? (
+                      getStatusIcon(status?.status || "pending")
+                    ) : (
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleVariant(variant.id)}
+                        disabled={isGenerating}
+                      />
+                    )}
+                    <div>
+                      <div className="font-medium text-sm">
+                        {variant.platform} {variant.variant}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {variant.width} × {variant.height}px
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                      {variant.aspectRatio}
+                    </Badge>
+                    {status?.error && (
+                      <span className="text-xs text-destructive">{status.error}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Warning for no selection */}
+          {selectedVariants.size === 0 && !isGenerating && (
+            <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 dark:bg-amber-950/30 p-3 rounded-lg">
+              <AlertCircle className="h-4 w-4" />
+              Select at least one variant to generate
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isGenerating}>
+            {isGenerating ? "Close" : "Cancel"}
+          </Button>
+          {!isGenerating && (
+            <Button onClick={handleGenerate} disabled={selectedVariants.size === 0}>
+              <ImagePlus className="h-4 w-4 mr-2" />
+              Generate Kit ({selectedVariants.size})
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
