@@ -5,6 +5,7 @@ export interface SocialKitJob {
   id: string;
   master_asset_id: string;
   status: "pending" | "generating" | "completed" | "failed";
+  selected_model: string;
   total_variants: number;
   completed_variants: number;
   failed_variants: number;
@@ -25,6 +26,7 @@ export interface VariantStatus {
   url?: string;
   error?: string;
   assetId?: string;
+  s3Key?: string;
 }
 
 export interface GenerateSocialKitParams {
@@ -32,10 +34,11 @@ export interface GenerateSocialKitParams {
   masterImageUrl: string;
   selectedVariants: SocialVariant[];
   salesforceMasterId?: string;
+  selectedModel?: string;
 }
 
 export async function generateSocialKit(params: GenerateSocialKitParams): Promise<SocialKitJob> {
-  const { masterAssetId, masterImageUrl, selectedVariants, salesforceMasterId } = params;
+  const { masterAssetId, masterImageUrl, selectedVariants, salesforceMasterId, selectedModel = "native_resize" } = params;
 
   // Initialize variant statuses
   const variants: VariantStatus[] = selectedVariants.map(v => ({
@@ -54,6 +57,7 @@ export async function generateSocialKit(params: GenerateSocialKitParams): Promis
       master_asset_id: masterAssetId,
       user_id: "anonymous",
       status: "generating",
+      selected_model: selectedModel,
       total_variants: selectedVariants.length,
       completed_variants: 0,
       failed_variants: 0,
@@ -76,24 +80,35 @@ export async function processVariant(
   variant: SocialVariant,
   masterImageUrl: string,
   masterId: string,
-  salesforceMasterId?: string
-): Promise<{ success: boolean; url?: string; error?: string; assetId?: string }> {
+  salesforceMasterId?: string,
+  model: string = "native_resize"
+): Promise<{ success: boolean; url?: string; error?: string; assetId?: string; s3Key?: string }> {
   try {
     const response = await supabase.functions.invoke("generate-social-variant", {
       body: {
-        model: "image_resize",
-        imageUrl: masterImageUrl,
-        width: variant.width,
-        height: variant.height,
+        model,
+        sourceUrl: masterImageUrl,
+        targetWidth: variant.width,
+        targetHeight: variant.height,
+        outputFilename: variant.filename,
+        masterId: masterId,
         platform: variant.platform,
         variantName: variant.variant,
-        masterId: masterId,
         jobId: jobId,
         variantId: variant.id,
+        sfMasterId: salesforceMasterId,
         salesforceData: salesforceMasterId ? {
           masterContentId: salesforceMasterId,
           platform: variant.platform,
-          platformVariant: `${variant.platform} ${variant.variant} (${variant.width}x${variant.height})`
+          platformVariant: `${variant.platform} ${variant.variant} (${variant.width}x${variant.height})`,
+          pixelWidth: variant.width,
+          pixelHeight: variant.height,
+          systemFlags: [
+            "Auto Generated",
+            "Social Kit Output",
+            "Resized Variant",
+            "Derived Asset"
+          ]
         } : undefined
       }
     });
@@ -105,7 +120,8 @@ export async function processVariant(
     return {
       success: true,
       url: response.data?.url,
-      assetId: response.data?.assetId
+      assetId: response.data?.assetId,
+      s3Key: response.data?.s3Key
     };
   } catch (error) {
     console.error(`Error processing variant ${variant.id}:`, error);
@@ -191,10 +207,11 @@ export async function fetchJobsForMaster(masterAssetId: string): Promise<SocialK
 }
 
 export async function fetchVariantsForMaster(masterAssetId: string): Promise<any[]> {
+  // Query by master_id column (for new structure) or metadata field (legacy)
   const { data, error } = await supabase
     .from("media_assets")
     .select("*")
-    .eq("metadata->>masterAssetId", masterAssetId);
+    .or(`master_id.eq.${masterAssetId},metadata->>masterAssetId.eq.${masterAssetId}`);
 
   if (error) {
     console.error("Error fetching variants for master:", error);

@@ -4,9 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { SOCIAL_VARIANTS, SocialVariant, getVariantLabel, MAX_VARIANTS_PER_REQUEST } from "@/constants/socialVariants";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { SOCIAL_VARIANTS, SocialVariant, MAX_VARIANTS_PER_REQUEST } from "@/constants/socialVariants";
 import { generateSocialKit, processVariant, updateJobVariantStatus, VariantStatus } from "@/services/socialKitService";
-import { CheckCircle2, XCircle, Loader2, ImagePlus, AlertCircle } from "lucide-react";
+import { IMAGE_PROCESSING_MODELS, getAvailableImageProcessingModels } from "@/services/imageProcessingModels";
+import { CheckCircle2, XCircle, Loader2, ImagePlus, AlertCircle, Cpu, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface SocialKitGeneratorModalProps {
@@ -17,6 +20,7 @@ interface SocialKitGeneratorModalProps {
     url: string;
     title?: string;
     salesforce_id?: string;
+    masterId?: string;
   };
   onComplete?: () => void;
 }
@@ -30,14 +34,18 @@ export function SocialKitGeneratorModal({
   const [selectedVariants, setSelectedVariants] = useState<Set<string>>(
     new Set(SOCIAL_VARIANTS.map(v => v.id))
   );
+  const [selectedModel, setSelectedModel] = useState<string>("native_resize");
   const [isGenerating, setIsGenerating] = useState(false);
   const [variantStatuses, setVariantStatuses] = useState<Map<string, VariantStatus>>(new Map());
   const [progress, setProgress] = useState(0);
+
+  const availableModels = getAvailableImageProcessingModels();
 
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
       setSelectedVariants(new Set(SOCIAL_VARIANTS.map(v => v.id)));
+      setSelectedModel("native_resize");
       setIsGenerating(false);
       setVariantStatuses(new Map());
       setProgress(0);
@@ -103,7 +111,8 @@ export function SocialKitGeneratorModal({
         masterAssetId: masterAsset.id,
         masterImageUrl: masterAsset.url,
         selectedVariants: variants,
-        salesforceMasterId: masterAsset.salesforce_id
+        salesforceMasterId: masterAsset.salesforce_id,
+        selectedModel,
       });
 
       // Process each variant
@@ -118,13 +127,14 @@ export function SocialKitGeneratorModal({
 
         await updateJobVariantStatus(job.id, variant.id, "generating");
 
-        // Process the variant
+        // Process the variant with the selected model
         const result = await processVariant(
           job.id,
           variant,
           masterAsset.url,
-          masterAsset.id,
-          masterAsset.salesforce_id
+          masterAsset.masterId || masterAsset.id,
+          masterAsset.salesforce_id,
+          selectedModel
         );
 
         // Update status
@@ -190,6 +200,13 @@ export function SocialKitGeneratorModal({
     }
   };
 
+  const getModelIcon = (modelId: string) => {
+    if (modelId === "native_resize") {
+      return <Cpu className="h-4 w-4" />;
+    }
+    return <Sparkles className="h-4 w-4" />;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
@@ -204,6 +221,36 @@ export function SocialKitGeneratorModal({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Model Selector */}
+          {!isGenerating && (
+            <div className="space-y-2">
+              <Label htmlFor="model-select">Processing Model</Label>
+              <Select value={selectedModel} onValueChange={setSelectedModel}>
+                <SelectTrigger id="model-select" className="w-full">
+                  <SelectValue placeholder="Select a model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableModels.map(model => (
+                    <SelectItem key={model.id} value={model.id}>
+                      <div className="flex items-center gap-2">
+                        {getModelIcon(model.id)}
+                        <div className="flex flex-col">
+                          <span>{model.displayName}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {model.pricing.basis === "free" ? "Free" : `$${model.pricing.basePrice}/image`}
+                          </span>
+                        </div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {IMAGE_PROCESSING_MODELS.find(m => m.id === selectedModel)?.description}
+              </p>
+            </div>
+          )}
+
           {/* Selection controls */}
           {!isGenerating && (
             <div className="flex items-center justify-between">
@@ -233,7 +280,7 @@ export function SocialKitGeneratorModal({
           )}
 
           {/* Variant list */}
-          <div className="space-y-2">
+          <div className="space-y-2 max-h-[40vh] overflow-y-auto">
             {SOCIAL_VARIANTS.map(variant => {
               const status = variantStatuses.get(variant.id);
               const isSelected = selectedVariants.has(variant.id);
@@ -260,7 +307,7 @@ export function SocialKitGeneratorModal({
                         {variant.platform} {variant.variant}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {variant.width} × {variant.height}px
+                        {variant.width} × {variant.height}px • {variant.filename}
                       </div>
                     </div>
                   </div>

@@ -20,3 +20,12 @@ verify_jwt = false
 
 [functions.generate-social-variant]
 verify_jwt = false
+
+[functions.upload-master-to-s3]
+verify_jwt = false
+
+[functions.test-s3-connection]
+verify_jwt = false
+
+[functions.test-veo-integration]
+verify_jwt = false
