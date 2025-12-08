@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { SocialKitGeneratorModal } from "@/components/media/SocialKitGeneratorModal";
 import { GeneratedVariantsGrid } from "@/components/media/GeneratedVariantsGrid";
 import { fetchAllMediaAssets, MediaAsset } from "@/services/unifiedMediaService";
@@ -20,6 +21,29 @@ export default function SocialKit() {
   const [selectedAsset, setSelectedAsset] = useState<MediaAsset | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [selectedVariants, setSelectedVariants] = useState<Set<string>>(
+    new Set(SOCIAL_VARIANTS.map(v => v.id))
+  );
+
+  const toggleVariant = (variantId: string) => {
+    setSelectedVariants(prev => {
+      const next = new Set(prev);
+      if (next.has(variantId)) {
+        next.delete(variantId);
+      } else {
+        next.add(variantId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedVariants(new Set(SOCIAL_VARIANTS.map(v => v.id)));
+    } else {
+      setSelectedVariants(new Set());
+    }
+  };
 
   useEffect(() => {
     loadMasterImages();
@@ -110,18 +134,38 @@ export default function SocialKit() {
         >
           <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
             <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-lg font-semibold mb-2">Available Variants</h2>
+                  <div className="flex items-center gap-3 mb-3">
+                    <Checkbox 
+                      id="select-all-variants"
+                      checked={selectedVariants.size === SOCIAL_VARIANTS.length}
+                      onCheckedChange={(checked) => toggleSelectAll(checked as boolean)}
+                    />
+                    <label 
+                      htmlFor="select-all-variants" 
+                      className="text-lg font-semibold cursor-pointer"
+                    >
+                      Available Variants
+                    </label>
+                    <span className="text-sm text-muted-foreground">
+                      ({selectedVariants.size}/{SOCIAL_VARIANTS.length} selected)
+                    </span>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {SOCIAL_VARIANTS.map(variant => (
-                      <Badge key={variant.id} variant="secondary" className="text-xs">
+                      <Badge 
+                        key={variant.id} 
+                        variant={selectedVariants.has(variant.id) ? "default" : "outline"}
+                        className="text-xs cursor-pointer transition-colors hover:opacity-80"
+                        onClick={() => toggleVariant(variant.id)}
+                      >
                         {variant.platform} {variant.variant}
                       </Badge>
                     ))}
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <p className="text-sm text-muted-foreground">
                     {SOCIAL_VARIANTS.length} formats available
                   </p>
