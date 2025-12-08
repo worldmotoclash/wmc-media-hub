@@ -48,7 +48,7 @@ export function MediaNavigation() {
 
   const currentName = routeNames[currentPath] || "Media";
   const isPlaylistView = playlistId && (currentPath === "/admin/media/library" || currentPath === "/admin/media/content");
-  const backPath = isPlaylistView ? "/admin/media/library" : "/admin/media";
+  const backPath = isPlaylistView ? "/admin/media/playlists" : "/admin/media";
 
   return (
     <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -57,7 +57,7 @@ export function MediaNavigation() {
           <Link to={backPath} className="flex items-center gap-2">
             <ArrowLeft className="h-4 w-4" />
             <span className="hidden sm:inline">
-              {isPlaylistView ? "Back to Library" : "Back to Hub"}
+              {isPlaylistView ? "Back to Playlists" : "Back to Hub"}
             </span>
           </Link>
         </Button>
@@ -75,7 +75,7 @@ export function MediaNavigation() {
                 <BreadcrumbItem>
                   {isPlaylistView ? (
                     <BreadcrumbLink asChild>
-                      <Link to="/admin/media/library">Media Library</Link>
+                      <Link to="/admin/media/playlists">Playlists</Link>
                     </BreadcrumbLink>
                   ) : (
                     <BreadcrumbPage>{currentName}</BreadcrumbPage>
