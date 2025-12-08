@@ -47,7 +47,7 @@ const ActionCards: React.FC = () => {
       iconColor: 'text-malibu'
     },
     {
-      title: 'Social Kit',
+      title: 'Social Media Image Generation',
       description: 'Generate platform-specific variants from master images',
       icon: Layers,
       href: '/admin/media/social-kit',
