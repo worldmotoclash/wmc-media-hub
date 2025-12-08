@@ -115,7 +115,8 @@ export async function fetchAllMediaAssets(
 
     if (error) {
       console.error('Error fetching database assets:', error);
-      throw error;
+      // Return empty array instead of throwing to allow page to still render
+      return { assets: [], total: 0 };
     }
 
     // Transform database results
@@ -178,7 +179,8 @@ export async function fetchAllMediaAssets(
 
   } catch (error) {
     console.error('Error in fetchAllMediaAssets:', error);
-    throw error;
+    // Return empty result instead of throwing to prevent error toast
+    return { assets: [], total: 0 };
   }
 }
 

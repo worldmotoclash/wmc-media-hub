@@ -53,11 +53,7 @@ export default function SocialKit() {
       setAssets(masterImages);
     } catch (error) {
       console.error("Error loading master images:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load images",
-        variant: "destructive"
-      });
+      // Don't show error toast for network issues - page will show empty state
     } finally {
       setLoading(false);
     }
