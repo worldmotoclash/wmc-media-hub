@@ -6,15 +6,36 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Upload, ImageIcon, X } from "lucide-react";
+import { Upload, ImageIcon, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface MasterImageUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUploadComplete?: (file: File) => void;
+  onUploadComplete?: (asset: { id: string; url: string; title: string }) => void;
 }
+
+interface ImageDimensions {
+  width: number;
+  height: number;
+}
+
+const getImageDimensions = (file: File): Promise<ImageDimensions> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      URL.revokeObjectURL(img.src);
+    };
+    img.onerror = () => {
+      reject(new Error("Failed to load image"));
+      URL.revokeObjectURL(img.src);
+    };
+    img.src = URL.createObjectURL(file);
+  });
+};
 
 export function MasterImageUploadDialog({
   open,
@@ -25,6 +46,7 @@ export function MasterImageUploadDialog({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -90,24 +112,96 @@ export function MasterImageUploadDialog({
     if (!selectedFile) return;
     
     setIsUploading(true);
+    setUploadProgress("Getting image dimensions...");
+    
     try {
-      // For now, just pass the file to the parent
-      // The parent can handle the actual upload to the media service
-      onUploadComplete?.(selectedFile);
+      // Get image dimensions
+      const dimensions = await getImageDimensions(selectedFile);
+      
+      setUploadProgress("Uploading to storage...");
+      
+      // Generate unique filename
+      const timestamp = Date.now();
+      const sanitizedName = selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+      const filePath = `master-images/${timestamp}-${sanitizedName}`;
+      
+      // Upload to Supabase Storage (master-images bucket)
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("master-images")
+        .upload(filePath, selectedFile, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        // If bucket doesn't exist, show helpful message
+        if (uploadError.message.includes("Bucket not found")) {
+          throw new Error("Storage bucket 'master-images' not found. Please create it in Supabase Dashboard > Storage.");
+        }
+        throw uploadError;
+      }
+
+      setUploadProgress("Getting public URL...");
+      
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from("master-images")
+        .getPublicUrl(uploadData.path);
+
+      const publicUrl = urlData.publicUrl;
+      
+      setUploadProgress("Creating media asset record...");
+      
+      // Insert into media_assets table (source must be a valid enum value)
+      const { data: assetData, error: assetError } = await supabase
+        .from("media_assets")
+        .insert({
+          title: selectedFile.name.replace(/\.[^/.]+$/, ""), // Remove extension
+          file_url: publicUrl,
+          thumbnail_url: publicUrl,
+          source: "local_upload" as const, // Valid enum value
+          status: "ready",
+          file_format: selectedFile.name.split(".").pop()?.toLowerCase() || "jpg",
+          file_size: selectedFile.size,
+          metadata: {
+            width: dimensions.width,
+            height: dimensions.height,
+            originalName: selectedFile.name,
+            mimeType: selectedFile.type,
+            uploadedAt: new Date().toISOString(),
+            isMasterImage: true,
+          },
+        })
+        .select()
+        .single();
+
+      if (assetError) {
+        console.error("Failed to create asset record:", assetError);
+        throw new Error("Failed to create media asset record");
+      }
+
       toast({
-        title: "Image ready",
-        description: "Master image has been selected for upload.",
+        title: "Upload complete",
+        description: `"${assetData.title}" has been uploaded successfully.`,
       });
+
+      onUploadComplete?.({
+        id: assetData.id,
+        url: publicUrl,
+        title: assetData.title,
+      });
+
       handleClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Upload error:", error);
       toast({
         title: "Upload failed",
-        description: "Failed to upload image. Please try again.",
+        description: error.message || "Failed to upload image. Please try again.",
         variant: "destructive",
       });
     } finally {
       setIsUploading(false);
+      setUploadProgress("");
     }
   };
 
@@ -115,6 +209,7 @@ export function MasterImageUploadDialog({
     setSelectedFile(null);
     setPreview(null);
     setIsDragging(false);
+    setUploadProgress("");
     onOpenChange(false);
   };
 
@@ -176,6 +271,7 @@ export function MasterImageUploadDialog({
                   e.stopPropagation();
                   clearSelection();
                 }}
+                disabled={isUploading}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -193,15 +289,29 @@ export function MasterImageUploadDialog({
             className="hidden"
           />
 
+          {uploadProgress && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {uploadProgress}
+            </div>
+          )}
+
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={handleClose}>
+            <Button variant="outline" onClick={handleClose} disabled={isUploading}>
               Cancel
             </Button>
             <Button
               onClick={handleUpload}
               disabled={!selectedFile || isUploading}
             >
-              {isUploading ? "Uploading..." : "Upload Image"}
+              {isUploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                "Upload Image"
+              )}
             </Button>
           </div>
         </div>
