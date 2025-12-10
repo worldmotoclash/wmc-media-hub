@@ -141,28 +141,24 @@ serve(async (req) => {
     try {
       const sfEndpoint = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
       
-      // Build URL-encoded form data for w2x-engine (not FormData for this endpoint)
-      const params = new URLSearchParams();
-      params.append("sObj", "ri1__Content__c");
-      params.append("string_Name__c", imageTitle);
-      params.append("string_ri1__URL__c", cdnUrl);
-      params.append("string_ri1__Content_Type__c", "Image");
-      params.append("string_ri1__Platform__c", "All Platforms");
-      params.append("string_ri1__Platform_Variant__c", "Master Image");
-      params.append("number_ri1__Pixel_Width__c", width.toString());
-      params.append("number_ri1__Pixel_Height__c", height.toString());
-      params.append("checkbox_ri1__Is_Master__c", "1");
-      params.append("checkbox_ri1__Approved__c", "0");
+      // Build FormData payload for w2x-engine
+      const formData = new FormData();
+      formData.append("sObj", "ri1__Content__c");
+      formData.append("string_Name", imageTitle);  // Standard field - no __c suffix
+      formData.append("string_ri1__URL__c", cdnUrl);
+      formData.append("string_ri1__Content_Type__c", "Image");
+      formData.append("string_ri1__Platform__c", "All Platforms");
+      formData.append("string_ri1__Platform_Variant__c", "Master Image");
+      formData.append("number_ri1__Pixel_Width__c", width.toString());
+      formData.append("number_ri1__Pixel_Height__c", height.toString());
+      formData.append("checkbox_ri1__Is_Master__c", "true");
+      formData.append("checkbox_ri1__Approved__c", "false");
 
       console.log("Sending to Salesforce via w2x-engine:", sfEndpoint);
-      console.log("Salesforce payload:", params.toString());
 
       const sfResponse = await fetch(sfEndpoint, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: params.toString(),
+        body: formData,  // Let Deno set Content-Type automatically for FormData
       });
 
       const sfText = await sfResponse.text();
