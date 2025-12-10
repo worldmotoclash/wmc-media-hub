@@ -100,6 +100,7 @@ export type Database = {
           id: string
           master_id: string | null
           metadata: Json | null
+          platform: string | null
           resolution: string | null
           s3_key: string | null
           salesforce_id: string | null
@@ -109,6 +110,7 @@ export type Database = {
           thumbnail_url: string | null
           title: string
           updated_at: string
+          variant_name: string | null
         }
         Insert: {
           approved_at?: string | null
@@ -124,6 +126,7 @@ export type Database = {
           id?: string
           master_id?: string | null
           metadata?: Json | null
+          platform?: string | null
           resolution?: string | null
           s3_key?: string | null
           salesforce_id?: string | null
@@ -133,6 +136,7 @@ export type Database = {
           thumbnail_url?: string | null
           title: string
           updated_at?: string
+          variant_name?: string | null
         }
         Update: {
           approved_at?: string | null
@@ -148,6 +152,7 @@ export type Database = {
           id?: string
           master_id?: string | null
           metadata?: Json | null
+          platform?: string | null
           resolution?: string | null
           s3_key?: string | null
           salesforce_id?: string | null
@@ -157,6 +162,7 @@ export type Database = {
           thumbnail_url?: string | null
           title?: string
           updated_at?: string
+          variant_name?: string | null
         }
         Relationships: []
       }
