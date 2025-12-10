@@ -136,12 +136,51 @@ serve(async (req) => {
 
     console.log("Created media_assets record:", assetData.id);
 
-    // Salesforce sync is disabled for now - the w2x-engine endpoint requires
-    // specific relationship fields (Account__c, etc.) that we don't have yet.
-    // Master images are stored in Supabase media_assets and can be synced to 
-    // Salesforce manually or via a future dedicated API endpoint.
-    const salesforceId: string | null = null;
-    console.log("Salesforce sync skipped - master image stored in Supabase only");
+    // Create Salesforce Master Content record via Real Intelligence API
+    let salesforceId: string | null = null;
+    try {
+      const sfEndpoint = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
+      
+      // Build FormData payload for w2x-engine (multipart/form-data)
+      const formData = new FormData();
+      formData.append("retURL", "https://worldmotoclash.com");
+      formData.append("sObj", "ri1__Content__c");
+      formData.append("string_Name", imageTitle);
+      formData.append("string_ri1__Content_Type__c", "Image");
+      formData.append("string_ri1__URL__c", cdnUrl);
+
+      console.log("Sending to Salesforce via w2x-engine:", sfEndpoint);
+      console.log("FormData fields: Name=" + imageTitle + ", Content_Type=Image, URL=" + cdnUrl);
+
+      const sfResponse = await fetch(sfEndpoint, {
+        method: "POST",
+        body: formData,
+      });
+
+      const sfText = await sfResponse.text();
+      console.log("Salesforce response status:", sfResponse.status);
+      console.log("Salesforce response:", sfText);
+      
+      if (sfResponse.ok && !sfText.includes("ERROR")) {
+        // Try to extract Salesforce ID from response (Content ID pattern)
+        const idMatch = sfText.match(/a[0-9A-Za-z]{17}/);
+        if (idMatch) {
+          salesforceId = idMatch[0];
+          console.log("Extracted Salesforce ID:", salesforceId);
+          
+          // Update asset with Salesforce ID
+          await supabase
+            .from("media_assets")
+            .update({ salesforce_id: salesforceId })
+            .eq("id", assetData.id);
+        }
+      } else {
+        console.warn("Salesforce sync failed:", sfText);
+      }
+    } catch (sfError) {
+      console.error("Salesforce callback error:", sfError);
+      // Don't fail the upload for Salesforce sync issues
+    }
 
     return new Response(
       JSON.stringify({
