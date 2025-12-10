@@ -42,7 +42,7 @@ serve(async (req) => {
 
     // Generate unique master ID
     const masterId = crypto.randomUUID();
-    const s3Key = `wmc-media/masters/${masterId}/master.jpg`;
+    const s3Key = `masters/${masterId}/master.jpg`;
 
     // Initialize Wasabi S3 client
     const accessKeyId = Deno.env.get("WASABI_ACCESS_KEY_ID");
@@ -69,7 +69,7 @@ serve(async (req) => {
     // Upload to Wasabi S3
     const wasabiEndpoint = "https://s3.wasabisys.com";
     const bucketName = "wmc-media";
-    const uploadUrl = `${wasabiEndpoint}/${bucketName}/${s3Key.replace("wmc-media/", "")}`;
+    const uploadUrl = `${wasabiEndpoint}/${bucketName}/${s3Key}`;
 
     console.log("Uploading to S3:", uploadUrl);
 
@@ -91,9 +91,9 @@ serve(async (req) => {
       );
     }
 
-    // Construct public URL
-    const s3Url = `${wasabiEndpoint}/${bucketName}/${s3Key.replace("wmc-media/", "")}`;
-    console.log("S3 upload successful:", s3Url);
+    // Construct CDN URL (using media.worldmotoclash.com CDN)
+    const cdnUrl = `https://media.worldmotoclash.com/Production/${s3Key}`;
+    console.log("S3 upload successful, CDN URL:", cdnUrl);
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -101,12 +101,13 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Insert master image record into media_assets
+    const imageTitle = title || filename.replace(/\.[^/.]+$/, "");
     const { data: assetData, error: assetError } = await supabase
       .from("media_assets")
       .insert({
-        title: title || filename.replace(/\.[^/.]+$/, ""),
-        file_url: s3Url,
-        thumbnail_url: s3Url,
+        title: imageTitle,
+        file_url: cdnUrl,
+        thumbnail_url: cdnUrl,
         source: "local_upload",
         status: "ready",
         file_format: "jpg",
@@ -135,39 +136,42 @@ serve(async (req) => {
 
     console.log("Created media_assets record:", assetData.id);
 
-    // Call Salesforce via Real Intelligence API to create Master Content record
+    // Create Salesforce Master Content record via Real Intelligence API
     let salesforceId: string | null = null;
     try {
-      const sfPayload = {
-        action: "create_content",
-        data: {
-          contentType: "Image",
-          isMaster: true,
-          name: title || "Master Image",
-          url: s3Url,
-          pixelWidth: width,
-          pixelHeight: height,
-          platform: "All Platforms",
-          platformVariant: "Master Image",
-          contentSystemFlags: ["Master Image", "Original Upload"],
-        },
-      };
+      const sfEndpoint = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
+      
+      // Build FormData payload for w2x-engine
+      const formData = new FormData();
+      formData.append("sObj", "ri1__Content__c");
+      formData.append("string_ri1__Name__c", imageTitle);
+      formData.append("string_ri1__URL__c", cdnUrl);
+      formData.append("number_ri1__Pixel_Width__c", width.toString());
+      formData.append("number_ri1__Pixel_Height__c", height.toString());
+      formData.append("string_ri1__Content_Type__c", "Image");
+      formData.append("checkbox_ri1__Is_Master__c", "true");
+      formData.append("string_ri1__Platform__c", "All Platforms");
+      formData.append("string_ri1__Platform_Variant__c", "Master Image");
 
-      console.log("Sending to Salesforce:", JSON.stringify(sfPayload, null, 2));
+      console.log("Sending to Salesforce via w2x-engine:", sfEndpoint);
 
-      const sfResponse = await fetch("https://api.realintelligence.com/web2x-engine.php", {
+      const sfResponse = await fetch(sfEndpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sfPayload),
+        body: formData,
       });
 
       if (sfResponse.ok) {
-        const sfResult = await sfResponse.json();
-        salesforceId = sfResult.salesforceId || sfResult.id || null;
-        console.log("Salesforce sync result:", sfResult);
-
-        // Update asset with Salesforce ID
-        if (salesforceId) {
+        const sfText = await sfResponse.text();
+        console.log("Salesforce response:", sfText);
+        
+        // Try to parse the response for the Salesforce ID
+        // Response format may vary - try to extract ID
+        const idMatch = sfText.match(/[a-zA-Z0-9]{15,18}/);
+        if (idMatch) {
+          salesforceId = idMatch[0];
+          console.log("Extracted Salesforce ID:", salesforceId);
+          
+          // Update asset with Salesforce ID
           await supabase
             .from("media_assets")
             .update({ salesforce_id: salesforceId })
@@ -186,7 +190,7 @@ serve(async (req) => {
         success: true,
         masterId,
         assetId: assetData.id,
-        s3Url,
+        cdnUrl,
         s3Key,
         salesforceId,
         dimensions: { width, height },
