@@ -89,6 +89,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          asset_type: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -99,6 +100,8 @@ export type Database = {
           id: string
           metadata: Json | null
           resolution: string | null
+          s3_key: string | null
+          salesforce_id: string | null
           source: Database["public"]["Enums"]["media_source"]
           source_id: string | null
           status: string | null
@@ -109,6 +112,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          asset_type?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -119,6 +123,8 @@ export type Database = {
           id?: string
           metadata?: Json | null
           resolution?: string | null
+          s3_key?: string | null
+          salesforce_id?: string | null
           source: Database["public"]["Enums"]["media_source"]
           source_id?: string | null
           status?: string | null
@@ -129,6 +135,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          asset_type?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -139,6 +146,8 @@ export type Database = {
           id?: string
           metadata?: Json | null
           resolution?: string | null
+          s3_key?: string | null
+          salesforce_id?: string | null
           source?: Database["public"]["Enums"]["media_source"]
           source_id?: string | null
           status?: string | null
