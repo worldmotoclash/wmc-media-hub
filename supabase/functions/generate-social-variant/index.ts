@@ -178,14 +178,14 @@ serve(async (req) => {
     const aws = new AwsClient({
       accessKeyId,
       secretAccessKey,
-      region: "us-east-1",
+      region: "us-central-1",
       service: "s3",
     });
 
-    // Upload to S3 with the correct folder structure
-    const s3Key = `masters/${masterId}/${outputFilename}`;
-    const wasabiEndpoint = "https://s3.wasabisys.com";
-    const bucketName = "wmc-media";
+    // Upload to S3 with the correct folder structure (matches upload-master-to-s3)
+    const bucketName = "shortf-media";
+    const s3Key = `SOCAIL_MEDIA_IMAGES_KNEWTV/masters/${masterId}/${outputFilename}`;
+    const wasabiEndpoint = "https://s3.us-central-1.wasabisys.com";
     const uploadUrl = `${wasabiEndpoint}/${bucketName}/${s3Key}`;
 
     console.log("Uploading variant to S3:", uploadUrl);
@@ -208,8 +208,8 @@ serve(async (req) => {
       );
     }
 
-    const variantS3Url = `${wasabiEndpoint}/${bucketName}/${s3Key}`;
-    console.log("S3 upload successful:", variantS3Url);
+    const variantCdnUrl = `https://media.worldmotoclash.com/${s3Key}`;
+    console.log("S3 upload successful, CDN URL:", variantCdnUrl);
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -221,8 +221,8 @@ serve(async (req) => {
       .from("media_assets")
       .insert({
         title: `${platform} ${variantName} (${targetWidth}x${targetHeight})`,
-        file_url: variantS3Url,
-        thumbnail_url: variantS3Url,
+        file_url: variantCdnUrl,
+        thumbnail_url: variantCdnUrl,
         source: "generated",
         status: "ready",
         file_format: "jpg",
@@ -230,7 +230,7 @@ serve(async (req) => {
         asset_type: "image_variant",
         platform: platform,
         variant_name: variantName,
-        s3_key: `wmc-media/${s3Key}`,
+        s3_key: s3Key,
         metadata: {
           width: targetWidth,
           height: targetHeight,
@@ -264,7 +264,7 @@ serve(async (req) => {
             platformVariant: salesforceData.platformVariant,
             pixelWidth: salesforceData.pixelWidth,
             pixelHeight: salesforceData.pixelHeight,
-            publicUrl: variantS3Url,
+            publicUrl: variantCdnUrl,
             systemFlags: salesforceData.systemFlags || [
               "Auto Generated",
               "Social Kit Output",
@@ -315,8 +315,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        url: variantS3Url,
-        s3Key: `wmc-media/${s3Key}`,
+        url: variantCdnUrl,
+        s3Key: s3Key,
         assetId: assetData?.id,
         salesforceId,
         dimensions: { width: targetWidth, height: targetHeight },
