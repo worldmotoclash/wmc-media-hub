@@ -245,3 +245,30 @@ export function validateMasterImage(
 
   return { valid: true };
 }
+
+export async function deleteMasterImage(masterAssetId: string): Promise<{
+  success: boolean;
+  error?: string;
+  deleted?: { variantsCount: number; jobsCount: number; masterDeleted: boolean };
+}> {
+  try {
+    const response = await supabase.functions.invoke("delete-master-image", {
+      body: { masterAssetId }
+    });
+
+    if (response.error) {
+      throw new Error(response.error.message || "Edge function error");
+    }
+
+    return {
+      success: true,
+      deleted: response.data?.deleted
+    };
+  } catch (error) {
+    console.error("Error deleting master image:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error"
+    };
+  }
+}
