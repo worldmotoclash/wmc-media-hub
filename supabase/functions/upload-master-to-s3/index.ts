@@ -141,16 +141,19 @@ serve(async (req) => {
     try {
       const sfEndpoint = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
       
+      // Extract file extension for Content Type (JPG, PNG, etc.)
+      const fileExtension = filename.split('.').pop()?.toUpperCase() || 'JPG';
+      
       // Build FormData payload for w2x-engine (multipart/form-data)
       const formData = new FormData();
       formData.append("retURL", "https://worldmotoclash.com");
       formData.append("sObj", "ri1__Content__c");
       formData.append("string_Name", imageTitle);
-      formData.append("string_ri1__Content_Type__c", "Image");
+      formData.append("string_ri1__Content_Type__c", fileExtension);
       formData.append("string_ri1__URL__c", cdnUrl);
 
       console.log("Sending to Salesforce via w2x-engine:", sfEndpoint);
-      console.log("FormData fields: Name=" + imageTitle + ", Content_Type=Image, URL=" + cdnUrl);
+      console.log("FormData fields: Name=" + imageTitle + ", Content_Type=" + fileExtension + ", URL=" + cdnUrl);
 
       const sfResponse = await fetch(sfEndpoint, {
         method: "POST",
