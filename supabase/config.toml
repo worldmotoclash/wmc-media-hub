@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.test-veo-integration]
 verify_jwt = false
+
+[functions.delete-master-image]
+verify_jwt = false

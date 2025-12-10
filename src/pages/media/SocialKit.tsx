@@ -6,13 +6,25 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { SocialKitGeneratorModal } from "@/components/media/SocialKitGeneratorModal";
 import { GeneratedVariantsGrid } from "@/components/media/GeneratedVariantsGrid";
 import { MasterImageUploadDialog } from "@/components/media/MasterImageUploadDialog";
 import { PlatformVariantSelector } from "@/components/media/PlatformVariantSelector";
 import { fetchMasterImages, MasterImage } from "@/services/masterImageService";
+import { deleteMasterImage, fetchVariantsForMaster } from "@/services/socialKitService";
 import { SOCIAL_VARIANTS } from "@/constants/socialVariants";
-import { ArrowLeft, ImagePlus, Search, Image as ImageIcon, Layers, Upload } from "lucide-react";
+import { ArrowLeft, ImagePlus, Search, Image as ImageIcon, Layers, Upload, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function SocialKit() {
   const [assets, setAssets] = useState<MasterImage[]>([]);
@@ -26,6 +38,10 @@ export default function SocialKit() {
     new Set(SOCIAL_VARIANTS.map(v => v.id))
   );
   const [variantSelectorExpanded, setVariantSelectorExpanded] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [assetToDelete, setAssetToDelete] = useState<MasterImage | null>(null);
+  const [variantCount, setVariantCount] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     loadMasterImages();
@@ -55,6 +71,37 @@ export default function SocialKit() {
   const handleGenerateComplete = () => {
     setRefreshTrigger(prev => prev + 1);
     loadMasterImages();
+  };
+
+  const handleDeleteClick = async (asset: MasterImage) => {
+    setAssetToDelete(asset);
+    // Fetch variant count for confirmation message
+    const variants = await fetchVariantsForMaster(asset.id);
+    setVariantCount(variants.length);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!assetToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      const result = await deleteMasterImage(assetToDelete.id);
+      
+      if (result.success) {
+        toast.success(`Deleted master image and ${result.deleted?.variantsCount || 0} variants`);
+        loadMasterImages();
+        setRefreshTrigger(prev => prev + 1);
+      } else {
+        toast.error(result.error || "Failed to delete master image");
+      }
+    } catch (error) {
+      toast.error("An error occurred while deleting");
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setAssetToDelete(null);
+    }
   };
 
   return (
@@ -191,10 +238,20 @@ export default function SocialKit() {
                         <ImageIcon className="h-12 w-12 text-muted-foreground" />
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                       <Button onClick={() => handleGenerateClick(asset)}>
                         <ImagePlus className="h-4 w-4 mr-2" />
-                        Generate Images
+                        Generate
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteClick(asset);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -246,6 +303,33 @@ export default function SocialKit() {
           loadMasterImages();
         }}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Master Image</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{assetToDelete?.name || 'this image'}" and{" "}
+              {variantCount > 0 ? (
+                <span className="font-semibold text-destructive">{variantCount} generated variant{variantCount !== 1 ? 's' : ''}</span>
+              ) : (
+                "all associated data"
+              )}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
