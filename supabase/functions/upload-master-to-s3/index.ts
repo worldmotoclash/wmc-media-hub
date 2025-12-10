@@ -59,15 +59,15 @@ serve(async (req) => {
     const aws = new AwsClient({
       accessKeyId,
       secretAccessKey,
-      region: "us-east-1",
+      region: "us-central-1",
       service: "s3",
     });
 
     // Decode base64 image
     const imageData = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
 
-    // Upload to Wasabi S3 - shortf-media bucket
-    const wasabiEndpoint = "https://s3.wasabisys.com";
+    // Upload to Wasabi S3 - shortf-media bucket (Texas/us-central-1)
+    const wasabiEndpoint = "https://s3.us-central-1.wasabisys.com";
     const bucketName = "shortf-media";
     const uploadUrl = `${wasabiEndpoint}/${bucketName}/${s3Key}`;
 
