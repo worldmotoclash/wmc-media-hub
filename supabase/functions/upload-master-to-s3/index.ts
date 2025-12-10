@@ -141,32 +141,38 @@ serve(async (req) => {
     try {
       const sfEndpoint = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
       
-      // Build FormData payload for w2x-engine
-      const formData = new FormData();
-      formData.append("sObj", "ri1__Content__c");
-      formData.append("string_ri1__Name__c", imageTitle);
-      formData.append("string_ri1__URL__c", cdnUrl);
-      formData.append("number_ri1__Pixel_Width__c", width.toString());
-      formData.append("number_ri1__Pixel_Height__c", height.toString());
-      formData.append("string_ri1__Content_Type__c", "Image");
-      formData.append("checkbox_ri1__Is_Master__c", "true");
-      formData.append("string_ri1__Platform__c", "All Platforms");
-      formData.append("string_ri1__Platform_Variant__c", "Master Image");
+      // Build URL-encoded form data for w2x-engine (not FormData for this endpoint)
+      const params = new URLSearchParams();
+      params.append("sObj", "ri1__Content__c");
+      params.append("string_Name__c", imageTitle);
+      params.append("string_ri1__URL__c", cdnUrl);
+      params.append("string_ri1__Content_Type__c", "Image");
+      params.append("string_ri1__Platform__c", "All Platforms");
+      params.append("string_ri1__Platform_Variant__c", "Master Image");
+      params.append("number_ri1__Pixel_Width__c", width.toString());
+      params.append("number_ri1__Pixel_Height__c", height.toString());
+      params.append("checkbox_ri1__Is_Master__c", "1");
+      params.append("checkbox_ri1__Approved__c", "0");
 
       console.log("Sending to Salesforce via w2x-engine:", sfEndpoint);
+      console.log("Salesforce payload:", params.toString());
 
       const sfResponse = await fetch(sfEndpoint, {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params.toString(),
       });
 
-      if (sfResponse.ok) {
-        const sfText = await sfResponse.text();
-        console.log("Salesforce response:", sfText);
-        
+      const sfText = await sfResponse.text();
+      console.log("Salesforce response status:", sfResponse.status);
+      console.log("Salesforce response:", sfText);
+      
+      if (sfResponse.ok && !sfText.includes("ERROR")) {
         // Try to parse the response for the Salesforce ID
-        // Response format may vary - try to extract ID
-        const idMatch = sfText.match(/[a-zA-Z0-9]{15,18}/);
+        // Response format may be HTML with the ID or JSON
+        const idMatch = sfText.match(/a2F[a-zA-Z0-9]{12,15}/);
         if (idMatch) {
           salesforceId = idMatch[0];
           console.log("Extracted Salesforce ID:", salesforceId);
@@ -178,7 +184,7 @@ serve(async (req) => {
             .eq("id", assetData.id);
         }
       } else {
-        console.warn("Salesforce sync warning:", await sfResponse.text());
+        console.warn("Salesforce sync failed:", sfText);
       }
     } catch (sfError) {
       console.error("Salesforce callback error:", sfError);
