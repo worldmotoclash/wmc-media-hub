@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 import { AwsClient } from "https://esm.sh/aws4fetch@1.0.20";
+import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,17 +30,61 @@ interface SocialVariantRequest {
   };
 }
 
-// Native image resizing using canvas
+/**
+ * Smart crop and resize using imagescript
+ * Centers the crop on the image and resizes to target dimensions
+ */
 async function resizeImageNative(
   imageBuffer: Uint8Array,
   targetWidth: number,
   targetHeight: number
 ): Promise<Uint8Array> {
-  // For now, return the original image
-  // In production, you would use a library like sharp or canvas
-  // Deno doesn't have native canvas, so we'll use a simple approach
   console.log(`Native resize requested: ${targetWidth}x${targetHeight}`);
-  return imageBuffer;
+  
+  // Decode the image
+  const image = await Image.decode(imageBuffer);
+  const srcWidth = image.width;
+  const srcHeight = image.height;
+  
+  console.log(`Source image dimensions: ${srcWidth}x${srcHeight}`);
+  
+  // Calculate aspect ratios
+  const srcAspect = srcWidth / srcHeight;
+  const targetAspect = targetWidth / targetHeight;
+  
+  let cropWidth: number;
+  let cropHeight: number;
+  let cropX: number;
+  let cropY: number;
+  
+  if (srcAspect > targetAspect) {
+    // Source is wider than target - crop the sides
+    cropHeight = srcHeight;
+    cropWidth = Math.round(srcHeight * targetAspect);
+    cropX = Math.round((srcWidth - cropWidth) / 2);
+    cropY = 0;
+  } else {
+    // Source is taller than target - crop top/bottom
+    cropWidth = srcWidth;
+    cropHeight = Math.round(srcWidth / targetAspect);
+    cropX = 0;
+    cropY = Math.round((srcHeight - cropHeight) / 2);
+  }
+  
+  console.log(`Cropping to: ${cropWidth}x${cropHeight} at (${cropX}, ${cropY})`);
+  
+  // Crop the image to the target aspect ratio (center crop)
+  const cropped = image.crop(cropX, cropY, cropWidth, cropHeight);
+  
+  // Resize to target dimensions
+  cropped.resize(targetWidth, targetHeight);
+  
+  console.log(`Resized to: ${targetWidth}x${targetHeight}`);
+  
+  // Encode as JPEG with 90% quality
+  const result = await cropped.encodeJPEG(90);
+  
+  return result;
 }
 
 // Wavespeed FLUX AI resize/fill
