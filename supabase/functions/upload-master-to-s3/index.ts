@@ -136,56 +136,12 @@ serve(async (req) => {
 
     console.log("Created media_assets record:", assetData.id);
 
-    // Create Salesforce Master Content record via Real Intelligence API
-    let salesforceId: string | null = null;
-    try {
-      const sfEndpoint = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
-      
-      // Build FormData payload for w2x-engine
-      const formData = new FormData();
-      formData.append("sObj", "ri1__Content__c");
-      formData.append("string_Name", imageTitle);  // Standard field - no __c suffix
-      formData.append("string_ri1__URL__c", cdnUrl);
-      formData.append("string_ri1__Content_Type__c", "Image");
-      formData.append("string_ri1__Platform__c", "All Platforms");
-      formData.append("string_ri1__Platform_Variant__c", "Master Image");
-      formData.append("number_ri1__Pixel_Width__c", width.toString());
-      formData.append("number_ri1__Pixel_Height__c", height.toString());
-      formData.append("checkbox_ri1__Is_Master__c", "true");
-      formData.append("checkbox_ri1__Approved__c", "false");
-
-      console.log("Sending to Salesforce via w2x-engine:", sfEndpoint);
-
-      const sfResponse = await fetch(sfEndpoint, {
-        method: "POST",
-        body: formData,  // Let Deno set Content-Type automatically for FormData
-      });
-
-      const sfText = await sfResponse.text();
-      console.log("Salesforce response status:", sfResponse.status);
-      console.log("Salesforce response:", sfText);
-      
-      if (sfResponse.ok && !sfText.includes("ERROR")) {
-        // Try to parse the response for the Salesforce ID
-        // Response format may be HTML with the ID or JSON
-        const idMatch = sfText.match(/a2F[a-zA-Z0-9]{12,15}/);
-        if (idMatch) {
-          salesforceId = idMatch[0];
-          console.log("Extracted Salesforce ID:", salesforceId);
-          
-          // Update asset with Salesforce ID
-          await supabase
-            .from("media_assets")
-            .update({ salesforce_id: salesforceId })
-            .eq("id", assetData.id);
-        }
-      } else {
-        console.warn("Salesforce sync failed:", sfText);
-      }
-    } catch (sfError) {
-      console.error("Salesforce callback error:", sfError);
-      // Don't fail the upload for Salesforce sync issues
-    }
+    // Salesforce sync is disabled for now - the w2x-engine endpoint requires
+    // specific relationship fields (Account__c, etc.) that we don't have yet.
+    // Master images are stored in Supabase media_assets and can be synced to 
+    // Salesforce manually or via a future dedicated API endpoint.
+    const salesforceId: string | null = null;
+    console.log("Salesforce sync skipped - master image stored in Supabase only");
 
     return new Response(
       JSON.stringify({
