@@ -207,11 +207,11 @@ export async function fetchJobsForMaster(masterAssetId: string): Promise<SocialK
 }
 
 export async function fetchVariantsForMaster(masterAssetId: string): Promise<any[]> {
-  // Query by master_id column or metadata field
+  // Query by master_id column only (simpler, more reliable)
   const { data, error } = await supabase
     .from("media_assets")
     .select("*")
-    .or(`master_id.eq.${masterAssetId},metadata->masterAssetId.eq."${masterAssetId}"`);
+    .eq("master_id", masterAssetId);
 
   if (error) {
     console.error("Error fetching variants for master:", error);
