@@ -223,6 +223,54 @@ export type Database = {
         }
         Relationships: []
       }
+      social_kit_jobs: {
+        Row: {
+          completed_variants: number
+          created_at: string
+          error_message: string | null
+          failed_variants: number
+          id: string
+          master_asset_id: string
+          salesforce_master_id: string | null
+          selected_model: string
+          status: string
+          total_variants: number
+          updated_at: string
+          user_id: string
+          variants: Json
+        }
+        Insert: {
+          completed_variants?: number
+          created_at?: string
+          error_message?: string | null
+          failed_variants?: number
+          id?: string
+          master_asset_id: string
+          salesforce_master_id?: string | null
+          selected_model?: string
+          status?: string
+          total_variants?: number
+          updated_at?: string
+          user_id?: string
+          variants?: Json
+        }
+        Update: {
+          completed_variants?: number
+          created_at?: string
+          error_message?: string | null
+          failed_variants?: number
+          id?: string
+          master_asset_id?: string
+          salesforce_master_id?: string | null
+          selected_model?: string
+          status?: string
+          total_variants?: number
+          updated_at?: string
+          user_id?: string
+          variants?: Json
+        }
+        Relationships: []
+      }
       video_generations: {
         Row: {
           created_at: string
