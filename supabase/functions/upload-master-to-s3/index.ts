@@ -42,7 +42,7 @@ serve(async (req) => {
 
     // Generate unique master ID
     const masterId = crypto.randomUUID();
-    const s3Key = `masters/${masterId}/master.jpg`;
+    const s3Key = `SOCAIL_MEDIA_IMAGES_KNEWTV/masters/${masterId}/master.jpg`;
 
     // Initialize Wasabi S3 client
     const accessKeyId = Deno.env.get("WASABI_ACCESS_KEY_ID");
@@ -66,9 +66,9 @@ serve(async (req) => {
     // Decode base64 image
     const imageData = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
 
-    // Upload to Wasabi S3
+    // Upload to Wasabi S3 - shortf-media bucket
     const wasabiEndpoint = "https://s3.wasabisys.com";
-    const bucketName = "wmc-media";
+    const bucketName = "shortf-media";
     const uploadUrl = `${wasabiEndpoint}/${bucketName}/${s3Key}`;
 
     console.log("Uploading to S3:", uploadUrl);
@@ -91,8 +91,8 @@ serve(async (req) => {
       );
     }
 
-    // Construct CDN URL (using media.worldmotoclash.com CDN)
-    const cdnUrl = `https://media.worldmotoclash.com/Production/${s3Key}`;
+    // Construct CDN URL
+    const cdnUrl = `https://media.worldmotoclash.com/${s3Key}`;
     console.log("S3 upload successful, CDN URL:", cdnUrl);
 
     // Initialize Supabase client
