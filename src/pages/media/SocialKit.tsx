@@ -10,16 +10,15 @@ import { SocialKitGeneratorModal } from "@/components/media/SocialKitGeneratorMo
 import { GeneratedVariantsGrid } from "@/components/media/GeneratedVariantsGrid";
 import { MasterImageUploadDialog } from "@/components/media/MasterImageUploadDialog";
 import { PlatformVariantSelector } from "@/components/media/PlatformVariantSelector";
-import { fetchAllMediaAssets, MediaAsset } from "@/services/unifiedMediaService";
+import { fetchMasterImages, MasterImage } from "@/services/masterImageService";
 import { SOCIAL_VARIANTS } from "@/constants/socialVariants";
-import { ArrowLeft, ImagePlus, Search, Image as ImageIcon, Layers, Tag, Upload } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { ArrowLeft, ImagePlus, Search, Image as ImageIcon, Layers, Upload } from "lucide-react";
 
 export default function SocialKit() {
-  const [assets, setAssets] = useState<MediaAsset[]>([]);
+  const [assets, setAssets] = useState<MasterImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedAsset, setSelectedAsset] = useState<MediaAsset | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<MasterImage | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -35,36 +34,20 @@ export default function SocialKit() {
   const loadMasterImages = async () => {
     setLoading(true);
     try {
-      // Fetch all assets - filter for images
-      const { assets: allAssets } = await fetchAllMediaAssets("", undefined, 100, 0);
-      
-      // Filter for images that could be master images
-      const masterImages = allAssets.filter(asset => {
-        const hasMasterTag = asset.tags?.some(tag => 
-          tag.name.toLowerCase().includes("master") || 
-          tag.name.toLowerCase().includes("source")
-        );
-        const isImage = asset.fileFormat?.match(/\.(jpg|jpeg|png|webp)$/i) || 
-                       asset.fileUrl?.match(/\.(jpg|jpeg|png|webp)$/i) ||
-                       asset.thumbnailUrl?.match(/\.(jpg|jpeg|png|webp)$/i);
-        return isImage || hasMasterTag || true; // Show all for now
-      });
-
+      const masterImages = await fetchMasterImages();
       setAssets(masterImages);
     } catch (error) {
       console.error("Error loading master images:", error);
-      // Don't show error toast for network issues - page will show empty state
     } finally {
       setLoading(false);
     }
   };
 
   const filteredAssets = assets.filter(asset =>
-    asset.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    asset.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    asset.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleGenerateClick = (asset: MediaAsset) => {
+  const handleGenerateClick = (asset: MasterImage) => {
     setSelectedAsset(asset);
     setModalOpen(true);
   };
@@ -72,10 +55,6 @@ export default function SocialKit() {
   const handleGenerateComplete = () => {
     setRefreshTrigger(prev => prev + 1);
     loadMasterImages();
-  };
-
-  const getAssetUrl = (asset: MediaAsset): string => {
-    return asset.fileUrl || asset.thumbnailUrl || "";
   };
 
   return (
@@ -200,10 +179,10 @@ export default function SocialKit() {
               >
                 <Card className="overflow-hidden group hover:shadow-lg transition-shadow">
                   <div className="relative aspect-video bg-muted">
-                    {(asset.thumbnailUrl || asset.fileUrl) ? (
+                    {asset.url ? (
                       <img
-                        src={asset.thumbnailUrl || asset.fileUrl}
-                        alt={asset.title}
+                        src={asset.url}
+                        alt={asset.name}
                         className="w-full h-full object-cover"
                         loading="lazy"
                       />
@@ -220,32 +199,15 @@ export default function SocialKit() {
                     </div>
                   </div>
                   <CardContent className="p-4">
-                    <h3 className="font-medium truncate mb-1">{asset.title || "Untitled"}</h3>
+                    <h3 className="font-medium truncate mb-1">{asset.name || "Untitled"}</h3>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      {asset.metadata?.width && asset.metadata?.height && (
-                        <span>{asset.metadata.width} × {asset.metadata.height}</span>
+                      {asset.contentType && (
+                        <Badge variant="outline" className="text-xs">{asset.contentType}</Badge>
                       )}
-                      {asset.source && (
-                        <Badge variant="outline" className="text-xs">{asset.source}</Badge>
+                      {asset.aiPercentage > 0 && (
+                        <Badge variant="secondary" className="text-xs">AI: {asset.aiPercentage}%</Badge>
                       )}
                     </div>
-                    {asset.tags && asset.tags.length > 0 && (
-                      <div className="flex items-center gap-1 mt-2">
-                        <Tag className="h-3 w-3 text-muted-foreground" />
-                        <div className="flex flex-wrap gap-1">
-                          {asset.tags.slice(0, 3).map(tag => (
-                            <Badge key={tag.id} variant="secondary" className="text-xs">
-                              {tag.name}
-                            </Badge>
-                          ))}
-                          {asset.tags.length > 3 && (
-                            <Badge variant="secondary" className="text-xs">
-                              +{asset.tags.length - 3}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
 
@@ -267,9 +229,9 @@ export default function SocialKit() {
           onOpenChange={setModalOpen}
           masterAsset={{
             id: selectedAsset.id,
-            url: getAssetUrl(selectedAsset),
-            title: selectedAsset.title,
-            salesforce_id: selectedAsset.sourceId
+            url: selectedAsset.url,
+            title: selectedAsset.name,
+            salesforce_id: selectedAsset.id
           }}
           onComplete={handleGenerateComplete}
         />
