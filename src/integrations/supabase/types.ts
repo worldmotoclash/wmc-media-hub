@@ -98,6 +98,7 @@ export type Database = {
           file_size: number | null
           file_url: string | null
           id: string
+          master_id: string | null
           metadata: Json | null
           resolution: string | null
           s3_key: string | null
@@ -121,6 +122,7 @@ export type Database = {
           file_size?: number | null
           file_url?: string | null
           id?: string
+          master_id?: string | null
           metadata?: Json | null
           resolution?: string | null
           s3_key?: string | null
@@ -144,6 +146,7 @@ export type Database = {
           file_size?: number | null
           file_url?: string | null
           id?: string
+          master_id?: string | null
           metadata?: Json | null
           resolution?: string | null
           s3_key?: string | null
