@@ -545,6 +545,69 @@ export const MODEL_REGISTRY: AIModel[] = [
     sampleVideos: [],
     changelog: ['v1.1: Speed optimizations', 'v1.0: Initial release'],
     uptime: 97.8
+  },
+  // Vidu Image-to-Video Models
+  {
+    id: 'vidu_i2v',
+    name: 'vidu_i2v',
+    displayName: 'Vidu Image-to-Video 2.0',
+    vendor: 'WaveSpeed',
+    pricing: { basis: 'per_run', basePrice: 0.30, currency: 'USD' },
+    capabilities: ['image_to_video', 'realistic_motion', 'high_quality'],
+    qualityTier: '720p',
+    speedTier: 'Standard',
+    specs: {
+      maxDuration: 8,
+      supportedDurations: [4, 8],
+      maxResolution: '720p',
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      fpsOptions: [24, 30],
+      audioSupport: false
+    },
+    latency: { typical: 60, range: [45, 90] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['Image animation', 'Realistic motion', 'Quality output'],
+    description: 'Animate a single image into a video with realistic motion and high quality.',
+    promptTips: [
+      'Provide a clear starting image',
+      'Describe the desired motion in prompt',
+      'Works best with high-quality source images'
+    ],
+    sampleVideos: [],
+    changelog: ['v2.0: Enhanced motion quality', 'v1.5: Initial release'],
+    uptime: 96.5
+  },
+  {
+    id: 'vidu_start_end',
+    name: 'vidu_start_end',
+    displayName: 'Vidu Start-End-to-Video 2.0',
+    vendor: 'WaveSpeed',
+    pricing: { basis: 'per_run', basePrice: 0.35, currency: 'USD' },
+    capabilities: ['start_end_image', 'image_to_video', 'transition', 'high_quality'],
+    qualityTier: '720p',
+    speedTier: 'Standard',
+    specs: {
+      maxDuration: 8,
+      supportedDurations: [4, 8],
+      maxResolution: '720p',
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      fpsOptions: [24, 30],
+      audioSupport: false
+    },
+    latency: { typical: 75, range: [60, 100] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['Start/End frames', 'Smooth transitions', 'Creative control'],
+    description: 'Create smooth video transitions between a start image and end image.',
+    promptTips: [
+      'Provide both start and end images',
+      'Use similar subjects for smoother transitions',
+      'Describe the transition style in prompt'
+    ],
+    sampleVideos: [],
+    changelog: ['v2.0: Improved transition quality', 'v1.5: Initial release'],
+    uptime: 95.8
   }
 ];
 
@@ -568,7 +631,9 @@ export const MODEL_CAPABILITIES: ModelCapability[] = [
   { id: 'fast_turnaround', name: 'Fast Turnaround', description: 'Quick generation times' },
   { id: 'google_quality', name: 'Google Quality', description: 'Google AI powered generation' },
   { id: 'openai_quality', name: 'OpenAI Quality', description: 'OpenAI powered generation' },
-  { id: 'premium_quality', name: 'Premium Quality', description: 'Premium tier quality' }
+  { id: 'premium_quality', name: 'Premium Quality', description: 'Premium tier quality' },
+  { id: 'start_end_image', name: 'Start/End Image', description: 'Supports both start and end image frames' },
+  { id: 'transition', name: 'Transition', description: 'Creates smooth transitions between frames' }
 ];
 
 export const getModelById = (id: string): AIModel | undefined => {
