@@ -20,6 +20,8 @@ interface WavespeedGenerationRequest {
   };
   audioUrl?: string;
   imageUrl?: string;
+  startImage?: string;
+  endImage?: string;
   extras?: Record<string, any>;
   mediaUrlKey?: string;
   salesforceData?: Record<string, any>;
@@ -127,6 +129,35 @@ const WAVESPEED_MODELS: Record<string, {
       };
     },
     estimatedCostPer5s: 0.45
+  },
+  'vidu_i2v': {
+    url: 'https://api.wavespeed.ai/api/v3/vidu/image-to-video-2.0',
+    buildPayload: ({ prompt, durationSec, imageUrl, extras }) => {
+      const duration = [4, 8].includes(durationSec) ? durationSec : 4;
+      return {
+        image: imageUrl,
+        prompt: prompt || '',
+        duration,
+        movement_amplitude: 'auto',
+        ...extras
+      };
+    },
+    estimatedCostPer5s: 0.30
+  },
+  'vidu_start_end': {
+    url: 'https://api.wavespeed.ai/api/v3/vidu/start-end-to-video-2.0',
+    buildPayload: ({ prompt, durationSec, startImage, endImage, extras }) => {
+      const duration = [4, 8].includes(durationSec) ? durationSec : 4;
+      return {
+        start_image: startImage,
+        end_image: endImage,
+        prompt: prompt || '',
+        duration,
+        movement_amplitude: 'auto',
+        ...extras
+      };
+    },
+    estimatedCostPer5s: 0.35
   }
 };
 
@@ -175,6 +206,8 @@ Deno.serve(async (req) => {
       references: requestData.references,
       audioUrl: requestData.audioUrl,
       imageUrl: requestData.imageUrl,
+      startImage: requestData.startImage,
+      endImage: requestData.endImage,
       extras: requestData.extras,
       salesforceData: salesforceData,
     };

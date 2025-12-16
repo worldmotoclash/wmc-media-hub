@@ -19,7 +19,9 @@ import {
   Film, 
   MessageSquare, 
   Grid3X3, 
-  Smartphone 
+  Smartphone,
+  Image,
+  X
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
@@ -123,6 +125,8 @@ const Generate: React.FC = () => {
     logoImages: [] as string[],
     audioUrl: '',
     imageUrl: '',
+    startImage: '',
+    endImage: '',
     // Salesforce fields
     title: '',
     subtitle: '',
@@ -726,6 +730,119 @@ const Generate: React.FC = () => {
                   </div>
                 )}
               </Card>
+
+              {/* Start/End Image Section - Shows for image-to-video models */}
+              {selectedModel && (selectedModel.capabilities.includes('image_to_video') || selectedModel.capabilities.includes('start_end_image')) && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Image className="w-5 h-5" />
+                    Image Inputs
+                    {selectedModel.capabilities.includes('start_end_image') && (
+                      <Badge variant="secondary" className="text-xs">Start + End</Badge>
+                    )}
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Start Image */}
+                    <div className="space-y-3">
+                      <Label className="text-sm font-medium">
+                        {selectedModel.capabilities.includes('start_end_image') ? 'Start Image' : 'Source Image'}
+                        {selectedModel.id === 'vidu_i2v' && <span className="text-destructive"> *</span>}
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedModel.capabilities.includes('start_end_image') 
+                          ? 'The first frame of your video'
+                          : 'The image to animate into video'}
+                      </p>
+                      
+                      {genData.startImage ? (
+                        <div className="relative rounded-lg overflow-hidden border border-border">
+                          <img 
+                            src={genData.startImage} 
+                            alt="Start image" 
+                            className="w-full h-40 object-cover"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-2 right-2 h-6 w-6"
+                            onClick={() => setGenData(prev => ({ ...prev, startImage: '' }))}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Input
+                            type="url"
+                            placeholder="Paste image URL..."
+                            onChange={(e) => setGenData(prev => ({ ...prev, startImage: e.target.value }))}
+                            className="text-sm"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Supports: JPG, PNG, WEBP URLs
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* End Image - Only for start_end_image models */}
+                    {selectedModel.capabilities.includes('start_end_image') && (
+                      <div className="space-y-3">
+                        <Label className="text-sm font-medium">
+                          End Image
+                          <span className="text-destructive"> *</span>
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          The last frame of your video (transition target)
+                        </p>
+                        
+                        {genData.endImage ? (
+                          <div className="relative rounded-lg overflow-hidden border border-border">
+                            <img 
+                              src={genData.endImage} 
+                              alt="End image" 
+                              className="w-full h-40 object-cover"
+                            />
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute top-2 right-2 h-6 w-6"
+                              onClick={() => setGenData(prev => ({ ...prev, endImage: '' }))}
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Input
+                              type="url"
+                              placeholder="Paste image URL..."
+                              onChange={(e) => setGenData(prev => ({ ...prev, endImage: e.target.value }))}
+                              className="text-sm"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Supports: JPG, PNG, WEBP URLs
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tips for image-to-video */}
+                  <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground">
+                      <strong>Tips:</strong> Use high-quality images with clear subjects. 
+                      {selectedModel.capabilities.includes('start_end_image') 
+                        ? ' For best results, use images with similar composition and subjects.'
+                        : ' The prompt describes how the image should be animated.'}
+                    </p>
+                  </div>
+                </Card>
+              )}
 
               {/* Submit Button */}
               <div className="flex justify-center">
