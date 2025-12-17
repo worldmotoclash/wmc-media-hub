@@ -115,22 +115,26 @@ export const ModelCard: React.FC<ModelCardProps> = ({
       <CardContent className="space-y-4">
         {/* Pricing Display */}
         <div className="bg-muted/30 rounded-lg p-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <DollarSign className="w-4 h-4" />
-              <span className="text-xs font-medium">EFFECTIVE PRICE</span>
-            </div>
-            <Badge variant="outline" className="text-xs">
-              {pricing.pricingBasis === 'per_second' ? '/sec' : '/run'}
-            </Badge>
+          <div className="flex items-center gap-1 text-muted-foreground mb-2">
+            <DollarSign className="w-4 h-4" />
+            <span className="text-xs font-medium">TOTAL COST</span>
           </div>
           
           <div className="text-2xl font-bold text-foreground">
             ${pricing.effectivePrice.toFixed(2)}
           </div>
           
-          <div className="text-xs text-muted-foreground mt-1">
-            Base: ${model.pricing.basePrice.toFixed(2)}{pricing.pricingBasis === 'per_second' ? '/sec' : '/run'}
+          <div className="border-t border-border/50 mt-2 pt-2 space-y-1">
+            {pricing.pricingBasis === 'per_second' && pricing.pricePerSecond > 0 && (
+              <div className="text-xs text-muted-foreground flex justify-between">
+                <span>Rate:</span>
+                <span className="text-foreground">${pricing.pricePerSecond.toFixed(2)}/sec</span>
+              </div>
+            )}
+            <div className="text-xs text-muted-foreground flex justify-between">
+              <span>Base:</span>
+              <span>${model.pricing.basePrice.toFixed(2)}{pricing.pricingBasis === 'per_second' ? '/sec' : '/run'}</span>
+            </div>
           </div>
         </div>
 
