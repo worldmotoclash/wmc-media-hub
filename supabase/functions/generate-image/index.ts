@@ -13,6 +13,7 @@ interface ImageGenerationRequest {
   template?: string;
   referenceImageUrl?: string;
   title: string;
+  model?: string; // AI model to use for generation
   salesforceData?: {
     title: string;
     description?: string;
@@ -29,9 +30,12 @@ serve(async (req) => {
 
   try {
     const requestData: ImageGenerationRequest = await req.json();
-    const { userId, prompt, template, referenceImageUrl, title, salesforceData } = requestData;
+    const { userId, prompt, template, referenceImageUrl, title, model, salesforceData } = requestData;
 
-    console.log('Image generation request received:', { userId, prompt: prompt.substring(0, 100), template, title });
+    // Default to Gemini 2.5 Flash Image if no model specified
+    const selectedModel = model || 'google/gemini-2.5-flash-image-preview';
+
+    console.log('Image generation request received:', { userId, prompt: prompt.substring(0, 100), template, title, model: selectedModel });
 
     if (!userId) {
       throw new Error('User ID is required');
@@ -61,7 +65,7 @@ serve(async (req) => {
         reference_image_url: referenceImageUrl,
         status: 'pending',
         progress: 0,
-        generation_data: { title, salesforceData }
+        generation_data: { title, model: selectedModel, salesforceData }
       })
       .select()
       .single();
@@ -80,6 +84,7 @@ serve(async (req) => {
       prompt,
       template,
       referenceImageUrl,
+      selectedModel,
       LOVABLE_API_KEY
     );
 
@@ -117,6 +122,7 @@ async function generateImage(
   prompt: string,
   template: string | undefined,
   referenceImageUrl: string | undefined,
+  model: string,
   apiKey: string
 ) {
   try {
@@ -181,7 +187,7 @@ The images should capture the excitement and intensity of motorcycle racing.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-image-preview',
+        model: model,
         messages,
         modalities: ['image', 'text']
       }),

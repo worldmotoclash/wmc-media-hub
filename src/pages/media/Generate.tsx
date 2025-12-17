@@ -112,6 +112,28 @@ const IMAGE_USE_CASES = [
   }
 ];
 
+// Image Generation Models
+const IMAGE_GENERATION_MODELS = [
+  {
+    id: 'gemini-flash-image',
+    name: 'Gemini 2.5 Flash Image',
+    model: 'google/gemini-2.5-flash-image-preview',
+    vendor: 'Lovable AI',
+    description: 'Fast, high-quality image generation',
+    qualityTier: 'standard',
+    speedTier: 'fast'
+  },
+  {
+    id: 'gemini-3-pro-image',
+    name: 'Gemini 3 Pro Image',
+    model: 'google/gemini-3-pro-image-preview',
+    vendor: 'Lovable AI',
+    description: 'Next-gen premium quality',
+    qualityTier: 'premium',
+    speedTier: 'standard'
+  }
+];
+
 // Video Presets
 const PRESETS = [
   {
@@ -213,6 +235,9 @@ const Generate: React.FC = () => {
   
   // Template state
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  
+  // Image model state
+  const [selectedImageModel, setSelectedImageModel] = useState(IMAGE_GENERATION_MODELS[0]);
   const [selectedImageUseCase, setSelectedImageUseCase] = useState<string>('');
   
   // Handle output type change - reset related state
@@ -489,6 +514,7 @@ const Generate: React.FC = () => {
           template: selectedTemplate || undefined,
           referenceImageUrl: genData.startImage || undefined,
           title: genData.title,
+          model: selectedImageModel.model,
           salesforceData: {
             title: genData.title,
             description: genData.description,
@@ -864,9 +890,37 @@ const Generate: React.FC = () => {
                   );
                 })}
               </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Badge variant="outline">Lovable AI</Badge>
-                <span>Gemini 2.5 Flash Image</span>
+              <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                <div className="flex items-center gap-3">
+                  <Label className="text-sm font-medium">Model:</Label>
+                  <Select
+                    value={selectedImageModel.id}
+                    onValueChange={(value) => {
+                      const model = IMAGE_GENERATION_MODELS.find(m => m.id === value);
+                      if (model) setSelectedImageModel(model);
+                    }}
+                  >
+                    <SelectTrigger className="w-[240px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border z-50">
+                      {IMAGE_GENERATION_MODELS.map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{model.name}</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {model.qualityTier}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Badge variant="outline">{selectedImageModel.vendor}</Badge>
+                  <span>{selectedImageModel.speedTier} speed</span>
+                </div>
               </div>
             </Card>
           </motion.div>
