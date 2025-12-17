@@ -952,37 +952,68 @@ const Generate: React.FC = () => {
                   );
                 })}
               </div>
-              <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                <div className="flex items-center gap-3">
-                  <Label className="text-sm font-medium">Model:</Label>
-                  <Select
-                    value={selectedImageModel.id}
-                    onValueChange={(value) => {
-                      const model = IMAGE_GENERATION_MODELS.find(m => m.id === value);
-                      if (model) setSelectedImageModel(model);
-                    }}
-                  >
-                    <SelectTrigger className="w-[240px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border z-50">
-                      {IMAGE_GENERATION_MODELS.map((model) => (
-                        <SelectItem key={model.id} value={model.id}>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{model.name}</span>
-                            <Badge variant="secondary" className="text-xs">
-                              {model.qualityTier}
-                            </Badge>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Selected Image Model - matches video model selector pattern */}
+        {outputType === 'image' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+          >
+            <Card className="p-6 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <Label className="text-sm font-medium block mb-1">Selected Model</Label>
+                    <div className="flex items-center gap-3">
+                      <Badge variant="outline">{selectedImageModel.vendor}</Badge>
+                      <span className="font-medium">{selectedImageModel.name}</span>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span>•</span>
+                        <span>{selectedImageModel.pricing}</span>
+                        <span>•</span>
+                        <span>{selectedImageModel.qualityTier} quality</span>
+                        <span>•</span>
+                        <span>{selectedImageModel.speedTier} speed</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Badge variant="outline">{selectedImageModel.vendor}</Badge>
-                  <span>{selectedImageModel.speedTier} speed</span>
-                </div>
+                <Select
+                  value={selectedImageModel.id}
+                  onValueChange={(value) => {
+                    const model = IMAGE_GENERATION_MODELS.find(m => m.id === value);
+                    if (model) setSelectedImageModel(model);
+                  }}
+                >
+                  <SelectTrigger className="w-auto h-9 px-3 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md">
+                    <Settings2 className="w-4 h-4 mr-2" />
+                    <span className="text-sm">Change Model</span>
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border z-50">
+                    <div className="p-2 text-xs text-muted-foreground border-b">Lovable AI</div>
+                    {IMAGE_GENERATION_MODELS.filter(m => m.vendor === 'Lovable AI').map((model) => (
+                      <SelectItem key={model.id} value={model.id}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{model.name}</span>
+                          <Badge variant="secondary" className="text-xs">{model.pricing}</Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                    <div className="p-2 text-xs text-muted-foreground border-b border-t mt-1">Wavespeed</div>
+                    {IMAGE_GENERATION_MODELS.filter(m => m.vendor === 'Wavespeed').map((model) => (
+                      <SelectItem key={model.id} value={model.id}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{model.name}</span>
+                          <Badge variant="secondary" className="text-xs">{model.pricing}</Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </Card>
           </motion.div>
