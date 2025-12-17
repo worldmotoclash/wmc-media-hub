@@ -574,7 +574,7 @@ const Generate: React.FC = () => {
                           <TableHead className="w-[140px]">Template</TableHead>
                           <TableHead>Primary Input</TableHead>
                           <TableHead>Output Type</TableHead>
-                          <TableHead className="text-center">9 Images?</TableHead>
+                          <TableHead className="text-center">Output</TableHead>
                           <TableHead>Best Use Case</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -583,17 +583,23 @@ const Generate: React.FC = () => {
                           <TableCell className="font-medium">V1 – Contact Sheet</TableCell>
                           <TableCell>Base image</TableCell>
                           <TableCell>Direct image generation</TableCell>
-                          <TableCell className="text-center"><Check className="w-4 h-4 text-green-500 mx-auto" /></TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex flex-col items-center">
+                              <Check className="w-4 h-4 text-green-500" />
+                              <span className="text-xs font-medium">3×3 Grid</span>
+                            </div>
+                          </TableCell>
                           <TableCell><Badge variant="secondary">Fast, visual coverage</Badge></TableCell>
                         </TableRow>
                         <TableRow>
                           <TableCell className="font-medium">V2 – Trailer / Keyframes</TableCell>
                           <TableCell>Base image</TableCell>
-                          <TableCell>Prompts → video keyframes (+ grid)</TableCell>
+                          <TableCell>Prompts → video keyframes</TableCell>
                           <TableCell className="text-center">
                             <div className="flex flex-col items-center">
                               <Check className="w-4 h-4 text-green-500" />
-                              <span className="text-xs text-muted-foreground">+ motion</span>
+                              <span className="text-xs font-medium">3×3 Grid</span>
+                              <span className="text-xs text-muted-foreground">+ motion prompts</span>
                             </div>
                           </TableCell>
                           <TableCell><Badge variant="secondary">Cinematic trailers & AI video</Badge></TableCell>
@@ -601,11 +607,12 @@ const Generate: React.FC = () => {
                         <TableRow>
                           <TableCell className="font-medium">V3 – Director's Cut</TableCell>
                           <TableCell>Story + reference image</TableCell>
-                          <TableCell>Prompt only (no image)</TableCell>
+                          <TableCell>Detailed prompts</TableCell>
                           <TableCell className="text-center">
                             <div className="flex flex-col items-center">
                               <Check className="w-4 h-4 text-green-500" />
-                              <span className="text-xs text-muted-foreground">when run</span>
+                              <span className="text-xs font-medium">3×3 Grid</span>
+                              <span className="text-xs text-muted-foreground">when executed</span>
                             </div>
                           </TableCell>
                           <TableCell><Badge variant="secondary">Maximum control & consistency</Badge></TableCell>
