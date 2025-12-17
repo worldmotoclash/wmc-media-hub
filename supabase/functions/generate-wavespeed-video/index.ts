@@ -158,6 +158,52 @@ const WAVESPEED_MODELS: Record<string, {
       };
     },
     estimatedCostPer5s: 0.35
+  },
+  // Luma Models
+  'luma_dream_machine': {
+    url: 'https://api.wavespeed.ai/api/v3/luma/dream-machine-1.6',
+    buildPayload: ({ prompt, durationSec, imageUrl, aspectRatio, extras }) => ({
+      prompt: prompt || '',
+      image_url: imageUrl,
+      duration: Math.min(durationSec || 5, 5),
+      aspect_ratio: aspectRatio || '16:9',
+      ...extras
+    }),
+    estimatedCostPer5s: 0.80
+  },
+  'luma_ray': {
+    url: 'https://api.wavespeed.ai/api/v3/luma/ray',
+    buildPayload: ({ prompt, durationSec, imageUrl, aspectRatio, extras }) => ({
+      prompt: prompt || '',
+      image_url: imageUrl,
+      duration: Math.min(durationSec || 5, 5),
+      aspect_ratio: aspectRatio || '16:9',
+      ...extras
+    }),
+    estimatedCostPer5s: 0.35
+  },
+  // Pika Models
+  'pika_1_5': {
+    url: 'https://api.wavespeed.ai/api/v3/pika/1.5',
+    buildPayload: ({ prompt, durationSec, imageUrl, aspectRatio, extras }) => ({
+      prompt: prompt || '',
+      image_url: imageUrl,
+      duration: [3, 4].includes(durationSec) ? durationSec : 4,
+      aspect_ratio: aspectRatio || '16:9',
+      ...extras
+    }),
+    estimatedCostPer5s: 0.60
+  },
+  'pika_1_0': {
+    url: 'https://api.wavespeed.ai/api/v3/pika/1.0',
+    buildPayload: ({ prompt, durationSec, imageUrl, aspectRatio, extras }) => ({
+      prompt: prompt || '',
+      image_url: imageUrl,
+      duration: 3,
+      aspect_ratio: aspectRatio || '16:9',
+      ...extras
+    }),
+    estimatedCostPer5s: 0.40
   }
 };
 
