@@ -474,7 +474,7 @@ const Generate: React.FC = () => {
           >
             <h1 className="text-4xl font-bold mb-4 text-foreground flex items-center gap-3">
               <Wand2 className="w-8 h-8 text-primary" />
-              Generate Video
+              Generate Image / Video
             </h1>
             <p className="text-xl text-muted-foreground mb-2">
               Create AI-powered racing content with your selected model
