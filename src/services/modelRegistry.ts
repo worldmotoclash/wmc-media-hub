@@ -207,7 +207,7 @@ export const MODEL_REGISTRY: AIModel[] = [
     displayName: 'Veo3 Fast',
     vendor: 'Google',
     pricing: { basis: 'per_second', basePrice: 0.25, currency: 'USD' },
-    capabilities: ['google_quality', 'fast_turnaround'],
+    capabilities: ['google_quality', 'fast_turnaround', 'audio_generation'],
     qualityTier: '1080p',
     speedTier: 'Standard',
     specs: {
@@ -216,17 +216,18 @@ export const MODEL_REGISTRY: AIModel[] = [
       maxResolution: '1080p',
       aspectRatios: ['16:9', '9:16', '1:1'],
       fpsOptions: [24, 30],
-      audioSupport: false
+      audioSupport: true
     },
     latency: { typical: 90, range: [60, 120] },
     commercialUse: 'allowed',
     status: 'online',
-    strengths: ['Google AI', 'Reliable', 'Fast'],
-    description: 'Google\'s fast video generation with reliable quality.',
+    strengths: ['Google AI', 'Native Audio', 'Fast'],
+    description: 'Google\'s fast video generation with native audio, dialogue, and sound effects.',
     promptTips: [
       'Works well with natural language',
-      'Good for realistic content',
-      'Supports detailed descriptions'
+      'Use quotes for dialogue: "Hello world"',
+      'Describe ambient sounds and effects',
+      'Good for realistic content'
     ],
     sampleVideos: [],
     changelog: ['v3.2: Speed improvements', 'v3.1: Quality enhancements'],
@@ -235,10 +236,10 @@ export const MODEL_REGISTRY: AIModel[] = [
   {
     id: 'veo3_full',
     name: 'veo3_full',
-    displayName: 'Veo3 Full (with Audio)',
+    displayName: 'Veo3 Premium',
     vendor: 'Google',
     pricing: { basis: 'per_run', basePrice: 3.20, currency: 'USD' },
-    capabilities: ['google_quality', 'audio_generation', 'premium'],
+    capabilities: ['google_quality', 'audio_generation', 'premium', 'long_form'],
     qualityTier: '1080p',
     speedTier: 'High-fidelity',
     specs: {
@@ -252,12 +253,13 @@ export const MODEL_REGISTRY: AIModel[] = [
     latency: { typical: 300, range: [240, 420] },
     commercialUse: 'allowed',
     status: 'online',
-    strengths: ['Audio', 'Premium', 'Long-form'],
-    description: 'Full-featured Google Veo with audio generation capabilities.',
+    strengths: ['Premium Quality', 'Long-form', '60fps'],
+    description: 'Premium Google Veo3 with extended duration, higher fidelity, and native audio.',
     promptTips: [
-      'Include audio descriptions in prompt',
+      'Use quotes for dialogue: "Hello world"',
       'Excellent for complete productions',
-      'Supports complex narratives'
+      'Supports complex narratives and extended scenes',
+      'Describe ambient sounds and effects'
     ],
     sampleVideos: [],
     changelog: ['v3.2: Enhanced audio quality', 'v3.1: Better sync'],
