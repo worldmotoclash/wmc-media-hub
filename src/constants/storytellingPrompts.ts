@@ -4,6 +4,7 @@ export interface StorytellingPrompt {
   description: string;
   template: string;
   category: 'foundational' | 'contact-sheet' | 'storyboard' | 'meta-prompt';
+  requiresImage: boolean;
 }
 
 export const STORYTELLING_PROMPTS: StorytellingPrompt[] = [
@@ -12,6 +13,7 @@ export const STORYTELLING_PROMPTS: StorytellingPrompt[] = [
     name: 'Foundational Image Prompt',
     description: 'Ultra-realistic cinematic portrait template',
     category: 'foundational',
+    requiresImage: false,
     template: `Ultra-realistic waist-up cinematic portrait of [CHARACTER] in [ENVIRONMENT].
 Wearing [OUTFIT DETAILS] with [ACCESSORIES].
 [AGE / ETHNICITY / FEATURES], natural skin texture and subtle imperfections.
@@ -26,6 +28,7 @@ Grounded realism, accurate proportions, no distortion.`
     name: 'Version 1 - Contact Sheet',
     description: '3x3 cinematic shot grid with 9 camera angles',
     category: 'contact-sheet',
+    requiresImage: true,
     template: `<instruction> Analyze the entire composition of the input image. Identify ALL key subjects present (whether it's a single person, a group/couple, a vehicle, or a specific object) and their spatial relationship/interaction.
 Generate a cohesive 3x3 grid "Cinematic Contact Sheet" featuring 9 distinct camera shots of exactly these subjects in the same environment.
 You must adapt the standard cinematic shot types to fit the content (e.g., if a group, keep the group together; if an object, frame the whole object):
@@ -49,6 +52,7 @@ extract the still x.y`
     name: 'Version 2 - Story-to-Storyboard',
     description: 'Convert story synopsis to cinematic storyboard',
     category: 'meta-prompt',
+    requiresImage: true,
     template: `Input your story here: [YOUR STORY SYNOPSIS]
 
 STORY-TO-STORYBOARD META-PROMPT
@@ -108,6 +112,7 @@ Extract the still x.y
     name: 'Version 3 - Storyboard Director',
     description: 'Full cinematic sequence with keyframes',
     category: 'storyboard',
+    requiresImage: true,
     template: `<role> You are an award-winning trailer director + cinematographer + storyboard artist. Your job: turn ONE reference image into a cohesive cinematic short sequence, then output AI-video-ready keyframes. </role>
 <input> User provides: one reference image (image). </input>
 <non-negotiable rules - continuity & truthfulness>
