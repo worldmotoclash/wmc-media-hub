@@ -17,6 +17,7 @@ import { MODEL_REGISTRY, AIModel } from "@/services/modelRegistry";
 import { IMAGE_MODEL_REGISTRY, ImageModel } from "@/services/imageModelRegistry";
 import { PricingService, GenerationSettings, NormalizedPricing } from "@/services/pricingService";
 import { DefaultModelService } from "@/services/defaultModelService";
+import { ImageDefaultModelService } from "@/services/imageDefaultModelService";
 
 type MarketplaceType = 'video' | 'image';
 
@@ -29,6 +30,9 @@ const ModelMarketplace: React.FC = () => {
   // Get marketplace type from URL params (default to 'video')
   const marketplaceType: MarketplaceType = (searchParams.get('type') as MarketplaceType) || 'video';
   const isImageMode = marketplaceType === 'image';
+  
+  // Get use-case from URL params (for image mode)
+  const imageUseCase = searchParams.get('useCase') || 'fast-free';
 
   // Get preset from URL params or default to 'teaser'
   const initialPreset = searchParams.get('preset') || 'teaser';
@@ -238,8 +242,16 @@ const ModelMarketplace: React.FC = () => {
 
   const handleModelSelect = (model: AIModel) => {
     if (isImageMode) {
-      // For image mode, navigate back to generate page with selected model
-      navigate(`/admin/media/generate?type=image&model=${model.id}`);
+      // Set this model as the default for the current image use-case
+      ImageDefaultModelService.setDefaultModel(imageUseCase, model.id);
+      
+      toast({
+        title: "Default Image Model Set",
+        description: `${model.displayName} is now the default for ${imageUseCase.replace('-', ' ')}`,
+      });
+      
+      // Navigate back to generate page with selected model and use-case
+      navigate(`/admin/media/generate?type=image&model=${model.id}&useCase=${imageUseCase}`);
       return;
     }
     
@@ -327,7 +339,11 @@ const ModelMarketplace: React.FC = () => {
                   : 'Set default models for each use-case and browse available options'
                 }
               </p>
-              {!isImageMode && (
+              {isImageMode ? (
+                <p className="text-muted-foreground">
+                  Click on any model to set it as the default for <span className="font-medium capitalize">{imageUseCase.replace('-', ' ')}</span>
+                </p>
+              ) : (
                 <p className="text-muted-foreground">
                   Click on any model to set it as the default for {selectedPreset}
                 </p>
