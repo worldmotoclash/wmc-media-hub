@@ -1,11 +1,11 @@
 import { getImageModelById, ImageModel } from './imageModelRegistry';
 
-// Intelligent defaults for each image use-case
+// Intelligent defaults for each LLM-focused image use-case (matches video pattern)
 const INITIAL_DEFAULTS: Record<string, string> = {
-  'quick-concept': 'gemini-flash-image',    // Fast, included in plan
-  'shot-coverage': 'flux-schnell',          // Ultra-fast for 3x3 grids
-  'trailer-prep': 'gemini-3-pro-image',     // Premium quality for keyframes
-  'directors-cut': 'flux-dev',              // High-quality production
+  'fast-free': 'gemini-flash-image',      // Fast & Free - included in plan
+  'ultra-fast': 'flux-schnell',           // Ultra-Fast - batch ready
+  'premium': 'gemini-3-pro-image',        // Premium - best quality
+  'production': 'flux-dev',               // Production - pro output
 };
 
 const STORAGE_KEY = 'image_preset_default_models';
