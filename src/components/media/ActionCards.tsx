@@ -15,8 +15,8 @@ const ActionCards: React.FC = () => {
       iconColor: 'text-science-blue'
     },
     {
-      title: 'Generate AI Video',
-      description: 'Create racing content with AI video generation',
+      title: 'Generate AI Image / Video',
+      description: 'Create racing content with AI image and video generation',
       icon: Sparkles,
       href: '/admin/media/generate',
       color: 'from-cinnabar/20 to-cinnabar/10',

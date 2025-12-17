@@ -429,9 +429,9 @@ const MediaUpload: React.FC = () => {
     }));
   };
 
-  const pageTitle = isGenerateMode ? 'Generate AI Video' : 'Upload Video';
+  const pageTitle = isGenerateMode ? 'Generate AI Image / Video' : 'Upload Video';
   const pageDescription = isGenerateMode 
-    ? 'Create racing content with AI-powered video generation'
+    ? 'Create racing content with AI-powered image and video generation'
     : 'Add videos from files or URLs to the WMC library';
 
   return (
@@ -481,7 +481,7 @@ const MediaUpload: React.FC = () => {
                 onClick={() => navigate('/admin/media/generate')}
               >
                 <Sparkles className="w-4 h-4" />
-                Generate AI Video
+                Generate AI Image / Video
               </TabsTrigger>
             </TabsList>
 
