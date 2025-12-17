@@ -20,8 +20,11 @@ import {
   MessageSquare, 
   Grid3X3, 
   Smartphone,
-  Image
+  Image,
+  FileText,
+  X
 } from "lucide-react";
+import { STORYTELLING_PROMPTS, StorytellingPrompt } from "@/constants/storytellingPrompts";
 import { ImageDropzone } from "@/components/media/ImageDropzone";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
@@ -145,6 +148,9 @@ const Generate: React.FC = () => {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStatus, setGenerationStatus] = useState('');
   const [currentGeneration, setCurrentGeneration] = useState<VideoGeneration | null>(null);
+  
+  // Template state
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
 
   // Check authentication
   useEffect(() => {
@@ -633,6 +639,61 @@ const Generate: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Storytelling Template Selector */}
+                <div className="mt-4">
+                  <Label className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Storytelling Template (optional)
+                  </Label>
+                  <div className="flex gap-2">
+                    <Select
+                      value={selectedTemplate}
+                      onValueChange={(value) => {
+                        setSelectedTemplate(value);
+                        if (value) {
+                          const template = STORYTELLING_PROMPTS.find(p => p.id === value);
+                          if (template) {
+                            setGenData(prev => ({ ...prev, mainPrompt: template.template }));
+                          }
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select a storytelling template..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border z-50">
+                        {STORYTELLING_PROMPTS.map((prompt) => (
+                          <SelectItem key={prompt.id} value={prompt.id}>
+                            <div className="flex flex-col items-start">
+                              <span className="font-medium">{prompt.name}</span>
+                              <span className="text-xs text-muted-foreground">{prompt.description}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedTemplate && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setSelectedTemplate('');
+                          setGenData(prev => ({ ...prev, mainPrompt: '' }));
+                        }}
+                        title="Clear template"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                  {selectedTemplate && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Customize the [BRACKETED] sections in the prompt below with your specific details.
+                    </p>
+                  )}
+                </div>
+
                 <div className="mt-4">
                   <Label htmlFor="mainPrompt" className="text-sm font-medium">
                     Main Prompt <span className="text-destructive">*</span>
@@ -643,7 +704,7 @@ const Generate: React.FC = () => {
                     value={genData.mainPrompt}
                     onChange={(e) => setGenData({...genData, mainPrompt: e.target.value})}
                     className="mt-2"
-                    rows={3}
+                    rows={selectedTemplate ? 10 : 3}
                     required
                   />
                 </div>
