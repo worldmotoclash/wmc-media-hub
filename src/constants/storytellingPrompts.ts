@@ -50,7 +50,7 @@ extract the still x.y`
   {
     id: 'version3',
     name: 'V3 – Director\'s Cut',
-    description: 'Maximum control - story + reference image creates detailed prompts',
+    description: '3×3 storyboard grid with maximum control - story + reference image',
     category: 'meta-prompt',
     requiresImage: true,
     template: `Input your story here: [YOUR STORY SYNOPSIS]
@@ -110,7 +110,7 @@ Extract the still x.y
   {
     id: 'version2',
     name: 'V2 – Trailer / Keyframes',
-    description: 'Expand a base image into cinematic keyframes plus 9-image grid',
+    description: '3×3 cinematic keyframe grid for trailer sequences from a base image',
     category: 'storyboard',
     requiresImage: true,
     template: `<role> You are an award-winning trailer director + cinematographer + storyboard artist. Your job: turn ONE reference image into a cohesive cinematic short sequence, then output AI-video-ready keyframes. </role>
