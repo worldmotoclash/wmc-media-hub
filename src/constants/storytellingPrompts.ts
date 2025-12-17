@@ -25,8 +25,8 @@ Grounded realism, accurate proportions, no distortion.`
   },
   {
     id: 'version1',
-    name: 'Version 1 - Contact Sheet',
-    description: '3x3 cinematic shot grid with 9 camera angles',
+    name: 'V1 – Contact Sheet',
+    description: '3x3 cinematic shot grid with 9 camera angles from a base image',
     category: 'contact-sheet',
     requiresImage: true,
     template: `<instruction> Analyze the entire composition of the input image. Identify ALL key subjects present (whether it's a single person, a group/couple, a vehicle, or a specific object) and their spatial relationship/interaction.
@@ -49,8 +49,8 @@ extract the still x.y`
   },
   {
     id: 'version3',
-    name: 'Version 2 - Story-to-Storyboard',
-    description: 'Convert story synopsis to cinematic storyboard',
+    name: 'V3 – Director\'s Cut',
+    description: 'Maximum control - story + reference image creates detailed prompts',
     category: 'meta-prompt',
     requiresImage: true,
     template: `Input your story here: [YOUR STORY SYNOPSIS]
@@ -109,8 +109,8 @@ Extract the still x.y
   },
   {
     id: 'version2',
-    name: 'Version 3 - Storyboard Director',
-    description: 'Full cinematic sequence with keyframes',
+    name: 'V2 – Trailer / Keyframes',
+    description: 'Expand a base image into cinematic keyframes plus 9-image grid',
     category: 'storyboard',
     requiresImage: true,
     template: `<role> You are an award-winning trailer director + cinematographer + storyboard artist. Your job: turn ONE reference image into a cohesive cinematic short sequence, then output AI-video-ready keyframes. </role>
