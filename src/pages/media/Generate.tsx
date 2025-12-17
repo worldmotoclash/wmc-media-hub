@@ -24,7 +24,7 @@ import {
   FileText,
   X
 } from "lucide-react";
-import { STORYTELLING_PROMPTS, StorytellingPrompt } from "@/constants/storytellingPrompts";
+import { STORYTELLING_PROMPTS } from "@/constants/storytellingPrompts";
 import { ImageDropzone } from "@/components/media/ImageDropzone";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
@@ -290,6 +290,15 @@ const Generate: React.FC = () => {
       return;
     }
 
+    // Assemble full prompt: template (if selected) + user's scene description
+    let fullPrompt = genData.mainPrompt;
+    if (selectedTemplate) {
+      const template = STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate);
+      if (template) {
+        fullPrompt = `${template.template}\n\n---\nUser Scene Description: ${genData.mainPrompt}`;
+      }
+    }
+
     setIsGenerating(true);
     setGenerationProgress(0);
     setGenerationStatus('Initializing video generation...');
@@ -339,7 +348,7 @@ const Generate: React.FC = () => {
           body: {
             userId: user?.id,
             model: wsModel,
-            prompt: genData.mainPrompt,
+            prompt: fullPrompt,
             durationSec: genData.duration[0],
             resolution: genData.resolution,
             aspectRatio: genData.aspectRatio,
@@ -358,7 +367,7 @@ const Generate: React.FC = () => {
         response = await supabase.functions.invoke('generate-veo-video', {
           body: {
             userId: user?.id,
-            prompt: genData.mainPrompt,
+            prompt: fullPrompt,
             negativePrompt: genData.negativePrompt || undefined,
             duration: genData.duration[0],
             aspectRatio: genData.aspectRatio,
@@ -645,18 +654,10 @@ const Generate: React.FC = () => {
                     <FileText className="w-4 h-4" />
                     Storytelling Template (optional)
                   </Label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
                     <Select
                       value={selectedTemplate}
-                      onValueChange={(value) => {
-                        setSelectedTemplate(value);
-                        if (value) {
-                          const template = STORYTELLING_PROMPTS.find(p => p.id === value);
-                          if (template) {
-                            setGenData(prev => ({ ...prev, mainPrompt: template.template }));
-                          }
-                        }
-                      }}
+                      onValueChange={(value) => setSelectedTemplate(value)}
                     >
                       <SelectTrigger className="flex-1">
                         <SelectValue placeholder="Select a storytelling template..." />
@@ -677,10 +678,7 @@ const Generate: React.FC = () => {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        onClick={() => {
-                          setSelectedTemplate('');
-                          setGenData(prev => ({ ...prev, mainPrompt: '' }));
-                        }}
+                        onClick={() => setSelectedTemplate('')}
                         title="Clear template"
                       >
                         <X className="w-4 h-4" />
@@ -688,9 +686,15 @@ const Generate: React.FC = () => {
                     )}
                   </div>
                   {selectedTemplate && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Customize the [BRACKETED] sections in the prompt below with your specific details.
-                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <Badge variant="secondary" className="bg-primary/10 text-primary">
+                        <FileText className="w-3 h-3 mr-1" />
+                        Using: {STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.name}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        Template will be applied automatically when generating
+                      </span>
+                    </div>
                   )}
                 </div>
 
@@ -700,11 +704,11 @@ const Generate: React.FC = () => {
                   </Label>
                   <Textarea
                     id="mainPrompt"
-                    placeholder="Describe your racing video scene..."
+                    placeholder="Describe your scene... (e.g., A race car drifts around a corner at sunset with dramatic lighting)"
                     value={genData.mainPrompt}
                     onChange={(e) => setGenData({...genData, mainPrompt: e.target.value})}
                     className="mt-2"
-                    rows={selectedTemplate ? 10 : 3}
+                    rows={3}
                     required
                   />
                 </div>
