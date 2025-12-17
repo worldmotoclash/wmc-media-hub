@@ -114,6 +114,7 @@ const IMAGE_USE_CASES = [
 
 // Image Generation Models
 const IMAGE_GENERATION_MODELS = [
+  // Lovable AI models
   {
     id: 'gemini-flash-image',
     name: 'Gemini 2.5 Flash Image',
@@ -121,7 +122,8 @@ const IMAGE_GENERATION_MODELS = [
     vendor: 'Lovable AI',
     description: 'Fast, high-quality image generation',
     qualityTier: 'standard',
-    speedTier: 'fast'
+    speedTier: 'fast',
+    pricing: 'Included'
   },
   {
     id: 'gemini-3-pro-image',
@@ -130,7 +132,29 @@ const IMAGE_GENERATION_MODELS = [
     vendor: 'Lovable AI',
     description: 'Next-gen premium quality',
     qualityTier: 'premium',
-    speedTier: 'standard'
+    speedTier: 'standard',
+    pricing: 'Included'
+  },
+  // Wavespeed FLUX models
+  {
+    id: 'flux-schnell',
+    name: 'FLUX Schnell',
+    model: 'wavespeed-ai/flux-schnell',
+    vendor: 'Wavespeed',
+    description: 'Ultra-fast 12B parameter model (1-4 steps)',
+    qualityTier: 'fast',
+    speedTier: 'ultra-fast',
+    pricing: '$0.003/image'
+  },
+  {
+    id: 'flux-dev',
+    name: 'FLUX Dev',
+    model: 'flux/dev',
+    vendor: 'Wavespeed',
+    description: 'High-quality production model',
+    qualityTier: 'premium',
+    speedTier: 'standard',
+    pricing: '$0.025/image'
   }
 ];
 
@@ -503,26 +527,64 @@ const Generate: React.FC = () => {
     }
   };
 
+  // Helper to convert aspect ratio to dimensions
+  const getImageDimensions = (aspectRatio: string): { width: number; height: number } => {
+    switch (aspectRatio) {
+      case '1:1': return { width: 1024, height: 1024 };
+      case '16:9': return { width: 1344, height: 768 };
+      case '9:16': return { width: 768, height: 1344 };
+      case '4:3': return { width: 1152, height: 896 };
+      case '21:9': return { width: 1536, height: 640 };
+      default: return { width: 1024, height: 1024 };
+    }
+  };
+
   const handleImageGeneration = async (fullPrompt: string) => {
     setGenerationStatus('Initializing image generation...');
     
     try {
-      const response = await supabase.functions.invoke('generate-image', {
-        body: {
-          userId: user?.id,
-          prompt: fullPrompt,
-          template: selectedTemplate || undefined,
-          referenceImageUrl: genData.startImage || undefined,
-          title: genData.title,
-          model: selectedImageModel.model,
-          salesforceData: {
+      const vendor = selectedImageModel.vendor;
+      let response;
+
+      if (vendor === 'Wavespeed') {
+        // Use Wavespeed FLUX models
+        const dimensions = getImageDimensions(genData.aspectRatio);
+        response = await supabase.functions.invoke('generate-wavespeed-image', {
+          body: {
+            userId: user?.id,
+            model: selectedImageModel.id,
+            prompt: fullPrompt,
+            width: dimensions.width,
+            height: dimensions.height,
             title: genData.title,
-            description: genData.description,
-            categories: genData.categories,
-            tags: genData.tags,
-          }
-        },
-      });
+            referenceImageUrl: genData.startImage || undefined,
+            salesforceData: {
+              title: genData.title,
+              description: genData.description,
+              categories: genData.categories,
+              tags: genData.tags,
+            }
+          },
+        });
+      } else {
+        // Use Lovable AI (Gemini) models
+        response = await supabase.functions.invoke('generate-image', {
+          body: {
+            userId: user?.id,
+            prompt: fullPrompt,
+            template: selectedTemplate || undefined,
+            referenceImageUrl: genData.startImage || undefined,
+            title: genData.title,
+            model: selectedImageModel.model,
+            salesforceData: {
+              title: genData.title,
+              description: genData.description,
+              categories: genData.categories,
+              tags: genData.tags,
+            }
+          },
+        });
+      }
 
       if (response.error) {
         const msg = response.error.message || 'Edge Function returned a non-2xx status code';
@@ -546,7 +608,7 @@ const Generate: React.FC = () => {
       setGenerationStatus('Image is being generated...');
       toast({
         title: "Generation Started",
-        description: "Your image is being generated using Lovable AI.",
+        description: `Your image is being generated using ${vendor}.`,
       });
 
     } catch (error) {
