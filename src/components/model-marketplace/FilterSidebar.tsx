@@ -15,7 +15,9 @@ import {
   Clock,
   Shield,
   Activity,
-  Filter
+  Filter,
+  ImagePlus,
+  ArrowLeftRight
 } from "lucide-react";
 
 export interface ModelFilters {
@@ -46,6 +48,8 @@ const VENDOR_OPTIONS = [
 ];
 
 const CAPABILITY_OPTIONS = [
+  { id: 'image_to_video', name: 'Start Image', icon: ImagePlus, description: 'Accepts a starting image' },
+  { id: 'start_end_image', name: 'Start + End Image', icon: ArrowLeftRight, description: 'Accepts start and end images' },
   { id: 'audio_generation', name: 'Audio', icon: Volume2, description: 'Includes audio generation' },
   { id: 'lip_sync', name: 'Lip-Sync', icon: MessageSquare, description: 'Accurate lip synchronization' },
   { id: 'multi_shot', name: 'Multi-Shot', icon: Grid3X3, description: 'Scene coherence' },
