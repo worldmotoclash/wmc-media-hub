@@ -29,6 +29,7 @@ export interface AIModel {
   name: string;
   displayName: string;
   vendor: 'Google' | 'ByteDance' | 'WaveSpeed' | 'Luma' | 'Pika' | 'PixVerse' | 'OpenAI';
+  brand?: string; // Original model creator for filtering (e.g., 'Kling', 'MiniMax')
   pricing: ModelPricing;
   capabilities: string[];
   qualityTier: '480p' | '720p' | '1080p' | '2K' | '4K';
@@ -428,6 +429,7 @@ export const MODEL_REGISTRY: AIModel[] = [
     name: 'kling_pro',
     displayName: 'Kling Pro',
     vendor: 'WaveSpeed',
+    brand: 'Kling',
     pricing: { basis: 'per_run', basePrice: 1.20, currency: 'USD' },
     capabilities: ['high_quality', 'long_form', 'realistic_motion', 'cinematic'],
     qualityTier: '1080p',
@@ -459,6 +461,7 @@ export const MODEL_REGISTRY: AIModel[] = [
     name: 'kling_standard',
     displayName: 'Kling Standard',
     vendor: 'WaveSpeed',
+    brand: 'Kling',
     pricing: { basis: 'per_run', basePrice: 0.70, currency: 'USD' },
     capabilities: ['balanced', 'realistic_motion', 'standard_quality'],
     qualityTier: '720p',
@@ -491,6 +494,7 @@ export const MODEL_REGISTRY: AIModel[] = [
     name: 'minimax_video_01',
     displayName: 'MiniMax Video-01',
     vendor: 'WaveSpeed',
+    brand: 'MiniMax',
     pricing: { basis: 'per_run', basePrice: 0.90, currency: 'USD' },
     capabilities: ['high_quality', 'balanced', 'realistic_motion'],
     qualityTier: '1080p',
@@ -522,6 +526,7 @@ export const MODEL_REGISTRY: AIModel[] = [
     name: 'minimax_lite',
     displayName: 'MiniMax Lite',
     vendor: 'WaveSpeed',
+    brand: 'MiniMax',
     pricing: { basis: 'per_run', basePrice: 0.45, currency: 'USD' },
     capabilities: ['cost_effective', 'fast_turnaround', 'balanced'],
     qualityTier: '720p',
