@@ -73,48 +73,48 @@ interface ImageGeneration {
   updated_at: string;
 }
 
-// Image Use Cases with default model assignments
+// LLM-focused Image Use Cases (matches video preset pattern)
 const IMAGE_USE_CASES = [
   {
-    id: 'quick-concept',
-    name: 'Quick Concept',
-    description: 'Free prompt',
+    id: 'fast-free',
+    name: 'Fast & Free',
+    description: 'Included',
     icon: Zap,
     color: 'bg-emerald-500',
-    templateId: 'foundational',
-    requiresImage: false,
     defaultModelId: 'gemini-flash-image'
   },
   {
-    id: 'shot-coverage',
-    name: 'Shot Coverage',
-    description: '3×3 angles',
-    icon: Grid3X3,
+    id: 'ultra-fast',
+    name: 'Ultra-Fast',
+    description: 'Batch ready',
+    icon: Sparkles,
     color: 'bg-purple-500',
-    templateId: 'version1',
-    requiresImage: true,
     defaultModelId: 'flux-schnell'
   },
   {
-    id: 'trailer-prep',
-    name: 'Trailer Prep',
-    description: 'Keyframes',
+    id: 'premium',
+    name: 'Premium',
+    description: 'Best quality',
     icon: Film,
     color: 'bg-blue-500',
-    templateId: 'version2',
-    requiresImage: true,
     defaultModelId: 'gemini-3-pro-image'
   },
   {
-    id: 'directors-cut',
-    name: "Director's Cut",
-    description: 'Full control',
+    id: 'production',
+    name: 'Production',
+    description: 'Pro output',
     icon: Settings2,
     color: 'bg-orange-500',
-    templateId: 'version3',
-    requiresImage: true,
     defaultModelId: 'flux-dev'
   }
+];
+
+// Optional Image Templates for 3×3 grid generation
+const IMAGE_TEMPLATES = [
+  { id: 'none', name: 'No Template', description: 'Single image generation', requiresImage: false },
+  { id: 'version1', name: 'V1 Contact Sheet', description: '3×3 grid - Shot coverage', requiresImage: true },
+  { id: 'version2', name: 'V2 Trailer/Keyframes', description: '3×3 sequence', requiresImage: true },
+  { id: 'version3', name: "V3 Director's Cut", description: '3×3 storyboard', requiresImage: true }
 ];
 
 // Image Generation Models
@@ -290,22 +290,26 @@ const Generate: React.FC = () => {
     }
   };
 
-  // Handle image use case selection - auto-select default model
+  // Handle image use case selection - auto-select default model (no template coupling)
   const handleImageUseCaseChange = (useCaseId: string) => {
     setSelectedImageUseCase(useCaseId);
-    const useCase = IMAGE_USE_CASES.find(uc => uc.id === useCaseId);
-    if (useCase) {
-      setSelectedTemplate(useCase.templateId);
-      // Auto-select the default model for this use-case
-      const defaultModel = ImageDefaultModelService.getDefaultModel(useCaseId);
-      if (defaultModel) {
-        const modelData = IMAGE_GENERATION_MODELS.find(m => m.id === defaultModel.id);
-        if (modelData) {
-          setSelectedImageModel(modelData);
-        }
+    // Auto-select the default model for this use-case
+    const defaultModel = ImageDefaultModelService.getDefaultModel(useCaseId);
+    if (defaultModel) {
+      const modelData = IMAGE_GENERATION_MODELS.find(m => m.id === defaultModel.id);
+      if (modelData) {
+        setSelectedImageModel(modelData);
       }
     }
   };
+
+  // Handle image template selection (separate from use-case)
+  const handleImageTemplateChange = (templateId: string) => {
+    setSelectedTemplate(templateId);
+  };
+
+  // Get current selected template info
+  const selectedTemplateInfo = IMAGE_TEMPLATES.find(t => t.id === selectedTemplate);
 
   // Check authentication
   useEffect(() => {
@@ -973,12 +977,6 @@ const Generate: React.FC = () => {
                           {defaultModel.displayName}
                         </div>
                       )}
-                      {useCase.requiresImage && (
-                        <div className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Image className="w-3 h-3" />
-                          Requires Image
-                        </div>
-                      )}
                     </div>
                   );
                 })}
@@ -1021,6 +1019,54 @@ const Generate: React.FC = () => {
                   <Settings2 className="w-4 h-4 mr-2" />
                   Change Model
                 </Button>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Optional Image Template Selector */}
+        {outputType === 'image' && selectedImageUseCase && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25, duration: 0.6 }}
+          >
+            <Card className="p-6 mb-6">
+              <Label className="text-sm font-medium mb-3 block">Select Template (Optional)</Label>
+              <p className="text-sm text-muted-foreground mb-4">
+                Choose a template to generate 3×3 grids. Skip for single image generation.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {IMAGE_TEMPLATES.map((template) => {
+                  const isSelected = selectedTemplate === template.id;
+                  
+                  return (
+                    <div key={template.id} className="flex flex-col items-center">
+                      <Button
+                        variant={isSelected ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleImageTemplateChange(template.id)}
+                        className="flex items-center gap-2 mb-1"
+                      >
+                        {template.id === 'none' ? (
+                          <X className="w-4 h-4" />
+                        ) : (
+                          <Grid3X3 className="w-4 h-4" />
+                        )}
+                        <span className="font-medium">{template.name}</span>
+                      </Button>
+                      <div className="text-xs text-muted-foreground text-center max-w-[120px]">
+                        {template.description}
+                      </div>
+                      {template.requiresImage && (
+                        <div className="text-xs text-amber-500 flex items-center gap-1 mt-1">
+                          <Image className="w-3 h-3" />
+                          Requires Image
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </Card>
           </motion.div>
@@ -1466,7 +1512,7 @@ const Generate: React.FC = () => {
                   disabled={
                     isGenerating || 
                     (outputType === 'video' && !selectedModel) ||
-                    (outputType === 'image' && IMAGE_USE_CASES.find(uc => uc.id === selectedImageUseCase)?.requiresImage && !genData.imageUrl)
+                    (outputType === 'image' && selectedTemplateInfo?.requiresImage && !genData.imageUrl)
                   }
                   className="min-w-48"
                 >
