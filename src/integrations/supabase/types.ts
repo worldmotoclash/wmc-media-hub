@@ -49,6 +49,51 @@ export type Database = {
           },
         ]
       }
+      image_generations: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          generation_data: Json
+          id: string
+          image_url: string | null
+          progress: number
+          prompt: string
+          reference_image_url: string | null
+          status: string
+          template: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          generation_data?: Json
+          id?: string
+          image_url?: string | null
+          progress?: number
+          prompt: string
+          reference_image_url?: string | null
+          status?: string
+          template?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          generation_data?: Json
+          id?: string
+          image_url?: string | null
+          progress?: number
+          prompt?: string
+          reference_image_url?: string | null
+          status?: string
+          template?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       media_asset_tags: {
         Row: {
           created_at: string

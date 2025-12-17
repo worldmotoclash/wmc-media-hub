@@ -62,6 +62,16 @@ interface VideoGeneration {
   updated_at: string;
 }
 
+interface ImageGeneration {
+  id: string;
+  status: 'pending' | 'generating' | 'completed' | 'failed';
+  progress: number;
+  image_url?: string;
+  error_message?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 const PRESETS = [
   {
     id: 'teaser',
@@ -158,6 +168,7 @@ const Generate: React.FC = () => {
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStatus, setGenerationStatus] = useState('');
   const [currentGeneration, setCurrentGeneration] = useState<VideoGeneration | null>(null);
+  const [currentImageGeneration, setCurrentImageGeneration] = useState<ImageGeneration | null>(null);
   
   // Template state
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
@@ -180,7 +191,7 @@ const Generate: React.FC = () => {
     if (!user) {
       toast({
         title: "Authentication Required",
-        description: "Please log in to generate videos",
+        description: "Please log in to generate content",
         variant: "destructive",
       });
       navigate('/login');
@@ -227,7 +238,7 @@ const Generate: React.FC = () => {
     };
   }, [selectedModel, generationSettings]);
 
-  // Polling for generation updates
+  // Polling for video generation updates
   useEffect(() => {
     if (!user || !currentGeneration || currentGeneration.status === 'completed' || currentGeneration.status === 'failed') return;
 
@@ -287,6 +298,65 @@ const Generate: React.FC = () => {
     return () => clearInterval(pollInterval);
   }, [user, currentGeneration?.id, toast]);
 
+  // Polling for image generation updates
+  useEffect(() => {
+    if (!user || !currentImageGeneration || currentImageGeneration.status === 'completed' || currentImageGeneration.status === 'failed') return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const { data: statusData, error } = await supabase.functions.invoke('get-image-generation', {
+          body: { id: currentImageGeneration.id },
+        });
+
+        if (error) {
+          console.error('Error polling image generation status:', error);
+          return;
+        }
+
+        if (statusData?.success) {
+          const updatedGeneration = statusData;
+          const typedGeneration: ImageGeneration = {
+            id: updatedGeneration.id,
+            status: updatedGeneration.status as 'pending' | 'generating' | 'completed' | 'failed',
+            progress: updatedGeneration.progress,
+            image_url: updatedGeneration.image_url,
+            error_message: updatedGeneration.error_message,
+            created_at: updatedGeneration.created_at,
+            updated_at: updatedGeneration.updated_at,
+          };
+          
+          setCurrentImageGeneration(typedGeneration);
+          setGenerationProgress(typedGeneration.progress);
+          
+          if (updatedGeneration.status === 'completed') {
+            clearInterval(pollInterval);
+            setGenerationStatus('Image generated successfully!');
+            setIsGenerating(false);
+            toast({
+              title: "Success!",
+              description: "Image generated successfully!",
+            });
+          } else if (updatedGeneration.status === 'failed') {
+            clearInterval(pollInterval);
+            setGenerationStatus('Generation failed');
+            setIsGenerating(false);
+            toast({
+              title: "Generation Failed",
+              description: updatedGeneration.error_message || 'Unknown error occurred',
+              variant: "destructive",
+            });
+          } else if (updatedGeneration.status === 'generating') {
+            setGenerationStatus(`Generating image... ${updatedGeneration.progress}%`);
+          }
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 2000);
+
+    return () => clearInterval(pollInterval);
+  }, [user, currentImageGeneration?.id, toast]);
+
   const handlePresetChange = (presetId: string) => {
     setSelectedPreset(presetId);
     // Update URL without navigation
@@ -302,24 +372,34 @@ const Generate: React.FC = () => {
   const handleGenerateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (isGenerating || !selectedModel) return;
+    if (isGenerating) return;
+    
+    // For video, require model selection
+    if (outputType === 'video' && !selectedModel) {
+      toast({
+        title: "Missing Model",
+        description: "Please select a model for video generation",
+        variant: "destructive",
+      });
+      return;
+    }
     
     if (!genData.mainPrompt || !genData.title) {
       toast({
         title: "Missing Information",
-        description: "Please enter a prompt and title for the video",
+        description: `Please enter a prompt and title for the ${outputType}`,
         variant: "destructive",
       });
       return;
     }
 
-    // Check if selected template requires an image
-    if (selectedTemplate) {
+    // Check if selected template requires an image (for image generation)
+    if (outputType === 'image' && selectedTemplate) {
       const template = STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate);
       if (template?.requiresImage && !genData.startImage) {
         toast({
           title: "Image Required",
-          description: `The "${template.name}" template requires a starting image. Please upload one.`,
+          description: `The "${template.name}" template requires a reference image. Please upload one.`,
           variant: "destructive",
         });
         return;
@@ -337,6 +417,75 @@ const Generate: React.FC = () => {
 
     setIsGenerating(true);
     setGenerationProgress(0);
+    
+    // Route based on output type
+    if (outputType === 'image') {
+      await handleImageGeneration(fullPrompt);
+    } else {
+      await handleVideoGeneration(fullPrompt);
+    }
+  };
+
+  const handleImageGeneration = async (fullPrompt: string) => {
+    setGenerationStatus('Initializing image generation...');
+    
+    try {
+      const response = await supabase.functions.invoke('generate-image', {
+        body: {
+          userId: user?.id,
+          prompt: fullPrompt,
+          template: selectedTemplate || undefined,
+          referenceImageUrl: genData.startImage || undefined,
+          title: genData.title,
+          salesforceData: {
+            title: genData.title,
+            description: genData.description,
+            categories: genData.categories,
+            tags: genData.tags,
+          }
+        },
+      });
+
+      if (response.error) {
+        const msg = response.error.message || 'Edge Function returned a non-2xx status code';
+        throw new Error(msg);
+      }
+
+      const result = response.data;
+      if (!result.success) {
+        throw new Error(result.error || 'Unknown error occurred');
+      }
+
+      // Start polling for image generation
+      setCurrentImageGeneration({
+        id: result.generationId,
+        status: 'generating',
+        progress: 10,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      setGenerationStatus('Image is being generated...');
+      toast({
+        title: "Generation Started",
+        description: "Your image is being generated using Lovable AI.",
+      });
+
+    } catch (error) {
+      console.error('Image generation error:', error);
+      setGenerationStatus('Generation failed');
+      setIsGenerating(false);
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleVideoGeneration = async (fullPrompt: string) => {
+    if (!selectedModel) return;
+    
     setGenerationStatus('Initializing video generation...');
 
     try {
@@ -761,11 +910,11 @@ const Generate: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <Card className="p-6 mb-6 bg-green-50 border-green-200">
+            <Card className="p-6 mb-6 bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800">
               <div className="space-y-4">
                 <div className="flex items-center gap-2 mb-4">
                   <Sparkles className="w-5 h-5 text-green-600" />
-                  <span className="text-lg font-medium text-green-800">{outputType === 'image' ? 'Image' : 'Video'} Generated Successfully!</span>
+                  <span className="text-lg font-medium text-green-800 dark:text-green-200">Video Generated Successfully!</span>
                 </div>
                 <video
                   controls
@@ -800,8 +949,53 @@ const Generate: React.FC = () => {
           </motion.div>
         )}
 
+        {/* Image Completed Display */}
+        {currentImageGeneration?.status === 'completed' && currentImageGeneration.image_url && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <Card className="p-6 mb-6 bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Sparkles className="w-5 h-5 text-green-600" />
+                  <span className="text-lg font-medium text-green-800 dark:text-green-200">Image Generated Successfully!</span>
+                </div>
+                <img
+                  src={currentImageGeneration.image_url}
+                  alt="Generated image"
+                  className="w-full rounded-lg bg-muted"
+                  style={{ maxHeight: '500px', objectFit: 'contain' }}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    asChild
+                  >
+                    <a href={currentImageGeneration.image_url} download target="_blank" rel="noopener noreferrer">
+                      Download Image
+                    </a>
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      setCurrentImageGeneration(null);
+                      setGenData(prev => ({ ...prev, title: '', mainPrompt: '', description: '' }));
+                    }}
+                  >
+                    Generate Another
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+
         {/* Form - Hidden when completed or no output type selected */}
-        {outputType && (!currentGeneration || currentGeneration.status !== 'completed') && (
+        {outputType && (!currentGeneration || currentGeneration.status !== 'completed') && (!currentImageGeneration || currentImageGeneration.status !== 'completed') && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

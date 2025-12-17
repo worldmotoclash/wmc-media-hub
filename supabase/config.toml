@@ -35,3 +35,9 @@ verify_jwt = false
 
 [functions.upload-generation-input]
 verify_jwt = false
+
+[functions.generate-image]
+verify_jwt = false
+
+[functions.get-image-generation]
+verify_jwt = false
