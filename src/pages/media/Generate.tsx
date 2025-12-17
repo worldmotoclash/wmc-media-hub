@@ -1513,7 +1513,7 @@ const Generate: React.FC = () => {
                   disabled={
                     isGenerating || 
                     (outputType === 'video' && !selectedModel) ||
-                    (outputType === 'image' && selectedTemplateInfo?.requiresImage && !genData.imageUrl)
+                    (outputType === 'image' && selectedTemplateInfo?.requiresImage && !genData.startImage)
                   }
                   className="min-w-48"
                 >
