@@ -1147,75 +1147,104 @@ const Generate: React.FC = () => {
                 </div>
               </Card>
 
-              {/* Generation Settings */}
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Generation Settings</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm">Duration: {genData.duration[0]}s</Label>
-                    <Slider
-                      value={genData.duration}
-                      onValueChange={(value) => setGenData(prev => ({ ...prev, duration: value }))}
-                      min={3}
-                      max={60}
-                      step={1}
-                      className="w-full"
-                    />
+              {/* Image Settings - Only show for image output */}
+              {outputType === 'image' && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">Image Settings</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm">Aspect Ratio</Label>
+                      <Select 
+                        value={genData.aspectRatio} 
+                        onValueChange={(value) => setGenData(prev => ({ ...prev, aspectRatio: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1:1">1:1 (Square)</SelectItem>
+                          <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
+                          <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
+                          <SelectItem value="4:3">4:3 (Standard)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* Video Generation Settings - Only show for video output */}
+              {outputType === 'video' && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">Generation Settings</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm">Duration: {genData.duration[0]}s</Label>
+                      <Slider
+                        value={genData.duration}
+                        onValueChange={(value) => setGenData(prev => ({ ...prev, duration: value }))}
+                        min={3}
+                        max={60}
+                        step={1}
+                        className="w-full"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm">Resolution</Label>
+                      <Select 
+                        value={genData.resolution} 
+                        onValueChange={(value) => setGenData(prev => ({ ...prev, resolution: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="480p">480p</SelectItem>
+                          <SelectItem value="720p">720p</SelectItem>
+                          <SelectItem value="1080p">1080p</SelectItem>
+                          <SelectItem value="2K">2K</SelectItem>
+                          <SelectItem value="4K">4K</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm">Aspect Ratio</Label>
+                      <Select 
+                        value={genData.aspectRatio} 
+                        onValueChange={(value) => setGenData(prev => ({ ...prev, aspectRatio: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
+                          <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
+                          <SelectItem value="1:1">1:1 (Square)</SelectItem>
+                          <SelectItem value="21:9">21:9 (Cinematic)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-sm">Resolution</Label>
-                    <Select 
-                      value={genData.resolution} 
-                      onValueChange={(value) => setGenData(prev => ({ ...prev, resolution: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="480p">480p</SelectItem>
-                        <SelectItem value="720p">720p</SelectItem>
-                        <SelectItem value="1080p">1080p</SelectItem>
-                        <SelectItem value="2K">2K</SelectItem>
-                        <SelectItem value="4K">4K</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm">Aspect Ratio</Label>
-                    <Select 
-                      value={genData.aspectRatio} 
-                      onValueChange={(value) => setGenData(prev => ({ ...prev, aspectRatio: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
-                        <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
-                        <SelectItem value="1:1">1:1 (Square)</SelectItem>
-                        <SelectItem value="21:9">21:9 (Cinematic)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {selectedModel?.vendor === 'Google' && (
-                  <div className="mt-4">
-                    <Label className="text-sm">Creativity: {genData.creativity[0]}</Label>
-                    <Slider
-                      value={genData.creativity}
-                      onValueChange={(value) => setGenData(prev => ({ ...prev, creativity: value }))}
-                      min={0}
-                      max={1}
-                      step={0.1}
-                      className="w-full mt-2"
-                    />
-                  </div>
-                )}
-              </Card>
+                  {selectedModel?.vendor === 'Google' && (
+                    <div className="mt-4">
+                      <Label className="text-sm">Creativity: {genData.creativity[0]}</Label>
+                      <Slider
+                        value={genData.creativity}
+                        onValueChange={(value) => setGenData(prev => ({ ...prev, creativity: value }))}
+                        min={0}
+                        max={1}
+                        step={0.1}
+                        className="w-full mt-2"
+                      />
+                    </div>
+                  )}
+                </Card>
+              )}
 
               {/* Start/End Image Section - Shows for image-to-video models OR when template requires image */}
               {(selectedModel && (selectedModel.capabilities.includes('image_to_video') || selectedModel.capabilities.includes('start_end_image'))) || 
@@ -1279,13 +1308,18 @@ const Generate: React.FC = () => {
                 <Button 
                   type="submit" 
                   size="lg" 
-                  disabled={isGenerating || !selectedModel}
+                  disabled={isGenerating || (outputType === 'video' && !selectedModel)}
                   className="min-w-48"
                 >
                   {isGenerating ? (
                     <>
                       <Sparkles className="w-4 h-4 mr-2 animate-spin" />
                       Generating...
+                    </>
+                  ) : outputType === 'image' ? (
+                    <>
+                      <Wand2 className="w-4 h-4 mr-2" />
+                      Generate Image
                     </>
                   ) : (
                     <>
