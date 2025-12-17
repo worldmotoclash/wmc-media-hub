@@ -27,9 +27,12 @@ import {
   X,
   AlertCircle,
   Info,
-  Check
+  Check,
+  Download,
+  Loader2
 } from "lucide-react";
 import { STORYTELLING_PROMPTS } from "@/constants/storytellingPrompts";
+import { GRID_POSITIONS, GRID_TEMPLATES } from "@/constants/gridPositions";
 import { ImageDropzone } from "@/components/media/ImageDropzone";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
@@ -269,6 +272,13 @@ const Generate: React.FC = () => {
   
   // Template state
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  
+  // Grid extraction state
+  const [selectedGridPosition, setSelectedGridPosition] = useState<string>('');
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractingAll, setExtractingAll] = useState(false);
+  const [extractedVariants, setExtractedVariants] = useState<Array<{id: string, url: string, position: string, label: string}>>([]);
+  const [extractionProgress, setExtractionProgress] = useState({ current: 0, total: 0 });
   
   // Image model state - check URL param for model selection from marketplace
   const initialImageModel = urlModelId 
@@ -789,6 +799,111 @@ const Generate: React.FC = () => {
     }));
   };
 
+  // Extract a single grid position
+  const handleExtractImage = async (positionId?: string) => {
+    const targetPosition = positionId || selectedGridPosition;
+    if (!currentImageGeneration?.image_url || !targetPosition) return;
+    
+    const position = GRID_POSITIONS.find(p => p.id === targetPosition);
+    if (!position) return;
+
+    setIsExtracting(true);
+    try {
+      const response = await supabase.functions.invoke('extract-grid-image', {
+        body: {
+          sourceUrl: currentImageGeneration.image_url,
+          row: position.row,
+          col: position.col,
+          generationId: currentImageGeneration.id,
+          positionId: targetPosition,
+          template: selectedTemplate,
+          title: `${genData.title} - ${position.label}`,
+        }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Extraction failed');
+      }
+
+      if (response.data?.success) {
+        setExtractedVariants(prev => [...prev, {
+          id: response.data.assetId,
+          url: response.data.url,
+          position: targetPosition,
+          label: position.label
+        }]);
+        toast({ 
+          title: "Image Extracted", 
+          description: `Saved ${position.label} variant to library` 
+        });
+        setSelectedGridPosition('');
+      } else {
+        throw new Error(response.data?.error || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('Extraction error:', error);
+      toast({ 
+        title: "Extraction Failed", 
+        description: error instanceof Error ? error.message : 'Failed to extract image',
+        variant: "destructive" 
+      });
+    }
+    setIsExtracting(false);
+  };
+
+  // Extract all 9 grid positions
+  const handleExtractAll = async () => {
+    if (!currentImageGeneration?.image_url) return;
+
+    setExtractingAll(true);
+    setExtractionProgress({ current: 0, total: 9 });
+
+    const results: Array<{id: string, url: string, position: string, label: string}> = [];
+    
+    for (let i = 0; i < GRID_POSITIONS.length; i++) {
+      const position = GRID_POSITIONS[i];
+      setExtractionProgress({ current: i + 1, total: 9 });
+
+      // Skip if already extracted
+      if (extractedVariants.some(v => v.position === position.id)) {
+        continue;
+      }
+
+      try {
+        const response = await supabase.functions.invoke('extract-grid-image', {
+          body: {
+            sourceUrl: currentImageGeneration.image_url,
+            row: position.row,
+            col: position.col,
+            generationId: currentImageGeneration.id,
+            positionId: position.id,
+            template: selectedTemplate,
+            title: `${genData.title} - ${position.label}`,
+          }
+        });
+
+        if (response.data?.success) {
+          results.push({
+            id: response.data.assetId,
+            url: response.data.url,
+            position: position.id,
+            label: position.label
+          });
+        }
+      } catch (error) {
+        console.error(`Failed to extract ${position.label}:`, error);
+      }
+    }
+
+    setExtractedVariants(prev => [...prev, ...results]);
+    setExtractingAll(false);
+    
+    toast({ 
+      title: "Extraction Complete", 
+      description: `Successfully extracted ${results.length} images from the grid` 
+    });
+  };
+
   if (!user) {
     return null;
   }
@@ -1244,6 +1359,7 @@ const Generate: React.FC = () => {
                     asChild
                   >
                     <a href={currentImageGeneration.image_url} download target="_blank" rel="noopener noreferrer">
+                      <Download className="w-4 h-4 mr-2" />
                       Download Image
                     </a>
                   </Button>
@@ -1252,6 +1368,7 @@ const Generate: React.FC = () => {
                     size="sm"
                     onClick={() => {
                       setCurrentImageGeneration(null);
+                      setExtractedVariants([]);
                       setGenData(prev => ({ ...prev, title: '', mainPrompt: '', description: '' }));
                     }}
                   >
@@ -1260,6 +1377,125 @@ const Generate: React.FC = () => {
                 </div>
               </div>
             </Card>
+
+            {/* Grid Extraction Section - Only show for 3x3 templates */}
+            {GRID_TEMPLATES.includes(selectedTemplate) && (
+              <Card className="p-6 mb-6">
+                <h4 className="font-semibold mb-4 flex items-center gap-2">
+                  <Grid3X3 className="w-5 h-5 text-primary" />
+                  Extract Individual Images
+                </h4>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Extract individual images from the 3×3 grid. Each extracted image will be saved to your media library.
+                </p>
+
+                {/* Extract All Button */}
+                <div className="flex gap-4 items-center mb-6">
+                  <Button
+                    onClick={handleExtractAll}
+                    disabled={isExtracting || extractingAll || extractedVariants.length >= 9}
+                    className="flex-shrink-0"
+                  >
+                    {extractingAll ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Extracting {extractionProgress.current}/{extractionProgress.total}...
+                      </>
+                    ) : (
+                      <>
+                        <Grid3X3 className="w-4 h-4 mr-2" />
+                        Extract All 9 Images
+                      </>
+                    )}
+                  </Button>
+                  {extractedVariants.length > 0 && (
+                    <Badge variant="secondary">
+                      {extractedVariants.length}/9 extracted
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Individual Position Selector */}
+                <div className="flex gap-4 items-end mb-6">
+                  <div className="flex-1 max-w-xs">
+                    <Label className="text-sm mb-2 block">Or select individual position</Label>
+                    <Select 
+                      value={selectedGridPosition} 
+                      onValueChange={setSelectedGridPosition}
+                      disabled={isExtracting || extractingAll}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose grid position..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {GRID_POSITIONS.map(pos => {
+                          const isExtracted = extractedVariants.some(v => v.position === pos.id);
+                          return (
+                            <SelectItem 
+                              key={pos.id} 
+                              value={pos.id}
+                              disabled={isExtracted}
+                            >
+                              {pos.label} {isExtracted && '✓'}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button 
+                    onClick={() => handleExtractImage()} 
+                    disabled={!selectedGridPosition || isExtracting || extractingAll}
+                    variant="outline"
+                  >
+                    {isExtracting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Extracting...
+                      </>
+                    ) : (
+                      'Extract & Save'
+                    )}
+                  </Button>
+                </div>
+
+                {/* Extracted Variants Grid */}
+                {extractedVariants.length > 0 && (
+                  <div className="mt-6">
+                    <Label className="text-sm mb-3 block">Extracted Images</Label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {extractedVariants.map(v => (
+                        <div key={v.id} className="relative group">
+                          <img 
+                            src={v.url} 
+                            alt={v.label}
+                            className="w-full aspect-square object-cover rounded-lg border"
+                          />
+                          <Badge 
+                            className="absolute top-2 left-2 text-xs"
+                            variant="secondary"
+                          >
+                            {v.label.split(' ')[0]} {v.label.split(' ')[1]}
+                          </Badge>
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              asChild
+                            >
+                              <a href={v.url} download target="_blank" rel="noopener noreferrer">
+                                <Download className="w-4 h-4 mr-1" />
+                                Download
+                              </a>
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            )}
           </motion.div>
         )}
 
