@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Sparkles, Wand2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Wand2, Image } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 
@@ -14,14 +14,21 @@ import { ModelDetailsDrawer } from "@/components/model-marketplace/ModelDetailsD
 
 // Import services
 import { MODEL_REGISTRY, AIModel } from "@/services/modelRegistry";
-import { PricingService, GenerationSettings } from "@/services/pricingService";
+import { IMAGE_MODEL_REGISTRY, ImageModel } from "@/services/imageModelRegistry";
+import { PricingService, GenerationSettings, NormalizedPricing } from "@/services/pricingService";
 import { DefaultModelService } from "@/services/defaultModelService";
+
+type MarketplaceType = 'video' | 'image';
 
 const ModelMarketplace: React.FC = () => {
   const { user } = useUser();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
+
+  // Get marketplace type from URL params (default to 'video')
+  const marketplaceType: MarketplaceType = (searchParams.get('type') as MarketplaceType) || 'video';
+  const isImageMode = marketplaceType === 'image';
 
   // Get preset from URL params or default to 'teaser'
   const initialPreset = searchParams.get('preset') || 'teaser';
@@ -69,12 +76,56 @@ const ModelMarketplace: React.FC = () => {
     aspectRatio: presetSettings.aspectRatio
   }), [presetSettings]);
 
-  // Filter models based on current filters
+  // Get the appropriate registry based on marketplace type
+  const activeRegistry = useMemo(() => {
+    if (isImageMode) {
+      // Convert ImageModel to AIModel-like structure for consistent handling
+      return IMAGE_MODEL_REGISTRY.map(model => ({
+        id: model.id,
+        name: model.name,
+        displayName: model.displayName,
+        vendor: model.vendor as any,
+        brand: model.brand,
+        pricing: { 
+          basis: model.pricing.basis === 'included' ? 'per_run' : 'per_run',
+          basePrice: model.pricing.basePrice,
+          currency: 'USD' as const
+        },
+        capabilities: model.capabilities,
+        qualityTier: model.qualityTier === 'fast' ? '480p' : model.qualityTier === 'standard' ? '720p' : '1080p',
+        speedTier: model.speedTier === 'ultra-fast' ? 'Ultra-fast' : model.speedTier === 'fast' ? 'Standard' : 'High-fidelity',
+        specs: {
+          maxDuration: 0,
+          supportedDurations: [],
+          maxResolution: '1080p',
+          aspectRatios: ['1:1', '16:9', '9:16'],
+          fpsOptions: [],
+          audioSupport: false
+        },
+        latency: { typical: 30, range: [15, 60] as [number, number] },
+        commercialUse: model.commercialUse,
+        status: model.status,
+        strengths: model.strengths,
+        description: model.description,
+        promptTips: [],
+        sampleVideos: [],
+        changelog: [],
+        uptime: model.uptime
+      })) as AIModel[];
+    }
+    return MODEL_REGISTRY;
+  }, [isImageMode]);
+
+  // Filter models based on current filters (with brand support)
   const filteredModels = useMemo(() => {
-    return MODEL_REGISTRY.filter(model => {
-      // Vendor filter
-      if (filters.vendors.length > 0 && !filters.vendors.includes(model.vendor)) {
-        return false;
+    return activeRegistry.filter(model => {
+      // Vendor filter - check both vendor and brand
+      if (filters.vendors.length > 0) {
+        const matchesVendor = filters.vendors.includes(model.vendor);
+        const matchesBrand = model.brand && filters.vendors.includes(model.brand);
+        if (!matchesVendor && !matchesBrand) {
+          return false;
+        }
       }
 
       // Capabilities filter
@@ -107,15 +158,20 @@ const ModelMarketplace: React.FC = () => {
 
       return true;
     });
-  }, [filters]);
+  }, [activeRegistry, filters]);
 
-  // Calculate model counts for filter sidebar
+  // Calculate model counts for filter sidebar (with brand support)
   const modelCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     
-    MODEL_REGISTRY.forEach(model => {
+    activeRegistry.forEach(model => {
       // Vendor counts
       counts[`vendor-${model.vendor}`] = (counts[`vendor-${model.vendor}`] || 0) + 1;
+      
+      // Brand counts (for Kling, MiniMax, etc.)
+      if (model.brand) {
+        counts[`vendor-${model.brand}`] = (counts[`vendor-${model.brand}`] || 0) + 1;
+      }
       
       // Capability counts
       model.capabilities.forEach(cap => {
@@ -136,20 +192,21 @@ const ModelMarketplace: React.FC = () => {
     });
     
     return counts;
-  }, []);
+  }, [activeRegistry]);
 
-  // Get recommended models for current settings
+  // Get recommended models for current settings (video only)
   const recommendedModels = useMemo(() => {
+    if (isImageMode) return filteredModels;
     return PricingService.getRecommendations(
       filteredModels, 
       generationSettings, 
       selectedPreset as any
     );
-  }, [filteredModels, generationSettings, selectedPreset]);
+  }, [filteredModels, generationSettings, selectedPreset, isImageMode]);
 
-  // Calculate effective pricing for display
+  // Calculate effective pricing for display (video only)
   const effectivePrice = useMemo(() => {
-    if (recommendedModels.length === 0) {
+    if (isImageMode || recommendedModels.length === 0) {
       return { perRun: '$0.00', perSecond: '$0.00' };
     }
 
@@ -160,7 +217,7 @@ const ModelMarketplace: React.FC = () => {
       perRun: PricingService.formatPrice(pricing.pricePerRun),
       perSecond: PricingService.formatPrice(pricing.pricePerSecond)
     };
-  }, [recommendedModels, generationSettings]);
+  }, [recommendedModels, generationSettings, isImageMode]);
 
   // Event handlers
   const handlePresetChange = (preset: string) => {
@@ -180,6 +237,12 @@ const ModelMarketplace: React.FC = () => {
   };
 
   const handleModelSelect = (model: AIModel) => {
+    if (isImageMode) {
+      // For image mode, navigate back to generate page with selected model
+      navigate(`/admin/media/generate?type=image&model=${model.id}`);
+      return;
+    }
+    
     // Set this model as the default for the current preset
     DefaultModelService.setDefaultModel(selectedPreset, model.id);
     
@@ -192,9 +255,8 @@ const ModelMarketplace: React.FC = () => {
   const handleQuickPreview = (model: AIModel) => {
     toast({
       title: "Quick Preview",
-      description: `Starting 3-second preview with ${model.displayName}`,
+      description: `Starting preview with ${model.displayName}`,
     });
-    // Implement preview logic here
   };
 
   const handleCompare = (model: AIModel) => {
@@ -219,8 +281,12 @@ const ModelMarketplace: React.FC = () => {
     setDetailsModel(null);
   };
 
-  const handleGenerateVideo = () => {
-    navigate(`/admin/media/generate?preset=${selectedPreset}`);
+  const handleGenerate = () => {
+    if (isImageMode) {
+      navigate('/admin/media/generate?type=image');
+    } else {
+      navigate(`/admin/media/generate?preset=${selectedPreset}`);
+    }
   };
 
   if (!user) {
@@ -234,11 +300,11 @@ const ModelMarketplace: React.FC = () => {
         <div className="mb-8">
           <Button 
             variant="ghost" 
-            onClick={() => navigate('/admin/media')}
+            onClick={() => isImageMode ? navigate('/admin/media/generate?type=image') : navigate('/admin/media')}
             className="mb-4"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Media Hub
+            {isImageMode ? 'Back to Generate' : 'Back to Media Hub'}
           </Button>
           
           <div className="flex items-center justify-between">
@@ -248,38 +314,49 @@ const ModelMarketplace: React.FC = () => {
               transition={{ duration: 0.6 }}
             >
               <h1 className="text-4xl font-bold mb-4 text-foreground flex items-center gap-3">
-                <Sparkles className="w-8 h-8 text-primary" />
-                AI Video Marketplace
+                {isImageMode ? (
+                  <Image className="w-8 h-8 text-primary" />
+                ) : (
+                  <Sparkles className="w-8 h-8 text-primary" />
+                )}
+                AI {isImageMode ? 'Image' : 'Video'} Marketplace
               </h1>
               <p className="text-xl text-muted-foreground mb-2">
-                Set default models for each use-case and browse available options
+                {isImageMode 
+                  ? 'Browse and select image generation models'
+                  : 'Set default models for each use-case and browse available options'
+                }
               </p>
-              <p className="text-muted-foreground">
-                Click on any model to set it as the default for {selectedPreset}
-              </p>
+              {!isImageMode && (
+                <p className="text-muted-foreground">
+                  Click on any model to set it as the default for {selectedPreset}
+                </p>
+              )}
             </motion.div>
 
-            <Button size="lg" onClick={handleGenerateVideo} className="ml-4">
+            <Button size="lg" onClick={handleGenerate} className="ml-4">
               <Wand2 className="w-4 h-4 mr-2" />
-              Generate Video
+              Generate {isImageMode ? 'Image' : 'Video'}
             </Button>
           </div>
         </div>
 
-        {/* Preset Bar */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.6 }}
-        >
-          <PresetBar
-            selectedPreset={selectedPreset}
-            onPresetChange={handlePresetChange}
-            settings={presetSettings}
-            onSettingsChange={handleSettingsChange}
-            effectivePrice={effectivePrice}
-          />
-        </motion.div>
+        {/* Preset Bar (video only) */}
+        {!isImageMode && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.6 }}
+          >
+            <PresetBar
+              selectedPreset={selectedPreset}
+              onPresetChange={handlePresetChange}
+              settings={presetSettings}
+              onSettingsChange={handleSettingsChange}
+              effectivePrice={effectivePrice}
+            />
+          </motion.div>
+        )}
 
         {/* Main Content */}
         <div className="flex gap-6">
@@ -307,7 +384,7 @@ const ModelMarketplace: React.FC = () => {
               <h2 className="text-xl font-semibold mb-2">
                 Available Models ({filteredModels.length})
               </h2>
-              {recommendedModels.length > 0 && (
+              {!isImageMode && recommendedModels.length > 0 && (
                 <p className="text-sm text-muted-foreground">
                   Recommended for {selectedPreset}: {recommendedModels.slice(0, 3).map(m => m.displayName).join(', ')}
                 </p>
@@ -316,7 +393,16 @@ const ModelMarketplace: React.FC = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {filteredModels.map((model) => {
-                const pricing = PricingService.calculateNormalizedPricing(model, generationSettings);
+                const basePrice = (model as any).pricing?.basePrice || 0;
+                const pricing: NormalizedPricing = isImageMode 
+                  ? { 
+                      pricePerRun: basePrice, 
+                      pricePerSecond: 0, 
+                      effectivePrice: basePrice,
+                      pricingBasis: 'per_run',
+                      breakdown: { baseCost: basePrice, durationMultiplier: 1, resolutionMultiplier: 1, audioMultiplier: 1 }
+                    }
+                  : PricingService.calculateNormalizedPricing(model, generationSettings);
                 
                 return (
                   <ModelCard
@@ -347,7 +433,10 @@ const ModelMarketplace: React.FC = () => {
         {/* Model Details Drawer */}
         <ModelDetailsDrawer
           model={detailsModel}
-          pricing={detailsModel ? PricingService.calculateNormalizedPricing(detailsModel, generationSettings) : null}
+          pricing={detailsModel ? (isImageMode 
+            ? { pricePerRun: 0, pricePerSecond: 0, effectivePrice: 0, pricingBasis: 'per_run' as const, breakdown: { baseCost: 0, durationMultiplier: 1, resolutionMultiplier: 1, audioMultiplier: 1 } }
+            : PricingService.calculateNormalizedPricing(detailsModel, generationSettings)
+          ) : null}
           settings={generationSettings}
           isOpen={!!detailsModel}
           onOpenChange={(open) => !open && handleCloseDetails()}

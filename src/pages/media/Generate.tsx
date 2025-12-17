@@ -210,8 +210,12 @@ const Generate: React.FC = () => {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   
+  // Get output type and model from URL params
+  const urlType = searchParams.get('type') as OutputType;
+  const urlModelId = searchParams.get('model');
+  
   // Output type selection (Image or Video)
-  const [outputType, setOutputType] = useState<OutputType>(null);
+  const [outputType, setOutputType] = useState<OutputType>(urlType || null);
   
   // Get preset from URL params or default to 'teaser'
   const initialPreset = searchParams.get('preset') || 'teaser';
@@ -260,8 +264,11 @@ const Generate: React.FC = () => {
   // Template state
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   
-  // Image model state
-  const [selectedImageModel, setSelectedImageModel] = useState(IMAGE_GENERATION_MODELS[0]);
+  // Image model state - check URL param for model selection from marketplace
+  const initialImageModel = urlModelId 
+    ? IMAGE_GENERATION_MODELS.find(m => m.id === urlModelId) || IMAGE_GENERATION_MODELS[0]
+    : IMAGE_GENERATION_MODELS[0];
+  const [selectedImageModel, setSelectedImageModel] = useState(initialImageModel);
   const [selectedImageUseCase, setSelectedImageUseCase] = useState<string>('');
   
   // Handle output type change - reset related state
@@ -468,6 +475,10 @@ const Generate: React.FC = () => {
 
   const handleChangeModel = () => {
     navigate(`/admin/media/models?preset=${selectedPreset}`);
+  };
+
+  const handleChangeImageModel = () => {
+    navigate('/admin/media/models?type=image');
   };
 
   const handleGenerateSubmit = async (e: React.FormEvent) => {
@@ -982,38 +993,14 @@ const Generate: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <Select
-                  value={selectedImageModel.id}
-                  onValueChange={(value) => {
-                    const model = IMAGE_GENERATION_MODELS.find(m => m.id === value);
-                    if (model) setSelectedImageModel(model);
-                  }}
+                <Button
+                  variant="outline"
+                  onClick={handleChangeImageModel}
+                  className="h-9 px-3"
                 >
-                  <SelectTrigger className="w-auto h-9 px-3 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md">
-                    <Settings2 className="w-4 h-4 mr-2" />
-                    <span className="text-sm">Change Model</span>
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border z-50">
-                    <div className="p-2 text-xs text-muted-foreground border-b">Lovable AI</div>
-                    {IMAGE_GENERATION_MODELS.filter(m => m.vendor === 'Lovable AI').map((model) => (
-                      <SelectItem key={model.id} value={model.id}>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{model.name}</span>
-                          <Badge variant="secondary" className="text-xs">{model.pricing}</Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
-                    <div className="p-2 text-xs text-muted-foreground border-b border-t mt-1">Wavespeed</div>
-                    {IMAGE_GENERATION_MODELS.filter(m => m.vendor === 'Wavespeed').map((model) => (
-                      <SelectItem key={model.id} value={model.id}>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{model.name}</span>
-                          <Badge variant="secondary" className="text-xs">{model.pricing}</Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <Settings2 className="w-4 h-4 mr-2" />
+                  Change Model
+                </Button>
               </div>
             </Card>
           </motion.div>
