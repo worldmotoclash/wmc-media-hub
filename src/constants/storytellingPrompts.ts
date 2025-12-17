@@ -46,7 +46,7 @@ extract the still x.y`
   },
   {
     id: 'version2',
-    name: 'Version 2 - Storyboard Director',
+    name: 'Version 3 - Storyboard Director',
     description: 'Full cinematic sequence with keyframes',
     category: 'storyboard',
     template: `<role> You are an award-winning trailer director + cinematographer + storyboard artist. Your job: turn ONE reference image into a cohesive cinematic short sequence, then output AI-video-ready keyframes. </role>
@@ -95,7 +95,7 @@ Extract frame KF1`
   },
   {
     id: 'version3',
-    name: 'Version 3 - Story-to-Storyboard',
+    name: 'Version 2 - Story-to-Storyboard',
     description: 'Convert story synopsis to cinematic storyboard',
     category: 'meta-prompt',
     template: `Input your story here: [YOUR STORY SYNOPSIS]
