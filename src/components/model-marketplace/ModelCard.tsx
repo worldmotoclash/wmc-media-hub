@@ -16,7 +16,9 @@ import {
   Palette,
   CheckCircle2,
   AlertCircle,
-  PauseCircle
+  PauseCircle,
+  ImagePlus,
+  ArrowLeftRight
 } from "lucide-react";
 import { AIModel } from "@/services/modelRegistry";
 import { NormalizedPricing } from "@/services/pricingService";
@@ -39,6 +41,15 @@ const CAPABILITY_ICONS: Record<string, any> = {
   'cinematic': Palette,
   'ultra_fast': Zap,
   'long_form': Clock,
+  'image_to_video': ImagePlus,
+  'start_end_image': ArrowLeftRight,
+};
+
+const IMAGE_CAPABILITIES = ['image_to_video', 'start_end_image'];
+
+const CAPABILITY_LABELS: Record<string, string> = {
+  'image_to_video': 'Start Image',
+  'start_end_image': 'Start + End',
 };
 
 const STATUS_CONFIG = {
@@ -135,18 +146,41 @@ export const ModelCard: React.FC<ModelCardProps> = ({
           </div>
         </div>
 
-        {/* Capabilities */}
+        {/* Image Input Capabilities - Prominent badges */}
+        {model.capabilities.some(cap => IMAGE_CAPABILITIES.includes(cap)) && (
+          <div className="flex flex-wrap gap-1.5">
+            {model.capabilities
+              .filter(cap => IMAGE_CAPABILITIES.includes(cap))
+              .map((capability) => {
+                const Icon = CAPABILITY_ICONS[capability];
+                return (
+                  <Badge 
+                    key={capability} 
+                    className="bg-primary/10 text-primary border-primary/20 text-xs flex items-center gap-1"
+                  >
+                    {Icon && <Icon className="w-3 h-3" />}
+                    {CAPABILITY_LABELS[capability]}
+                  </Badge>
+                );
+              })}
+          </div>
+        )}
+
+        {/* Other Capabilities */}
         <div>
           <div className="text-xs text-muted-foreground mb-2">Capabilities</div>
           <div className="flex flex-wrap gap-2">
-            {model.capabilities.slice(0, 4).map((capability) => {
-              const Icon = CAPABILITY_ICONS[capability];
-              return (
-                <div key={capability} className="flex items-center gap-1">
-                  {Icon && <Icon className="w-3 h-3 text-muted-foreground" />}
-                </div>
-              );
-            })}
+            {model.capabilities
+              .filter(cap => !IMAGE_CAPABILITIES.includes(cap))
+              .slice(0, 4)
+              .map((capability) => {
+                const Icon = CAPABILITY_ICONS[capability];
+                return (
+                  <div key={capability} className="flex items-center gap-1">
+                    {Icon && <Icon className="w-3 h-3 text-muted-foreground" />}
+                  </div>
+                );
+              })}
           </div>
         </div>
 
