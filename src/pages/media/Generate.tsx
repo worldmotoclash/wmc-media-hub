@@ -35,6 +35,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { supabase } from "@/integrations/supabase/client";
 import { DefaultModelService } from "@/services/defaultModelService";
+import { ImageDefaultModelService } from "@/services/imageDefaultModelService";
 import { AIModel } from "@/services/modelRegistry";
 import { PricingService, GenerationSettings } from "@/services/pricingService";
 
@@ -72,7 +73,7 @@ interface ImageGeneration {
   updated_at: string;
 }
 
-// Image Use Cases
+// Image Use Cases with default model assignments
 const IMAGE_USE_CASES = [
   {
     id: 'quick-concept',
@@ -81,7 +82,8 @@ const IMAGE_USE_CASES = [
     icon: Zap,
     color: 'bg-emerald-500',
     templateId: 'foundational',
-    requiresImage: false
+    requiresImage: false,
+    defaultModelId: 'gemini-flash-image'
   },
   {
     id: 'shot-coverage',
@@ -90,7 +92,8 @@ const IMAGE_USE_CASES = [
     icon: Grid3X3,
     color: 'bg-purple-500',
     templateId: 'version1',
-    requiresImage: true
+    requiresImage: true,
+    defaultModelId: 'flux-schnell'
   },
   {
     id: 'trailer-prep',
@@ -99,7 +102,8 @@ const IMAGE_USE_CASES = [
     icon: Film,
     color: 'bg-blue-500',
     templateId: 'version2',
-    requiresImage: true
+    requiresImage: true,
+    defaultModelId: 'gemini-3-pro-image'
   },
   {
     id: 'directors-cut',
@@ -108,7 +112,8 @@ const IMAGE_USE_CASES = [
     icon: Settings2,
     color: 'bg-orange-500',
     templateId: 'version3',
-    requiresImage: true
+    requiresImage: true,
+    defaultModelId: 'flux-dev'
   }
 ];
 
@@ -285,12 +290,20 @@ const Generate: React.FC = () => {
     }
   };
 
-  // Handle image use case selection
+  // Handle image use case selection - auto-select default model
   const handleImageUseCaseChange = (useCaseId: string) => {
     setSelectedImageUseCase(useCaseId);
     const useCase = IMAGE_USE_CASES.find(uc => uc.id === useCaseId);
     if (useCase) {
       setSelectedTemplate(useCase.templateId);
+      // Auto-select the default model for this use-case
+      const defaultModel = ImageDefaultModelService.getDefaultModel(useCaseId);
+      if (defaultModel) {
+        const modelData = IMAGE_GENERATION_MODELS.find(m => m.id === defaultModel.id);
+        if (modelData) {
+          setSelectedImageModel(modelData);
+        }
+      }
     }
   };
 
@@ -478,7 +491,7 @@ const Generate: React.FC = () => {
   };
 
   const handleChangeImageModel = () => {
-    navigate('/admin/media/models?type=image');
+    navigate(`/admin/media/models?type=image&useCase=${selectedImageUseCase}`);
   };
 
   const handleGenerateSubmit = async (e: React.FormEvent) => {
@@ -938,6 +951,7 @@ const Generate: React.FC = () => {
                 {IMAGE_USE_CASES.map((useCase) => {
                   const Icon = useCase.icon;
                   const isSelected = selectedImageUseCase === useCase.id;
+                  const defaultModel = ImageDefaultModelService.getDefaultModel(useCase.id);
                   
                   return (
                     <div key={useCase.id} className="flex flex-col items-center">
@@ -953,6 +967,12 @@ const Generate: React.FC = () => {
                           {useCase.description}
                         </Badge>
                       </Button>
+                      {/* Show default model name below button like video presets */}
+                      {defaultModel && (
+                        <div className="text-xs text-muted-foreground">
+                          {defaultModel.displayName}
+                        </div>
+                      )}
                       {useCase.requiresImage && (
                         <div className="text-xs text-muted-foreground flex items-center gap-1">
                           <Image className="w-3 h-3" />
