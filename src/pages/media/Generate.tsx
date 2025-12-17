@@ -215,9 +215,10 @@ const Generate: React.FC = () => {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   
-  // Get output type and model from URL params
+  // Get output type, model, and use-case from URL params
   const urlType = searchParams.get('type') as OutputType;
   const urlModelId = searchParams.get('model');
+  const urlUseCase = searchParams.get('useCase');
   
   // Output type selection (Image or Video)
   const [outputType, setOutputType] = useState<OutputType>(urlType || null);
@@ -274,7 +275,7 @@ const Generate: React.FC = () => {
     ? IMAGE_GENERATION_MODELS.find(m => m.id === urlModelId) || IMAGE_GENERATION_MODELS[0]
     : IMAGE_GENERATION_MODELS[0];
   const [selectedImageModel, setSelectedImageModel] = useState(initialImageModel);
-  const [selectedImageUseCase, setSelectedImageUseCase] = useState<string>('');
+  const [selectedImageUseCase, setSelectedImageUseCase] = useState<string>(urlUseCase || '');
   
   // Handle output type change - reset related state
   const handleOutputTypeChange = (type: OutputType) => {
