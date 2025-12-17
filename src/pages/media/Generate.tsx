@@ -22,7 +22,8 @@ import {
   Smartphone,
   Image,
   FileText,
-  X
+  X,
+  AlertCircle
 } from "lucide-react";
 import { STORYTELLING_PROMPTS } from "@/constants/storytellingPrompts";
 import { ImageDropzone } from "@/components/media/ImageDropzone";
@@ -288,6 +289,19 @@ const Generate: React.FC = () => {
         variant: "destructive",
       });
       return;
+    }
+
+    // Check if selected template requires an image
+    if (selectedTemplate) {
+      const template = STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate);
+      if (template?.requiresImage && !genData.startImage) {
+        toast({
+          title: "Image Required",
+          description: `The "${template.name}" template requires a starting image. Please upload one.`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     // Assemble full prompt: template (if selected) + user's scene description
@@ -666,7 +680,15 @@ const Generate: React.FC = () => {
                         {STORYTELLING_PROMPTS.map((prompt) => (
                           <SelectItem key={prompt.id} value={prompt.id}>
                             <div className="flex flex-col items-start">
-                              <span className="font-medium">{prompt.name}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{prompt.name}</span>
+                                {prompt.requiresImage && (
+                                  <Badge variant="outline" className="text-xs px-1 py-0 h-5">
+                                    <Image className="w-3 h-3 mr-1" />
+                                    Image
+                                  </Badge>
+                                )}
+                              </div>
                               <span className="text-xs text-muted-foreground">{prompt.description}</span>
                             </div>
                           </SelectItem>
@@ -686,14 +708,22 @@ const Generate: React.FC = () => {
                     )}
                   </div>
                   {selectedTemplate && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <Badge variant="secondary" className="bg-primary/10 text-primary">
-                        <FileText className="w-3 h-3 mr-1" />
-                        Using: {STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.name}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        Template will be applied automatically when generating
-                      </span>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="bg-primary/10 text-primary">
+                          <FileText className="w-3 h-3 mr-1" />
+                          Using: {STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.name}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          Template will be applied automatically when generating
+                        </span>
+                      </div>
+                      {STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage && !genData.startImage && (
+                        <div className="flex items-center gap-2 text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 rounded-lg text-sm">
+                          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                          This template requires a starting image. Please upload one below.
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -796,14 +826,18 @@ const Generate: React.FC = () => {
                 )}
               </Card>
 
-              {/* Start/End Image Section - Shows for image-to-video models */}
-              {selectedModel && (selectedModel.capabilities.includes('image_to_video') || selectedModel.capabilities.includes('start_end_image')) && (
+              {/* Start/End Image Section - Shows for image-to-video models OR when template requires image */}
+              {(selectedModel && (selectedModel.capabilities.includes('image_to_video') || selectedModel.capabilities.includes('start_end_image'))) || 
+               STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage ? (
                 <Card className="p-6">
                   <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                     <Image className="w-5 h-5" />
                     Image Inputs
-                    {selectedModel.capabilities.includes('start_end_image') && (
+                    {selectedModel?.capabilities.includes('start_end_image') && (
                       <Badge variant="secondary" className="text-xs">Start + End</Badge>
+                    )}
+                    {STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage && (
+                      <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">Required by Template</Badge>
                     )}
                   </h3>
                   
@@ -812,16 +846,18 @@ const Generate: React.FC = () => {
                     <ImageDropzone
                       value={genData.startImage}
                       onChange={(url) => setGenData(prev => ({ ...prev, startImage: url }))}
-                      label={selectedModel.capabilities.includes('start_end_image') ? 'Start Image' : 'Source Image'}
-                      description={selectedModel.capabilities.includes('start_end_image') 
-                        ? 'The first frame of your video'
-                        : 'The image to animate into video'}
-                      required={selectedModel.id === 'vidu_i2v'}
+                      label={selectedModel?.capabilities.includes('start_end_image') ? 'Start Image' : 'Source Image'}
+                      description={STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage 
+                        ? 'Reference image for the storytelling template'
+                        : selectedModel?.capabilities.includes('start_end_image') 
+                          ? 'The first frame of your video'
+                          : 'The image to animate into video'}
+                      required={selectedModel?.id === 'vidu_i2v' || STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage}
                       disabled={isGenerating}
                     />
 
                     {/* End Image - Only for start_end_image models */}
-                    {selectedModel.capabilities.includes('start_end_image') && (
+                    {selectedModel?.capabilities.includes('start_end_image') && (
                       <ImageDropzone
                         value={genData.endImage}
                         onChange={(url) => setGenData(prev => ({ ...prev, endImage: url }))}
@@ -837,13 +873,15 @@ const Generate: React.FC = () => {
                   <div className="mt-4 p-3 bg-muted/50 rounded-lg">
                     <p className="text-xs text-muted-foreground">
                       <strong>Tips:</strong> Use high-quality images with clear subjects. 
-                      {selectedModel.capabilities.includes('start_end_image') 
+                      {selectedModel?.capabilities.includes('start_end_image') 
                         ? ' For best results, use images with similar composition and subjects.'
-                        : ' The prompt describes how the image should be animated.'}
+                        : STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage
+                          ? ' The template will analyze and expand upon your reference image.'
+                          : ' The prompt describes how the image should be animated.'}
                     </p>
                   </div>
                 </Card>
-              )}
+              ) : null}
 
               {/* Submit Button */}
               <div className="flex justify-center">
