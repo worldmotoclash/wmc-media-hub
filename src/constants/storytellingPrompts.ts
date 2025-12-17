@@ -11,7 +11,7 @@ export const STORYTELLING_PROMPTS: StorytellingPrompt[] = [
   {
     id: 'foundational',
     name: 'Foundational Image Prompt',
-    description: 'Ultra-realistic cinematic portrait template',
+    description: 'Create your base cinematic image (start here if you don\'t have one)',
     category: 'foundational',
     requiresImage: false,
     template: `Ultra-realistic waist-up cinematic portrait of [CHARACTER] in [ENVIRONMENT].
@@ -26,7 +26,7 @@ Grounded realism, accurate proportions, no distortion.`
   {
     id: 'version1',
     name: 'V1 – Contact Sheet',
-    description: '3x3 cinematic shot grid with 9 camera angles from a base image',
+    description: 'Generate a 3×3 grid of cinematic shots from an existing image',
     category: 'contact-sheet',
     requiresImage: true,
     template: `<instruction> Analyze the entire composition of the input image. Identify ALL key subjects present (whether it's a single person, a group/couple, a vehicle, or a specific object) and their spatial relationship/interaction.
@@ -50,7 +50,7 @@ extract the still x.y`
   {
     id: 'version3',
     name: 'V3 – Director\'s Cut',
-    description: '3×3 storyboard grid with maximum control - story + reference image',
+    description: 'Design the 3×3 storyboard and lock the scene before rendering',
     category: 'meta-prompt',
     requiresImage: true,
     template: `Input your story here: [YOUR STORY SYNOPSIS]
@@ -110,7 +110,7 @@ Extract the still x.y
   {
     id: 'version2',
     name: 'V2 – Trailer / Keyframes',
-    description: '3×3 cinematic keyframe grid for trailer sequences from a base image',
+    description: 'Turn one image into a 3×3 cinematic sequence',
     category: 'storyboard',
     requiresImage: true,
     template: `<role> You are an award-winning trailer director + cinematographer + storyboard artist. Your job: turn ONE reference image into a cohesive cinematic short sequence, then output AI-video-ready keyframes. </role>
