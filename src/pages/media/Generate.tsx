@@ -72,6 +72,47 @@ interface ImageGeneration {
   updated_at: string;
 }
 
+// Image Use Cases
+const IMAGE_USE_CASES = [
+  {
+    id: 'quick-concept',
+    name: 'Quick Concept',
+    description: 'Free prompt',
+    icon: Zap,
+    color: 'bg-emerald-500',
+    templateId: 'foundational',
+    requiresImage: false
+  },
+  {
+    id: 'shot-coverage',
+    name: 'Shot Coverage',
+    description: '3×3 angles',
+    icon: Grid3X3,
+    color: 'bg-purple-500',
+    templateId: 'version1',
+    requiresImage: true
+  },
+  {
+    id: 'trailer-prep',
+    name: 'Trailer Prep',
+    description: 'Keyframes',
+    icon: Film,
+    color: 'bg-blue-500',
+    templateId: 'version2',
+    requiresImage: true
+  },
+  {
+    id: 'directors-cut',
+    name: "Director's Cut",
+    description: 'Full control',
+    icon: Settings2,
+    color: 'bg-orange-500',
+    templateId: 'version3',
+    requiresImage: true
+  }
+];
+
+// Video Presets
 const PRESETS = [
   {
     id: 'teaser',
@@ -172,17 +213,28 @@ const Generate: React.FC = () => {
   
   // Template state
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [selectedImageUseCase, setSelectedImageUseCase] = useState<string>('');
   
   // Handle output type change - reset related state
   const handleOutputTypeChange = (type: OutputType) => {
     setOutputType(type);
     setSelectedTemplate('');
+    setSelectedImageUseCase('');
     if (type === 'video') {
       setSelectedPreset('teaser');
       setSelectedModel(DefaultModelService.getDefaultModel('teaser'));
     } else {
       setSelectedPreset('');
       setSelectedModel(null);
+    }
+  };
+
+  // Handle image use case selection
+  const handleImageUseCaseChange = (useCaseId: string) => {
+    setSelectedImageUseCase(useCaseId);
+    const useCase = IMAGE_USE_CASES.find(uc => uc.id === useCaseId);
+    if (useCase) {
+      setSelectedTemplate(useCase.templateId);
     }
   };
 
@@ -702,34 +754,46 @@ const Generate: React.FC = () => {
           >
             <Card className="p-6 mb-6">
               <div className="flex items-center justify-between mb-3">
-                <Label className="text-sm font-medium">Choose Image Template</Label>
+                <Label className="text-sm font-medium">Choose Image Use-Case</Label>
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground hover:text-foreground">
                       <Info className="w-4 h-4" />
-                      Compare Templates
+                      Compare Use-Cases
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-3xl">
                     <DialogHeader>
-                      <DialogTitle>Template Comparison</DialogTitle>
+                      <DialogTitle>Use-Case Comparison</DialogTitle>
                       <DialogDescription>
-                        Choose the right template for your creative workflow
+                        Choose the right use-case for your creative workflow
                       </DialogDescription>
                     </DialogHeader>
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="w-[140px]">Template</TableHead>
+                          <TableHead className="w-[140px]">Use-Case</TableHead>
                           <TableHead>Primary Input</TableHead>
                           <TableHead>Output Type</TableHead>
                           <TableHead className="text-center">Output</TableHead>
-                          <TableHead>Best Use Case</TableHead>
+                          <TableHead>Best For</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         <TableRow>
-                          <TableCell className="font-medium">V1 – Contact Sheet</TableCell>
+                          <TableCell className="font-medium">Quick Concept</TableCell>
+                          <TableCell>Text prompt only</TableCell>
+                          <TableCell>Single image</TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex flex-col items-center">
+                              <Check className="w-4 h-4 text-green-500" />
+                              <span className="text-xs font-medium">1 Image</span>
+                            </div>
+                          </TableCell>
+                          <TableCell><Badge variant="secondary">Quick ideas & concepts</Badge></TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="font-medium">Shot Coverage</TableCell>
                           <TableCell>Base image</TableCell>
                           <TableCell>Direct image generation</TableCell>
                           <TableCell className="text-center">
@@ -741,7 +805,7 @@ const Generate: React.FC = () => {
                           <TableCell><Badge variant="secondary">Fast, visual coverage</Badge></TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell className="font-medium">V2 – Trailer / Keyframes</TableCell>
+                          <TableCell className="font-medium">Trailer Prep</TableCell>
                           <TableCell>Base image</TableCell>
                           <TableCell>Prompts → video keyframes</TableCell>
                           <TableCell className="text-center">
@@ -754,7 +818,7 @@ const Generate: React.FC = () => {
                           <TableCell><Badge variant="secondary">Cinematic trailers & AI video</Badge></TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell className="font-medium">V3 – Director's Cut</TableCell>
+                          <TableCell className="font-medium">Director's Cut</TableCell>
                           <TableCell>Story + reference image</TableCell>
                           <TableCell>Detailed prompts</TableCell>
                           <TableCell className="text-center">
@@ -771,34 +835,38 @@ const Generate: React.FC = () => {
                   </DialogContent>
                 </Dialog>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {STORYTELLING_PROMPTS.map((template) => {
-                  const isSelected = selectedTemplate === template.id;
+              <div className="flex flex-wrap gap-2 mb-4">
+                {IMAGE_USE_CASES.map((useCase) => {
+                  const Icon = useCase.icon;
+                  const isSelected = selectedImageUseCase === useCase.id;
+                  
                   return (
-                    <button
-                      key={template.id}
-                      type="button"
-                      onClick={() => setSelectedTemplate(template.id)}
-                      className={`p-4 rounded-lg border-2 transition-all text-left ${
-                        isSelected 
-                          ? 'border-primary bg-primary/10' 
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <FileText className="w-4 h-4 text-primary" />
-                        <span className="font-medium">{template.name}</span>
-                        {template.requiresImage && (
-                          <Badge variant="outline" className="text-xs">
-                            <Image className="w-3 h-3 mr-1" />
-                            Requires Image
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground">{template.description}</p>
-                    </button>
+                    <div key={useCase.id} className="flex flex-col items-center">
+                      <Button
+                        variant={isSelected ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleImageUseCaseChange(useCase.id)}
+                        className={`flex items-center gap-2 mb-1 ${isSelected ? useCase.color : ''}`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span className="font-medium">{useCase.name}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {useCase.description}
+                        </Badge>
+                      </Button>
+                      {useCase.requiresImage && (
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Image className="w-3 h-3" />
+                          Requires Image
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Badge variant="outline">Lovable AI</Badge>
+                <span>Gemini 2.5 Flash Image</span>
               </div>
             </Card>
           </motion.div>
@@ -1308,7 +1376,11 @@ const Generate: React.FC = () => {
                 <Button 
                   type="submit" 
                   size="lg" 
-                  disabled={isGenerating || (outputType === 'video' && !selectedModel)}
+                  disabled={
+                    isGenerating || 
+                    (outputType === 'video' && !selectedModel) ||
+                    (outputType === 'image' && IMAGE_USE_CASES.find(uc => uc.id === selectedImageUseCase)?.requiresImage && !genData.imageUrl)
+                  }
                   className="min-w-48"
                 >
                   {isGenerating ? (
