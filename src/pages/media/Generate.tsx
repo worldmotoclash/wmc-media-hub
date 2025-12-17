@@ -10,6 +10,8 @@ import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
   ArrowLeft, 
   Sparkles, 
@@ -23,7 +25,9 @@ import {
   Image,
   FileText,
   X,
-  AlertCircle
+  AlertCircle,
+  Info,
+  Check
 } from "lucide-react";
 import { STORYTELLING_PROMPTS } from "@/constants/storytellingPrompts";
 import { ImageDropzone } from "@/components/media/ImageDropzone";
@@ -548,7 +552,69 @@ const Generate: React.FC = () => {
             transition={{ delay: 0.15, duration: 0.6 }}
           >
             <Card className="p-6 mb-6">
-              <Label className="text-sm font-medium mb-3 block">Choose Image Template</Label>
+              <div className="flex items-center justify-between mb-3">
+                <Label className="text-sm font-medium">Choose Image Template</Label>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground hover:text-foreground">
+                      <Info className="w-4 h-4" />
+                      Compare Templates
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-3xl">
+                    <DialogHeader>
+                      <DialogTitle>Template Comparison</DialogTitle>
+                      <DialogDescription>
+                        Choose the right template for your creative workflow
+                      </DialogDescription>
+                    </DialogHeader>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[140px]">Template</TableHead>
+                          <TableHead>Primary Input</TableHead>
+                          <TableHead>Output Type</TableHead>
+                          <TableHead className="text-center">9 Images?</TableHead>
+                          <TableHead>Best Use Case</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell className="font-medium">V1 – Contact Sheet</TableCell>
+                          <TableCell>Base image</TableCell>
+                          <TableCell>Direct image generation</TableCell>
+                          <TableCell className="text-center"><Check className="w-4 h-4 text-green-500 mx-auto" /></TableCell>
+                          <TableCell><Badge variant="secondary">Fast, visual coverage</Badge></TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="font-medium">V2 – Trailer / Keyframes</TableCell>
+                          <TableCell>Base image</TableCell>
+                          <TableCell>Prompts → video keyframes (+ grid)</TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex flex-col items-center">
+                              <Check className="w-4 h-4 text-green-500" />
+                              <span className="text-xs text-muted-foreground">+ motion</span>
+                            </div>
+                          </TableCell>
+                          <TableCell><Badge variant="secondary">Cinematic trailers & AI video</Badge></TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="font-medium">V3 – Director's Cut</TableCell>
+                          <TableCell>Story + reference image</TableCell>
+                          <TableCell>Prompt only (no image)</TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex flex-col items-center">
+                              <Check className="w-4 h-4 text-green-500" />
+                              <span className="text-xs text-muted-foreground">when run</span>
+                            </div>
+                          </TableCell>
+                          <TableCell><Badge variant="secondary">Maximum control & consistency</Badge></TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </DialogContent>
+                </Dialog>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {STORYTELLING_PROMPTS.map((template) => {
                   const isSelected = selectedTemplate === template.id;
