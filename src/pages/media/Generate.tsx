@@ -101,11 +101,16 @@ const PRESETS = [
   }
 ];
 
+type OutputType = 'image' | 'video' | null;
+
 const Generate: React.FC = () => {
   const { user } = useUser();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
+  
+  // Output type selection (Image or Video)
+  const [outputType, setOutputType] = useState<OutputType>(null);
   
   // Get preset from URL params or default to 'teaser'
   const initialPreset = searchParams.get('preset') || 'teaser';
@@ -152,6 +157,19 @@ const Generate: React.FC = () => {
   
   // Template state
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  
+  // Handle output type change - reset related state
+  const handleOutputTypeChange = (type: OutputType) => {
+    setOutputType(type);
+    setSelectedTemplate('');
+    if (type === 'video') {
+      setSelectedPreset('teaser');
+      setSelectedModel(DefaultModelService.getDefaultModel('teaser'));
+    } else {
+      setSelectedPreset('');
+      setSelectedModel(null);
+    }
+  };
 
   // Check authentication
   useEffect(() => {
@@ -482,82 +500,168 @@ const Generate: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Use-Case Presets */}
+        {/* Output Type Selection */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.6 }}
         >
           <Card className="p-6 mb-6">
-            <Label className="text-sm font-medium mb-3 block">Choose Your Use-Case</Label>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {PRESETS.map((preset) => {
-                const Icon = preset.icon;
-                const isSelected = selectedPreset === preset.id;
-                const defaultModel = DefaultModelService.getDefaultModel(preset.id);
-                
-                return (
-                  <div key={preset.id} className="flex flex-col items-center">
-                    <Button
-                      variant={isSelected ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handlePresetChange(preset.id)}
-                      className={`flex items-center gap-2 mb-1 ${isSelected ? preset.color : ''}`}
-                    >
-                      <Icon className="w-4 h-4" />
-                      <span className="font-medium">{preset.name}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {preset.description}
-                      </Badge>
-                    </Button>
-                    {defaultModel && (
-                      <div className="text-xs text-muted-foreground">
-                        {defaultModel.displayName}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            <Label className="text-sm font-medium mb-4 block">What do you want to create?</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                type="button"
+                onClick={() => handleOutputTypeChange('image')}
+                className={`p-6 rounded-xl border-2 transition-all text-left ${
+                  outputType === 'image' 
+                    ? 'border-primary bg-primary/10' 
+                    : 'border-border hover:border-primary/50'
+                }`}
+              >
+                <Image className="w-8 h-8 mb-3 text-primary" />
+                <span className="font-semibold text-lg block mb-1">Image</span>
+                <p className="text-sm text-muted-foreground">Storyboards, contact sheets, promotional images</p>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => handleOutputTypeChange('video')}
+                className={`p-6 rounded-xl border-2 transition-all text-left ${
+                  outputType === 'video' 
+                    ? 'border-primary bg-primary/10' 
+                    : 'border-border hover:border-primary/50'
+                }`}
+              >
+                <Film className="w-8 h-8 mb-3 text-primary" />
+                <span className="font-semibold text-lg block mb-1">Video</span>
+                <p className="text-sm text-muted-foreground">Teasers, cinematic clips, social content</p>
+              </button>
             </div>
           </Card>
         </motion.div>
 
-        {/* Selected Model & Change Option */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.6 }}
-        >
-          <Card className="p-6 mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div>
-                  <Label className="text-sm font-medium block mb-1">Selected Model</Label>
-                  {selectedModel ? (
-                    <div className="flex items-center gap-3">
-                      <Badge variant="outline">{selectedModel.vendor}</Badge>
-                      <span className="font-medium">{selectedModel.displayName}</span>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span>•</span>
-                        <span>{effectivePrice.perRun}/run</span>
-                        <span>•</span>
-                        <span>{selectedModel.qualityTier} quality</span>
-                        <span>•</span>
-                        <span>{selectedModel.speedTier} speed</span>
+        {/* Image Use-Cases (Storytelling Templates) */}
+        {outputType === 'image' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15, duration: 0.6 }}
+          >
+            <Card className="p-6 mb-6">
+              <Label className="text-sm font-medium mb-3 block">Choose Image Template</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {STORYTELLING_PROMPTS.map((template) => {
+                  const isSelected = selectedTemplate === template.id;
+                  return (
+                    <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => setSelectedTemplate(template.id)}
+                      className={`p-4 rounded-lg border-2 transition-all text-left ${
+                        isSelected 
+                          ? 'border-primary bg-primary/10' 
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <FileText className="w-4 h-4 text-primary" />
+                        <span className="font-medium">{template.name}</span>
+                        {template.requiresImage && (
+                          <Badge variant="outline" className="text-xs">
+                            <Image className="w-3 h-3 mr-1" />
+                            Requires Image
+                          </Badge>
+                        )}
                       </div>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">No model selected</span>
-                  )}
-                </div>
+                      <p className="text-sm text-muted-foreground">{template.description}</p>
+                    </button>
+                  );
+                })}
               </div>
-              <Button variant="outline" size="sm" onClick={handleChangeModel}>
-                <Settings2 className="w-4 h-4 mr-2" />
-                Change Model
-              </Button>
-            </div>
-          </Card>
-        </motion.div>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Video Use-Case Presets */}
+        {outputType === 'video' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15, duration: 0.6 }}
+          >
+            <Card className="p-6 mb-6">
+              <Label className="text-sm font-medium mb-3 block">Choose Video Use-Case</Label>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {PRESETS.map((preset) => {
+                  const Icon = preset.icon;
+                  const isSelected = selectedPreset === preset.id;
+                  const defaultModel = DefaultModelService.getDefaultModel(preset.id);
+                  
+                  return (
+                    <div key={preset.id} className="flex flex-col items-center">
+                      <Button
+                        variant={isSelected ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePresetChange(preset.id)}
+                        className={`flex items-center gap-2 mb-1 ${isSelected ? preset.color : ''}`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span className="font-medium">{preset.name}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {preset.description}
+                        </Badge>
+                      </Button>
+                      {defaultModel && (
+                        <div className="text-xs text-muted-foreground">
+                          {defaultModel.displayName}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Selected Model & Change Option - only for video */}
+        {outputType === 'video' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+          >
+            <Card className="p-6 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <Label className="text-sm font-medium block mb-1">Selected Model</Label>
+                    {selectedModel ? (
+                      <div className="flex items-center gap-3">
+                        <Badge variant="outline">{selectedModel.vendor}</Badge>
+                        <span className="font-medium">{selectedModel.displayName}</span>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span>•</span>
+                          <span>{effectivePrice.perRun}/run</span>
+                          <span>•</span>
+                          <span>{selectedModel.qualityTier} quality</span>
+                          <span>•</span>
+                          <span>{selectedModel.speedTier} speed</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">No model selected</span>
+                    )}
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" onClick={handleChangeModel}>
+                  <Settings2 className="w-4 h-4 mr-2" />
+                  Change Model
+                </Button>
+              </div>
+            </Card>
+          </motion.div>
+        )}
 
         {/* Generation Progress */}
         {isGenerating && (
@@ -569,7 +673,7 @@ const Generate: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-primary animate-spin" />
-                  <span className="text-sm font-medium">Generating Video</span>
+                  <span className="text-sm font-medium">Generating {outputType === 'image' ? 'Image' : 'Video'}</span>
                 </div>
                 <Progress value={generationProgress} className="w-full" />
                 <p className="text-sm text-muted-foreground">{generationStatus}</p>
@@ -588,7 +692,7 @@ const Generate: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex items-center gap-2 mb-4">
                   <Sparkles className="w-5 h-5 text-green-600" />
-                  <span className="text-lg font-medium text-green-800">Video Generated Successfully!</span>
+                  <span className="text-lg font-medium text-green-800">{outputType === 'image' ? 'Image' : 'Video'} Generated Successfully!</span>
                 </div>
                 <video
                   controls
@@ -615,7 +719,7 @@ const Generate: React.FC = () => {
                       setGenData(prev => ({ ...prev, title: '', mainPrompt: '', description: '' }));
                     }}
                   >
-                    Generate Another Video
+                    Generate Another
                   </Button>
                 </div>
               </div>
@@ -623,8 +727,8 @@ const Generate: React.FC = () => {
           </motion.div>
         )}
 
-        {/* Form - Hidden when video is completed */}
-        {(!currentGeneration || currentGeneration.status !== 'completed') && (
+        {/* Form - Hidden when completed or no output type selected */}
+        {outputType && (!currentGeneration || currentGeneration.status !== 'completed') && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -662,71 +766,91 @@ const Generate: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Storytelling Template Selector */}
-                <div className="mt-4">
-                  <Label className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    Storytelling Template (optional)
-                  </Label>
-                  <div className="flex gap-2 items-center">
-                    <Select
-                      value={selectedTemplate}
-                      onValueChange={(value) => setSelectedTemplate(value)}
-                    >
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Select a storytelling template..." />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background border z-50">
-                        {STORYTELLING_PROMPTS.map((prompt) => (
-                          <SelectItem key={prompt.id} value={prompt.id}>
-                            <div className="flex flex-col items-start">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{prompt.name}</span>
-                                {prompt.requiresImage && (
-                                  <Badge variant="outline" className="text-xs px-1 py-0 h-5">
-                                    <Image className="w-3 h-3 mr-1" />
-                                    Image
-                                  </Badge>
-                                )}
-                              </div>
-                              <span className="text-xs text-muted-foreground">{prompt.description}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {selectedTemplate && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setSelectedTemplate('')}
-                        title="Clear template"
+                {/* Storytelling Template Selector - only for video (image templates are selected above) */}
+                {outputType === 'video' && (
+                  <div className="mt-4">
+                    <Label className="text-sm font-medium mb-2 flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      Storytelling Template (optional)
+                    </Label>
+                    <div className="flex gap-2 items-center">
+                      <Select
+                        value={selectedTemplate}
+                        onValueChange={(value) => setSelectedTemplate(value)}
                       >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                  {selectedTemplate && (
-                    <div className="mt-2 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="bg-primary/10 text-primary">
-                          <FileText className="w-3 h-3 mr-1" />
-                          Using: {STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.name}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          Template will be applied automatically when generating
-                        </span>
-                      </div>
-                      {STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage && !genData.startImage && (
-                        <div className="flex items-center gap-2 text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 rounded-lg text-sm">
-                          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                          This template requires a starting image. Please upload one below.
-                        </div>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Select a storytelling template..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background border z-50">
+                          {STORYTELLING_PROMPTS.map((prompt) => (
+                            <SelectItem key={prompt.id} value={prompt.id}>
+                              <div className="flex flex-col items-start">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{prompt.name}</span>
+                                  {prompt.requiresImage && (
+                                    <Badge variant="outline" className="text-xs px-1 py-0 h-5">
+                                      <Image className="w-3 h-3 mr-1" />
+                                      Image
+                                    </Badge>
+                                  )}
+                                </div>
+                                <span className="text-xs text-muted-foreground">{prompt.description}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedTemplate && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setSelectedTemplate('')}
+                          title="Clear template"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
                       )}
                     </div>
-                  )}
-                </div>
+                    {selectedTemplate && (
+                      <div className="mt-2 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="bg-primary/10 text-primary">
+                            <FileText className="w-3 h-3 mr-1" />
+                            Using: {STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.name}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            Template will be applied automatically when generating
+                          </span>
+                        </div>
+                        {STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage && !genData.startImage && (
+                          <div className="flex items-center gap-2 text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 rounded-lg text-sm">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                            This template requires a starting image. Please upload one below.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Show selected template indicator for image mode */}
+                {outputType === 'image' && selectedTemplate && (
+                  <div className="mt-4">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="bg-primary/10 text-primary">
+                        <FileText className="w-3 h-3 mr-1" />
+                        Template: {STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.name}
+                      </Badge>
+                    </div>
+                    {STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage && !genData.startImage && (
+                      <div className="flex items-center gap-2 text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 rounded-lg text-sm mt-2">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        This template requires a starting image. Please upload one below.
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="mt-4">
                   <Label htmlFor="mainPrompt" className="text-sm font-medium">
