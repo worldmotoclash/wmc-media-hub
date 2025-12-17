@@ -21,6 +21,21 @@ const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_SIZE_MB = 10;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
+// Convert file to base64
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove data URL prefix (e.g., "data:image/jpeg;base64,")
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+};
+
 export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
   value,
   onChange,
@@ -57,34 +72,36 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
     setUploadProgress(0);
 
     try {
-      const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      
-      // Simulate progress updates
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => Math.min(prev + 10, 90));
-      }, 100);
+      // Convert file to base64
+      setUploadProgress(10);
+      const imageBase64 = await fileToBase64(file);
+      setUploadProgress(30);
 
-      const { data, error: uploadError } = await supabase.storage
-        .from('generation-inputs')
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
+      // Upload via edge function to Wasabi S3
+      const { data, error: fnError } = await supabase.functions.invoke('upload-generation-input', {
+        body: {
+          imageBase64,
+          filename: file.name,
+          mimeType: file.type,
+        },
+      });
 
-      clearInterval(progressInterval);
+      setUploadProgress(90);
 
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        toast.error('Upload failed: ' + uploadError.message);
+      if (fnError) {
+        console.error('Upload error:', fnError);
+        toast.error('Upload failed: ' + fnError.message);
         return;
       }
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('generation-inputs')
-        .getPublicUrl(fileName);
+      if (!data?.success || !data?.cdnUrl) {
+        console.error('Upload failed:', data?.error);
+        toast.error('Upload failed: ' + (data?.error || 'Unknown error'));
+        return;
+      }
 
       setUploadProgress(100);
-      onChange(publicUrl);
+      onChange(data.cdnUrl);
       toast.success('Image uploaded successfully');
     } catch (err) {
       console.error('Upload error:', err);
