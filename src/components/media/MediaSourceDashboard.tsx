@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { RefreshCw, CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronRight, Youtube, Sparkles, Upload, Link2 } from 'lucide-react';
+import { RefreshCw, CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronRight, Youtube, Sparkles, Upload, Link2, Wifi, WifiOff } from 'lucide-react';
 import { getMediaSourceStats, type MediaSourceStats } from '@/services/mediaSourceStatsService';
 import { toast } from 'sonner';
 
@@ -55,7 +55,7 @@ const MediaSourceDashboard: React.FC = () => {
 
   if (!stats) return null;
 
-  const { syncHealth, contentOrigin } = stats;
+  const { syncHealth, contentOrigin, salesforceApiStatus } = stats;
   const syncPercentage = syncHealth.total > 0 
     ? Math.round((syncHealth.inSync / syncHealth.total) * 100) 
     : 100;
@@ -97,18 +97,42 @@ const MediaSourceDashboard: React.FC = () => {
                   </div>
                 )}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRefresh();
-                }}
-                disabled={refreshing}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
+              <div className="flex items-center gap-2">
+                {/* API Connection Status Indicator */}
+                {salesforceApiStatus && (
+                  <Badge 
+                    variant="outline" 
+                    className={salesforceApiStatus.isConnected 
+                      ? "bg-green-500/10 text-green-600 border-green-500/20" 
+                      : "bg-red-500/10 text-red-600 border-red-500/20"
+                    }
+                  >
+                    {salesforceApiStatus.isConnected ? (
+                      <>
+                        <Wifi className="h-3 w-3 mr-1" />
+                        SFDC API
+                      </>
+                    ) : (
+                      <>
+                        <WifiOff className="h-3 w-3 mr-1" />
+                        SFDC Offline
+                      </>
+                    )}
+                  </Badge>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRefresh();
+                  }}
+                  disabled={refreshing}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
             </div>
           </CardHeader>
         </CollapsibleTrigger>
