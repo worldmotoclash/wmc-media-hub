@@ -102,6 +102,18 @@ function isVideoFile(key: string): boolean {
   return /\.(mp4|m4v|mov|webm|mkv|avi|wmv|flv|mpeg|mpg|3gp)$/i.test(key);
 }
 
+function isImageFile(key: string): boolean {
+  return /\.(jpg|jpeg|png|webp|gif|bmp|tiff|tif|svg|heic|heif)$/i.test(key);
+}
+
+function isMediaFile(key: string): boolean {
+  return isVideoFile(key) || isImageFile(key);
+}
+
+function getAssetType(key: string): 'video' | 'image' {
+  return isVideoFile(key) ? 'video' : 'image';
+}
+
 function extractTitleFromKey(key: string): string {
   const fileName = key.split('/').pop() || key;
   const nameWithoutExtension = fileName.replace(/\.[^.]+$/, '');
@@ -156,16 +168,17 @@ serve(async (req) => {
     console.log(`[SCAN] Starting for ${bucket.name} (${bucket.bucket_name}) @ ${bucket.endpoint_url}`);
     const objects = await listS3ObjectsPaginated(bucket);
 
-    let totalVideos = 0;
-    let newVideos = 0;
-    let updatedVideos = 0;
+    let totalMedia = 0;
+    let newMedia = 0;
+    let updatedMedia = 0;
 
     for (const obj of objects) {
-      if (!isVideoFile(obj.Key)) continue;
-      totalVideos++;
+      if (!isMediaFile(obj.Key)) continue;
+      totalMedia++;
 
       const title = extractTitleFromKey(obj.Key);
       const fileFormat = getFileExtension(obj.Key);
+      const assetType = getAssetType(obj.Key);
       const fileUrl = `${bucket.endpoint_url}/${bucket.bucket_name}/${encodeURI(obj.Key)}`;
 
       const { data: existing } = await supabase
@@ -182,6 +195,7 @@ serve(async (req) => {
         file_url: fileUrl,
         file_format: fileFormat,
         file_size: obj.Size ?? null,
+        asset_type: assetType,
         status: 'pending',
         metadata: {
           bucket: bucket.bucket_name,
@@ -194,11 +208,11 @@ serve(async (req) => {
 
       if (existing?.id) {
         const { error } = await supabase.from('media_assets').update(assetData).eq('id', existing.id);
-        if (!error) updatedVideos++;
+        if (!error) updatedMedia++;
         else console.error('[DB] Update error', error);
       } else {
         const { data, error } = await supabase.from('media_assets').insert(assetData).select('id').single();
-        if (!error) newVideos++;
+        if (!error) newMedia++;
         else console.error('[DB] Insert error', error);
       }
     }
@@ -218,9 +232,9 @@ serve(async (req) => {
       bucket: bucket.bucket_name,
       endpoint: bucket.endpoint_url,
       totalObjects: objects.length,
-      totalVideos,
-      newVideos,
-      updatedVideos,
+      totalMedia,
+      newMedia,
+      updatedMedia,
       scannedAt: new Date().toISOString(),
     };
 
