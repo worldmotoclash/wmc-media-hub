@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/contexts/UserContext';
-import { Trash2, RefreshCw, Clock, Wifi, WifiOff } from 'lucide-react';
+import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
+import { Trash2, RefreshCw, Clock, Wifi, WifiOff, Lock } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { S3BucketConfigDialog } from './S3BucketConfigDialog';
 
@@ -19,11 +20,26 @@ interface S3BucketConfig {
   last_scanned_at: string | null;
   is_active: boolean;
   created_at: string;
+  isReadOnly?: boolean; // For default config shown without auth
 }
 
 interface S3BucketConfigManagerProps {
   onConfigChange: () => void;
 }
+
+// Default Wasabi configuration - shown when no Supabase session exists
+const DEFAULT_WASABI_CONFIG: S3BucketConfig = {
+  id: 'default-wasabi',
+  name: 'Wasabi Production (Default)',
+  bucket_name: 'shortf-media',
+  endpoint_url: 'https://s3.us-central-1.wasabisys.com',
+  region: 'us-central-1',
+  scan_frequency_hours: 24,
+  last_scanned_at: null,
+  is_active: true,
+  created_at: new Date().toISOString(),
+  isReadOnly: true,
+};
 
 export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ onConfigChange }) => {
   const [configs, setConfigs] = useState<S3BucketConfig[]>([]);
@@ -32,14 +48,29 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
   const [testingIds, setTestingIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const { user } = useUser();
+  const { isReady, hasValidSession } = useSupabaseAuth();
 
   useEffect(() => {
-    loadConfigs();
-  }, [user]);
+    // Wait for Supabase auth to be ready before loading
+    if (isReady) {
+      loadConfigs();
+    }
+  }, [user, isReady]);
 
   const loadConfigs = async () => {
     try {
       setLoading(true);
+      
+      // Check if we have a valid Supabase session for database operations
+      const canAccessDatabase = hasValidSession();
+      
+      if (!canAccessDatabase) {
+        // No valid session - show default config as read-only
+        console.log('No valid Supabase session, showing default Wasabi config as read-only');
+        setConfigs([DEFAULT_WASABI_CONFIG]);
+        setLoading(false);
+        return;
+      }
       
       const { data, error } = await supabase
         .from('s3_bucket_configs')
@@ -48,16 +79,13 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
 
       if (error) {
         console.error('Error loading S3 configs:', error);
-        toast({
-          title: "Error",
-          description: error.message || "Failed to load S3 configurations",
-          variant: "destructive",
-        });
+        // On error, fall back to default config
+        setConfigs([DEFAULT_WASABI_CONFIG]);
         return;
       }
 
-      // Auto-seed default Wasabi configuration if no configs exist and user is logged in
-      if ((!data || data.length === 0) && user) {
+      // Auto-seed default Wasabi configuration if no configs exist
+      if (!data || data.length === 0) {
         console.log('No S3 configs found, auto-seeding default Wasabi configuration...');
         
         const { data: newConfig, error: insertError } = await supabase
@@ -75,7 +103,8 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
 
         if (insertError) {
           console.error('Error auto-seeding default config:', insertError);
-          // Don't show error toast - just log it
+          // Fall back to showing read-only default
+          setConfigs([DEFAULT_WASABI_CONFIG]);
         } else {
           console.log('Successfully auto-seeded default Wasabi config:', newConfig?.id);
           setConfigs([newConfig]);
@@ -83,18 +112,15 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
             title: "Default Configuration Added",
             description: "Wasabi S3 bucket configuration has been automatically set up.",
           });
-          return;
         }
+        return;
       }
 
       setConfigs(data || []);
     } catch (error: any) {
       console.error('Unexpected error loading configs:', error);
-      toast({
-        title: "Error", 
-        description: error.message || "Failed to load S3 configurations",
-        variant: "destructive",
-      });
+      // Fall back to default config on any error
+      setConfigs([DEFAULT_WASABI_CONFIG]);
     } finally {
       setLoading(false);
     }
@@ -248,14 +274,22 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
             </p>
           </CardContent>
         </Card>
-      ) : user && (
+      ) : configs.length > 0 && (
         <div className="grid gap-4">
           {configs.map((config) => (
-            <Card key={config.id}>
+            <Card key={config.id} className={config.isReadOnly ? 'border-dashed' : ''}>
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">
                   <div>
-                    <CardTitle className="text-lg">{config.name}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg">{config.name}</CardTitle>
+                      {config.isReadOnly && (
+                        <Badge variant="outline" className="text-xs">
+                          <Lock className="w-3 h-3 mr-1" />
+                          Read-only
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground mt-1">
                       {config.bucket_name} • {config.endpoint_url}
                     </p>
@@ -278,51 +312,59 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
                   </div>
                   
                   <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleTestConnection(config.id)}
-                      disabled={testingIds.has(config.id)}
-                    >
-                      {testingIds.has(config.id) ? (
-                        <WifiOff className="w-4 h-4 mr-2 animate-pulse" />
-                      ) : (
-                        <Wifi className="w-4 h-4 mr-2" />
-                      )}
-                      {testingIds.has(config.id) ? 'Testing...' : 'Test Connection'}
-                    </Button>
-                    
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleScan(config.id)}
-                      disabled={scanningIds.has(config.id) || testingIds.has(config.id)}
-                    >
-                      <RefreshCw className={`w-4 h-4 mr-2 ${scanningIds.has(config.id) ? 'animate-spin' : ''}`} />
-                      {scanningIds.has(config.id) ? 'Scanning...' : 'Scan Now'}
-                    </Button>
-                    
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="sm" variant="outline">
-                          <Trash2 className="w-4 h-4" />
+                    {config.isReadOnly ? (
+                      <p className="text-xs text-muted-foreground italic">
+                        Sign in to Supabase to manage configurations
+                      </p>
+                    ) : (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleTestConnection(config.id)}
+                          disabled={testingIds.has(config.id)}
+                        >
+                          {testingIds.has(config.id) ? (
+                            <WifiOff className="w-4 h-4 mr-2 animate-pulse" />
+                          ) : (
+                            <Wifi className="w-4 h-4 mr-2" />
+                          )}
+                          {testingIds.has(config.id) ? 'Testing...' : 'Test Connection'}
                         </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Configuration</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to delete this S3 bucket configuration? This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(config.id)}>
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                        
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleScan(config.id)}
+                          disabled={scanningIds.has(config.id) || testingIds.has(config.id)}
+                        >
+                          <RefreshCw className={`w-4 h-4 mr-2 ${scanningIds.has(config.id) ? 'animate-spin' : ''}`} />
+                          {scanningIds.has(config.id) ? 'Scanning...' : 'Scan Now'}
+                        </Button>
+                        
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="outline">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Configuration</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete this S3 bucket configuration? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDelete(config.id)}>
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </>
+                    )}
                   </div>
                 </div>
               </CardContent>
