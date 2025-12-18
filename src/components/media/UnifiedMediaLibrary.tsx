@@ -34,7 +34,8 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [tags, setTags] = useState<MediaTag[]>([]);
   const [bucketConfigs, setBucketConfigs] = useState<S3BucketConfig[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isFiltering, setIsFiltering] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAsset, setSelectedAsset] = useState<MediaAsset | null>(null);
   const [showWorkflowDialog, setShowWorkflowDialog] = useState(false);
@@ -81,7 +82,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
 
   const loadLibraryData = async () => {
     try {
-      setIsLoading(true);
+      setIsInitialLoading(true);
       const [assetsData, tagsData] = await Promise.all([
         fetchAllMediaAssets(undefined, undefined, 50, 0, sortOption),
         fetchMediaTags()
@@ -93,20 +94,20 @@ export const UnifiedMediaLibrary: React.FC = () => {
       console.error('Error loading library data:', error);
       toast.error('Failed to load media library data');
     } finally {
-      setIsLoading(false);
+      setIsInitialLoading(false);
     }
   };
 
   const loadS3ConfigData = async () => {
     try {
-      setIsLoading(true);
+      setIsInitialLoading(true);
       const bucketsData = await fetchS3BucketConfigs();
       setBucketConfigs(bucketsData);
     } catch (error) {
       console.error('Error loading S3 config data:', error);
       toast.error('Failed to load S3 configurations');
     } finally {
-      setIsLoading(false);
+      setIsInitialLoading(false);
     }
   };
 
@@ -122,14 +123,14 @@ export const UnifiedMediaLibrary: React.FC = () => {
 
   const searchAssets = async () => {
     try {
-      setIsLoading(true);
+      setIsFiltering(true);
       const { assets: assetsData } = await fetchAllMediaAssets(searchQuery, filters, 50, 0, sortOption);
       setAssets(assetsData);
     } catch (error) {
       console.error('Error searching assets:', error);
       toast.error('Failed to search media assets');
     } finally {
-      setIsLoading(false);
+      setIsFiltering(false);
     }
   };
 
@@ -208,7 +209,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
     return null;
   }
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <RefreshCw className="w-8 h-8 animate-spin text-primary" />
@@ -429,7 +430,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
 
       {/* Results - Grid View */}
       {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 transition-opacity ${isFiltering ? 'opacity-50' : ''}`}>
           {assets.map((asset, index) => (
             <motion.div
               key={asset.id}
@@ -575,7 +576,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
         </div>
       ) : (
         /* Results - List View */
-        <Card>
+        <Card className={`transition-opacity ${isFiltering ? 'opacity-50' : ''}`}>
           <Table>
             <TableHeader>
               <TableRow>
