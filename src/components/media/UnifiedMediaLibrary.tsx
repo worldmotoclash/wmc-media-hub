@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play } from "lucide-react";
+import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useUser } from "@/contexts/UserContext";
@@ -20,7 +20,8 @@ import {
   MediaAsset,
   MediaTag,
   S3BucketConfig,
-  SearchFilters
+  SearchFilters,
+  SortOption
 } from "@/services/unifiedMediaService";
 import { LibrarianWorkflowDialog } from "./LibrarianWorkflowDialog";
 import VideoPreviewModal from "./VideoPreviewModal";
@@ -38,6 +39,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [showWorkflowDialog, setShowWorkflowDialog] = useState(false);
   const [workflowAsset, setWorkflowAsset] = useState<MediaAsset | null>(null);
   const [filters, setFilters] = useState<SearchFilters>({});
+  const [sortOption, setSortOption] = useState<SortOption>({ field: 'created_at', direction: 'desc' });
   const [isScanning, setIsScanning] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('library');
   const { user } = useUser();
@@ -73,13 +75,13 @@ export const UnifiedMediaLibrary: React.FC = () => {
     }, 300);
 
     return () => clearTimeout(delayedSearch);
-  }, [searchQuery, filters, activeTab]);
+  }, [searchQuery, filters, sortOption, activeTab]);
 
   const loadLibraryData = async () => {
     try {
       setIsLoading(true);
       const [assetsData, tagsData] = await Promise.all([
-        fetchAllMediaAssets(),
+        fetchAllMediaAssets(undefined, undefined, 50, 0, sortOption),
         fetchMediaTags()
       ]);
 
@@ -108,7 +110,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
 
   const loadAssets = async () => {
     try {
-      const { assets: assetsData } = await fetchAllMediaAssets();
+      const { assets: assetsData } = await fetchAllMediaAssets(undefined, undefined, 50, 0, sortOption);
       setAssets(assetsData);
     } catch (error) {
       console.error('Error loading assets:', error);
@@ -119,7 +121,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const searchAssets = async () => {
     try {
       setIsLoading(true);
-      const { assets: assetsData } = await fetchAllMediaAssets(searchQuery, filters);
+      const { assets: assetsData } = await fetchAllMediaAssets(searchQuery, filters, 50, 0, sortOption);
       setAssets(assetsData);
     } catch (error) {
       console.error('Error searching assets:', error);
@@ -247,15 +249,40 @@ export const UnifiedMediaLibrary: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex gap-4">
-                <div className="flex-1">
+              <div className="flex gap-4 flex-wrap">
+                <div className="flex-1 min-w-[200px]">
                   <Input
-                    placeholder="Search videos..."
+                    placeholder="Search media..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full"
                   />
                 </div>
+                
+                {/* Sort Dropdown */}
+                <Select
+                  value={`${sortOption.field}-${sortOption.direction}`}
+                  onValueChange={(value) => {
+                    const [field, direction] = value.split('-') as [SortOption['field'], SortOption['direction']];
+                    setSortOption({ field, direction });
+                  }}
+                >
+                  <SelectTrigger className="w-[200px] bg-background">
+                    <ArrowUpDown className="w-4 h-4 mr-2" />
+                    <SelectValue placeholder="Sort by..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border shadow-lg z-50">
+                    <SelectItem value="created_at-desc">Date (Newest first)</SelectItem>
+                    <SelectItem value="created_at-asc">Date (Oldest first)</SelectItem>
+                    <SelectItem value="title-asc">Name (A-Z)</SelectItem>
+                    <SelectItem value="title-desc">Name (Z-A)</SelectItem>
+                    <SelectItem value="file_size-desc">Size (Largest first)</SelectItem>
+                    <SelectItem value="file_size-asc">Size (Smallest first)</SelectItem>
+                    <SelectItem value="asset_type-asc">Type (Image first)</SelectItem>
+                    <SelectItem value="asset_type-desc">Type (Video first)</SelectItem>
+                  </SelectContent>
+                </Select>
+
                 <Button variant="outline" onClick={clearFilters}>
                   Clear Filters
                 </Button>

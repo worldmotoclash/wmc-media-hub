@@ -59,14 +59,24 @@ export interface SearchFilters {
   fileFormats?: string[];
 }
 
+export interface SortOption {
+  field: 'created_at' | 'title' | 'file_size' | 'asset_type';
+  direction: 'asc' | 'desc';
+}
+
 // Fetch all media assets with unified search
 export async function fetchAllMediaAssets(
   searchQuery?: string,
   filters?: SearchFilters,
   limit = 50,
-  offset = 0
+  offset = 0,
+  sort?: SortOption
 ): Promise<{ assets: MediaAsset[]; total: number }> {
   try {
+    // Determine sort field and direction
+    const sortField = sort?.field || 'created_at';
+    const sortAscending = sort?.direction === 'asc';
+
     // Build query for database assets
     let query = supabase
       .from('media_assets')
@@ -77,7 +87,7 @@ export async function fetchAllMediaAssets(
         ),
         content_review_activities (*)
       `)
-      .order('created_at', { ascending: false });
+      .order(sortField, { ascending: sortAscending });
 
     // Apply filters with AND logic between categories
     if (filters?.sources?.length) {
