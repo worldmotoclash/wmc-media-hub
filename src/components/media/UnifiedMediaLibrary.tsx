@@ -327,28 +327,87 @@ export const UnifiedMediaLibrary: React.FC = () => {
             <div className="space-y-3">
               <label className="text-sm font-medium mb-2 block">Asset Type</label>
               <div className="space-y-1">
-                {[
-                  { value: 'video', label: 'Video', icon: <Video className="w-4 h-4 mr-1.5" /> },
-                  { value: 'image', label: 'Image', icon: <Image className="w-4 h-4 mr-1.5" /> }
-                ].map(type => (
-                  <div key={type.value} className="min-h-8 flex items-center space-x-2">
-                    <Checkbox
-                      id={`type-${type.value}`}
-                      checked={filters.assetTypes?.includes(type.value) || false}
-                      onCheckedChange={(checked) => {
-                        const currentTypes = filters.assetTypes || [];
-                        if (checked) {
-                          handleFilterChange('assetTypes', [...currentTypes, type.value]);
-                        } else {
-                          handleFilterChange('assetTypes', currentTypes.filter(t => t !== type.value));
-                        }
-                      }}
-                    />
-                    <label htmlFor={`type-${type.value}`} className="text-sm flex items-center">
-                      {type.icon} {type.label}
-                    </label>
-                  </div>
-                ))}
+                {/* Video */}
+                <div className="min-h-8 flex items-center space-x-2">
+                  <Checkbox
+                    id="type-video"
+                    checked={filters.assetTypes?.includes('video') || false}
+                    onCheckedChange={(checked) => {
+                      const currentTypes = filters.assetTypes || [];
+                      if (checked) {
+                        handleFilterChange('assetTypes', [...currentTypes, 'video']);
+                      } else {
+                        handleFilterChange('assetTypes', currentTypes.filter(t => t !== 'video'));
+                      }
+                    }}
+                  />
+                  <label htmlFor="type-video" className="text-sm flex items-center">
+                    <Video className="w-4 h-4 mr-1.5" /> Video
+                  </label>
+                </div>
+                
+                {/* Image (parent) - selects both master_image and image_variant */}
+                <div className="min-h-8 flex items-center space-x-2">
+                  <Checkbox
+                    id="type-image"
+                    checked={
+                      (filters.assetTypes?.includes('master_image') && filters.assetTypes?.includes('image_variant')) || 
+                      filters.assetTypes?.includes('image') || 
+                      false
+                    }
+                    onCheckedChange={(checked) => {
+                      const currentTypes = (filters.assetTypes || []).filter(
+                        t => !['image', 'master_image', 'image_variant'].includes(t)
+                      );
+                      if (checked) {
+                        handleFilterChange('assetTypes', [...currentTypes, 'master_image', 'image_variant']);
+                      } else {
+                        handleFilterChange('assetTypes', currentTypes);
+                      }
+                    }}
+                  />
+                  <label htmlFor="type-image" className="text-sm flex items-center">
+                    <Image className="w-4 h-4 mr-1.5" /> Image
+                  </label>
+                </div>
+                
+                {/* Masters (sub-option) */}
+                <div className="min-h-8 flex items-center space-x-2 pl-6">
+                  <Checkbox
+                    id="type-master"
+                    checked={filters.assetTypes?.includes('master_image') || false}
+                    onCheckedChange={(checked) => {
+                      const currentTypes = (filters.assetTypes || []).filter(t => t !== 'image');
+                      if (checked) {
+                        handleFilterChange('assetTypes', [...currentTypes.filter(t => t !== 'master_image'), 'master_image']);
+                      } else {
+                        handleFilterChange('assetTypes', currentTypes.filter(t => t !== 'master_image'));
+                      }
+                    }}
+                  />
+                  <label htmlFor="type-master" className="text-sm text-muted-foreground">
+                    Masters
+                  </label>
+                </div>
+                
+                {/* Variants (sub-option) */}
+                <div className="min-h-8 flex items-center space-x-2 pl-6">
+                  <Checkbox
+                    id="type-variant"
+                    checked={filters.assetTypes?.includes('image_variant') || false}
+                    onCheckedChange={(checked) => {
+                      const currentTypes = (filters.assetTypes || []).filter(t => t !== 'image');
+                      if (checked) {
+                        handleFilterChange('assetTypes', [...currentTypes.filter(t => t !== 'image_variant'), 'image_variant']);
+                      } else {
+                        handleFilterChange('assetTypes', currentTypes.filter(t => t !== 'image_variant'));
+                      }
+                    }}
+                  />
+                  <label htmlFor="type-variant" className="text-sm text-muted-foreground">
+                    Variants
+                  </label>
+                </div>
               </div>
             </div>
 
