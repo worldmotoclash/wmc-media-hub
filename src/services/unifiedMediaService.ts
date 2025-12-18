@@ -13,6 +13,7 @@ export interface MediaAsset {
   fileSize?: number;
   resolution?: string;
   fileFormat?: string;
+  assetType?: 'video' | 'image' | string;
   status: string;
   metadata: Record<string, any>;
   createdAt: string;
@@ -385,6 +386,7 @@ function transformDatabaseAsset(dbAsset: any): MediaAsset {
     fileSize: dbAsset.file_size,
     resolution: dbAsset.resolution,
     fileFormat: dbAsset.file_format,
+    assetType: dbAsset.asset_type,
     status: dbAsset.status,
     metadata: dbAsset.metadata || {},
     createdAt: dbAsset.created_at,
