@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 import { AwsClient } from "https://esm.sh/aws4fetch@1.0.20";
 import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
+import { getS3Config, getCdnUrl, S3_PATHS } from '../_shared/s3Config.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,7 +48,6 @@ serve(async (req) => {
       salesforceData,
     } = payload;
 
-    // Validate required fields
     if (!sourceUrl || row === undefined || col === undefined || !generationId || !positionId) {
       return new Response(
         JSON.stringify({ error: "Missing required fields: sourceUrl, row, col, generationId, positionId" }),
@@ -55,7 +55,6 @@ serve(async (req) => {
       );
     }
 
-    // Validate grid position (0-2 for 3x3 grid)
     if (row < 0 || row > 2 || col < 0 || col > 2) {
       return new Response(
         JSON.stringify({ error: "Invalid grid position. Row and col must be 0-2." }),
@@ -63,7 +62,6 @@ serve(async (req) => {
       );
     }
 
-    // Fetch the source 3x3 grid image
     console.log("Fetching source image from:", sourceUrl);
     const imageResponse = await fetch(sourceUrl);
     if (!imageResponse.ok) {
@@ -71,13 +69,11 @@ serve(async (req) => {
     }
     const imageBuffer = new Uint8Array(await imageResponse.arrayBuffer());
 
-    // Decode the image
     const image = await Image.decode(imageBuffer);
     const srcWidth = image.width;
     const srcHeight = image.height;
     console.log(`Source grid image dimensions: ${srcWidth}x${srcHeight}`);
 
-    // Calculate crop coordinates for the specific cell
     const cellWidth = Math.floor(srcWidth / 3);
     const cellHeight = Math.floor(srcHeight / 3);
     const cropX = col * cellWidth;
@@ -85,18 +81,14 @@ serve(async (req) => {
 
     console.log(`Cropping cell (${row},${col}): ${cellWidth}x${cellHeight} at (${cropX}, ${cropY})`);
 
-    // Crop the specific cell
     const cropped = image.crop(cropX, cropY, cellWidth, cellHeight);
 
-    // Encode as JPEG with 90% quality
     const processedImageBuffer = await cropped.encodeJPEG(90);
     console.log(`Cropped image size: ${processedImageBuffer.length} bytes`);
 
-    // Initialize Wasabi S3 client
-    const accessKeyId = Deno.env.get("WASABI_ACCESS_KEY_ID");
-    const secretAccessKey = Deno.env.get("WASABI_SECRET_ACCESS_KEY");
+    const s3Config = getS3Config();
 
-    if (!accessKeyId || !secretAccessKey) {
+    if (!s3Config.accessKeyId || !s3Config.secretAccessKey) {
       console.error("Missing Wasabi credentials");
       return new Response(
         JSON.stringify({ error: "S3 credentials not configured" }),
@@ -105,18 +97,15 @@ serve(async (req) => {
     }
 
     const aws = new AwsClient({
-      accessKeyId,
-      secretAccessKey,
-      region: "us-central-1",
+      accessKeyId: s3Config.accessKeyId,
+      secretAccessKey: s3Config.secretAccessKey,
+      region: s3Config.region,
       service: "s3",
     });
 
-    // Upload to S3 under generation outputs folder
-    const bucketName = "shortf-media";
     const outputFilename = `${positionId}.jpg`;
-    const s3Key = `GENERATION_OUTPUTS/variants/${generationId}/${outputFilename}`;
-    const wasabiEndpoint = "https://s3.us-central-1.wasabisys.com";
-    const uploadUrl = `${wasabiEndpoint}/${bucketName}/${s3Key}`;
+    const s3Key = `${S3_PATHS.GENERATION_OUTPUTS}/variants/${generationId}/${outputFilename}`;
+    const uploadUrl = `${s3Config.endpoint}/${s3Config.bucketName}/${s3Key}`;
 
     console.log("Uploading extracted image to S3:", uploadUrl);
 
@@ -138,15 +127,13 @@ serve(async (req) => {
       );
     }
 
-    const variantCdnUrl = `https://media.worldmotoclash.com/${s3Key}`;
+    const variantCdnUrl = getCdnUrl(s3Key);
     console.log("S3 upload successful, CDN URL:", variantCdnUrl);
 
-    // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Position labels for readable titles
     const positionLabels: Record<string, string> = {
       'top-left': 'Top Left (1,1)',
       'top-center': 'Top Center (1,2)',
@@ -159,7 +146,6 @@ serve(async (req) => {
       'bottom-right': 'Bottom Right (3,3)',
     };
 
-    // Insert variant record into media_assets
     const { data: assetData, error: assetError } = await supabase
       .from("media_assets")
       .insert({
@@ -190,12 +176,10 @@ serve(async (req) => {
 
     if (assetError) {
       console.error("Error inserting media asset:", assetError);
-      // Continue anyway - the image was extracted successfully
     } else {
       console.log("Media asset created:", assetData?.id);
     }
 
-    // Call Salesforce callback if salesforceData is provided
     let salesforceId: string | null = null;
     if (salesforceData?.masterContentId) {
       try {
@@ -230,7 +214,6 @@ serve(async (req) => {
           salesforceId = sfResult.salesforceId || sfResult.id || null;
           console.log("Salesforce sync result:", sfResult);
 
-          // Update the asset with Salesforce ID if returned
           if (salesforceId && assetData?.id) {
             await supabase
               .from("media_assets")
@@ -242,7 +225,6 @@ serve(async (req) => {
         }
       } catch (sfError) {
         console.error("Salesforce callback error:", sfError);
-        // Don't fail the whole operation for Salesforce sync issues
       }
     }
 

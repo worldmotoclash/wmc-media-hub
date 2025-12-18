@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { getS3Config, getCdnUrl, S3_PATHS } from '../_shared/s3Config.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,7 +9,7 @@ const corsHeaders = {
 
 interface ImageGenerationRequest {
   userId: string;
-  model: string; // 'flux-schnell' or 'flux-dev'
+  model: string;
   prompt: string;
   width?: number;
   height?: number;
@@ -22,7 +23,6 @@ interface ImageGenerationRequest {
   };
 }
 
-// Wavespeed model configurations
 const WAVESPEED_IMAGE_MODELS: Record<string, {
   url: string;
   buildPayload: (params: any) => any;
@@ -54,7 +54,6 @@ const WAVESPEED_IMAGE_MODELS: Record<string, {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -78,12 +77,10 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Create initial record in database
     const { data: genRecord, error: insertError } = await supabase
       .from('image_generations')
       .insert({
@@ -114,7 +111,6 @@ serve(async (req) => {
     const generationId = genRecord.id;
     console.log(`Created generation record: ${generationId}`);
 
-    // Start background generation
     EdgeRuntime.waitUntil(generateImage(supabase, generationId, modelConfig, { prompt, width, height, referenceImageUrl }));
 
     return new Response(
@@ -149,13 +145,11 @@ async function generateImage(
   }
 
   try {
-    // Update status to generating
     await supabase.from('image_generations').update({
       status: 'generating',
       progress: 10
     }).eq('id', generationId);
 
-    // Build payload and make request
     const payload = modelConfig.buildPayload(params);
     console.log(`Calling Wavespeed API at ${modelConfig.url}`);
     console.log('Payload:', JSON.stringify(payload));
@@ -178,17 +172,14 @@ async function generateImage(
     const result = await response.json();
     console.log('Wavespeed API response:', JSON.stringify(result));
 
-    // Handle async generation (if task_id is returned, poll for completion)
     let imageUrl: string | null = null;
 
     if (result.data?.task_id) {
-      // Async polling mode
       console.log('Task ID received, polling for completion...');
       await supabase.from('image_generations').update({ progress: 30 }).eq('id', generationId);
       
       imageUrl = await pollForCompletion(wavespeedApiKey, result.data.task_id, supabase, generationId);
     } else if (result.data?.outputs?.[0]?.url) {
-      // Immediate result
       imageUrl = result.data.outputs[0].url;
     } else if (result.data?.url) {
       imageUrl = result.data.url;
@@ -201,11 +192,9 @@ async function generateImage(
       throw new Error('No image URL returned from Wavespeed API');
     }
 
-    // Upload to S3
     await supabase.from('image_generations').update({ progress: 80 }).eq('id', generationId);
     const s3Url = await uploadToWasabiS3(imageUrl, generationId);
 
-    // Update final status
     await supabase.from('image_generations').update({
       status: 'completed',
       progress: 100,
@@ -255,7 +244,6 @@ async function pollForCompletion(apiKey: string, taskId: string, supabase: any, 
       throw new Error(result.data.error || 'Generation failed on Wavespeed');
     }
 
-    // Update progress
     const progress = Math.min(30 + (attempt * 50 / maxAttempts), 75);
     await supabase.from('image_generations').update({ progress: Math.round(progress) }).eq('id', generationId);
   }
@@ -266,16 +254,14 @@ async function pollForCompletion(apiKey: string, taskId: string, supabase: any, 
 async function uploadToWasabiS3(imageUrl: string, generationId: string): Promise<string> {
   console.log('Uploading image to Wasabi S3...');
   
-  const accessKeyId = Deno.env.get('WASABI_ACCESS_KEY_ID');
-  const secretAccessKey = Deno.env.get('WASABI_SECRET_ACCESS_KEY');
+  const s3Config = getS3Config();
   
-  if (!accessKeyId || !secretAccessKey) {
+  if (!s3Config.accessKeyId || !s3Config.secretAccessKey) {
     console.log('Wasabi credentials not configured, returning original URL');
     return imageUrl;
   }
 
   try {
-    // Download the image
     const imageResponse = await fetch(imageUrl);
     if (!imageResponse.ok) {
       throw new Error(`Failed to download image: ${imageResponse.status}`);
@@ -285,19 +271,16 @@ async function uploadToWasabiS3(imageUrl: string, generationId: string): Promise
     const contentType = imageResponse.headers.get('content-type') || 'image/png';
     const extension = contentType.includes('jpeg') ? 'jpg' : 'png';
 
-    // S3 configuration
-    const bucket = 'shortf-media';
-    const region = 'us-central-1';
+    const { bucketName, region } = s3Config;
     const host = `s3.${region}.wasabisys.com`;
-    const key = `GENERATION_INPUTS/${generationId}.${extension}`;
-    const url = `https://${host}/${bucket}/${key}`;
+    const key = `${S3_PATHS.GENERATION_INPUTS}/${generationId}.${extension}`;
+    const url = `https://${host}/${bucketName}/${key}`;
 
-    // AWS Signature V4
     const now = new Date();
     const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
     const dateStamp = amzDate.slice(0, 8);
 
-    const canonicalUri = `/${bucket}/${key}`;
+    const canonicalUri = `/${bucketName}/${key}`;
     const canonicalQueryString = '';
     const payloadHash = await sha256Hex(new Uint8Array(imageBuffer));
     
@@ -314,12 +297,11 @@ async function uploadToWasabiS3(imageUrl: string, generationId: string): Promise
     const credentialScope = `${dateStamp}/${region}/s3/aws4_request`;
     const stringToSign = `${algorithm}\n${amzDate}\n${credentialScope}\n${await sha256Hex(new TextEncoder().encode(canonicalRequest))}`;
     
-    const signingKey = await getSignatureKey(secretAccessKey, dateStamp, region, 's3');
+    const signingKey = await getSignatureKey(s3Config.secretAccessKey, dateStamp, region, 's3');
     const signature = await hmacSha256Hex(signingKey, stringToSign);
     
-    const authorizationHeader = `${algorithm} Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+    const authorizationHeader = `${algorithm} Credential=${s3Config.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
 
-    // Upload to S3
     const uploadResponse = await fetch(url, {
       method: 'PUT',
       headers: {
@@ -338,19 +320,16 @@ async function uploadToWasabiS3(imageUrl: string, generationId: string): Promise
       throw new Error(`S3 upload failed: ${uploadResponse.status}`);
     }
 
-    // Return CDN URL
-    const cdnUrl = `https://wmc-media.b-cdn.net/${key}`;
+    const cdnUrl = getCdnUrl(key);
     console.log('Uploaded to S3, CDN URL:', cdnUrl);
     return cdnUrl;
 
   } catch (error) {
     console.error('S3 upload error:', error);
-    // Return original URL as fallback
     return imageUrl;
   }
 }
 
-// AWS Signature V4 helper functions
 async function sha256Hex(data: Uint8Array): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   return Array.from(new Uint8Array(hashBuffer))

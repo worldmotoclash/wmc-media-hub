@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 import { AwsClient } from "https://esm.sh/aws4fetch@1.0.20";
 import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
+import { getS3Config, getCdnUrl, S3_PATHS } from '../_shared/s3Config.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,10 +31,6 @@ interface SocialVariantRequest {
   };
 }
 
-/**
- * Smart crop and resize using imagescript
- * Centers the crop on the image and resizes to target dimensions
- */
 async function resizeImageNative(
   imageBuffer: Uint8Array,
   targetWidth: number,
@@ -41,14 +38,12 @@ async function resizeImageNative(
 ): Promise<Uint8Array> {
   console.log(`Native resize requested: ${targetWidth}x${targetHeight}`);
   
-  // Decode the image
   const image = await Image.decode(imageBuffer);
   const srcWidth = image.width;
   const srcHeight = image.height;
   
   console.log(`Source image dimensions: ${srcWidth}x${srcHeight}`);
   
-  // Calculate aspect ratios
   const srcAspect = srcWidth / srcHeight;
   const targetAspect = targetWidth / targetHeight;
   
@@ -58,13 +53,11 @@ async function resizeImageNative(
   let cropY: number;
   
   if (srcAspect > targetAspect) {
-    // Source is wider than target - crop the sides
     cropHeight = srcHeight;
     cropWidth = Math.round(srcHeight * targetAspect);
     cropX = Math.round((srcWidth - cropWidth) / 2);
     cropY = 0;
   } else {
-    // Source is taller than target - crop top/bottom
     cropWidth = srcWidth;
     cropHeight = Math.round(srcWidth / targetAspect);
     cropX = 0;
@@ -73,21 +66,17 @@ async function resizeImageNative(
   
   console.log(`Cropping to: ${cropWidth}x${cropHeight} at (${cropX}, ${cropY})`);
   
-  // Crop the image to the target aspect ratio (center crop)
   const cropped = image.crop(cropX, cropY, cropWidth, cropHeight);
   
-  // Resize to target dimensions
   cropped.resize(targetWidth, targetHeight);
   
   console.log(`Resized to: ${targetWidth}x${targetHeight}`);
   
-  // Encode as JPEG with 90% quality
   const result = await cropped.encodeJPEG(90);
   
   return result;
 }
 
-// Wavespeed FLUX AI resize/fill
 async function resizeWithWavespeed(
   sourceUrl: string,
   targetWidth: number,
@@ -102,7 +91,6 @@ async function resizeWithWavespeed(
 
   console.log(`Calling Wavespeed API with model: ${model}`);
 
-  // Call Wavespeed API for image transformation
   const response = await fetch("https://api.wavespeed.ai/v1/images/transform", {
     method: "POST",
     headers: {
@@ -159,7 +147,6 @@ serve(async (req) => {
       salesforceData,
     } = payload;
 
-    // Validate required fields
     if (!sourceUrl || !targetWidth || !targetHeight || !masterId || !outputFilename) {
       return new Response(
         JSON.stringify({ error: "Missing required fields" }),
@@ -167,7 +154,6 @@ serve(async (req) => {
       );
     }
 
-    // Validate dimensions
     if (targetWidth > 6000 || targetHeight > 6000 || targetWidth < 1 || targetHeight < 1) {
       return new Response(
         JSON.stringify({ error: "Invalid dimensions. Must be between 1 and 6000 pixels." }),
@@ -178,9 +164,7 @@ serve(async (req) => {
     let processedImageBuffer: Uint8Array;
     let processedImageUrl: string | null = null;
 
-    // Process based on selected model
     if (model === "native_resize" || !model) {
-      // Fetch source image
       console.log("Fetching source image from:", sourceUrl);
       const imageResponse = await fetch(sourceUrl);
       if (!imageResponse.ok) {
@@ -188,13 +172,10 @@ serve(async (req) => {
       }
       const imageBuffer = new Uint8Array(await imageResponse.arrayBuffer());
       
-      // Resize using native method
       processedImageBuffer = await resizeImageNative(imageBuffer, targetWidth, targetHeight);
     } else if (model.startsWith("wavespeed")) {
-      // Use Wavespeed AI for processing
       const result = await resizeWithWavespeed(sourceUrl, targetWidth, targetHeight, model);
       
-      // Fetch the processed image from Wavespeed
       const processedResponse = await fetch(result.imageUrl);
       if (!processedResponse.ok) {
         throw new Error("Failed to fetch processed image from Wavespeed");
@@ -208,11 +189,9 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Wasabi S3 client
-    const accessKeyId = Deno.env.get("WASABI_ACCESS_KEY_ID");
-    const secretAccessKey = Deno.env.get("WASABI_SECRET_ACCESS_KEY");
+    const s3Config = getS3Config();
     
-    if (!accessKeyId || !secretAccessKey) {
+    if (!s3Config.accessKeyId || !s3Config.secretAccessKey) {
       console.error("Missing Wasabi credentials");
       return new Response(
         JSON.stringify({ error: "S3 credentials not configured" }),
@@ -221,17 +200,14 @@ serve(async (req) => {
     }
 
     const aws = new AwsClient({
-      accessKeyId,
-      secretAccessKey,
-      region: "us-central-1",
+      accessKeyId: s3Config.accessKeyId,
+      secretAccessKey: s3Config.secretAccessKey,
+      region: s3Config.region,
       service: "s3",
     });
 
-    // Upload to S3 with the correct folder structure (matches upload-master-to-s3)
-    const bucketName = "shortf-media";
-    const s3Key = `SOCAIL_MEDIA_IMAGES_KNEWTV/masters/${masterId}/${outputFilename}`;
-    const wasabiEndpoint = "https://s3.us-central-1.wasabisys.com";
-    const uploadUrl = `${wasabiEndpoint}/${bucketName}/${s3Key}`;
+    const s3Key = `${S3_PATHS.SOCIAL_MEDIA_MASTERS}/${masterId}/${outputFilename}`;
+    const uploadUrl = `${s3Config.endpoint}/${s3Config.bucketName}/${s3Key}`;
 
     console.log("Uploading variant to S3:", uploadUrl);
 
@@ -253,15 +229,13 @@ serve(async (req) => {
       );
     }
 
-    const variantCdnUrl = `https://media.worldmotoclash.com/${s3Key}`;
+    const variantCdnUrl = getCdnUrl(s3Key);
     console.log("S3 upload successful, CDN URL:", variantCdnUrl);
 
-    // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Insert variant record into media_assets
     const { data: assetData, error: assetError } = await supabase
       .from("media_assets")
       .insert({
@@ -294,10 +268,8 @@ serve(async (req) => {
 
     if (assetError) {
       console.error("Error inserting media asset:", assetError);
-      // Continue anyway - the image was processed successfully
     }
 
-    // Call Salesforce callback if salesforceData is provided
     let salesforceId: string | null = null;
     if (salesforceData?.masterContentId) {
       try {
@@ -332,7 +304,6 @@ serve(async (req) => {
           salesforceId = sfResult.salesforceId || sfResult.id || null;
           console.log("Salesforce sync result:", sfResult);
 
-          // Update the asset with Salesforce ID if returned
           if (salesforceId && assetData?.id) {
             await supabase
               .from("media_assets")
@@ -344,7 +315,6 @@ serve(async (req) => {
         }
       } catch (sfError) {
         console.error("Salesforce callback error:", sfError);
-        // Don't fail the whole operation for Salesforce sync issues
       }
     }
 

@@ -35,7 +35,7 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
 
   useEffect(() => {
     loadConfigs();
-  }, []);
+  }, [user]);
 
   const loadConfigs = async () => {
     try {
@@ -54,6 +54,37 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
           variant: "destructive",
         });
         return;
+      }
+
+      // Auto-seed default Wasabi configuration if no configs exist and user is logged in
+      if ((!data || data.length === 0) && user) {
+        console.log('No S3 configs found, auto-seeding default Wasabi configuration...');
+        
+        const { data: newConfig, error: insertError } = await supabase
+          .from('s3_bucket_configs')
+          .insert({
+            name: 'Wasabi Production (Default)',
+            bucket_name: 'shortf-media',
+            endpoint_url: 'https://s3.us-central-1.wasabisys.com',
+            region: 'us-central-1',
+            scan_frequency_hours: 24,
+            is_active: true,
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Error auto-seeding default config:', insertError);
+          // Don't show error toast - just log it
+        } else {
+          console.log('Successfully auto-seeded default Wasabi config:', newConfig?.id);
+          setConfigs([newConfig]);
+          toast({
+            title: "Default Configuration Added",
+            description: "Wasabi S3 bucket configuration has been automatically set up.",
+          });
+          return;
+        }
       }
 
       setConfigs(data || []);
