@@ -20,6 +20,9 @@ export interface MediaAsset {
   updatedAt: string;
   tags: MediaTag[];
   activities: ContentActivity[];
+  // Sync fields
+  salesforceId?: string;
+  syncStatus?: 'in_sync' | 'missing_sfdc' | 'missing_file' | 'unknown';
 }
 
 export interface MediaTag {
@@ -57,12 +60,18 @@ export interface SearchFilters {
     end: string;
   };
   fileFormats?: string[];
+  // New filter types
+  contentOrigin?: ('youtube' | 'ai_generated' | 'uploaded')[];
+  syncStatus?: 'all' | 'in_sync' | 'missing_sfdc' | 'missing_file';
 }
 
 export interface SortOption {
   field: 'created_at' | 'title' | 'file_size' | 'asset_type' | 'source' | 'status';
   direction: 'asc' | 'desc';
 }
+
+// Sync status for an asset
+export type SyncStatus = 'in_sync' | 'missing_sfdc' | 'missing_file' | 'unknown';
 
 // Fetch all media assets with unified search
 export async function fetchAllMediaAssets(
@@ -376,6 +385,19 @@ export async function linkAssetToSalesforce(assetId: string, sfdcData: any): Pro
 
 // Transform database asset to unified format
 function transformDatabaseAsset(dbAsset: any): MediaAsset {
+  // Determine sync status based on salesforce_id presence
+  const hasSalesforceId = !!dbAsset.salesforce_id;
+  const hasFileUrl = !!dbAsset.file_url;
+  
+  let syncStatus: MediaAsset['syncStatus'] = 'unknown';
+  if (hasSalesforceId && hasFileUrl) {
+    syncStatus = 'in_sync';
+  } else if (!hasSalesforceId && hasFileUrl) {
+    syncStatus = 'missing_sfdc';
+  } else if (hasSalesforceId && !hasFileUrl) {
+    syncStatus = 'missing_file';
+  }
+
   return {
     id: dbAsset.id,
     title: dbAsset.title,
@@ -394,7 +416,9 @@ function transformDatabaseAsset(dbAsset: any): MediaAsset {
     createdAt: dbAsset.created_at,
     updatedAt: dbAsset.updated_at,
     tags: (dbAsset.media_asset_tags || []).map((rel: any) => rel.media_tags),
-    activities: dbAsset.content_review_activities || []
+    activities: dbAsset.content_review_activities || [],
+    salesforceId: dbAsset.salesforce_id,
+    syncStatus
   };
 }
 
@@ -432,6 +456,7 @@ function transformSalesforceAsset(salesforceContent: any): MediaAsset {
     return new Date().toISOString();
   };
 
+  // Salesforce assets are always "in_sync" since they come from SFDC
   return {
     id: `sf_${salesforceContent.id}`,
     title: salesforceContent.title,
@@ -458,6 +483,8 @@ function transformSalesforceAsset(salesforceContent: any): MediaAsset {
       name: tag,
       color: '#6366f1'
     })) || [],
-    activities: []
+    activities: [],
+    salesforceId: salesforceContent.id,
+    syncStatus: 'in_sync' // SFDC content is always synced
   };
 }

@@ -8,12 +8,28 @@ export interface SourceStats {
   error?: string;
 }
 
+export interface SyncHealthStats {
+  inSync: number;
+  missingSfdc: number;
+  missingFile: number;
+  total: number;
+}
+
+export interface ContentOriginStats {
+  youtube: number;
+  aiGenerated: number;
+  uploaded: number;
+}
+
 export interface MediaSourceStats {
   salesforce: SourceStats;
   s3Buckets: SourceStats[];
   databaseAssets: SourceStats;
   generatedVideos: SourceStats;
   totalCount: number;
+  // New sync health stats
+  syncHealth: SyncHealthStats;
+  contentOrigin: ContentOriginStats;
 }
 
 export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
@@ -22,7 +38,9 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
     s3Buckets: [],
     databaseAssets: { source: 'Database Assets', count: 0, status: 'healthy' },
     generatedVideos: { source: 'Generated Videos', count: 0, status: 'healthy' },
-    totalCount: 0
+    totalCount: 0,
+    syncHealth: { inSync: 0, missingSfdc: 0, missingFile: 0, total: 0 },
+    contentOrigin: { youtube: 0, aiGenerated: 0, uploaded: 0 }
   };
 
   try {
@@ -102,6 +120,60 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
       count: generatedCount || 0,
       status: 'healthy',
       lastUpdated: new Date().toISOString()
+    };
+
+    // Calculate sync health stats
+    // In Sync: has salesforce_id AND has file_url
+    const { count: inSyncCount } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .not('salesforce_id', 'is', null)
+      .not('file_url', 'is', null);
+
+    // Missing SFDC: has file_url but no salesforce_id
+    const { count: missingSfdcCount } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .is('salesforce_id', null)
+      .not('file_url', 'is', null);
+
+    // Missing File: has salesforce_id but no file_url
+    const { count: missingFileCount } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .not('salesforce_id', 'is', null)
+      .is('file_url', null);
+
+    stats.syncHealth = {
+      inSync: inSyncCount || 0,
+      missingSfdc: missingSfdcCount || 0,
+      missingFile: missingFileCount || 0,
+      total: (inSyncCount || 0) + (missingSfdcCount || 0) + (missingFileCount || 0)
+    };
+
+    // Calculate content origin stats
+    // YouTube: source = 'youtube'
+    const { count: youtubeCount } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('source', 'youtube');
+
+    // AI Generated: source = 'generated'
+    const { count: aiGeneratedCount } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('source', 'generated');
+
+    // Uploaded: source = 'local_upload' OR source = 's3_bucket'
+    const { count: uploadedCount } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .in('source', ['local_upload', 's3_bucket']);
+
+    stats.contentOrigin = {
+      youtube: youtubeCount || 0,
+      aiGenerated: aiGeneratedCount || 0,
+      uploaded: uploadedCount || 0
     };
 
     // Calculate total

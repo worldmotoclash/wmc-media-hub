@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { RefreshCw, Database, Cloud, Cpu, HardDrive, AlertCircle, CheckCircle, Clock, ChevronDown, ChevronRight } from 'lucide-react';
-import { getMediaSourceStats, refreshS3BucketScan, type MediaSourceStats, type SourceStats } from '@/services/mediaSourceStatsService';
+import { RefreshCw, CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronRight, Youtube, Sparkles, Upload, Link2 } from 'lucide-react';
+import { getMediaSourceStats, type MediaSourceStats } from '@/services/mediaSourceStatsService';
 import { toast } from 'sonner';
 
 const MediaSourceDashboard: React.FC = () => {
@@ -33,16 +33,6 @@ const MediaSourceDashboard: React.FC = () => {
     toast.success('Statistics refreshed');
   };
 
-  const handleS3Scan = async (bucketConfigId: string, bucketName: string) => {
-    try {
-      await refreshS3BucketScan(bucketConfigId);
-      toast.success(`Scanning ${bucketName} bucket initiated`);
-      setTimeout(() => loadStats(), 2000); // Refresh stats after scan
-    } catch (error) {
-      toast.error(`Failed to scan ${bucketName} bucket`);
-    }
-  };
-
   useEffect(() => {
     loadStats();
     // Auto-refresh every 30 seconds
@@ -50,48 +40,13 @@ const MediaSourceDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const getStatusIcon = (status: SourceStats['status']) => {
-    switch (status) {
-      case 'healthy':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'warning':
-        return <Clock className="h-4 w-4 text-yellow-500" />;
-      case 'error':
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
-    }
-  };
-
-  const getStatusColor = (status: SourceStats['status']) => {
-    switch (status) {
-      case 'healthy':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'warning':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'error':
-        return 'bg-red-100 text-red-800 border-red-200';
-    }
-  };
-
-  const formatLastUpdated = (timestamp?: string) => {
-    if (!timestamp) return 'Never';
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
-    return date.toLocaleDateString();
-  };
-
   if (loading) {
     return (
       <Card className="mb-6">
         <CardContent className="p-6">
           <div className="flex items-center space-x-2">
             <RefreshCw className="h-4 w-4 animate-spin" />
-            <span>Loading media statistics...</span>
+            <span>Loading sync health...</span>
           </div>
         </CardContent>
       </Card>
@@ -100,23 +55,46 @@ const MediaSourceDashboard: React.FC = () => {
 
   if (!stats) return null;
 
+  const { syncHealth, contentOrigin } = stats;
+  const syncPercentage = syncHealth.total > 0 
+    ? Math.round((syncHealth.inSync / syncHealth.total) * 100) 
+    : 100;
+  
+  const hasIssues = syncHealth.missingSfdc > 0 || syncHealth.missingFile > 0;
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <Card className="mb-6">
         <CollapsibleTrigger asChild>
           <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 {isOpen ? (
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 ) : (
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 )}
-                <CardTitle className="text-lg font-semibold">Media Sources Overview</CardTitle>
-                {!isOpen && stats && (
-                  <Badge variant="secondary" className="ml-2">
-                    {stats.totalCount} total
-                  </Badge>
+                <div className="flex items-center gap-2">
+                  <Link2 className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg font-semibold">Sync Health</CardTitle>
+                </div>
+                {!isOpen && (
+                  <div className="flex items-center gap-2 ml-2">
+                    {hasIssues ? (
+                      <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+                        <AlertTriangle className="h-3 w-3 mr-1" />
+                        {syncHealth.missingSfdc + syncHealth.missingFile} issues
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        All synced
+                      </Badge>
+                    )}
+                    <Badge variant="secondary">
+                      {syncHealth.total} assets
+                    </Badge>
+                  </div>
                 )}
               </div>
               <Button
@@ -135,119 +113,128 @@ const MediaSourceDashboard: React.FC = () => {
           </CardHeader>
         </CollapsibleTrigger>
         <CollapsibleContent>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-          {/* Salesforce */}
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <Database className="h-4 w-4 text-blue-500" />
-              <span className="font-medium text-sm">{stats.salesforce.source}</span>
-              {getStatusIcon(stats.salesforce.status)}
-            </div>
-            <div className="text-2xl font-bold">{stats.salesforce.count}</div>
-            <Badge variant="outline" className={getStatusColor(stats.salesforce.status)}>
-              {stats.salesforce.status}
-            </Badge>
-            {stats.salesforce.error && (
-              <p className="text-xs text-muted-foreground">{stats.salesforce.error}</p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Updated: {formatLastUpdated(stats.salesforce.lastUpdated)}
-            </p>
-          </div>
-
-          {/* Database Assets */}
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <HardDrive className="h-4 w-4 text-purple-500" />
-              <span className="font-medium text-sm">{stats.databaseAssets.source}</span>
-              {getStatusIcon(stats.databaseAssets.status)}
-            </div>
-            <div className="text-2xl font-bold">{stats.databaseAssets.count}</div>
-            <Badge variant="outline" className={getStatusColor(stats.databaseAssets.status)}>
-              {stats.databaseAssets.status}
-            </Badge>
-            <p className="text-xs text-muted-foreground">
-              Updated: {formatLastUpdated(stats.databaseAssets.lastUpdated)}
-            </p>
-          </div>
-
-          {/* Generated Videos */}
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <Cpu className="h-4 w-4 text-green-500" />
-              <span className="font-medium text-sm">{stats.generatedVideos.source}</span>
-              {getStatusIcon(stats.generatedVideos.status)}
-            </div>
-            <div className="text-2xl font-bold">{stats.generatedVideos.count}</div>
-            <Badge variant="outline" className={getStatusColor(stats.generatedVideos.status)}>
-              {stats.generatedVideos.status}
-            </Badge>
-            <p className="text-xs text-muted-foreground">
-              Updated: {formatLastUpdated(stats.generatedVideos.lastUpdated)}
-            </p>
-          </div>
-
-          {/* Total Count */}
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <Database className="h-4 w-4 text-gray-500" />
-              <span className="font-medium text-sm">Total Videos</span>
-            </div>
-            <div className="text-2xl font-bold text-primary">{stats.totalCount}</div>
-            <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-200">
-              aggregate
-            </Badge>
-            <p className="text-xs text-muted-foreground">
-              Across all sources
-            </p>
-          </div>
-        </div>
-
-        {/* S3 Buckets */}
-        {stats.s3Buckets.length > 0 && (
-          <>
-            <Separator className="my-4" />
-            <div className="space-y-3">
-              <h4 className="font-medium text-sm flex items-center">
-                <Cloud className="h-4 w-4 mr-2 text-orange-500" />
-                S3/Wasabi Buckets
+          <CardContent className="space-y-6">
+            {/* Sync Status Section */}
+            <div>
+              <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                <Link2 className="h-4 w-4" />
+                Sync Status (SFDC ↔ Storage)
               </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {stats.s3Buckets.map((bucket, index) => (
-                  <div key={index} className="border rounded-lg p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium text-sm">{bucket.source}</span>
-                        {getStatusIcon(bucket.status)}
-                      </div>
-                      <div className="text-lg font-bold">{bucket.count}</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* In Sync */}
+                <div className="border rounded-lg p-4 bg-green-500/5 border-green-500/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                      <span className="font-medium text-sm">In Sync</span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <Badge variant="outline" className={getStatusColor(bucket.status)}>
-                        {bucket.status}
-                      </Badge>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleS3Scan('bucket-id', bucket.source.replace('S3: ', ''))}
-                      >
-                        Scan
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Last scan: {formatLastUpdated(bucket.lastUpdated)}
-                    </p>
-                    {bucket.error && (
-                      <p className="text-xs text-red-600">{bucket.error}</p>
-                    )}
+                    <span className="text-2xl font-bold text-green-600">{syncHealth.inSync}</span>
                   </div>
-                ))}
+                  <p className="text-xs text-muted-foreground">
+                    Assets with SFDC record & file
+                  </p>
+                </div>
+
+                {/* Missing SFDC Record */}
+                <div className={`border rounded-lg p-4 ${syncHealth.missingSfdc > 0 ? 'bg-yellow-500/5 border-yellow-500/20' : 'bg-muted/30 border-border'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className={`h-5 w-5 ${syncHealth.missingSfdc > 0 ? 'text-yellow-500' : 'text-muted-foreground'}`} />
+                      <span className="font-medium text-sm">Missing SFDC</span>
+                    </div>
+                    <span className={`text-2xl font-bold ${syncHealth.missingSfdc > 0 ? 'text-yellow-600' : 'text-muted-foreground'}`}>
+                      {syncHealth.missingSfdc}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Files without Salesforce record
+                  </p>
+                </div>
+
+                {/* Missing File */}
+                <div className={`border rounded-lg p-4 ${syncHealth.missingFile > 0 ? 'bg-red-500/5 border-red-500/20' : 'bg-muted/30 border-border'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <XCircle className={`h-5 w-5 ${syncHealth.missingFile > 0 ? 'text-red-500' : 'text-muted-foreground'}`} />
+                      <span className="font-medium text-sm">Missing File</span>
+                    </div>
+                    <span className={`text-2xl font-bold ${syncHealth.missingFile > 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                      {syncHealth.missingFile}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    SFDC records without file
+                  </p>
+                </div>
+              </div>
+
+              {/* Sync Progress Bar */}
+              {syncHealth.total > 0 && (
+                <div className="mt-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-muted-foreground">Sync Rate</span>
+                    <span className="text-xs font-medium">{syncPercentage}%</span>
+                  </div>
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full transition-all ${syncPercentage === 100 ? 'bg-green-500' : syncPercentage >= 80 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                      style={{ width: `${syncPercentage}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Content Origin Section */}
+            <div>
+              <h4 className="text-sm font-medium mb-3">Content Origin</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* YouTube */}
+                <div className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Youtube className="h-5 w-5 text-red-500" />
+                      <span className="font-medium text-sm">YouTube</span>
+                    </div>
+                    <span className="text-xl font-bold">{contentOrigin.youtube}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Embedded video content
+                  </p>
+                </div>
+
+                {/* AI Generated */}
+                <div className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-purple-500" />
+                      <span className="font-medium text-sm">AI Generated</span>
+                    </div>
+                    <span className="text-xl font-bold">{contentOrigin.aiGenerated}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Media Hub generated content
+                  </p>
+                </div>
+
+                {/* Uploaded */}
+                <div className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Upload className="h-5 w-5 text-blue-500" />
+                      <span className="font-medium text-sm">Uploaded</span>
+                    </div>
+                    <span className="text-xl font-bold">{contentOrigin.uploaded}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Manual uploads to storage
+                  </p>
+                </div>
               </div>
             </div>
-          </>
-        )}
-      </CardContent>
+          </CardContent>
         </CollapsibleContent>
       </Card>
     </Collapsible>

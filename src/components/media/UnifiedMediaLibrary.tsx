@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -191,6 +191,44 @@ export const UnifiedMediaLibrary: React.FC = () => {
       case 'pending': return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20';
       case 'rejected': return 'bg-red-500/10 text-red-600 border-red-500/20';
       default: return 'bg-gray-500/10 text-gray-600 border-gray-500/20';
+    }
+  };
+
+  const getSyncStatusBadge = (syncStatus?: string) => {
+    switch (syncStatus) {
+      case 'in_sync':
+        return (
+          <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 text-xs">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Synced
+          </Badge>
+        );
+      case 'missing_sfdc':
+        return (
+          <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20 text-xs">
+            <AlertTriangle className="w-3 h-3 mr-1" />
+            No SFDC
+          </Badge>
+        );
+      case 'missing_file':
+        return (
+          <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/20 text-xs">
+            <AlertTriangle className="w-3 h-3 mr-1" />
+            No File
+          </Badge>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const getContentOriginIcon = (source: string) => {
+    switch (source) {
+      case 'youtube': return <Youtube className="w-3 h-3 text-red-500" />;
+      case 'generated': return <Sparkles className="w-3 h-3 text-purple-500" />;
+      case 's3_bucket':
+      case 'local_upload': return <Upload className="w-3 h-3 text-blue-500" />;
+      default: return null;
     }
   };
 
@@ -411,29 +449,99 @@ export const UnifiedMediaLibrary: React.FC = () => {
               </div>
             </div>
 
-            {/* Source Filter */}
+            {/* Content Origin Filter (replaces Sources) */}
             <div className="space-y-3">
-              <label className="text-sm font-medium mb-2 block">Sources</label>
+              <label className="text-sm font-medium mb-2 block">Content Origin</label>
               <div className="space-y-1">
-                {['salesforce', 's3_bucket', 'youtube', 'generated', 'local_upload'].map(source => (
-                  <div key={source} className="min-h-8 flex items-center space-x-2">
+                {/* YouTube */}
+                <div className="min-h-8 flex items-center space-x-2">
+                  <Checkbox
+                    id="origin-youtube"
+                    checked={filters.contentOrigin?.includes('youtube') || false}
+                    onCheckedChange={(checked) => {
+                      const current = filters.contentOrigin || [];
+                      if (checked) {
+                        handleFilterChange('contentOrigin', [...current, 'youtube']);
+                      } else {
+                        handleFilterChange('contentOrigin', current.filter(o => o !== 'youtube'));
+                      }
+                    }}
+                  />
+                  <label htmlFor="origin-youtube" className="text-sm flex items-center gap-1.5">
+                    <Youtube className="w-4 h-4 text-red-500" /> YouTube
+                  </label>
+                </div>
+                
+                {/* AI Generated */}
+                <div className="min-h-8 flex items-center space-x-2">
+                  <Checkbox
+                    id="origin-ai-generated"
+                    checked={filters.contentOrigin?.includes('ai_generated') || false}
+                    onCheckedChange={(checked) => {
+                      const current = filters.contentOrigin || [];
+                      if (checked) {
+                        handleFilterChange('contentOrigin', [...current, 'ai_generated']);
+                      } else {
+                        handleFilterChange('contentOrigin', current.filter(o => o !== 'ai_generated'));
+                      }
+                    }}
+                  />
+                  <label htmlFor="origin-ai-generated" className="text-sm flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-purple-500" /> AI Generated
+                  </label>
+                </div>
+                
+                {/* Uploaded */}
+                <div className="min-h-8 flex items-center space-x-2">
+                  <Checkbox
+                    id="origin-uploaded"
+                    checked={filters.contentOrigin?.includes('uploaded') || false}
+                    onCheckedChange={(checked) => {
+                      const current = filters.contentOrigin || [];
+                      if (checked) {
+                        handleFilterChange('contentOrigin', [...current, 'uploaded']);
+                      } else {
+                        handleFilterChange('contentOrigin', current.filter(o => o !== 'uploaded'));
+                      }
+                    }}
+                  />
+                  <label htmlFor="origin-uploaded" className="text-sm flex items-center gap-1.5">
+                    <Upload className="w-4 h-4 text-blue-500" /> Uploaded
+                  </label>
+                </div>
+              </div>
+              
+              {/* Sync Status Filter */}
+              <div className="pt-3 border-t mt-3">
+                <label className="text-sm font-medium mb-2 block flex items-center gap-1.5">
+                  <Link2 className="w-4 h-4" /> Sync Status
+                </label>
+                <div className="space-y-1">
+                  <div className="min-h-8 flex items-center space-x-2">
                     <Checkbox
-                      id={source}
-                      checked={filters.sources?.includes(source) || false}
+                      id="sync-in-sync"
+                      checked={filters.syncStatus === 'in_sync'}
                       onCheckedChange={(checked) => {
-                        const currentSources = filters.sources || [];
-                        if (checked) {
-                          handleFilterChange('sources', [...currentSources, source]);
-                        } else {
-                          handleFilterChange('sources', currentSources.filter(s => s !== source));
-                        }
+                        handleFilterChange('syncStatus', checked ? 'in_sync' : undefined);
                       }}
                     />
-                    <label htmlFor={source} className="text-sm capitalize">
-                      {getSourceIcon(source)} {source === 'generated' ? 'AI Generated' : source.replace('_', ' ')}
+                    <label htmlFor="sync-in-sync" className="text-sm flex items-center gap-1.5">
+                      <CheckCircle className="w-4 h-4 text-green-500" /> In Sync
                     </label>
                   </div>
-                ))}
+                  <div className="min-h-8 flex items-center space-x-2">
+                    <Checkbox
+                      id="sync-missing-sfdc"
+                      checked={filters.syncStatus === 'missing_sfdc'}
+                      onCheckedChange={(checked) => {
+                        handleFilterChange('syncStatus', checked ? 'missing_sfdc' : undefined);
+                      }}
+                    />
+                    <label htmlFor="sync-missing-sfdc" className="text-sm flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4 text-yellow-500" /> Missing SFDC
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -540,7 +648,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     </div>
                   )}
                   
-                  <div className="absolute top-2 left-2 flex gap-1">
+                  <div className="absolute top-2 left-2 flex gap-1 flex-wrap">
                     <Badge variant="secondary" className="text-xs">
                       {asset.assetType === 'video' ? (
                         <Video className="w-3 h-3 mr-1" />
@@ -549,12 +657,20 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       ) : null}
                       {asset.assetType || asset.source.replace('_', ' ')}
                     </Badge>
+                    {/* Content Origin Badge */}
+                    {getContentOriginIcon(asset.source) && (
+                      <Badge variant="secondary" className="text-xs px-1.5">
+                        {getContentOriginIcon(asset.source)}
+                      </Badge>
+                    )}
                   </div>
                   
-                  <div className="absolute top-2 right-2">
+                  <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
                     <Badge className={getStatusColor(asset.status)}>
                       {asset.status}
                     </Badge>
+                    {/* Sync Status Badge */}
+                    {asset.syncStatus && getSyncStatusBadge(asset.syncStatus)}
                   </div>
 
                   {asset.duration && (
