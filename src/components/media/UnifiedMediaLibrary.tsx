@@ -26,6 +26,7 @@ import {
 } from "@/services/unifiedMediaService";
 import { LibrarianWorkflowDialog } from "./LibrarianWorkflowDialog";
 import VideoPreviewModal from "./VideoPreviewModal";
+import ImagePreviewModal from "./ImagePreviewModal";
 import MediaSourceDashboard from "./MediaSourceDashboard";
 import { S3BucketConfigManager } from "./S3BucketConfigManager";
 import { MediaNavigation } from "./MediaNavigation";
@@ -1024,26 +1025,34 @@ export const UnifiedMediaLibrary: React.FC = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Modals */}
+      {/* Modals - Use appropriate modal based on asset type */}
       {selectedAsset && (
-        <VideoPreviewModal
-          video={{
-            id: selectedAsset.id,
-            title: selectedAsset.title,
-            description: selectedAsset.description || '',
-            videoSrc: selectedAsset.fileUrl || '',
-            thumbnail: selectedAsset.thumbnailUrl || '',
-            duration: selectedAsset.duration?.toString() || '0',
-            views: selectedAsset.metadata?.views || 0,
-            uploadedAt: selectedAsset.createdAt,
-            status: (selectedAsset.status === 'approved' ? 'Synced' : 
-                    selectedAsset.status === 'rejected' ? 'Error' : 
-                    selectedAsset.status === 'pending' ? 'Processing' : 'Draft') as 'Draft' | 'Synced' | 'Error' | 'Processing',
-            tags: selectedAsset.tags.map(t => t.name)
-          }}
-          isOpen={!!selectedAsset}
-          onClose={() => setSelectedAsset(null)}
-        />
+        selectedAsset.assetType === 'video' ? (
+          <VideoPreviewModal
+            video={{
+              id: selectedAsset.id,
+              title: selectedAsset.title,
+              description: selectedAsset.description || '',
+              videoSrc: selectedAsset.fileUrl || '',
+              thumbnail: selectedAsset.thumbnailUrl || '',
+              duration: selectedAsset.duration?.toString() || '0',
+              views: selectedAsset.metadata?.views || 0,
+              uploadedAt: selectedAsset.createdAt,
+              status: (selectedAsset.status === 'approved' ? 'Synced' : 
+                      selectedAsset.status === 'rejected' ? 'Error' : 
+                      selectedAsset.status === 'pending' ? 'Processing' : 'Draft') as 'Draft' | 'Synced' | 'Error' | 'Processing',
+              tags: selectedAsset.tags.map(t => t.name)
+            }}
+            isOpen={!!selectedAsset}
+            onClose={() => setSelectedAsset(null)}
+          />
+        ) : (
+          <ImagePreviewModal
+            asset={selectedAsset}
+            isOpen={!!selectedAsset}
+            onClose={() => setSelectedAsset(null)}
+          />
+        )
       )}
 
       {showWorkflowDialog && workflowAsset && (
