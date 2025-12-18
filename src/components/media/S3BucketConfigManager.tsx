@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/contexts/UserContext';
 import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
-import { Trash2, RefreshCw, Clock, Wifi, WifiOff, Lock } from 'lucide-react';
+import { Trash2, RefreshCw, Clock, Wifi, WifiOff } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { S3BucketConfigDialog } from './S3BucketConfigDialog';
 
@@ -20,7 +20,7 @@ interface S3BucketConfig {
   last_scanned_at: string | null;
   is_active: boolean;
   created_at: string;
-  isReadOnly?: boolean; // For default config shown without auth
+  isDefault?: boolean; // For default config that cannot be deleted
 }
 
 interface S3BucketConfigManagerProps {
@@ -30,7 +30,7 @@ interface S3BucketConfigManagerProps {
 // Default Wasabi configuration - shown when no Supabase session exists
 const DEFAULT_WASABI_CONFIG: S3BucketConfig = {
   id: 'default-wasabi',
-  name: 'Wasabi Production (Default)',
+  name: 'Wasabi Production',
   bucket_name: 'shortf-media',
   endpoint_url: 'https://s3.us-central-1.wasabisys.com',
   region: 'us-central-1',
@@ -38,7 +38,7 @@ const DEFAULT_WASABI_CONFIG: S3BucketConfig = {
   last_scanned_at: null,
   is_active: true,
   created_at: new Date().toISOString(),
-  isReadOnly: true,
+  isDefault: true,
 };
 
 export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ onConfigChange }) => {
@@ -277,19 +277,11 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
       ) : configs.length > 0 && (
         <div className="grid gap-4">
           {configs.map((config) => (
-            <Card key={config.id} className={config.isReadOnly ? 'border-dashed' : ''}>
+            <Card key={config.id}>
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-lg">{config.name}</CardTitle>
-                      {config.isReadOnly && (
-                        <Badge variant="outline" className="text-xs">
-                          <Lock className="w-3 h-3 mr-1" />
-                          Read-only
-                        </Badge>
-                      )}
-                    </div>
+                    <CardTitle className="text-lg">{config.name}</CardTitle>
                     <p className="text-sm text-muted-foreground mt-1">
                       {config.bucket_name} • {config.endpoint_url}
                     </p>
@@ -306,64 +298,67 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
                       <Clock className="w-4 h-4" />
                       Scans every {config.scan_frequency_hours}h
                     </div>
-                    <div>
-                      Last scan: {formatLastScanned(config.last_scanned_at)}
+                    <div className="flex items-center gap-2">
+                      <span>Last scan: {formatLastScanned(config.last_scanned_at)}</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2"
+                        onClick={() => handleScan(config.id)}
+                        disabled={scanningIds.has(config.id) || testingIds.has(config.id)}
+                      >
+                        <RefreshCw className={`w-3 h-3 ${scanningIds.has(config.id) ? 'animate-spin' : ''}`} />
+                      </Button>
                     </div>
                   </div>
                   
                   <div className="flex gap-2">
-                    {config.isReadOnly ? (
-                      <p className="text-xs text-muted-foreground italic">
-                        Sign in to Supabase to manage configurations
-                      </p>
-                    ) : (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleTestConnection(config.id)}
-                          disabled={testingIds.has(config.id)}
-                        >
-                          {testingIds.has(config.id) ? (
-                            <WifiOff className="w-4 h-4 mr-2 animate-pulse" />
-                          ) : (
-                            <Wifi className="w-4 h-4 mr-2" />
-                          )}
-                          {testingIds.has(config.id) ? 'Testing...' : 'Test Connection'}
-                        </Button>
-                        
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleScan(config.id)}
-                          disabled={scanningIds.has(config.id) || testingIds.has(config.id)}
-                        >
-                          <RefreshCw className={`w-4 h-4 mr-2 ${scanningIds.has(config.id) ? 'animate-spin' : ''}`} />
-                          {scanningIds.has(config.id) ? 'Scanning...' : 'Scan Now'}
-                        </Button>
-                        
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button size="sm" variant="outline">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Configuration</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete this S3 bucket configuration? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDelete(config.id)}>
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleTestConnection(config.id)}
+                      disabled={testingIds.has(config.id)}
+                    >
+                      {testingIds.has(config.id) ? (
+                        <WifiOff className="w-4 h-4 mr-2 animate-pulse" />
+                      ) : (
+                        <Wifi className="w-4 h-4 mr-2" />
+                      )}
+                      {testingIds.has(config.id) ? 'Testing...' : 'Test Connection'}
+                    </Button>
+                    
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleScan(config.id)}
+                      disabled={scanningIds.has(config.id) || testingIds.has(config.id)}
+                    >
+                      <RefreshCw className={`w-4 h-4 mr-2 ${scanningIds.has(config.id) ? 'animate-spin' : ''}`} />
+                      {scanningIds.has(config.id) ? 'Scanning...' : 'Scan Now'}
+                    </Button>
+                    
+                    {!config.isDefault && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="outline">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Configuration</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete this S3 bucket configuration? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDelete(config.id)}>
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     )}
                   </div>
                 </div>
