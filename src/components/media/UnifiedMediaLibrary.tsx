@@ -580,12 +580,90 @@ export const UnifiedMediaLibrary: React.FC = () => {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-16">Preview</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead className="w-24">Type</TableHead>
-                <TableHead className="w-24">Source</TableHead>
-                <TableHead className="w-24">Status</TableHead>
-                <TableHead className="w-24">Size</TableHead>
-                <TableHead className="w-32">Created</TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => setSortOption(prev => ({ 
+                    field: 'title', 
+                    direction: prev.field === 'title' && prev.direction === 'asc' ? 'desc' : 'asc' 
+                  }))}
+                >
+                  <div className="flex items-center gap-1">
+                    Title
+                    {sortOption.field === 'title' && (
+                      <ArrowUpDown className={`w-3 h-3 ${sortOption.direction === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="w-24 cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => setSortOption(prev => ({ 
+                    field: 'asset_type', 
+                    direction: prev.field === 'asset_type' && prev.direction === 'asc' ? 'desc' : 'asc' 
+                  }))}
+                >
+                  <div className="flex items-center gap-1">
+                    Type
+                    {sortOption.field === 'asset_type' && (
+                      <ArrowUpDown className={`w-3 h-3 ${sortOption.direction === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="w-24 cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => setSortOption(prev => ({ 
+                    field: 'source', 
+                    direction: prev.field === 'source' && prev.direction === 'asc' ? 'desc' : 'asc' 
+                  }))}
+                >
+                  <div className="flex items-center gap-1">
+                    Source
+                    {sortOption.field === 'source' && (
+                      <ArrowUpDown className={`w-3 h-3 ${sortOption.direction === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="w-24 cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => setSortOption(prev => ({ 
+                    field: 'status', 
+                    direction: prev.field === 'status' && prev.direction === 'asc' ? 'desc' : 'asc' 
+                  }))}
+                >
+                  <div className="flex items-center gap-1">
+                    Status
+                    {sortOption.field === 'status' && (
+                      <ArrowUpDown className={`w-3 h-3 ${sortOption.direction === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="w-24 cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => setSortOption(prev => ({ 
+                    field: 'file_size', 
+                    direction: prev.field === 'file_size' && prev.direction === 'desc' ? 'asc' : 'desc' 
+                  }))}
+                >
+                  <div className="flex items-center gap-1">
+                    Size
+                    {sortOption.field === 'file_size' && (
+                      <ArrowUpDown className={`w-3 h-3 ${sortOption.direction === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="w-32 cursor-pointer hover:bg-muted/50 select-none"
+                  onClick={() => setSortOption(prev => ({ 
+                    field: 'created_at', 
+                    direction: prev.field === 'created_at' && prev.direction === 'desc' ? 'asc' : 'desc' 
+                  }))}
+                >
+                  <div className="flex items-center gap-1">
+                    Created
+                    {sortOption.field === 'created_at' && (
+                      <ArrowUpDown className={`w-3 h-3 ${sortOption.direction === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </div>
+                </TableHead>
                 <TableHead className="w-32 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
