@@ -21,6 +21,12 @@ export interface ContentOriginStats {
   uploaded: number;
 }
 
+export interface ApiConnectionStatus {
+  isConnected: boolean;
+  lastChecked: string;
+  error?: string;
+}
+
 export interface MediaSourceStats {
   salesforce: SourceStats;
   s3Buckets: SourceStats[];
@@ -30,6 +36,8 @@ export interface MediaSourceStats {
   // New sync health stats
   syncHealth: SyncHealthStats;
   contentOrigin: ContentOriginStats;
+  // API connection status
+  salesforceApiStatus: ApiConnectionStatus;
 }
 
 export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
@@ -40,11 +48,12 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
     generatedVideos: { source: 'Generated Videos', count: 0, status: 'healthy' },
     totalCount: 0,
     syncHealth: { inSync: 0, missingSfdc: 0, missingFile: 0, total: 0 },
-    contentOrigin: { youtube: 0, aiGenerated: 0, uploaded: 0 }
+    contentOrigin: { youtube: 0, aiGenerated: 0, uploaded: 0 },
+    salesforceApiStatus: { isConnected: false, lastChecked: new Date().toISOString() }
   };
 
   try {
-    // Get Salesforce count
+    // Get Salesforce count and check API status
     try {
       const response = await fetch('https://api.realintelligence.com/api/wmc-content.py?orgId=00D5e000000HEcP&sandbox=False');
       if (response.ok) {
@@ -53,12 +62,29 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
         const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
         const contentElements = xmlDoc.querySelectorAll('content');
         
+        // Count YouTube content from Salesforce
+        let youtubeFromSfdc = 0;
+        contentElements.forEach((el) => {
+          const contentType = el.querySelector('contenttype')?.textContent;
+          if (contentType === 'Youtube') {
+            youtubeFromSfdc++;
+          }
+        });
+        
         stats.salesforce = {
           source: 'Salesforce',
           count: contentElements.length,
           status: 'healthy',
           lastUpdated: new Date().toISOString()
         };
+        
+        stats.salesforceApiStatus = {
+          isConnected: true,
+          lastChecked: new Date().toISOString()
+        };
+        
+        // Add YouTube count from Salesforce to contentOrigin
+        stats.contentOrigin.youtube += youtubeFromSfdc;
       } else {
         throw new Error('API unavailable');
       }
@@ -67,7 +93,12 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
         source: 'Salesforce',
         count: 0,
         status: 'error',
-        error: 'API endpoint unavailable - using demo data'
+        error: 'API endpoint unavailable'
+      };
+      stats.salesforceApiStatus = {
+        isConnected: false,
+        lastChecked: new Date().toISOString(),
+        error: error instanceof Error ? error.message : 'Connection failed'
       };
     }
 

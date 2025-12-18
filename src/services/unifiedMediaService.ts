@@ -98,9 +98,37 @@ export async function fetchAllMediaAssets(
       `)
       .order(sortField, { ascending: sortAscending });
 
-    // Apply filters with AND logic between categories
-    if (filters?.sources?.length) {
+    // Apply contentOrigin filter (new architecture - takes precedence over sources)
+    if (filters?.contentOrigin?.length) {
+      const sourcesToInclude: string[] = [];
+      
+      if (filters.contentOrigin.includes('youtube')) {
+        sourcesToInclude.push('youtube');
+      }
+      if (filters.contentOrigin.includes('ai_generated')) {
+        sourcesToInclude.push('generated');
+      }
+      if (filters.contentOrigin.includes('uploaded')) {
+        sourcesToInclude.push('local_upload', 's3_bucket');
+      }
+      
+      if (sourcesToInclude.length > 0) {
+        query = query.in('source', sourcesToInclude as any);
+      }
+    } else if (filters?.sources?.length) {
+      // Legacy sources filter (fallback)
       query = query.in('source', filters.sources as any);
+    }
+
+    // Apply syncStatus filter
+    if (filters?.syncStatus && filters.syncStatus !== 'all') {
+      if (filters.syncStatus === 'in_sync') {
+        query = query.not('salesforce_id', 'is', null).not('file_url', 'is', null);
+      } else if (filters.syncStatus === 'missing_sfdc') {
+        query = query.is('salesforce_id', null).not('file_url', 'is', null);
+      } else if (filters.syncStatus === 'missing_file') {
+        query = query.not('salesforce_id', 'is', null).is('file_url', null);
+      }
     }
 
     if (filters?.status?.length) {
@@ -134,13 +162,23 @@ export async function fetchAllMediaAssets(
     // Transform database results
     const transformedAssets: MediaAsset[] = (dbAssets || []).map(transformDatabaseAsset);
 
-    // Fetch Salesforce content if no source filter or salesforce/youtube/generated is included
+    // Determine whether to fetch Salesforce content based on filters
     let salesforceAssets: MediaAsset[] = [];
-    const includesSalesforce = !filters?.sources?.length || filters.sources.includes('salesforce');
-    const includesYoutube = !filters?.sources?.length || filters.sources.includes('youtube');
-    const includesGenerated = !filters?.sources?.length || filters.sources.includes('generated');
     
-    if (includesSalesforce || includesYoutube || includesGenerated) {
+    // Check if we should include Salesforce content based on contentOrigin or sources filters
+    const shouldFetchSalesforce = (() => {
+      if (filters?.contentOrigin?.length) {
+        // If contentOrigin filter is active, only fetch if youtube is selected
+        return filters.contentOrigin.includes('youtube');
+      }
+      // Legacy: fetch if no source filter or if salesforce/youtube/generated is included
+      if (!filters?.sources?.length) return true;
+      return filters.sources.includes('salesforce') || 
+             filters.sources.includes('youtube') || 
+             filters.sources.includes('generated');
+    })();
+    
+    if (shouldFetchSalesforce) {
       try {
         const salesforceContent = await fetchVideoContent(undefined, searchQuery);
         const transformedSalesforceAssets = salesforceContent.map(transformSalesforceAsset);
@@ -148,8 +186,24 @@ export async function fetchAllMediaAssets(
         // Apply filters with AND logic between categories
         salesforceAssets = transformedSalesforceAssets;
 
-        // Step 1: Apply source filtering
-        if (filters?.sources?.length) {
+        // Apply contentOrigin filter to Salesforce assets
+        if (filters?.contentOrigin?.length) {
+          salesforceAssets = salesforceAssets.filter(asset => {
+            if (filters.contentOrigin!.includes('youtube') && asset.source === 'youtube') {
+              return true;
+            }
+            if (filters.contentOrigin!.includes('ai_generated') && asset.status === 'Generated') {
+              return true;
+            }
+            if (filters.contentOrigin!.includes('uploaded') && 
+                asset.source === 'salesforce' && 
+                asset.status !== 'Generated') {
+              return true;
+            }
+            return false;
+          });
+        } else if (filters?.sources?.length) {
+          // Legacy: Apply source filtering
           const selectedSources = filters.sources!;
           const realSources = selectedSources.filter(s => s !== 'generated');
           const requireGenerated = selectedSources.includes('generated');
@@ -161,14 +215,14 @@ export async function fetchAllMediaAssets(
           });
         }
 
-        // Step 2: Apply status filtering (AND with source filtering)
+        // Apply status filtering (AND with previous filters)
         if (filters?.status?.length) {
           salesforceAssets = salesforceAssets.filter(asset => 
             filters.status!.includes(asset.status)
           );
         }
 
-        // Step 3: Apply tag filtering (AND with previous filters)
+        // Apply tag filtering (AND with previous filters)
         if (filters?.tags?.length) {
           salesforceAssets = salesforceAssets.filter(asset => 
             asset.tags.some(tag => filters.tags!.includes(tag.id) || filters.tags!.includes(tag.name))
