@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown } from "lucide-react";
+import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useUser } from "@/contexts/UserContext";
@@ -42,6 +43,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [sortOption, setSortOption] = useState<SortOption>({ field: 'created_at', direction: 'desc' });
   const [isScanning, setIsScanning] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('library');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const { user } = useUser();
   useSupabaseAuth(); // Ensure Supabase auth when user is logged in
   const navigate = useNavigate();
@@ -283,6 +285,26 @@ export const UnifiedMediaLibrary: React.FC = () => {
                   </SelectContent>
                 </Select>
 
+                {/* View Mode Toggle */}
+                <div className="flex border rounded-md">
+                  <Button
+                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                    className="rounded-r-none"
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'list' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('list')}
+                    className="rounded-l-none"
+                  >
+                    <List className="w-4 h-4" />
+                  </Button>
+                </div>
+
                 <Button variant="outline" onClick={clearFilters}>
                   Clear Filters
                 </Button>
@@ -405,153 +427,270 @@ export const UnifiedMediaLibrary: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Results */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {assets.map((asset, index) => (
-          <motion.div
-            key={asset.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-          >
-            <Card className="group hover:shadow-lg transition-all duration-200 cursor-pointer">
-              <div className="relative">
-                {asset.thumbnailUrl ? (
-                  <div className="relative">
-                    <img
-                      src={asset.thumbnailUrl}
-                      alt={asset.title}
-                      className="w-full h-48 object-cover rounded-t-lg"
-                      onError={(e) => {
-                        e.currentTarget.src = '/placeholder.svg';
-                      }}
-                    />
-                    {/* Video play overlay */}
-                    {asset.assetType === 'video' && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
-                        <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-                          <Play className="w-6 h-6 text-foreground ml-0.5" fill="currentColor" />
+      {/* Results - Grid View */}
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {assets.map((asset, index) => (
+            <motion.div
+              key={asset.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+            >
+              <Card className="group hover:shadow-lg transition-all duration-200 cursor-pointer">
+                <div className="relative">
+                  {asset.thumbnailUrl ? (
+                    <div className="relative">
+                      <img
+                        src={asset.thumbnailUrl}
+                        alt={asset.title}
+                        className="w-full h-48 object-cover rounded-t-lg"
+                        onError={(e) => {
+                          e.currentTarget.src = '/placeholder.svg';
+                        }}
+                      />
+                      {asset.assetType === 'video' && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+                          <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                            <Play className="w-6 h-6 text-foreground ml-0.5" fill="currentColor" />
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="w-full h-48 bg-muted rounded-t-lg flex items-center justify-center">
-                    {asset.assetType === 'video' ? (
-                      <Video className="w-12 h-12 text-muted-foreground" />
-                    ) : asset.assetType === 'image' ? (
-                      <Image className="w-12 h-12 text-muted-foreground" />
-                    ) : (
-                      <span className="text-4xl">{getSourceIcon(asset.source)}</span>
-                    )}
-                  </div>
-                )}
-                
-                {/* Asset type badge */}
-                <div className="absolute top-2 left-2 flex gap-1">
-                  <Badge variant="secondary" className="text-xs">
-                    {asset.assetType === 'video' ? (
-                      <Video className="w-3 h-3 mr-1" />
-                    ) : asset.assetType === 'image' ? (
-                      <Image className="w-3 h-3 mr-1" />
-                    ) : null}
-                    {asset.assetType || asset.source.replace('_', ' ')}
-                  </Badge>
-                </div>
-                
-                <div className="absolute top-2 right-2">
-                  <Badge className={getStatusColor(asset.status)}>
-                    {asset.status}
-                  </Badge>
-                </div>
-
-                {asset.duration && (
-                  <div className="absolute bottom-2 right-2">
-                    <Badge variant="outline" className="bg-black/50 text-white border-white/20">
-                      {formatDuration(asset.duration || (asset.metadata?.formatted_duration))}
-                    </Badge>
-                  </div>
-                )}
-              </div>
-
-              <CardContent className="p-4">
-                <h3 className="font-semibold text-sm line-clamp-2 mb-2">
-                  {asset.title}
-                </h3>
-                
-                {asset.description && (
-                  <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
-                    {asset.description}
-                  </p>
-                )}
-
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {asset.tags.slice(0, 3).map(tag => (
-                    <Badge
-                      key={tag.id}
-                      variant="outline"
-                      className="text-xs"
-                      style={{ borderColor: tag.color + '40', color: tag.color }}
-                    >
-                      {tag.name}
-                    </Badge>
-                  ))}
-                  {asset.tags.length > 3 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{asset.tags.length - 3}
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="text-xs text-muted-foreground space-y-1 mb-3">
-                  {asset.fileSize && (
-                    <div>Size: {formatFileSize(asset.fileSize)}</div>
-                  )}
-                  {asset.resolution && (
-                    <div>Resolution: {asset.resolution}</div>
-                  )}
-                  <div>Created: {!isNaN(Date.parse(asset.createdAt)) ? new Date(asset.createdAt).toLocaleDateString() : 'Unknown'}</div>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setSelectedAsset(asset)}
-                    className="flex-1"
-                  >
-                    <Eye className="w-3 h-3 mr-1" />
-                    Preview
-                  </Button>
-                  
-                  {asset.status === 'pending' && (
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        setWorkflowAsset(asset);
-                        setShowWorkflowDialog(true);
-                      }}
-                    >
-                      <Tag className="w-3 h-3 mr-1" />
-                      Review
-                    </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-full h-48 bg-muted rounded-t-lg flex items-center justify-center">
+                      {asset.assetType === 'video' ? (
+                        <Video className="w-12 h-12 text-muted-foreground" />
+                      ) : asset.assetType === 'image' ? (
+                        <Image className="w-12 h-12 text-muted-foreground" />
+                      ) : (
+                        <span className="text-4xl">{getSourceIcon(asset.source)}</span>
+                      )}
+                    </div>
                   )}
                   
-                  {asset.fileUrl && (
+                  <div className="absolute top-2 left-2 flex gap-1">
+                    <Badge variant="secondary" className="text-xs">
+                      {asset.assetType === 'video' ? (
+                        <Video className="w-3 h-3 mr-1" />
+                      ) : asset.assetType === 'image' ? (
+                        <Image className="w-3 h-3 mr-1" />
+                      ) : null}
+                      {asset.assetType || asset.source.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                  
+                  <div className="absolute top-2 right-2">
+                    <Badge className={getStatusColor(asset.status)}>
+                      {asset.status}
+                    </Badge>
+                  </div>
+
+                  {asset.duration && (
+                    <div className="absolute bottom-2 right-2">
+                      <Badge variant="outline" className="bg-black/50 text-white border-white/20">
+                        {formatDuration(asset.duration || (asset.metadata?.formatted_duration))}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+
+                <CardContent className="p-4">
+                  <h3 className="font-semibold text-sm line-clamp-2 mb-2">
+                    {asset.title}
+                  </h3>
+                  
+                  {asset.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+                      {asset.description}
+                    </p>
+                  )}
+
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {asset.tags.slice(0, 3).map(tag => (
+                      <Badge
+                        key={tag.id}
+                        variant="outline"
+                        className="text-xs"
+                        style={{ borderColor: tag.color + '40', color: tag.color }}
+                      >
+                        {tag.name}
+                      </Badge>
+                    ))}
+                    {asset.tags.length > 3 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{asset.tags.length - 3}
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="text-xs text-muted-foreground space-y-1 mb-3">
+                    {asset.fileSize && (
+                      <div>Size: {formatFileSize(asset.fileSize)}</div>
+                    )}
+                    {asset.resolution && (
+                      <div>Resolution: {asset.resolution}</div>
+                    )}
+                    <div>Created: {!isNaN(Date.parse(asset.createdAt)) ? new Date(asset.createdAt).toLocaleDateString() : 'Unknown'}</div>
+                  </div>
+
+                  <div className="flex gap-2">
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => window.open(asset.fileUrl, '_blank')}
+                      onClick={() => setSelectedAsset(asset)}
+                      className="flex-1"
                     >
-                      <ExternalLink className="w-3 h-3" />
+                      <Eye className="w-3 h-3 mr-1" />
+                      Preview
                     </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
+                    
+                    {asset.status === 'pending' && (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setWorkflowAsset(asset);
+                          setShowWorkflowDialog(true);
+                        }}
+                      >
+                        <Tag className="w-3 h-3 mr-1" />
+                        Review
+                      </Button>
+                    )}
+                    
+                    {asset.fileUrl && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(asset.fileUrl, '_blank')}
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        /* Results - List View */
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-16">Preview</TableHead>
+                <TableHead>Title</TableHead>
+                <TableHead className="w-24">Type</TableHead>
+                <TableHead className="w-24">Source</TableHead>
+                <TableHead className="w-24">Status</TableHead>
+                <TableHead className="w-24">Size</TableHead>
+                <TableHead className="w-32">Created</TableHead>
+                <TableHead className="w-32 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {assets.map((asset) => (
+                <TableRow key={asset.id} className="cursor-pointer hover:bg-muted/50">
+                  <TableCell>
+                    <div className="relative w-12 h-12 rounded overflow-hidden bg-muted flex items-center justify-center">
+                      {asset.thumbnailUrl ? (
+                        <>
+                          <img
+                            src={asset.thumbnailUrl}
+                            alt={asset.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = '/placeholder.svg';
+                            }}
+                          />
+                          {asset.assetType === 'video' && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                              <Play className="w-4 h-4 text-white" fill="currentColor" />
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        asset.assetType === 'video' ? (
+                          <Video className="w-5 h-5 text-muted-foreground" />
+                        ) : (
+                          <Image className="w-5 h-5 text-muted-foreground" />
+                        )
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div>
+                      <p className="font-medium text-sm line-clamp-1">{asset.title}</p>
+                      {asset.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-1">{asset.description}</p>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="text-xs">
+                      {asset.assetType === 'video' ? (
+                        <Video className="w-3 h-3 mr-1" />
+                      ) : (
+                        <Image className="w-3 h-3 mr-1" />
+                      )}
+                      {asset.assetType || 'unknown'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm capitalize">
+                      {getSourceIcon(asset.source)} {asset.source.replace('_', ' ')}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={getStatusColor(asset.status)}>
+                      {asset.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {formatFileSize(asset.fileSize)}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {!isNaN(Date.parse(asset.createdAt)) ? new Date(asset.createdAt).toLocaleDateString() : 'Unknown'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex gap-1 justify-end">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setSelectedAsset(asset)}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      {asset.status === 'pending' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setWorkflowAsset(asset);
+                            setShowWorkflowDialog(true);
+                          }}
+                        >
+                          <Tag className="w-4 h-4" />
+                        </Button>
+                      )}
+                      {asset.fileUrl && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => window.open(asset.fileUrl, '_blank')}
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
 
       {assets.length === 0 && (
         <div className="text-center py-12">
