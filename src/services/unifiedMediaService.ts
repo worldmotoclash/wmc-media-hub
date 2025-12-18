@@ -61,7 +61,7 @@ export interface SearchFilters {
   };
   fileFormats?: string[];
   // New filter types
-  contentOrigin?: ('youtube' | 'ai_generated' | 'uploaded')[];
+  contentOrigin?: ('youtube' | 'ai_generated' | 'uploaded' | 'audio')[];
   syncStatus?: 'all' | 'in_sync' | 'missing_sfdc' | 'missing_file';
 }
 

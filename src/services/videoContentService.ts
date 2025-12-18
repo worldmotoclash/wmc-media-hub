@@ -28,7 +28,20 @@ export interface SalesforcePlaylist {
   ri__Status__c?: string;
   CreatedDate: string;
   LastModifiedDate: string;
+  playlistType?: 'Audio' | 'Video' | 'Mixed' | string;
 }
+
+// Helper function to detect audio content
+export const isAudioContent = (contentType?: string): boolean => {
+  if (!contentType) return false;
+  const audioTypes = ['mp3', 'wav', 'aac', 'flac', 'ogg', 'm4a', 'wma', 'audio'];
+  return audioTypes.some(type => contentType.toLowerCase().includes(type));
+};
+
+// Helper function to detect audio playlist
+export const isAudioPlaylist = (playlist: SalesforcePlaylist): boolean => {
+  return playlist.playlistType?.toLowerCase() === 'audio';
+};
 
 // UI-friendly video interface
 export interface VideoContent {
@@ -207,15 +220,19 @@ export const fetchPlaylistData = async (): Promise<SalesforcePlaylist[]> => {
       const playlistElements = xmlDoc.getElementsByTagName('content');
       console.log('Found playlist elements:', playlistElements.length);
       
-      data = Array.from(playlistElements).map(playlist => ({
-        Id: playlist.getElementsByTagName('id')[0]?.textContent || '',
-        Name: playlist.getElementsByTagName('name')[0]?.textContent || '',
-        ri__Description__c: `${playlist.getElementsByTagName('playlistypye')[0]?.textContent || ''} playlist`,
-        ri__Video_Count__c: parseInt(playlist.getElementsByTagName('numberinplaylist')[0]?.textContent || '0'),
-        ri__Status__c: 'Active',
-        CreatedDate: new Date().toISOString(),
-        LastModifiedDate: new Date().toISOString()
-      }));
+      data = Array.from(playlistElements).map(playlist => {
+        const playlistType = playlist.getElementsByTagName('playlistypye')[0]?.textContent || '';
+        return {
+          Id: playlist.getElementsByTagName('id')[0]?.textContent || '',
+          Name: playlist.getElementsByTagName('name')[0]?.textContent || '',
+          ri__Description__c: `${playlistType} playlist`,
+          ri__Video_Count__c: parseInt(playlist.getElementsByTagName('numberinplaylist')[0]?.textContent || '0'),
+          ri__Status__c: 'Active',
+          CreatedDate: new Date().toISOString(),
+          LastModifiedDate: new Date().toISOString(),
+          playlistType: playlistType as SalesforcePlaylist['playlistType']
+        };
+      });
     } else {
       // Assume JSON response
       data = await response.json();

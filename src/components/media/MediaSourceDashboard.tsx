@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { RefreshCw, CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronRight, Youtube, Sparkles, Upload, Link2, Wifi, WifiOff } from 'lucide-react';
+import { RefreshCw, CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronRight, Youtube, Sparkles, Upload, Link2, Wifi, WifiOff, Music } from 'lucide-react';
 import { getMediaSourceStats, type MediaSourceStats } from '@/services/mediaSourceStatsService';
 import { toast } from 'sonner';
 
@@ -214,7 +214,7 @@ const MediaSourceDashboard: React.FC = () => {
             {/* Content Origin Section */}
             <div>
               <h4 className="text-sm font-medium mb-3">Content Origin</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {/* YouTube */}
                 <div className="border rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
@@ -254,6 +254,20 @@ const MediaSourceDashboard: React.FC = () => {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Manual uploads to storage
+                  </p>
+                </div>
+
+                {/* Audio */}
+                <div className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Music className="h-5 w-5 text-orange-500" />
+                      <span className="font-medium text-sm">Audio</span>
+                    </div>
+                    <span className="text-xl font-bold">{contentOrigin.audio}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    MP3 and audio files
                   </p>
                 </div>
               </div>

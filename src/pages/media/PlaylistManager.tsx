@@ -5,9 +5,9 @@ import { useUser } from '@/contexts/UserContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { FolderOpen, Loader2, PlayCircle, Video } from 'lucide-react';
+import { FolderOpen, Loader2, PlayCircle, Video, Music } from 'lucide-react';
 import { toast } from 'sonner';
-import { fetchPlaylistData, SalesforcePlaylist } from '@/services/videoContentService';
+import { fetchPlaylistData, SalesforcePlaylist, isAudioPlaylist } from '@/services/videoContentService';
 import { MediaNavigation } from '@/components/media/MediaNavigation';
 
 const PlaylistManager: React.FC = () => {
@@ -140,17 +140,29 @@ const PlaylistManager: React.FC = () => {
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                            <PlayCircle className="w-6 h-6 text-primary" />
+                          <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                            isAudioPlaylist(playlist) 
+                              ? 'bg-orange-500/10' 
+                              : 'bg-primary/10'
+                          }`}>
+                            {isAudioPlaylist(playlist) ? (
+                              <Music className="w-6 h-6 text-orange-500" />
+                            ) : (
+                              <PlayCircle className="w-6 h-6 text-primary" />
+                            )}
                           </div>
                           <div className="flex-1">
                             <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
                               {playlist.Name}
                             </h3>
                             <div className="flex items-center gap-2 mt-1">
-                              <Video className="w-3 h-3 text-muted-foreground" />
+                              {isAudioPlaylist(playlist) ? (
+                                <Music className="w-3 h-3 text-muted-foreground" />
+                              ) : (
+                                <Video className="w-3 h-3 text-muted-foreground" />
+                              )}
                               <span className="text-sm text-muted-foreground">
-                                {playlist.ri__Video_Count__c || 0} videos
+                                {playlist.ri__Video_Count__c || 0} {isAudioPlaylist(playlist) ? 'tracks' : 'videos'}
                               </span>
                             </div>
                           </div>
