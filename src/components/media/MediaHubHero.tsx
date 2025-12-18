@@ -34,7 +34,9 @@ const MediaHubHero: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.6 }}
           >
-            World Moto Clash <span className="text-transparent bg-clip-text bg-gradient-to-r from-cinnabar to-science-blue">Media Hub</span>
+            World Moto Clash
+            <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cinnabar to-science-blue">Media Hub</span>
           </motion.h1>
           
           <motion.p 
