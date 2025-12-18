@@ -19,6 +19,7 @@ export interface ContentOriginStats {
   youtube: number;
   aiGenerated: number;
   uploaded: number;
+  audio: number;
 }
 
 export interface ApiConnectionStatus {
@@ -48,7 +49,7 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
     generatedVideos: { source: 'Generated Videos', count: 0, status: 'healthy' },
     totalCount: 0,
     syncHealth: { inSync: 0, missingSfdc: 0, missingFile: 0, total: 0 },
-    contentOrigin: { youtube: 0, aiGenerated: 0, uploaded: 0 },
+    contentOrigin: { youtube: 0, aiGenerated: 0, uploaded: 0, audio: 0 },
     salesforceApiStatus: { isConnected: false, lastChecked: new Date().toISOString() }
   };
 
@@ -62,12 +63,17 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
         const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
         const contentElements = xmlDoc.querySelectorAll('content');
         
-        // Count YouTube content from Salesforce
+        // Count YouTube and Audio content from Salesforce
         let youtubeFromSfdc = 0;
+        let audioFromSfdc = 0;
+        const audioTypes = ['mp3', 'wav', 'aac', 'flac', 'ogg', 'm4a', 'wma', 'audio'];
         contentElements.forEach((el) => {
-          const contentType = el.querySelector('contenttype')?.textContent;
-          if (contentType === 'Youtube') {
+          const contentType = el.querySelector('contenttype')?.textContent?.toLowerCase() || '';
+          if (contentType === 'youtube') {
             youtubeFromSfdc++;
+          }
+          if (audioTypes.some(type => contentType.includes(type))) {
+            audioFromSfdc++;
           }
         });
         
@@ -83,8 +89,9 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
           lastChecked: new Date().toISOString()
         };
         
-        // Add YouTube count from Salesforce to contentOrigin
+        // Add YouTube and Audio count from Salesforce to contentOrigin
         stats.contentOrigin.youtube += youtubeFromSfdc;
+        stats.contentOrigin.audio += audioFromSfdc;
       } else {
         throw new Error('API unavailable');
       }
@@ -201,10 +208,17 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
       .select('*', { count: 'exact', head: true })
       .in('source', ['local_upload', 's3_bucket']);
 
+    // Audio: check file_format for audio types
+    const { count: audioCount } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .or('file_format.ilike.%mp3%,file_format.ilike.%wav%,file_format.ilike.%aac%,file_format.ilike.%m4a%,file_format.ilike.%audio%');
+
     stats.contentOrigin = {
       youtube: youtubeCount || 0,
       aiGenerated: aiGeneratedCount || 0,
-      uploaded: uploadedCount || 0
+      uploaded: uploadedCount || 0,
+      audio: audioCount || 0
     };
 
     // Calculate total

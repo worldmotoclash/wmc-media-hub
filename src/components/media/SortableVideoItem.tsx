@@ -3,8 +3,8 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { PlayCircle, Clock, Eye, GripVertical } from 'lucide-react';
-import { VideoContent, getYouTubeThumbnailCandidates } from '@/services/videoContentService';
+import { PlayCircle, Clock, Eye, GripVertical, Music } from 'lucide-react';
+import { VideoContent, getYouTubeThumbnailCandidates, isAudioContent } from '@/services/videoContentService';
 
 interface SortableVideoItemProps {
   video: VideoContent;
@@ -32,6 +32,7 @@ const SortableVideoItem: React.FC<SortableVideoItemProps> = ({
 
   const [thumbnailSrc, setThumbnailSrc] = useState(video.thumbnail);
   const [thumbnailIndex, setThumbnailIndex] = useState(0);
+  const isAudio = isAudioContent(video.contentType);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -79,14 +80,24 @@ const SortableVideoItem: React.FC<SortableVideoItemProps> = ({
           </div>
 
           <div className="relative">
-            <img 
-              src={thumbnailSrc} 
-              alt={video.title}
-              className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-              onError={handleThumbnailError}
-            />
+            {isAudio ? (
+              <div className="w-full h-48 bg-gradient-to-br from-orange-500/20 to-orange-600/30 flex items-center justify-center">
+                <Music className="w-16 h-16 text-orange-500" />
+              </div>
+            ) : (
+              <img 
+                src={thumbnailSrc} 
+                alt={video.title}
+                className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                onError={handleThumbnailError}
+              />
+            )}
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-              <PlayCircle className="w-12 h-12 text-white" />
+              {isAudio ? (
+                <Music className="w-12 h-12 text-white" />
+              ) : (
+                <PlayCircle className="w-12 h-12 text-white" />
+              )}
             </div>
             <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
               <Clock className="w-3 h-3" />
@@ -143,14 +154,24 @@ const SortableVideoItem: React.FC<SortableVideoItemProps> = ({
           </div>
 
           <div className="relative w-48 h-32">
-            <img 
-              src={thumbnailSrc} 
-              alt={video.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              onError={handleThumbnailError}
-            />
+            {isAudio ? (
+              <div className="w-full h-full bg-gradient-to-br from-orange-500/20 to-orange-600/30 flex items-center justify-center">
+                <Music className="w-10 h-10 text-orange-500" />
+              </div>
+            ) : (
+              <img 
+                src={thumbnailSrc} 
+                alt={video.title}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                onError={handleThumbnailError}
+              />
+            )}
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-              <PlayCircle className="w-8 h-8 text-white" />
+              {isAudio ? (
+                <Music className="w-8 h-8 text-white" />
+              ) : (
+                <PlayCircle className="w-8 h-8 text-white" />
+              )}
             </div>
             <div className="absolute bottom-1 right-1 bg-black/80 text-white text-xs px-1 py-0.5 rounded flex items-center gap-1">
               <Clock className="w-2 h-2" />

@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Filter, Grid, List, Loader2, PlayCircle, Clock, Eye, Save, RotateCcw, FolderOpen, Video } from 'lucide-react';
+import { Search, Filter, Grid, List, Loader2, PlayCircle, Clock, Eye, Save, RotateCcw, FolderOpen, Video, Music } from 'lucide-react';
 import { toast } from 'sonner';
-import { fetchVideoContent, searchVideoContent, getVideosByPlaylist, VideoContent, fetchPlaylistData, SalesforcePlaylist, updatePlaylistOrder } from '@/services/videoContentService';
+import { fetchVideoContent, searchVideoContent, getVideosByPlaylist, VideoContent, fetchPlaylistData, SalesforcePlaylist, updatePlaylistOrder, isAudioPlaylist } from '@/services/videoContentService';
 import VideoPreviewModal from '@/components/media/VideoPreviewModal';
 import SortableVideoItem from '@/components/media/SortableVideoItem';
 import { MediaNavigation } from '@/components/media/MediaNavigation';
@@ -430,15 +430,24 @@ const MediaLibrary: React.FC = () => {
             {playlistId && currentPlaylist && !isLoadingPlaylist && (
               <div className="mb-4 p-4 bg-muted/50 rounded-lg border">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-foreground">{currentPlaylist.Name}</h2>
-                    {currentPlaylist.ri__Description__c && (
-                      <p className="text-muted-foreground">{currentPlaylist.ri__Description__c}</p>
+                  <div className="flex items-center gap-3">
+                    {isAudioPlaylist(currentPlaylist) ? (
+                      <Music className="w-6 h-6 text-orange-500" />
+                    ) : (
+                      <Video className="w-6 h-6 text-primary" />
                     )}
+                    <div>
+                      <h2 className="text-lg font-semibold text-foreground">{currentPlaylist.Name}</h2>
+                      {currentPlaylist.ri__Description__c && (
+                        <p className="text-muted-foreground">{currentPlaylist.ri__Description__c}</p>
+                      )}
+                    </div>
                   </div>
                   <div className="text-right">
                     <div className="text-2xl font-bold text-primary">{currentPlaylist.ri__Video_Count__c || 0}</div>
-                    <div className="text-sm text-muted-foreground">videos</div>
+                    <div className="text-sm text-muted-foreground">
+                      {isAudioPlaylist(currentPlaylist) ? 'tracks' : 'videos'}
+                    </div>
                   </div>
                 </div>
                 

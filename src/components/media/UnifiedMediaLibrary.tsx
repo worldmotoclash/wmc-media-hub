@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2 } from "lucide-react";
+import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -223,7 +223,12 @@ export const UnifiedMediaLibrary: React.FC = () => {
     }
   };
 
-  const getContentOriginIcon = (source: string) => {
+  const getContentOriginIcon = (source: string, fileFormat?: string) => {
+    // Check for audio content first
+    const audioTypes = ['mp3', 'wav', 'aac', 'flac', 'ogg', 'm4a', 'wma', 'audio'];
+    if (fileFormat && audioTypes.some(type => fileFormat.toLowerCase().includes(type))) {
+      return <Music className="w-3 h-3 text-orange-500" />;
+    }
     switch (source) {
       case 'youtube': return <Youtube className="w-3 h-3 text-red-500" />;
       case 'generated': return <Sparkles className="w-3 h-3 text-purple-500" />;
@@ -508,6 +513,25 @@ export const UnifiedMediaLibrary: React.FC = () => {
                   />
                   <label htmlFor="origin-uploaded" className="text-sm flex items-center gap-1.5">
                     <Upload className="w-4 h-4 text-blue-500" /> Uploaded
+                  </label>
+                </div>
+                
+                {/* Audio */}
+                <div className="min-h-8 flex items-center space-x-2">
+                  <Checkbox
+                    id="origin-audio"
+                    checked={filters.contentOrigin?.includes('audio') || false}
+                    onCheckedChange={(checked) => {
+                      const current = filters.contentOrigin || [];
+                      if (checked) {
+                        handleFilterChange('contentOrigin', [...current, 'audio']);
+                      } else {
+                        handleFilterChange('contentOrigin', current.filter(o => o !== 'audio'));
+                      }
+                    }}
+                  />
+                  <label htmlFor="origin-audio" className="text-sm flex items-center gap-1.5">
+                    <Music className="w-4 h-4 text-orange-500" /> Audio
                   </label>
                 </div>
               </div>
