@@ -51,6 +51,7 @@ export interface SearchFilters {
   sources?: string[];
   status?: string[];
   tags?: string[];
+  assetTypes?: string[];
   dateRange?: {
     start: string;
     end: string;
@@ -98,6 +99,10 @@ export async function fetchAllMediaAssets(
 
     if (filters?.status?.length) {
       query = query.in('status', filters.status);
+    }
+
+    if (filters?.assetTypes?.length) {
+      query = query.in('asset_type', filters.assetTypes);
     }
 
     if (filters?.dateRange) {

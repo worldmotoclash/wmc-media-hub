@@ -261,7 +261,36 @@ export const UnifiedMediaLibrary: React.FC = () => {
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {/* Asset Type Filter */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium mb-2 block">Asset Type</label>
+              <div className="space-y-1">
+                {[
+                  { value: 'video', label: 'Video', icon: <Video className="w-4 h-4 mr-1.5" /> },
+                  { value: 'image', label: 'Image', icon: <Image className="w-4 h-4 mr-1.5" /> }
+                ].map(type => (
+                  <div key={type.value} className="min-h-8 flex items-center space-x-2">
+                    <Checkbox
+                      id={`type-${type.value}`}
+                      checked={filters.assetTypes?.includes(type.value) || false}
+                      onCheckedChange={(checked) => {
+                        const currentTypes = filters.assetTypes || [];
+                        if (checked) {
+                          handleFilterChange('assetTypes', [...currentTypes, type.value]);
+                        } else {
+                          handleFilterChange('assetTypes', currentTypes.filter(t => t !== type.value));
+                        }
+                      }}
+                    />
+                    <label htmlFor={`type-${type.value}`} className="text-sm flex items-center">
+                      {type.icon} {type.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Source Filter */}
             <div className="space-y-3">
               <label className="text-sm font-medium mb-2 block">Sources</label>
