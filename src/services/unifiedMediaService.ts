@@ -60,7 +60,7 @@ export interface SearchFilters {
 }
 
 export interface SortOption {
-  field: 'created_at' | 'title' | 'file_size' | 'asset_type';
+  field: 'created_at' | 'title' | 'file_size' | 'asset_type' | 'source' | 'status';
   direction: 'asc' | 'desc';
 }
 
