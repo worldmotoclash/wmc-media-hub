@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { crypto } from "https://deno.land/std@0.177.0/crypto/mod.ts";
+import { getS3Config, getCdnUrl, S3_PATHS } from '../_shared/s3Config.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,7 +14,7 @@ interface ImageGenerationRequest {
   template?: string;
   referenceImageUrl?: string;
   title: string;
-  model?: string; // AI model to use for generation
+  model?: string;
   salesforceData?: {
     title: string;
     description?: string;
@@ -23,7 +24,6 @@ interface ImageGenerationRequest {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -32,7 +32,6 @@ serve(async (req) => {
     const requestData: ImageGenerationRequest = await req.json();
     const { userId, prompt, template, referenceImageUrl, title, model, salesforceData } = requestData;
 
-    // Default to Gemini 2.5 Flash Image if no model specified
     const selectedModel = model || 'google/gemini-2.5-flash-image-preview';
 
     console.log('Image generation request received:', { userId, prompt: prompt.substring(0, 100), template, title, model: selectedModel });
@@ -50,12 +49,10 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Create generation record
     const { data: generation, error: insertError } = await supabase
       .from('image_generations')
       .insert({
@@ -77,7 +74,6 @@ serve(async (req) => {
 
     console.log('Created generation record:', generation.id);
 
-    // Start generation in the background
     const generationPromise = generateImage(
       supabase,
       generation.id,
@@ -88,11 +84,9 @@ serve(async (req) => {
       LOVABLE_API_KEY
     );
 
-    // Use EdgeRuntime.waitUntil to continue processing after response
     if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
       EdgeRuntime.waitUntil(generationPromise);
     } else {
-      // Fallback - process without waiting
       generationPromise.catch(console.error);
     }
 
@@ -126,7 +120,6 @@ async function generateImage(
   apiKey: string
 ) {
   try {
-    // Update status to generating
     await supabase
       .from('image_generations')
       .update({ status: 'generating', progress: 10 })
@@ -134,24 +127,20 @@ async function generateImage(
 
     console.log('Starting image generation with Lovable AI...');
 
-    // Build the prompt with template context if provided
     let fullPrompt = prompt;
     if (template) {
       fullPrompt = `${template}\n\nScene: ${prompt}`;
     }
 
-    // Add motorsport/racing context for better results
     const systemPrompt = `You are generating professional motorsport and racing imagery. 
 Create high-quality, cinematic images suitable for marketing and promotional use.
 Focus on dynamic action, dramatic lighting, and professional sports photography aesthetics.
 The images should capture the excitement and intensity of motorcycle racing.`;
 
-    // Build messages array
     const messages: any[] = [
       { role: "system", content: systemPrompt }
     ];
 
-    // If reference image provided, include it
     if (referenceImageUrl) {
       messages.push({
         role: "user",
@@ -173,13 +162,11 @@ The images should capture the excitement and intensity of motorcycle racing.`;
       });
     }
 
-    // Update progress
     await supabase
       .from('image_generations')
       .update({ progress: 30 })
       .eq('id', generationId);
 
-    // Call Lovable AI Gateway with image generation model
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -209,13 +196,11 @@ The images should capture the excitement and intensity of motorcycle racing.`;
     const data = await response.json();
     console.log('Lovable AI response received');
 
-    // Update progress
     await supabase
       .from('image_generations')
       .update({ progress: 60 })
       .eq('id', generationId);
 
-    // Extract the generated image
     const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
     
     if (!imageUrl) {
@@ -225,12 +210,10 @@ The images should capture the excitement and intensity of motorcycle racing.`;
 
     console.log('Image generated successfully, uploading to S3...');
 
-    // Upload to Wasabi S3
     const s3Url = await uploadToWasabiS3(imageUrl, generationId);
 
     console.log('Image uploaded to S3:', s3Url);
 
-    // Update record with completed status
     await supabase
       .from('image_generations')
       .update({
@@ -258,14 +241,12 @@ The images should capture the excitement and intensity of motorcycle racing.`;
 }
 
 async function uploadToWasabiS3(base64DataUrl: string, generationId: string): Promise<string> {
-  const WASABI_ACCESS_KEY_ID = Deno.env.get('WASABI_ACCESS_KEY_ID');
-  const WASABI_SECRET_ACCESS_KEY = Deno.env.get('WASABI_SECRET_ACCESS_KEY');
+  const s3Config = getS3Config();
   
-  if (!WASABI_ACCESS_KEY_ID || !WASABI_SECRET_ACCESS_KEY) {
+  if (!s3Config.accessKeyId || !s3Config.secretAccessKey) {
     throw new Error('Wasabi S3 credentials not configured');
   }
 
-  // Extract base64 data from data URL
   const base64Match = base64DataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
   if (!base64Match) {
     throw new Error('Invalid base64 image data');
@@ -274,30 +255,25 @@ async function uploadToWasabiS3(base64DataUrl: string, generationId: string): Pr
   const imageFormat = base64Match[1];
   const base64Data = base64Match[2];
   
-  // Convert base64 to binary
   const binaryString = atob(base64Data);
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
   }
 
-  // S3 configuration
-  const bucket = 'shortf-media';
-  const region = 'us-central-1';
+  const { bucketName, region, endpoint } = s3Config;
   const host = `s3.${region}.wasabisys.com`;
-  const s3Key = `GENERATION_OUTPUTS/${generationId}.${imageFormat}`;
+  const s3Key = `${S3_PATHS.GENERATION_OUTPUTS}/${generationId}.${imageFormat}`;
   
   const contentType = `image/${imageFormat}`;
   const now = new Date();
   const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
   const dateStamp = amzDate.substring(0, 8);
 
-  // Create canonical request for AWS Signature Version 4
   const method = 'PUT';
-  const canonicalUri = `/${bucket}/${s3Key}`;
+  const canonicalUri = `/${bucketName}/${s3Key}`;
   const canonicalQuerystring = '';
   
-  // Create payload hash
   const payloadHash = await sha256Hex(bytes);
   
   const canonicalHeaders = 
@@ -311,21 +287,17 @@ async function uploadToWasabiS3(base64DataUrl: string, generationId: string): Pr
   const canonicalRequest = 
     `${method}\n${canonicalUri}\n${canonicalQuerystring}\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
   
-  // Create string to sign
   const algorithm = 'AWS4-HMAC-SHA256';
   const credentialScope = `${dateStamp}/${region}/s3/aws4_request`;
   const canonicalRequestHash = await sha256Hex(new TextEncoder().encode(canonicalRequest));
   const stringToSign = `${algorithm}\n${amzDate}\n${credentialScope}\n${canonicalRequestHash}`;
   
-  // Calculate signature
-  const signingKey = await getSignatureKey(WASABI_SECRET_ACCESS_KEY, dateStamp, region, 's3');
+  const signingKey = await getSignatureKey(s3Config.secretAccessKey, dateStamp, region, 's3');
   const signature = await hmacSha256Hex(signingKey, stringToSign);
   
-  // Create authorization header
   const authorizationHeader = 
-    `${algorithm} Credential=${WASABI_ACCESS_KEY_ID}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+    `${algorithm} Credential=${s3Config.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
 
-  // Upload to S3
   const uploadUrl = `https://${host}${canonicalUri}`;
   
   const uploadResponse = await fetch(uploadUrl, {
@@ -345,12 +317,9 @@ async function uploadToWasabiS3(base64DataUrl: string, generationId: string): Pr
     throw new Error(`Failed to upload to S3: ${uploadResponse.status}`);
   }
 
-  // Return CDN URL
-  const cdnUrl = `https://media.worldmotoclash.com/${s3Key}`;
-  return cdnUrl;
+  return getCdnUrl(s3Key);
 }
 
-// Helper functions for AWS Signature V4
 async function sha256Hex(data: Uint8Array): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   return Array.from(new Uint8Array(hashBuffer))

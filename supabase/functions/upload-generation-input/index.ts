@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { AwsClient } from "https://esm.sh/aws4fetch@1.0.20";
+import { getS3Config, getCdnUrl, S3_PATHS } from '../_shared/s3Config.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,7 +14,6 @@ interface UploadRequest {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -27,7 +27,6 @@ serve(async (req) => {
 
     const { imageBase64, filename, mimeType } = payload;
 
-    // Validate required fields
     if (!imageBase64 || !filename) {
       return new Response(
         JSON.stringify({ error: "Missing required fields: imageBase64, filename" }),
@@ -35,16 +34,9 @@ serve(async (req) => {
       );
     }
 
-    // Generate unique file ID
-    const fileId = crypto.randomUUID();
-    const extension = filename.split('.').pop()?.toLowerCase() || 'jpg';
-    const s3Key = `GENERATION_INPUTS/${fileId}.${extension}`;
-
-    // Initialize Wasabi S3 client
-    const accessKeyId = Deno.env.get("WASABI_ACCESS_KEY_ID");
-    const secretAccessKey = Deno.env.get("WASABI_SECRET_ACCESS_KEY");
+    const s3Config = getS3Config();
     
-    if (!accessKeyId || !secretAccessKey) {
+    if (!s3Config.accessKeyId || !s3Config.secretAccessKey) {
       console.error("Missing Wasabi credentials");
       return new Response(
         JSON.stringify({ error: "S3 credentials not configured" }),
@@ -52,20 +44,20 @@ serve(async (req) => {
       );
     }
 
+    const fileId = crypto.randomUUID();
+    const extension = filename.split('.').pop()?.toLowerCase() || 'jpg';
+    const s3Key = `${S3_PATHS.GENERATION_INPUTS}/${fileId}.${extension}`;
+
     const aws = new AwsClient({
-      accessKeyId,
-      secretAccessKey,
-      region: "us-central-1",
+      accessKeyId: s3Config.accessKeyId,
+      secretAccessKey: s3Config.secretAccessKey,
+      region: s3Config.region,
       service: "s3",
     });
 
-    // Decode base64 image
     const imageData = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
 
-    // Upload to Wasabi S3 - shortf-media bucket (Texas/us-central-1)
-    const wasabiEndpoint = "https://s3.us-central-1.wasabisys.com";
-    const bucketName = "shortf-media";
-    const uploadUrl = `${wasabiEndpoint}/${bucketName}/${s3Key}`;
+    const uploadUrl = `${s3Config.endpoint}/${s3Config.bucketName}/${s3Key}`;
 
     console.log("Uploading to S3:", uploadUrl);
 
@@ -87,8 +79,7 @@ serve(async (req) => {
       );
     }
 
-    // Construct CDN URL
-    const cdnUrl = `https://media.worldmotoclash.com/${s3Key}`;
+    const cdnUrl = getCdnUrl(s3Key);
     console.log("S3 upload successful, CDN URL:", cdnUrl);
 
     return new Response(

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 import { AwsClient } from "https://esm.sh/aws4fetch@1.0.20";
+import { getS3Config, getCdnUrl, S3_PATHS } from '../_shared/s3Config.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,7 +18,6 @@ interface UploadMasterRequest {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -32,7 +32,6 @@ serve(async (req) => {
 
     const { imageBase64, filename, mimeType, width, height, title } = payload;
 
-    // Validate required fields
     if (!imageBase64 || !filename || !width || !height) {
       return new Response(
         JSON.stringify({ error: "Missing required fields: imageBase64, filename, width, height" }),
@@ -40,15 +39,9 @@ serve(async (req) => {
       );
     }
 
-    // Generate unique master ID
-    const masterId = crypto.randomUUID();
-    const s3Key = `SOCAIL_MEDIA_IMAGES_KNEWTV/masters/${masterId}/master.jpg`;
-
-    // Initialize Wasabi S3 client
-    const accessKeyId = Deno.env.get("WASABI_ACCESS_KEY_ID");
-    const secretAccessKey = Deno.env.get("WASABI_SECRET_ACCESS_KEY");
+    const s3Config = getS3Config();
     
-    if (!accessKeyId || !secretAccessKey) {
+    if (!s3Config.accessKeyId || !s3Config.secretAccessKey) {
       console.error("Missing Wasabi credentials");
       return new Response(
         JSON.stringify({ error: "S3 credentials not configured" }),
@@ -56,20 +49,19 @@ serve(async (req) => {
       );
     }
 
+    const masterId = crypto.randomUUID();
+    const s3Key = `${S3_PATHS.SOCIAL_MEDIA_MASTERS}/${masterId}/master.jpg`;
+
     const aws = new AwsClient({
-      accessKeyId,
-      secretAccessKey,
-      region: "us-central-1",
+      accessKeyId: s3Config.accessKeyId,
+      secretAccessKey: s3Config.secretAccessKey,
+      region: s3Config.region,
       service: "s3",
     });
 
-    // Decode base64 image
     const imageData = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
 
-    // Upload to Wasabi S3 - shortf-media bucket (Texas/us-central-1)
-    const wasabiEndpoint = "https://s3.us-central-1.wasabisys.com";
-    const bucketName = "shortf-media";
-    const uploadUrl = `${wasabiEndpoint}/${bucketName}/${s3Key}`;
+    const uploadUrl = `${s3Config.endpoint}/${s3Config.bucketName}/${s3Key}`;
 
     console.log("Uploading to S3:", uploadUrl);
 
@@ -91,16 +83,13 @@ serve(async (req) => {
       );
     }
 
-    // Construct CDN URL
-    const cdnUrl = `https://media.worldmotoclash.com/${s3Key}`;
+    const cdnUrl = getCdnUrl(s3Key);
     console.log("S3 upload successful, CDN URL:", cdnUrl);
 
-    // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Insert master image record into media_assets
     const imageTitle = title || filename.replace(/\.[^/.]+$/, "");
     const { data: assetData, error: assetError } = await supabase
       .from("media_assets")
@@ -136,15 +125,12 @@ serve(async (req) => {
 
     console.log("Created media_assets record:", assetData.id);
 
-    // Create Salesforce Master Content record via Real Intelligence API
     let salesforceId: string | null = null;
     try {
       const sfEndpoint = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
       
-      // Extract file extension for Content Type (JPG, PNG, etc.)
       const fileExtension = filename.split('.').pop()?.toUpperCase() || 'JPG';
       
-      // Build FormData payload for w2x-engine (multipart/form-data)
       const formData = new FormData();
       formData.append("retURL", "https://worldmotoclash.com");
       formData.append("sObj", "ri1__Content__c");
@@ -165,13 +151,11 @@ serve(async (req) => {
       console.log("Salesforce response:", sfText);
       
       if (sfResponse.ok && !sfText.includes("ERROR")) {
-        // Try to extract Salesforce ID from response (Content ID pattern)
         const idMatch = sfText.match(/a[0-9A-Za-z]{17}/);
         if (idMatch) {
           salesforceId = idMatch[0];
           console.log("Extracted Salesforce ID:", salesforceId);
           
-          // Update asset with Salesforce ID
           await supabase
             .from("media_assets")
             .update({ salesforce_id: salesforceId })
@@ -182,7 +166,6 @@ serve(async (req) => {
       }
     } catch (sfError) {
       console.error("Salesforce callback error:", sfError);
-      // Don't fail the upload for Salesforce sync issues
     }
 
     return new Response(
