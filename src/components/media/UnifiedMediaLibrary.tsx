@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List } from "lucide-react";
+import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -45,6 +45,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [isScanning, setIsScanning] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('library');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalAssets, setTotalAssets] = useState(0);
+  const pageSize = 20;
   const { user } = useUser();
   useSupabaseAuth(); // Ensure Supabase auth when user is logged in
   const navigate = useNavigate();
@@ -70,15 +73,11 @@ export const UnifiedMediaLibrary: React.FC = () => {
     if (activeTab !== 'library') return;
     
     const delayedSearch = setTimeout(() => {
-      if (searchQuery || Object.keys(filters).length > 0) {
-        searchAssets();
-      } else {
-        loadAssets();
-      }
+      searchAssets();
     }, 300);
 
     return () => clearTimeout(delayedSearch);
-  }, [searchQuery, filters, sortOption, activeTab]);
+  }, [searchQuery, filters, sortOption, activeTab, currentPage]);
 
   const loadLibraryData = async () => {
     try {
@@ -124,8 +123,10 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const searchAssets = async () => {
     try {
       setIsFiltering(true);
-      const { assets: assetsData } = await fetchAllMediaAssets(searchQuery, filters, 50, 0, sortOption);
+      const offset = (currentPage - 1) * pageSize;
+      const { assets: assetsData, total } = await fetchAllMediaAssets(searchQuery, filters, pageSize, offset, sortOption);
       setAssets(assetsData);
+      setTotalAssets(total);
     } catch (error) {
       console.error('Error searching assets:', error);
       toast.error('Failed to search media assets');
@@ -152,6 +153,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
   };
 
   const handleFilterChange = (key: keyof SearchFilters, value: any) => {
+    setCurrentPage(1); // Reset to first page when filters change
     setFilters(prev => ({
       ...prev,
       [key]: value
@@ -159,8 +161,17 @@ export const UnifiedMediaLibrary: React.FC = () => {
   };
 
   const clearFilters = () => {
+    setCurrentPage(1); // Reset to first page when clearing filters
     setFilters({});
     setSearchQuery('');
+  };
+
+  const totalPages = Math.ceil(totalAssets / pageSize);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
   };
 
   const getSourceIcon = (source: string) => {
@@ -771,9 +782,64 @@ export const UnifiedMediaLibrary: React.FC = () => {
         </Card>
       )}
 
-      {assets.length === 0 && (
+      {assets.length === 0 && !isFiltering && (
         <div className="text-center py-12">
           <p className="text-muted-foreground">No media assets found matching your criteria.</p>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between border-t pt-4">
+          <p className="text-sm text-muted-foreground">
+            Showing {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalAssets)} of {totalAssets} assets
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1 || isFiltering}
+            >
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Previous
+            </Button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum: number;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    className="w-8 h-8 p-0"
+                    onClick={() => handlePageChange(pageNum)}
+                    disabled={isFiltering}
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages || isFiltering}
+            >
+              Next
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
         </div>
       )}
         </TabsContent>
