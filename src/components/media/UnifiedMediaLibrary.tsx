@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink } from "lucide-react";
+import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useUser } from "@/contexts/UserContext";
@@ -361,23 +361,45 @@ export const UnifiedMediaLibrary: React.FC = () => {
             <Card className="group hover:shadow-lg transition-all duration-200 cursor-pointer">
               <div className="relative">
                 {asset.thumbnailUrl ? (
-                  <img
-                    src={asset.thumbnailUrl}
-                    alt={asset.title}
-                    className="w-full h-48 object-cover rounded-t-lg"
-                    onError={(e) => {
-                      e.currentTarget.src = '/placeholder.svg';
-                    }}
-                  />
+                  <div className="relative">
+                    <img
+                      src={asset.thumbnailUrl}
+                      alt={asset.title}
+                      className="w-full h-48 object-cover rounded-t-lg"
+                      onError={(e) => {
+                        e.currentTarget.src = '/placeholder.svg';
+                      }}
+                    />
+                    {/* Video play overlay */}
+                    {asset.assetType === 'video' && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+                        <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                          <Play className="w-6 h-6 text-foreground ml-0.5" fill="currentColor" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="w-full h-48 bg-muted rounded-t-lg flex items-center justify-center">
-                    <span className="text-4xl">{getSourceIcon(asset.source)}</span>
+                    {asset.assetType === 'video' ? (
+                      <Video className="w-12 h-12 text-muted-foreground" />
+                    ) : asset.assetType === 'image' ? (
+                      <Image className="w-12 h-12 text-muted-foreground" />
+                    ) : (
+                      <span className="text-4xl">{getSourceIcon(asset.source)}</span>
+                    )}
                   </div>
                 )}
                 
-                <div className="absolute top-2 left-2">
+                {/* Asset type badge */}
+                <div className="absolute top-2 left-2 flex gap-1">
                   <Badge variant="secondary" className="text-xs">
-                    {getSourceIcon(asset.source)} {asset.source.replace('_', ' ')}
+                    {asset.assetType === 'video' ? (
+                      <Video className="w-3 h-3 mr-1" />
+                    ) : asset.assetType === 'image' ? (
+                      <Image className="w-3 h-3 mr-1" />
+                    ) : null}
+                    {asset.assetType || asset.source.replace('_', ' ')}
                   </Badge>
                 </div>
                 
