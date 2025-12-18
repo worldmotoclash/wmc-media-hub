@@ -91,20 +91,7 @@ export async function fetchAllMediaAssets(
 
     // Apply filters with AND logic between categories
     if (filters?.sources?.length) {
-      // Filter out 'generated' from database sources since it's handled via status
-      const dbSources = filters.sources.filter(s => s !== 'generated');
-      const includeGenerated = filters.sources.includes('generated');
-      if (dbSources.length > 0) {
-        query = query.in('source', dbSources as any);
-        // If 'generated' is also selected alongside real sources,
-        // require status to be 'Generated' as an AND condition
-        if (includeGenerated) {
-          query = query.eq('status', 'Generated');
-        }
-      } else if (includeGenerated) {
-        // If only 'generated' is selected, filter by status only
-        query = query.eq('status', 'Generated');
-      }
+      query = query.in('source', filters.sources as any);
     }
 
     if (filters?.status?.length) {
