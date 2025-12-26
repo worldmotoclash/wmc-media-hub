@@ -6,6 +6,37 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Style Profile interface for consistency enforcement
+interface StyleProfile {
+  subjects?: Array<{
+    id: string;
+    type: string;
+    appearance: string;
+    wardrobe?: string;
+    distinguishingTraits: string[];
+    position: string;
+  }>;
+  environment?: {
+    setting: string;
+    timeOfDay: string;
+    weather?: string;
+    backgroundElements: string[];
+  };
+  lighting?: {
+    direction: string;
+    quality: string;
+    keyTones: string[];
+  };
+  colorGrade?: {
+    palette: string[];
+    mood: string;
+    contrast: string;
+    texture: string;
+  };
+  visualAnchors?: string[];
+  negativeConstraints?: string[];
+}
+
 // Interface for the video generation request
 interface VeoGenerationRequest {
   userId: string;
@@ -17,6 +48,10 @@ interface VeoGenerationRequest {
   model?: 'veo-2' | 'veo-3';
   location?: string;
   mediaUrlKey?: string;
+  startImage?: string;
+  endImage?: string;
+  styleProfile?: StyleProfile;
+  styleOverride?: string;
   salesforceData?: Record<string, any>;
 }
 
@@ -62,9 +97,37 @@ Deno.serve(async (req) => {
     const modelId = Deno.env.get('GOOGLE_VEO_MODEL') || 'veo-3.0-generate-001';
     
     console.log(`🎯 Using modelId: ${modelId} in location: ${location}`);
+    console.log(`🎨 Style Lock: ${requestData.styleProfile ? 'Enabled' : 'Disabled'}`);
+    
+    // Build style-enhanced prompt if style profile is provided
+    let enhancedPrompt = requestData.prompt;
+    if (requestData.styleProfile) {
+      const sp = requestData.styleProfile;
+      const subjectsList = sp.subjects?.map(s => 
+        `${s.id} (${s.type}): ${s.appearance}${s.wardrobe ? `, wearing ${s.wardrobe}` : ''}`
+      ).join('; ') || '';
+      
+      const anchorsList = sp.visualAnchors?.slice(0, 5).join(', ') || '';
+      const envDesc = sp.environment ? `${sp.environment.setting}, ${sp.environment.timeOfDay}` : '';
+      const lightDesc = sp.lighting ? `${sp.lighting.direction} ${sp.lighting.quality} lighting` : '';
+      
+      enhancedPrompt = `[STYLE LOCK - Maintain exact consistency with reference image]
+${requestData.prompt}
+
+MANDATORY CONSISTENCY REQUIREMENTS:
+- Subjects: ${subjectsList}
+- Environment: ${envDesc}
+- Lighting: ${lightDesc}
+- Visual anchors that MUST remain constant: ${anchorsList}
+${requestData.styleOverride ? `\nAdditional constraints: ${requestData.styleOverride}` : ''}
+DO NOT introduce new characters, change wardrobe, or alter the environment from the reference.`;
+      
+      console.log('📝 Enhanced prompt with Style Lock constraints');
+    }
     
     const generationData = {
-      prompt: requestData.prompt,
+      prompt: enhancedPrompt,
+      originalPrompt: requestData.prompt,
       negativePrompt: requestData.negativePrompt,
       duration: normalizeDuration(requestData.duration),
       aspectRatio: requestData.aspectRatio || '16:9',
@@ -72,6 +135,9 @@ Deno.serve(async (req) => {
       model: modelId,
       location: location,
       salesforceData: salesforceData,
+      hasStyleProfile: !!requestData.styleProfile,
+      startImage: requestData.startImage,
+      endImage: requestData.endImage,
     };
 
     // Create Supabase record first
