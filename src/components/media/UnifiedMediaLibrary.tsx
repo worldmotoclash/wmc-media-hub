@@ -390,23 +390,24 @@ export const UnifiedMediaLibrary: React.FC = () => {
                   </label>
                 </div>
                 
-                {/* Image (parent) - selects both master_image, image_variant, and grid_variant */}
+                {/* Image (parent) - selects master_image, image_variant, grid_variant, and generation_master */}
                 <div className="min-h-8 flex items-center space-x-2">
                   <Checkbox
                     id="type-image"
                     checked={
                       (filters.assetTypes?.includes('master_image') && 
                        filters.assetTypes?.includes('image_variant') && 
-                       filters.assetTypes?.includes('grid_variant')) || 
+                       filters.assetTypes?.includes('grid_variant') &&
+                       filters.assetTypes?.includes('generation_master')) || 
                       filters.assetTypes?.includes('image') || 
                       false
                     }
                     onCheckedChange={(checked) => {
                       const currentTypes = (filters.assetTypes || []).filter(
-                        t => !['image', 'master_image', 'image_variant', 'grid_variant'].includes(t)
+                        t => !['image', 'master_image', 'image_variant', 'grid_variant', 'generation_master'].includes(t)
                       );
                       if (checked) {
-                        handleFilterChange('assetTypes', [...currentTypes, 'master_image', 'image_variant', 'grid_variant']);
+                        handleFilterChange('assetTypes', [...currentTypes, 'master_image', 'image_variant', 'grid_variant', 'generation_master']);
                       } else {
                         handleFilterChange('assetTypes', currentTypes);
                       }
@@ -457,6 +458,25 @@ export const UnifiedMediaLibrary: React.FC = () => {
                   />
                   <label htmlFor="type-variant" className="text-sm text-muted-foreground">
                     Variants
+                  </label>
+                </div>
+                
+                {/* 3x3 Grids (generation_master) */}
+                <div className="min-h-8 flex items-center space-x-2 pl-6">
+                  <Checkbox
+                    id="type-grid"
+                    checked={filters.assetTypes?.includes('generation_master') || false}
+                    onCheckedChange={(checked) => {
+                      const currentTypes = (filters.assetTypes || []).filter(t => t !== 'image');
+                      if (checked) {
+                        handleFilterChange('assetTypes', [...currentTypes.filter(t => t !== 'generation_master'), 'generation_master']);
+                      } else {
+                        handleFilterChange('assetTypes', currentTypes.filter(t => t !== 'generation_master'));
+                      }
+                    }}
+                  />
+                  <label htmlFor="type-grid" className="text-sm text-muted-foreground flex items-center gap-1">
+                    <LayoutGrid className="w-3 h-3" /> 3x3 Grids
                   </label>
                 </div>
               </div>
