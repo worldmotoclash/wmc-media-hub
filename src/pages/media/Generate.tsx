@@ -249,6 +249,8 @@ const Generate: React.FC = () => {
     audioUrl: '',
     imageUrl: '',
     startImage: '',
+    startImageAssetId: '',
+    startImageSalesforceId: '',
     endImage: '',
     // Salesforce fields
     title: '',
@@ -615,6 +617,8 @@ const Generate: React.FC = () => {
             referenceImageUrl: genData.startImage || undefined,
             title: genData.title,
             model: selectedImageModel.model,
+            masterAssetId: genData.startImageAssetId || undefined,
+            masterSalesforceId: genData.startImageSalesforceId || undefined,
             salesforceData: {
               title: genData.title,
               description: genData.description,
@@ -1704,6 +1708,12 @@ const Generate: React.FC = () => {
                     <ImageDropzone
                       value={genData.startImage}
                       onChange={(url) => setGenData(prev => ({ ...prev, startImage: url }))}
+                      onUploadComplete={(info) => setGenData(prev => ({ 
+                        ...prev, 
+                        startImage: info.url,
+                        startImageAssetId: info.assetId || '',
+                        startImageSalesforceId: info.salesforceId || ''
+                      }))}
                       label={selectedModel?.capabilities.includes('start_end_image') ? 'Start Image' : 'Source Image'}
                       description={STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage 
                         ? 'Reference image for the storytelling template'

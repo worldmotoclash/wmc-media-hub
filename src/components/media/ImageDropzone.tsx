@@ -9,9 +9,16 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+export interface UploadedImageInfo {
+  url: string;
+  assetId?: string;
+  salesforceId?: string;
+}
+
 interface ImageDropzoneProps {
   value: string;
   onChange: (url: string) => void;
+  onUploadComplete?: (info: UploadedImageInfo) => void;
   label?: string;
   description?: string;
   required?: boolean;
@@ -48,6 +55,7 @@ const fileToBase64 = (file: File): Promise<string> => {
 export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
   value,
   onChange,
+  onUploadComplete,
   label,
   description,
   required = false,
@@ -175,6 +183,16 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
 
       setUploadProgress(100);
       onChange(data.cdnUrl);
+      
+      // Call extended callback with full asset info if provided
+      if (onUploadComplete) {
+        onUploadComplete({
+          url: data.cdnUrl,
+          assetId: data.assetId,
+          salesforceId: data.salesforceId,
+        });
+      }
+      
       toast.success('Image uploaded successfully');
     } catch (err) {
       console.error('Upload error:', err);
@@ -183,7 +201,7 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
       setIsUploading(false);
       setUploadProgress(0);
     }
-  }, [onChange]);
+  }, [onChange, onUploadComplete]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
