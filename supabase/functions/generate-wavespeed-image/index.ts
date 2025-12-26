@@ -391,9 +391,16 @@ async function generateImage(
       console.log(`Using template "${params.template}" with full prompt text`);
     }
 
-    // For grid templates, enhance the prompt
+    // For grid templates, enhance the prompt with explicit no-text instruction
     if (params.isGridTemplate) {
-      fullPrompt = `CRITICAL: Generate a SINGLE IMAGE containing exactly 9 panels arranged in a 3×3 grid layout. Each panel must be a distinct camera shot. All panels must maintain visual consistency.\n\n${fullPrompt}`;
+      fullPrompt = `CRITICAL: Generate a SINGLE IMAGE containing exactly 9 panels arranged in a 3×3 grid layout. Each panel must be a distinct camera shot. All panels must maintain visual consistency.
+
+CRITICAL: DO NOT include ANY text, titles, labels, captions, watermarks, scene numbers, shot type labels (like "KF7 Low Angle"), or text overlays of any kind in the generated image. The image must be PURELY VISUAL with absolutely no textual elements. Each panel should contain only the visual content - no annotations or descriptions embedded in the image.
+
+${fullPrompt}`;
+    } else {
+      // Add no-text instruction for regular images too
+      fullPrompt = `${fullPrompt}\n\nIMPORTANT: Do not include any text, watermarks, labels, or overlays in the generated image.`;
     }
 
     const payload = modelConfig.buildPayload({ ...params, prompt: fullPrompt });

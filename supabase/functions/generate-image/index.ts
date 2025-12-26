@@ -367,11 +367,16 @@ CRITICAL REQUIREMENT: You MUST output a SINGLE IMAGE containing exactly 9 panels
 Each panel should be a distinct camera shot following the template instructions.
 All 9 panels must maintain strict visual consistency: same subjects, same wardrobe, same environment, same lighting.
 The only differences between panels should be camera angle, framing, and shot type.
-Generate ONE composite image with all 9 panels visible in a grid arrangement.`
+Generate ONE composite image with all 9 panels visible in a grid arrangement.
+
+CRITICAL: DO NOT include ANY text, titles, labels, captions, watermarks, scene numbers, shot type labels (like "KF7 Low Angle"), 
+or text overlays of any kind in the generated image. The image must be PURELY VISUAL with absolutely no textual elements.
+Each panel should contain only the visual content - no annotations or descriptions embedded in the image.`
       : `You are generating professional motorsport and racing imagery. 
 Create high-quality, cinematic images suitable for marketing and promotional use.
 Focus on dynamic action, dramatic lighting, and professional sports photography aesthetics.
-The images should capture the excitement and intensity of motorcycle racing.`;
+The images should capture the excitement and intensity of motorcycle racing.
+DO NOT include any text, watermarks, labels, or overlays in the generated images.`;
 
     const messages: any[] = [
       { role: "system", content: systemPrompt }
