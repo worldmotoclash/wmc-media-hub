@@ -62,6 +62,60 @@ function normalizeDuration(input?: number): number {
   return (VEO_ALLOWED_DURATIONS as readonly number[]).includes(n) ? n : 6;
 }
 
+// Helper function to prepare image for VEO API
+// VEO accepts either gcsUri or bytesBase64Encoded
+async function prepareImageForVeo(imageUrl: string): Promise<{ bytesBase64Encoded?: string; gcsUri?: string; mimeType: string }> {
+  // If already a GCS URI, use directly
+  if (imageUrl.startsWith('gs://')) {
+    const mimeType = imageUrl.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+    console.log(`📦 Using GCS URI directly: ${imageUrl.substring(0, 50)}...`);
+    return { gcsUri: imageUrl, mimeType };
+  }
+  
+  // Otherwise, fetch and convert to base64
+  console.log(`📥 Fetching image from URL: ${imageUrl.substring(0, 50)}...`);
+  
+  try {
+    const response = await fetch(imageUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    }
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    
+    // Convert to base64 using a more efficient method for Deno
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+      binary += String.fromCharCode(...chunk);
+    }
+    const base64 = btoa(binary);
+    
+    // Detect mime type from content-type header or URL
+    let contentType = response.headers.get('content-type') || '';
+    if (!contentType || contentType === 'application/octet-stream') {
+      // Fallback to URL extension
+      if (imageUrl.toLowerCase().includes('.png')) {
+        contentType = 'image/png';
+      } else if (imageUrl.toLowerCase().includes('.webp')) {
+        contentType = 'image/webp';
+      } else {
+        contentType = 'image/jpeg';
+      }
+    }
+    
+    console.log(`✅ Image prepared: ${(arrayBuffer.byteLength / 1024).toFixed(1)}KB, type: ${contentType}`);
+    
+    return { bytesBase64Encoded: base64, mimeType: contentType };
+  } catch (error) {
+    console.error('❌ Error preparing image for VEO:', error);
+    throw new Error(`Failed to prepare image for VEO: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -269,10 +323,29 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
     // Build request for Vertex AI VEO (predictLongRunning)
     const modelPath = `projects/${projectId}/locations/${location}/publishers/google/models/${modelId}`;
     const startUrl = `https://${location}-aiplatform.googleapis.com/v1/${modelPath}:predictLongRunning`;
+    
+    // Prepare image conditioning if provided
+    let imageInstance: Record<string, unknown> | null = null;
+    let lastFrameInstance: Record<string, unknown> | null = null;
+    
+    if (generationData.startImage) {
+      console.log('🖼️ Image conditioning enabled - preparing start image');
+      imageInstance = await prepareImageForVeo(generationData.startImage);
+    }
+    
+    if (generationData.endImage) {
+      console.log('🖼️ End frame conditioning enabled - preparing end image');
+      lastFrameInstance = await prepareImageForVeo(generationData.endImage);
+    }
+    
     const requestBody = {
       instances: [
         {
           prompt: String(generationData.prompt || ''),
+          // Add image conditioning if startImage provided (for image-to-video)
+          ...(imageInstance && { image: imageInstance }),
+          // Add end frame conditioning if endImage provided
+          ...(lastFrameInstance && { lastFrame: lastFrameInstance }),
         },
       ],
       parameters: {
@@ -286,6 +359,8 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
     console.log('🚀 Calling Vertex AI VEO predictLongRunning');
     console.log('🔧 Endpoint:', startUrl);
     console.log('📝 Prompt (truncated):', String(generationData.prompt).slice(0, 120));
+    console.log('🎯 Image conditioning:', imageInstance ? 'Start image provided' : 'None');
+    console.log('🎯 End frame:', lastFrameInstance ? 'End image provided' : 'None');
 
     // Update progress: Calling VEO API
     await supabaseClient
