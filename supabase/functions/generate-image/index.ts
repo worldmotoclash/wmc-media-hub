@@ -532,7 +532,12 @@ DO NOT include any text, watermarks, labels, or overlays in the generated images
     // === AUTO-EXTRACT 9 GRID CELLS if 3x3 template ===
     if (isGridTemplate) {
       console.log('=== AUTO-EXTRACTING 9 GRID CELLS ===');
-      await autoExtractGridCells(supabase, generationId, s3Url, template || 'grid', assetData?.id, salesforceId);
+      // Use the reference image's masterAssetId/masterSalesforceId if provided,
+      // otherwise fall back to the grid image itself as master
+      const extractMasterAssetId = masterAssetId || assetData?.id;
+      const extractMasterSalesforceId = masterSalesforceId || salesforceId;
+      console.log('Grid extraction master context:', { extractMasterAssetId, extractMasterSalesforceId, originalMasterAssetId: masterAssetId, originalMasterSalesforceId: masterSalesforceId });
+      await autoExtractGridCells(supabase, generationId, s3Url, template || 'grid', extractMasterAssetId, extractMasterSalesforceId);
     }
 
   } catch (error) {
