@@ -228,6 +228,25 @@ export async function fetchAllMediaAssets(
             asset.tags.some(tag => filters.tags!.includes(tag.id) || filters.tags!.includes(tag.name))
           );
         }
+
+        // Apply assetTypes filtering (AND with previous filters)
+        if (filters?.assetTypes?.length) {
+          salesforceAssets = salesforceAssets.filter(asset => {
+            if (asset.assetType) {
+              // Check if asset type matches any selected filter
+              // 'image' filter should match 'image', 'master_image', 'image_variant'
+              // 'video' filter should match 'video'
+              return filters.assetTypes!.some(filterType => {
+                if (filterType === 'image' || filterType === 'master_image' || filterType === 'image_variant') {
+                  return asset.assetType === 'image';
+                }
+                return asset.assetType === filterType;
+              });
+            }
+            // Exclude assets with unknown type when filter is active
+            return false;
+          });
+        }
       } catch (error) {
         console.warn('Failed to fetch Salesforce content:', error);
       }
