@@ -14,6 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      character_library: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          element_type: string
+          id: string
+          image_url: string
+          name: string
+          source_asset_id: string | null
+          style_profile: Json | null
+          tags: string[] | null
+          thumbnail_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          element_type: string
+          id?: string
+          image_url: string
+          name: string
+          source_asset_id?: string | null
+          style_profile?: Json | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          element_type?: string
+          id?: string
+          image_url?: string
+          name?: string
+          source_asset_id?: string | null
+          style_profile?: Json | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_library_source_asset_id_fkey"
+            columns: ["source_asset_id"]
+            isOneToOne: false
+            referencedRelation: "media_assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_review_activities: {
         Row: {
           action: string

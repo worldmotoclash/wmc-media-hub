@@ -34,11 +34,13 @@ import {
   Eye,
   Users,
   Palette,
-  Camera
+  Camera,
+  Pin
 } from "lucide-react";
 import { STORYTELLING_PROMPTS } from "@/constants/storytellingPrompts";
 import { GRID_POSITIONS, GRID_TEMPLATES } from "@/constants/gridPositions";
 import { ImageDropzone } from "@/components/media/ImageDropzone";
+import { SubjectReferenceDialog } from "@/components/media/SubjectReferenceDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -328,6 +330,17 @@ const Generate: React.FC = () => {
   const [isAnalyzingStyle, setIsAnalyzingStyle] = useState(false);
   const [styleOverride, setStyleOverride] = useState('');
   
+  // Subject Reference state for pinning specific elements
+  const [subjectReferences, setSubjectReferences] = useState<Record<string, {
+    imageUrl: string;
+    assetId?: string;
+    fromLibrary?: boolean;
+    libraryId?: string;
+    profile?: Partial<StyleProfile>;
+  }>>({});
+  const [referenceDialogOpen, setReferenceDialogOpen] = useState(false);
+  const [selectedSubjectForReference, setSelectedSubjectForReference] = useState<StyleProfile['subjects'][0] | null>(null);
+  
   // Image model state - check URL param for model selection from marketplace
   const initialImageModel = urlModelId 
     ? IMAGE_GENERATION_MODELS.find(m => m.id === urlModelId) || IMAGE_GENERATION_MODELS[0]
@@ -416,8 +429,9 @@ const Generate: React.FC = () => {
       startImageSalesforceId: info.salesforceId || ''
     }));
     
-    // Clear previous style profile
+    // Clear previous style profile and subject references
     setStyleProfile(null);
+    setSubjectReferences({});
     
     // Auto-analyze if grid template selected
     if (isGridTemplate && info.url) {
@@ -723,6 +737,12 @@ const Generate: React.FC = () => {
             // Pass style profile and override for consistency enforcement
             styleProfile: styleProfile || undefined,
             styleOverride: styleOverride || undefined,
+            // Pass pinned subject references for element locking
+            pinnedSubjects: Object.entries(subjectReferences).map(([subjectId, ref]) => ({
+              subjectId,
+              imageUrl: ref.imageUrl,
+              profile: ref.profile
+            })),
             salesforceData: {
               title: genData.title,
               description: genData.description,
@@ -1880,18 +1900,39 @@ const Generate: React.FC = () => {
 
                       {styleProfile && (
                         <div className="space-y-3">
-                          {/* Subjects Summary */}
+                          {/* Subjects Summary - Clickable */}
                           <div className="flex items-start gap-2">
                             <Users className="w-4 h-4 mt-0.5 text-muted-foreground" />
                             <div className="flex-1">
-                              <span className="text-xs font-medium text-muted-foreground">Subjects:</span>
+                              <span className="text-xs font-medium text-muted-foreground">
+                                Subjects (click to pin reference):
+                              </span>
                               <div className="flex flex-wrap gap-1 mt-1">
-                                {styleProfile.subjects?.map((s, i) => (
-                                  <Badge key={i} variant="secondary" className="text-xs">
-                                    {s.id}: {s.type}
-                                  </Badge>
-                                ))}
+                                {styleProfile.subjects?.map((s, i) => {
+                                  const hasPinnedRef = !!subjectReferences[s.id];
+                                  return (
+                                    <Badge 
+                                      key={i} 
+                                      variant={hasPinnedRef ? "default" : "secondary"} 
+                                      className={`text-xs cursor-pointer transition-all hover:ring-2 hover:ring-primary/30 ${
+                                        hasPinnedRef ? 'bg-emerald-600 hover:bg-emerald-700' : ''
+                                      }`}
+                                      onClick={() => {
+                                        setSelectedSubjectForReference(s);
+                                        setReferenceDialogOpen(true);
+                                      }}
+                                    >
+                                      {hasPinnedRef && <Pin className="w-3 h-3 mr-1" />}
+                                      {s.id}: {s.type}
+                                    </Badge>
+                                  );
+                                })}
                               </div>
+                              {Object.keys(subjectReferences).length > 0 && (
+                                <p className="text-xs text-emerald-600 mt-1">
+                                  {Object.keys(subjectReferences).length} element(s) pinned with references
+                                </p>
+                              )}
                             </div>
                           </div>
 
@@ -1993,6 +2034,27 @@ const Generate: React.FC = () => {
           </motion.div>
         )}
       </div>
+
+      {/* Subject Reference Dialog */}
+      <SubjectReferenceDialog
+        open={referenceDialogOpen}
+        onOpenChange={setReferenceDialogOpen}
+        subject={selectedSubjectForReference}
+        existingReference={selectedSubjectForReference ? subjectReferences[selectedSubjectForReference.id] : undefined}
+        onApplyReference={(subjectId, reference) => {
+          setSubjectReferences(prev => ({
+            ...prev,
+            [subjectId]: reference
+          }));
+        }}
+        onClearReference={(subjectId) => {
+          setSubjectReferences(prev => {
+            const updated = { ...prev };
+            delete updated[subjectId];
+            return updated;
+          });
+        }}
+      />
     </div>
   );
 };
