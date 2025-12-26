@@ -140,6 +140,41 @@ Extract the still x.y
 (Where x.y refers to the grid coordinate or still number the user later requests.)`
 };
 
+interface StyleProfile {
+  subjects?: Array<{
+    id: string;
+    type: string;
+    appearance: string;
+    wardrobe?: string;
+    distinguishingTraits: string[];
+    position: string;
+  }>;
+  environment?: {
+    setting: string;
+    timeOfDay: string;
+    weather?: string;
+    backgroundElements: string[];
+  };
+  lighting?: {
+    direction: string;
+    quality: string;
+    keyTones: string[];
+  };
+  colorGrade?: {
+    palette: string[];
+    mood: string;
+    contrast: string;
+    texture: string;
+  };
+  cameraStyle?: {
+    lensType: string;
+    depthOfField: string;
+    compositionNotes: string;
+  };
+  visualAnchors?: string[];
+  negativeConstraints?: string[];
+}
+
 interface ImageGenerationRequest {
   userId: string;
   prompt: string;
@@ -149,6 +184,8 @@ interface ImageGenerationRequest {
   model?: string;
   masterAssetId?: string;
   masterSalesforceId?: string;
+  styleProfile?: StyleProfile;
+  styleOverride?: string;
   salesforceData?: {
     title: string;
     description?: string;
@@ -247,12 +284,12 @@ serve(async (req) => {
 
   try {
     const requestData: ImageGenerationRequest = await req.json();
-    const { userId, prompt, template, referenceImageUrl, title, model, masterAssetId, masterSalesforceId, salesforceData } = requestData;
+    const { userId, prompt, template, referenceImageUrl, title, model, masterAssetId, masterSalesforceId, styleProfile, styleOverride, salesforceData } = requestData;
 
     const selectedModel = model || 'google/gemini-2.5-flash-image-preview';
     const isGridTemplate = template && ['version1', 'version2', 'version3'].includes(template);
 
-    console.log('Image generation request received:', { userId, prompt: prompt.substring(0, 100), template, title, model: selectedModel, isGridTemplate });
+    console.log('Image generation request received:', { userId, prompt: prompt.substring(0, 100), template, title, model: selectedModel, isGridTemplate, hasStyleProfile: !!styleProfile });
 
     if (!userId) {
       throw new Error('User ID is required');
@@ -280,7 +317,7 @@ serve(async (req) => {
         reference_image_url: referenceImageUrl,
         status: 'pending',
         progress: 0,
-        generation_data: { title, model: selectedModel, salesforceData, masterAssetId, masterSalesforceId, isGridTemplate }
+        generation_data: { title, model: selectedModel, salesforceData, masterAssetId, masterSalesforceId, isGridTemplate, hasStyleProfile: !!styleProfile }
       })
       .select()
       .single();
@@ -303,7 +340,9 @@ serve(async (req) => {
       title,
       masterAssetId,
       masterSalesforceId,
-      isGridTemplate
+      isGridTemplate,
+      styleProfile,
+      styleOverride
     );
 
     if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
@@ -343,7 +382,9 @@ async function generateImage(
   title: string,
   masterAssetId: string | undefined,
   masterSalesforceId: string | undefined,
-  isGridTemplate: boolean
+  isGridTemplate: boolean,
+  styleProfile?: StyleProfile,
+  styleOverride?: string
 ) {
   try {
     await supabase
@@ -360,6 +401,44 @@ async function generateImage(
       console.log(`Using template "${template}" with full prompt text`);
     }
 
+    // Build style lock constraints if styleProfile is provided
+    let styleLockConstraints = '';
+    if (styleProfile && isGridTemplate) {
+      const subjectsList = styleProfile.subjects?.map(s => 
+        `- ${s.id} (${s.type}): ${s.appearance}${s.wardrobe ? `, wearing ${s.wardrobe}` : ''}`
+      ).join('\n') || '';
+      
+      const anchorsList = styleProfile.visualAnchors?.map(a => `- ${a}`).join('\n') || '';
+      const negativeList = styleProfile.negativeConstraints?.map(n => `- ${n}`).join('\n') || '';
+      
+      styleLockConstraints = `
+=== STYLE LOCK CONSTRAINTS (MANDATORY) ===
+You MUST maintain EXACT consistency with the master image. These are non-negotiable requirements:
+
+SUBJECTS (use ONLY these - do NOT add new characters/objects):
+${subjectsList}
+
+ENVIRONMENT: ${styleProfile.environment?.setting || 'as shown in reference'}, ${styleProfile.environment?.timeOfDay || ''} lighting
+LIGHTING: ${styleProfile.lighting?.direction || ''} ${styleProfile.lighting?.quality || ''} light with ${styleProfile.lighting?.keyTones?.join(', ') || 'natural'} tones
+COLOR GRADE: ${styleProfile.colorGrade?.mood || ''} mood, ${styleProfile.colorGrade?.contrast || 'medium'} contrast
+
+VISUAL ANCHORS (MUST remain constant in ALL panels):
+${anchorsList}
+
+NEGATIVE CONSTRAINTS (NEVER do these):
+${negativeList}
+- Do NOT introduce new characters, objects, or props not in the master
+- Do NOT change wardrobe, colors, or distinguishing features
+- Do NOT add text, labels, watermarks, or overlays
+
+${styleOverride ? `ADDITIONAL USER CONSTRAINTS:\n${styleOverride}` : ''}
+
+Only vary: camera angle, shot framing, and shot distance. Everything else MUST match the master exactly.
+=== END STYLE LOCK ===
+`;
+      console.log('Style lock constraints applied');
+    }
+
     // Enhanced system prompt for grid templates
     const systemPrompt = isGridTemplate 
       ? `You are generating a 3×3 cinematic storyboard grid image.
@@ -371,7 +450,9 @@ Generate ONE composite image with all 9 panels visible in a grid arrangement.
 
 CRITICAL: DO NOT include ANY text, titles, labels, captions, watermarks, scene numbers, shot type labels (like "KF7 Low Angle"), 
 or text overlays of any kind in the generated image. The image must be PURELY VISUAL with absolutely no textual elements.
-Each panel should contain only the visual content - no annotations or descriptions embedded in the image.`
+Each panel should contain only the visual content - no annotations or descriptions embedded in the image.
+
+${styleLockConstraints}`
       : `You are generating professional motorsport and racing imagery. 
 Create high-quality, cinematic images suitable for marketing and promotional use.
 Focus on dynamic action, dramatic lighting, and professional sports photography aesthetics.
