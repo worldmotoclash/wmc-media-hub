@@ -73,7 +73,7 @@ const LoginFormComponent: React.FC = () => {
           case 'dashboard':
             return '/dashboard';
           default:
-            return '/'; // Default fallback
+            return '/hub'; // Default to Media Hub
         }
       };
       
@@ -201,7 +201,7 @@ const LoginFormComponent: React.FC = () => {
       if (userData) {
         setUser(userData);
         toast.success('Login successful');
-        navigate('/');
+        navigate('/hub');
       }
       // If userData is null, authenticateUser already showed the appropriate error message
       // (either "Invalid password" or "Email not found")
@@ -240,7 +240,7 @@ const LoginFormComponent: React.FC = () => {
       if (userData) {
         setUser(userData);
         toast.success('Google login successful');
-        navigate('/');
+        navigate('/hub');
       } else {
         // If authentication returned null but no error was thrown, it's likely an IP verification issue
         try {

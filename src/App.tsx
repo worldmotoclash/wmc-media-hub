@@ -8,6 +8,7 @@ import { AnimatePresence } from "framer-motion";
 import { UserProvider } from "./contexts/UserContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Index from "./pages/Index";
+import MediaHub from "./pages/MediaHub";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
@@ -47,6 +48,7 @@ const App = () => (
             <AnimatePresence mode="wait">
               <Routes>
                 <Route path="/" element={<Index />} />
+                <Route path="/hub" element={<MediaHub />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/reset" element={<ResetPassword />} />
                 <Route path="/dashboard" element={<Dashboard />} />
