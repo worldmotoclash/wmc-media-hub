@@ -4,15 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { RefreshCw, CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronRight, Youtube, Sparkles, Upload, Link2, Wifi, WifiOff, Music } from 'lucide-react';
+import { RefreshCw, CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronRight, Youtube, Sparkles, Upload, Link2, Wifi, WifiOff, Music, CloudUpload } from 'lucide-react';
 import { getMediaSourceStats, type MediaSourceStats } from '@/services/mediaSourceStatsService';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 const MediaSourceDashboard: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [stats, setStats] = useState<MediaSourceStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const loadStats = async () => {
     try {
@@ -31,6 +33,46 @@ const MediaSourceDashboard: React.FC = () => {
     await loadStats();
     setRefreshing(false);
     toast.success('Statistics refreshed');
+  };
+
+  const handleSyncMissing = async () => {
+    if (!stats || stats.syncHealth.missingSfdc === 0) return;
+    
+    setSyncing(true);
+    try {
+      // Fetch assets missing SFDC ID
+      const { data: missingAssets, error } = await supabase
+        .from('media_assets')
+        .select('id')
+        .is('salesforce_id', null)
+        .not('file_url', 'is', null)
+        .limit(50);
+
+      if (error) throw error;
+      if (!missingAssets || missingAssets.length === 0) {
+        toast.info('No assets to sync');
+        return;
+      }
+
+      toast.info(`Syncing ${missingAssets.length} assets to Salesforce...`);
+
+      const { data, error: syncError } = await supabase.functions.invoke('sync-asset-to-salesforce', {
+        body: { assetIds: missingAssets.map(a => a.id) }
+      });
+
+      if (syncError) throw syncError;
+
+      const successCount = data?.results?.filter((r: any) => r.success).length || 0;
+      toast.success(`Synced ${successCount}/${missingAssets.length} assets to Salesforce`);
+      
+      // Refresh stats
+      await loadStats();
+    } catch (error) {
+      console.error('Sync error:', error);
+      toast.error('Failed to sync assets to Salesforce');
+    } finally {
+      setSyncing(false);
+    }
   };
 
   useEffect(() => {
@@ -173,6 +215,22 @@ const MediaSourceDashboard: React.FC = () => {
                   <p className="text-xs text-muted-foreground">
                     Files without Salesforce record
                   </p>
+                  {syncHealth.missingSfdc > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2 w-full"
+                      onClick={handleSyncMissing}
+                      disabled={syncing}
+                    >
+                      {syncing ? (
+                        <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
+                        <CloudUpload className="h-3 w-3 mr-1" />
+                      )}
+                      Sync to SFDC
+                    </Button>
+                  )}
                 </div>
 
                 {/* Missing File */}
