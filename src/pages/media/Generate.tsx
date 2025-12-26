@@ -41,6 +41,7 @@ import { STORYTELLING_PROMPTS } from "@/constants/storytellingPrompts";
 import { GRID_POSITIONS, GRID_TEMPLATES } from "@/constants/gridPositions";
 import { ImageDropzone } from "@/components/media/ImageDropzone";
 import { SubjectReferenceDialog } from "@/components/media/SubjectReferenceDialog";
+import { StyleLockPreview } from "@/components/media/StyleLockPreview";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -1916,43 +1917,29 @@ const Generate: React.FC = () => {
                         )}
                       </div>
 
+                      {/* Visual Preview with Subject Overlays */}
+                      <StyleLockPreview
+                        imageUrl={genData.startImage}
+                        styleProfile={styleProfile}
+                        subjectReferences={subjectReferences}
+                        isAnalyzing={isAnalyzingStyle}
+                        onSubjectClick={(subject) => {
+                          setSelectedSubjectForReference(subject);
+                          setReferenceDialogOpen(true);
+                        }}
+                      />
+
                       {styleProfile && (
-                        <div className="space-y-3">
-                          {/* Subjects Summary - Clickable */}
-                          <div className="flex items-start gap-2">
-                            <Users className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                            <div className="flex-1">
-                              <span className="text-xs font-medium text-muted-foreground">
-                                Subjects (click to pin reference):
+                        <div className="space-y-3 mt-4">
+                          {/* Pinned References Summary */}
+                          {Object.keys(subjectReferences).length > 0 && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Pin className="w-4 h-4 text-emerald-600" />
+                              <span className="text-emerald-600 font-medium">
+                                {Object.keys(subjectReferences).length} element(s) pinned with references
                               </span>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {styleProfile.subjects?.map((s, i) => {
-                                  const hasPinnedRef = !!subjectReferences[s.id];
-                                  return (
-                                    <Badge 
-                                      key={i} 
-                                      variant={hasPinnedRef ? "default" : "secondary"} 
-                                      className={`text-xs cursor-pointer transition-all hover:ring-2 hover:ring-primary/30 ${
-                                        hasPinnedRef ? 'bg-emerald-600 hover:bg-emerald-700' : ''
-                                      }`}
-                                      onClick={() => {
-                                        setSelectedSubjectForReference(s);
-                                        setReferenceDialogOpen(true);
-                                      }}
-                                    >
-                                      {hasPinnedRef && <Pin className="w-3 h-3 mr-1" />}
-                                      {s.id}: {s.type}
-                                    </Badge>
-                                  );
-                                })}
-                              </div>
-                              {Object.keys(subjectReferences).length > 0 && (
-                                <p className="text-xs text-emerald-600 mt-1">
-                                  {Object.keys(subjectReferences).length} element(s) pinned with references
-                                </p>
-                              )}
                             </div>
-                          </div>
+                          )}
 
                           {/* Visual Anchors */}
                           <div className="flex items-start gap-2">
@@ -1970,17 +1957,6 @@ const Generate: React.FC = () => {
                             </div>
                           </div>
 
-                          {/* Environment & Camera */}
-                          <div className="flex items-start gap-2">
-                            <Camera className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                            <div className="flex-1">
-                              <span className="text-xs font-medium text-muted-foreground">Environment:</span>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {styleProfile.environment?.setting} • {styleProfile.environment?.timeOfDay} • {styleProfile.lighting?.quality} light
-                              </p>
-                            </div>
-                          </div>
-
                           {/* Override textarea */}
                           <div className="mt-3">
                             <Label className="text-xs text-muted-foreground">Extra constraints (optional):</Label>
@@ -1991,13 +1967,6 @@ const Generate: React.FC = () => {
                               className="mt-1 text-xs h-16"
                             />
                           </div>
-                        </div>
-                      )}
-
-                      {isAnalyzingStyle && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Analyzing subjects, environment, lighting, and style...
                         </div>
                       )}
                     </div>
