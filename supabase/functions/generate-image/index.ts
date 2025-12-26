@@ -8,6 +8,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const WMC_CONTENT_API = "https://api.realintelligence.com/api/wmc-content-master.py";
+const W2X_ENGINE_URL = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
+const ORG_ID = "00D5e000000HEcP";
+
 interface ImageGenerationRequest {
   userId: string;
   prompt: string;
@@ -15,12 +19,97 @@ interface ImageGenerationRequest {
   referenceImageUrl?: string;
   title: string;
   model?: string;
+  masterAssetId?: string;
+  masterSalesforceId?: string;
   salesforceData?: {
     title: string;
     description?: string;
     categories?: string[];
     tags?: string[];
   };
+}
+
+// Helper function to escape special regex characters
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Query the wmc-content-master API to find a Salesforce ID by matching URL
+async function findSalesforceIdByUrl(cdnUrl: string, maxAttempts = 3): Promise<string | null> {
+  console.log(`Searching for Salesforce ID matching URL: ${cdnUrl}`);
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const delayMs = 2000 * attempt;
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      
+      const apiUrl = `${WMC_CONTENT_API}?orgId=${ORG_ID}&sandbox=False`;
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) continue;
+      
+      const xmlText = await response.text();
+      const escapedUrl = escapeRegExp(cdnUrl);
+      
+      const patterns = [
+        new RegExp(`<content>.*?<id>([^<]+)</id>.*?<url><!\\[CDATA\\[${escapedUrl}\\]\\]></url>.*?</content>`, 's'),
+        new RegExp(`<content>.*?<id>([^<]+)</id>.*?<url>${escapedUrl}</url>.*?</content>`, 's'),
+        new RegExp(`<content>.*?<url><!\\[CDATA\\[${escapedUrl}\\]\\]></url>.*?<id>([^<]+)</id>.*?</content>`, 's'),
+        new RegExp(`<content>.*?<url>${escapedUrl}</url>.*?<id>([^<]+)</id>.*?</content>`, 's'),
+      ];
+      
+      for (const pattern of patterns) {
+        const match = xmlText.match(pattern);
+        if (match && match[1]) {
+          return match[1].trim();
+        }
+      }
+      
+      const contentBlocks = xmlText.match(/<content>[\s\S]*?<\/content>/g) || [];
+      for (const block of contentBlocks) {
+        if (block.includes(cdnUrl)) {
+          const idMatch = block.match(/<id>([^<]+)<\/id>/);
+          if (idMatch && idMatch[1]) {
+            return idMatch[1].trim();
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error querying API (attempt ${attempt}):`, error);
+    }
+  }
+  
+  return null;
+}
+
+// Create SFDC record and get ID
+async function createSfdcRecord(title: string, cdnUrl: string, contentType: string): Promise<string | null> {
+  try {
+    const formData = new FormData();
+    formData.append("retURL", "https://worldmotoclash.com");
+    formData.append("sObj", "ri1__Content__c");
+    formData.append("string_Name", title);
+    formData.append("string_ri1__Content_Type__c", contentType);
+    formData.append("string_ri1__URL__c", cdnUrl);
+
+    console.log("Sending to w2x-engine:", W2X_ENGINE_URL);
+
+    const sfResponse = await fetch(W2X_ENGINE_URL, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (sfResponse.ok) {
+      console.log("w2x-engine call successful, querying API for Salesforce ID...");
+      return await findSalesforceIdByUrl(cdnUrl, 3);
+    } else {
+      console.error("w2x-engine call failed:", sfResponse.status);
+      return null;
+    }
+  } catch (error) {
+    console.error("SFDC sync error:", error);
+    return null;
+  }
 }
 
 serve(async (req) => {
@@ -30,11 +119,12 @@ serve(async (req) => {
 
   try {
     const requestData: ImageGenerationRequest = await req.json();
-    const { userId, prompt, template, referenceImageUrl, title, model, salesforceData } = requestData;
+    const { userId, prompt, template, referenceImageUrl, title, model, masterAssetId, masterSalesforceId, salesforceData } = requestData;
 
     const selectedModel = model || 'google/gemini-2.5-flash-image-preview';
+    const isGridTemplate = template && ['version1', 'version2', 'version3'].includes(template);
 
-    console.log('Image generation request received:', { userId, prompt: prompt.substring(0, 100), template, title, model: selectedModel });
+    console.log('Image generation request received:', { userId, prompt: prompt.substring(0, 100), template, title, model: selectedModel, isGridTemplate });
 
     if (!userId) {
       throw new Error('User ID is required');
@@ -62,7 +152,7 @@ serve(async (req) => {
         reference_image_url: referenceImageUrl,
         status: 'pending',
         progress: 0,
-        generation_data: { title, model: selectedModel, salesforceData }
+        generation_data: { title, model: selectedModel, salesforceData, masterAssetId, masterSalesforceId, isGridTemplate }
       })
       .select()
       .single();
@@ -81,7 +171,11 @@ serve(async (req) => {
       template,
       referenceImageUrl,
       selectedModel,
-      LOVABLE_API_KEY
+      LOVABLE_API_KEY,
+      title,
+      masterAssetId,
+      masterSalesforceId,
+      isGridTemplate
     );
 
     if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
@@ -117,7 +211,11 @@ async function generateImage(
   template: string | undefined,
   referenceImageUrl: string | undefined,
   model: string,
-  apiKey: string
+  apiKey: string,
+  title: string,
+  masterAssetId: string | undefined,
+  masterSalesforceId: string | undefined,
+  isGridTemplate: boolean
 ) {
   try {
     await supabase
@@ -214,6 +312,64 @@ The images should capture the excitement and intensity of motorcycle racing.`;
 
     console.log('Image uploaded to S3:', s3Url);
 
+    // === Create media_assets record ===
+    const assetType = isGridTemplate ? 'generation_master' : 'generated_image';
+    const { data: assetData, error: assetError } = await supabase
+      .from('media_assets')
+      .insert({
+        title: title || `Generated Image - ${generationId}`,
+        file_url: s3Url,
+        thumbnail_url: s3Url,
+        source: 'generated',
+        status: 'ready',
+        file_format: 'png',
+        asset_type: assetType,
+        master_id: masterAssetId || null,
+        s3_key: `${S3_PATHS.GENERATION_OUTPUTS}/${generationId}.png`,
+        metadata: {
+          generationId,
+          prompt: prompt.substring(0, 500),
+          model,
+          template,
+          isGridTemplate,
+          masterAssetId,
+          masterSalesforceId,
+          createdAt: new Date().toISOString(),
+          sfdcSyncStatus: 'pending',
+        },
+      })
+      .select()
+      .single();
+
+    if (assetError) {
+      console.error('Failed to create media asset:', assetError);
+    } else {
+      console.log('Created media_assets record:', assetData.id);
+    }
+
+    // === SALESFORCE SYNC for generated image ===
+    let salesforceId: string | null = null;
+    if (assetData?.id) {
+      console.log('=== SALESFORCE SYNC START ===');
+      salesforceId = await createSfdcRecord(title || `Generated Image`, s3Url, 'PNG');
+      
+      if (salesforceId) {
+        await supabase
+          .from('media_assets')
+          .update({ 
+            salesforce_id: salesforceId,
+            metadata: {
+              ...assetData.metadata,
+              sfdcSyncStatus: 'success',
+              sfdcSyncedAt: new Date().toISOString(),
+            }
+          })
+          .eq('id', assetData.id);
+        console.log('Updated with Salesforce ID:', salesforceId);
+      }
+      console.log('=== SALESFORCE SYNC END ===');
+    }
+
     await supabase
       .from('image_generations')
       .update({
@@ -225,6 +381,12 @@ The images should capture the excitement and intensity of motorcycle racing.`;
       .eq('id', generationId);
 
     console.log('Image generation completed successfully');
+
+    // === AUTO-EXTRACT 9 GRID CELLS if 3x3 template ===
+    if (isGridTemplate) {
+      console.log('=== AUTO-EXTRACTING 9 GRID CELLS ===');
+      await autoExtractGridCells(supabase, generationId, s3Url, template || 'grid', assetData?.id, salesforceId);
+    }
 
   } catch (error) {
     console.error('Error during image generation:', error);
@@ -238,6 +400,67 @@ The images should capture the excitement and intensity of motorcycle racing.`;
       })
       .eq('id', generationId);
   }
+}
+
+async function autoExtractGridCells(
+  supabase: any,
+  generationId: string,
+  sourceUrl: string,
+  template: string,
+  masterAssetId: string | undefined,
+  masterSalesforceId: string | null
+) {
+  const positions = [
+    { row: 0, col: 0, id: 'top-left' },
+    { row: 0, col: 1, id: 'top-center' },
+    { row: 0, col: 2, id: 'top-right' },
+    { row: 1, col: 0, id: 'middle-left' },
+    { row: 1, col: 1, id: 'middle-center' },
+    { row: 1, col: 2, id: 'middle-right' },
+    { row: 2, col: 0, id: 'bottom-left' },
+    { row: 2, col: 1, id: 'bottom-center' },
+    { row: 2, col: 2, id: 'bottom-right' },
+  ];
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+
+  for (const pos of positions) {
+    try {
+      console.log(`Extracting grid cell ${pos.id} (${pos.row},${pos.col})...`);
+      
+      const extractResponse = await fetch(`${supabaseUrl}/functions/v1/extract-grid-image`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        },
+        body: JSON.stringify({
+          sourceUrl,
+          row: pos.row,
+          col: pos.col,
+          generationId,
+          positionId: pos.id,
+          template,
+          masterAssetId,
+          masterSalesforceId,
+        }),
+      });
+
+      if (extractResponse.ok) {
+        const result = await extractResponse.json();
+        console.log(`Grid cell ${pos.id} extracted:`, result.assetId, result.salesforceId);
+      } else {
+        console.error(`Failed to extract ${pos.id}:`, await extractResponse.text());
+      }
+
+      // Small delay between extractions
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error(`Error extracting ${pos.id}:`, error);
+    }
+  }
+
+  console.log('=== GRID EXTRACTION COMPLETE ===');
 }
 
 async function uploadToWasabiS3(base64DataUrl: string, generationId: string): Promise<string> {

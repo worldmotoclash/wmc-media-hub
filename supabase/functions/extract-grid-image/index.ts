@@ -9,6 +9,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const WMC_CONTENT_API = "https://api.realintelligence.com/api/wmc-content-master.py";
+const W2X_ENGINE_URL = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
+const ORG_ID = "00D5e000000HEcP";
+
 interface ExtractGridImageRequest {
   sourceUrl: string;
   row: number;
@@ -17,10 +21,64 @@ interface ExtractGridImageRequest {
   positionId: string;
   template: string;
   title?: string;
-  salesforceData?: {
-    masterContentId?: string;
-    template?: string;
-  };
+  masterAssetId?: string;
+  masterSalesforceId?: string;
+}
+
+// Helper function to escape special regex characters
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Query the wmc-content-master API to find a Salesforce ID by matching URL
+async function findSalesforceIdByUrl(cdnUrl: string, maxAttempts = 3): Promise<string | null> {
+  console.log(`Searching for Salesforce ID matching URL: ${cdnUrl}`);
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const delayMs = 2000 * attempt;
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      
+      const apiUrl = `${WMC_CONTENT_API}?orgId=${ORG_ID}&sandbox=False`;
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) {
+        console.error(`API request failed: ${response.status}`);
+        continue;
+      }
+      
+      const xmlText = await response.text();
+      const escapedUrl = escapeRegExp(cdnUrl);
+      
+      const patterns = [
+        new RegExp(`<content>.*?<id>([^<]+)</id>.*?<url><!\\[CDATA\\[${escapedUrl}\\]\\]></url>.*?</content>`, 's'),
+        new RegExp(`<content>.*?<id>([^<]+)</id>.*?<url>${escapedUrl}</url>.*?</content>`, 's'),
+        new RegExp(`<content>.*?<url><!\\[CDATA\\[${escapedUrl}\\]\\]></url>.*?<id>([^<]+)</id>.*?</content>`, 's'),
+        new RegExp(`<content>.*?<url>${escapedUrl}</url>.*?<id>([^<]+)</id>.*?</content>`, 's'),
+      ];
+      
+      for (const pattern of patterns) {
+        const match = xmlText.match(pattern);
+        if (match && match[1]) {
+          return match[1].trim();
+        }
+      }
+      
+      const contentBlocks = xmlText.match(/<content>[\s\S]*?<\/content>/g) || [];
+      for (const block of contentBlocks) {
+        if (block.includes(cdnUrl)) {
+          const idMatch = block.match(/<id>([^<]+)<\/id>/);
+          if (idMatch && idMatch[1]) {
+            return idMatch[1].trim();
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error querying API (attempt ${attempt}):`, error);
+    }
+  }
+  
+  return null;
 }
 
 serve(async (req) => {
@@ -35,6 +93,8 @@ serve(async (req) => {
       position: `${payload.row},${payload.col}`,
       positionId: payload.positionId,
       template: payload.template,
+      masterAssetId: payload.masterAssetId,
+      masterSalesforceId: payload.masterSalesforceId,
     }, null, 2));
 
     const {
@@ -45,7 +105,8 @@ serve(async (req) => {
       positionId,
       template,
       title,
-      salesforceData,
+      masterAssetId,
+      masterSalesforceId,
     } = payload;
 
     if (!sourceUrl || row === undefined || col === undefined || !generationId || !positionId) {
@@ -146,16 +207,18 @@ serve(async (req) => {
       'bottom-right': 'Bottom Right (3,3)',
     };
 
+    const variantTitle = title || `Grid Extract - ${positionLabels[positionId] || positionId}`;
+
     const { data: assetData, error: assetError } = await supabase
       .from("media_assets")
       .insert({
-        title: title || `Grid Extract - ${positionLabels[positionId] || positionId}`,
+        title: variantTitle,
         file_url: variantCdnUrl,
         thumbnail_url: variantCdnUrl,
         source: "generated",
         status: "ready",
         file_format: "jpg",
-        master_id: generationId,
+        master_id: masterAssetId || generationId,
         asset_type: "grid_variant",
         variant_name: positionId,
         s3_key: s3Key,
@@ -168,7 +231,10 @@ serve(async (req) => {
           col,
           template,
           sourceGenerationId: generationId,
+          masterAssetId,
+          masterSalesforceId,
           extractedAt: new Date().toISOString(),
+          sfdcSyncStatus: 'pending',
         },
       })
       .select()
@@ -180,52 +246,64 @@ serve(async (req) => {
       console.log("Media asset created:", assetData?.id);
     }
 
+    // === SALESFORCE SYNC ===
     let salesforceId: string | null = null;
-    if (salesforceData?.masterContentId) {
-      try {
-        const salesforcePayload = {
-          action: "create_variant",
-          data: {
-            masterContentId: salesforceData.masterContentId,
-            platform: "Grid Extract",
-            platformVariant: positionLabels[positionId] || positionId,
-            pixelWidth: cellWidth,
-            pixelHeight: cellHeight,
-            publicUrl: variantCdnUrl,
-            systemFlags: [
-              "Auto Generated",
-              "Grid Extract",
-              `Template: ${template}`,
-              "Derived Asset",
-            ],
-          },
-        };
 
-        console.log("Sending to Salesforce:", JSON.stringify(salesforcePayload, null, 2));
+    try {
+      const formData = new FormData();
+      formData.append("retURL", "https://worldmotoclash.com");
+      formData.append("sObj", "ri1__Content__c");
+      formData.append("string_Name", variantTitle);
+      formData.append("string_ri1__Content_Type__c", "JPG");
+      formData.append("string_ri1__URL__c", variantCdnUrl);
 
-        const sfResponse = await fetch("https://api.realintelligence.com/web2x-engine.php", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(salesforcePayload),
-        });
+      console.log("=== SALESFORCE SYNC START ===");
+      console.log("Sending grid variant to w2x-engine:", W2X_ENGINE_URL);
 
-        if (sfResponse.ok) {
-          const sfResult = await sfResponse.json();
-          salesforceId = sfResult.salesforceId || sfResult.id || null;
-          console.log("Salesforce sync result:", sfResult);
+      const sfResponse = await fetch(W2X_ENGINE_URL, {
+        method: "POST",
+        body: formData,
+      });
 
-          if (salesforceId && assetData?.id) {
-            await supabase
-              .from("media_assets")
-              .update({ salesforce_id: salesforceId })
-              .eq("id", assetData.id);
-          }
-        } else {
-          console.warn("Salesforce sync warning:", await sfResponse.text());
+      const sfResponseText = await sfResponse.text();
+      console.log("w2x-engine response status:", sfResponse.status);
+
+      if (sfResponse.ok) {
+        console.log("w2x-engine call successful, querying API for Salesforce ID...");
+        salesforceId = await findSalesforceIdByUrl(variantCdnUrl, 3);
+        
+        if (salesforceId && assetData?.id) {
+          await supabase
+            .from("media_assets")
+            .update({ 
+              salesforce_id: salesforceId,
+              metadata: {
+                ...assetData.metadata,
+                sfdcSyncStatus: 'success',
+                sfdcSyncedAt: new Date().toISOString(),
+              }
+            })
+            .eq("id", assetData.id);
+          console.log("Updated with Salesforce ID:", salesforceId);
+        } else if (assetData?.id) {
+          await supabase
+            .from("media_assets")
+            .update({
+              metadata: {
+                ...assetData.metadata,
+                sfdcSyncStatus: 'failed',
+                sfdcSyncError: "Record created but ID not found",
+              }
+            })
+            .eq("id", assetData.id);
         }
-      } catch (sfError) {
-        console.error("Salesforce callback error:", sfError);
+      } else {
+        console.error("w2x-engine call failed:", sfResponse.status, sfResponseText.substring(0, 200));
       }
+      
+      console.log("=== SALESFORCE SYNC END ===");
+    } catch (sfError) {
+      console.error("Salesforce sync error:", sfError);
     }
 
     console.log("Successfully extracted grid image:", {
@@ -233,6 +311,7 @@ serve(async (req) => {
       position: `${row},${col}`,
       dimensions: `${cellWidth}x${cellHeight}`,
       assetId: assetData?.id,
+      salesforceId,
       s3Key,
     });
 
