@@ -390,21 +390,23 @@ export const UnifiedMediaLibrary: React.FC = () => {
                   </label>
                 </div>
                 
-                {/* Image (parent) - selects both master_image and image_variant */}
+                {/* Image (parent) - selects both master_image, image_variant, and grid_variant */}
                 <div className="min-h-8 flex items-center space-x-2">
                   <Checkbox
                     id="type-image"
                     checked={
-                      (filters.assetTypes?.includes('master_image') && filters.assetTypes?.includes('image_variant')) || 
+                      (filters.assetTypes?.includes('master_image') && 
+                       filters.assetTypes?.includes('image_variant') && 
+                       filters.assetTypes?.includes('grid_variant')) || 
                       filters.assetTypes?.includes('image') || 
                       false
                     }
                     onCheckedChange={(checked) => {
                       const currentTypes = (filters.assetTypes || []).filter(
-                        t => !['image', 'master_image', 'image_variant'].includes(t)
+                        t => !['image', 'master_image', 'image_variant', 'grid_variant'].includes(t)
                       );
                       if (checked) {
-                        handleFilterChange('assetTypes', [...currentTypes, 'master_image', 'image_variant']);
+                        handleFilterChange('assetTypes', [...currentTypes, 'master_image', 'image_variant', 'grid_variant']);
                       } else {
                         handleFilterChange('assetTypes', currentTypes);
                       }
@@ -434,17 +436,22 @@ export const UnifiedMediaLibrary: React.FC = () => {
                   </label>
                 </div>
                 
-                {/* Variants (sub-option) */}
+                {/* Variants (sub-option) - includes both image_variant and grid_variant */}
                 <div className="min-h-8 flex items-center space-x-2 pl-6">
                   <Checkbox
                     id="type-variant"
-                    checked={filters.assetTypes?.includes('image_variant') || false}
+                    checked={
+                      (filters.assetTypes?.includes('image_variant') || filters.assetTypes?.includes('grid_variant')) || 
+                      false
+                    }
                     onCheckedChange={(checked) => {
-                      const currentTypes = (filters.assetTypes || []).filter(t => t !== 'image');
+                      const currentTypes = (filters.assetTypes || []).filter(
+                        t => !['image', 'image_variant', 'grid_variant'].includes(t)
+                      );
                       if (checked) {
-                        handleFilterChange('assetTypes', [...currentTypes.filter(t => t !== 'image_variant'), 'image_variant']);
+                        handleFilterChange('assetTypes', [...currentTypes, 'image_variant', 'grid_variant']);
                       } else {
-                        handleFilterChange('assetTypes', currentTypes.filter(t => t !== 'image_variant'));
+                        handleFilterChange('assetTypes', currentTypes);
                       }
                     }}
                   />

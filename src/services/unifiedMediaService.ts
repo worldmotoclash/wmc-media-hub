@@ -234,11 +234,11 @@ export async function fetchAllMediaAssets(
           salesforceAssets = salesforceAssets.filter(asset => {
             if (asset.assetType) {
               // Check if asset type matches any selected filter
-              // 'image' filter should match 'image', 'master_image', 'image_variant'
+              // 'image' filter should match 'image', 'master_image', 'image_variant', 'grid_variant'
               // 'video' filter should match 'video'
               return filters.assetTypes!.some(filterType => {
-                if (filterType === 'image' || filterType === 'master_image' || filterType === 'image_variant') {
-                  return asset.assetType === 'image';
+                if (filterType === 'image' || filterType === 'master_image' || filterType === 'image_variant' || filterType === 'grid_variant') {
+                  return asset.assetType === 'image' || asset.assetType === 'grid_variant';
                 }
                 return asset.assetType === filterType;
               });
