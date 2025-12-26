@@ -122,23 +122,23 @@ const IMAGE_TEMPLATES = [
 
 // Image Generation Models
 const IMAGE_GENERATION_MODELS = [
-  // Lovable AI models
+  // Lovable AI models (Nano Banana branding)
   {
     id: 'gemini-flash-image',
-    name: 'Gemini 2.5 Flash Image',
+    name: 'Nano Banana',
     model: 'google/gemini-2.5-flash-image-preview',
     vendor: 'Lovable AI',
-    description: 'Fast, high-quality image generation',
+    description: 'Fast, high-quality (Gemini 2.5 Flash)',
     qualityTier: 'standard',
     speedTier: 'fast',
     pricing: 'Included'
   },
   {
     id: 'gemini-3-pro-image',
-    name: 'Gemini 3 Pro Image',
+    name: 'Nano Banana Pro',
     model: 'google/gemini-3-pro-image-preview',
     vendor: 'Lovable AI',
-    description: 'Next-gen premium quality',
+    description: 'Premium quality (Gemini 3 Pro)',
     qualityTier: 'premium',
     speedTier: 'standard',
     pricing: 'Included'
