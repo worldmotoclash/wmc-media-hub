@@ -44,6 +44,9 @@ interface StyleProfile {
 interface AnalyzeRequest {
   imageUrl: string;
   assetId?: string;
+  // Element-focused analysis - for pinning specific subjects
+  elementType?: 'character' | 'vehicle' | 'object' | 'scene' | 'group';
+  elementDescription?: string;
 }
 
 serve(async (req) => {
@@ -53,9 +56,9 @@ serve(async (req) => {
 
   try {
     const requestData: AnalyzeRequest = await req.json();
-    const { imageUrl, assetId } = requestData;
+    const { imageUrl, assetId, elementType, elementDescription } = requestData;
 
-    console.log('Analyze master image request:', { imageUrl: imageUrl?.substring(0, 100), assetId });
+    console.log('Analyze master image request:', { imageUrl: imageUrl?.substring(0, 100), assetId, elementType, elementDescription });
 
     if (!imageUrl) {
       throw new Error('Image URL is required');
@@ -72,6 +75,40 @@ serve(async (req) => {
 
     console.log('Calling Lovable AI to analyze master image...');
 
+    // Build system prompt based on whether this is element-focused or full analysis
+    const isElementFocused = !!elementType;
+    
+    const fullAnalysisSystemPrompt = `You are a cinematic style analyst. Analyze images to extract a comprehensive "Style Profile" that can be used to maintain consistency when generating variant images.
+
+Focus on extracting:
+1. ALL subjects (people, vehicles, animals, objects) with detailed descriptions
+2. Their exact appearance, wardrobe, colors, textures
+3. The environment, setting, time of day, weather
+4. Lighting direction, quality, and tone
+5. Color palette and overall grade/mood
+6. Camera/lens characteristics
+7. "Visual Anchors" - 4-8 specific traits that MUST remain constant in any variants
+8. "Negative Constraints" - things that should NOT appear in variants (like new characters, different props, etc.)
+
+Be extremely specific and detailed. This profile will be used to ensure generated variants match the original exactly.`;
+
+    const elementFocusedSystemPrompt = `You are a cinematic style analyst specializing in extracting details about specific elements from images.
+You are analyzing a reference image specifically for a ${elementType || 'element'} ${elementDescription ? `named "${elementDescription}"` : ''}.
+
+Focus ONLY on extracting details about this specific ${elementType || 'element'}:
+1. Exact appearance, colors, textures, materials
+2. Distinctive traits that make this element recognizable
+3. For characters/people: exact wardrobe, accessories, physical features
+4. For vehicles: make, model, color, modifications, identifying marks
+5. For objects: shape, color, texture, size relative to surroundings
+6. For scenes: key environmental elements that define this location
+
+Be extremely specific and detailed. This profile will be used to ensure this exact ${elementType || 'element'} appears consistently across all generated variants.`;
+
+    const fullAnalysisUserPrompt = 'Analyze this master image and extract a detailed Style Profile. Be extremely specific about all subjects, their appearance, wardrobe, the environment, lighting, and camera style. List visual anchors that must stay constant and negative constraints for what should not change.';
+
+    const elementFocusedUserPrompt = `Analyze this image and extract detailed information specifically about the ${elementType || 'element'} ${elementDescription ? `"${elementDescription}"` : ''}. Focus only on this specific element's appearance, traits, and distinguishing features that must remain constant when generating variants.`;
+
     // Use tool calling to get structured output
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -84,26 +121,14 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are a cinematic style analyst. Analyze images to extract a comprehensive "Style Profile" that can be used to maintain consistency when generating variant images.
-
-Focus on extracting:
-1. ALL subjects (people, vehicles, animals, objects) with detailed descriptions
-2. Their exact appearance, wardrobe, colors, textures
-3. The environment, setting, time of day, weather
-4. Lighting direction, quality, and tone
-5. Color palette and overall grade/mood
-6. Camera/lens characteristics
-7. "Visual Anchors" - 4-8 specific traits that MUST remain constant in any variants
-8. "Negative Constraints" - things that should NOT appear in variants (like new characters, different props, etc.)
-
-Be extremely specific and detailed. This profile will be used to ensure generated variants match the original exactly.`
+            content: isElementFocused ? elementFocusedSystemPrompt : fullAnalysisSystemPrompt
           },
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: 'Analyze this master image and extract a detailed Style Profile. Be extremely specific about all subjects, their appearance, wardrobe, the environment, lighting, and camera style. List visual anchors that must stay constant and negative constraints for what should not change.'
+                text: isElementFocused ? elementFocusedUserPrompt : fullAnalysisUserPrompt
               },
               {
                 type: 'image_url',

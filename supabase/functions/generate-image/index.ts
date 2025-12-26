@@ -175,6 +175,13 @@ interface StyleProfile {
   negativeConstraints?: string[];
 }
 
+// Pinned subject reference for element locking
+interface PinnedSubject {
+  subjectId: string;
+  imageUrl: string;
+  profile?: Partial<StyleProfile>;
+}
+
 interface ImageGenerationRequest {
   userId: string;
   prompt: string;
@@ -186,6 +193,7 @@ interface ImageGenerationRequest {
   masterSalesforceId?: string;
   styleProfile?: StyleProfile;
   styleOverride?: string;
+  pinnedSubjects?: PinnedSubject[]; // New: for element locking
   salesforceData?: {
     title: string;
     description?: string;
@@ -284,12 +292,12 @@ serve(async (req) => {
 
   try {
     const requestData: ImageGenerationRequest = await req.json();
-    const { userId, prompt, template, referenceImageUrl, title, model, masterAssetId, masterSalesforceId, styleProfile, styleOverride, salesforceData } = requestData;
+    const { userId, prompt, template, referenceImageUrl, title, model, masterAssetId, masterSalesforceId, styleProfile, styleOverride, pinnedSubjects, salesforceData } = requestData;
 
     const selectedModel = model || 'google/gemini-2.5-flash-image-preview';
     const isGridTemplate = template && ['version1', 'version2', 'version3'].includes(template);
 
-    console.log('Image generation request received:', { userId, prompt: prompt.substring(0, 100), template, title, model: selectedModel, isGridTemplate, hasStyleProfile: !!styleProfile });
+    console.log('Image generation request received:', { userId, prompt: prompt.substring(0, 100), template, title, model: selectedModel, isGridTemplate, hasStyleProfile: !!styleProfile, pinnedSubjectsCount: pinnedSubjects?.length || 0 });
 
     if (!userId) {
       throw new Error('User ID is required');
@@ -342,7 +350,8 @@ serve(async (req) => {
       masterSalesforceId,
       isGridTemplate,
       styleProfile,
-      styleOverride
+      styleOverride,
+      pinnedSubjects
     );
 
     if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
@@ -384,7 +393,8 @@ async function generateImage(
   masterSalesforceId: string | undefined,
   isGridTemplate: boolean,
   styleProfile?: StyleProfile,
-  styleOverride?: string
+  styleOverride?: string,
+  pinnedSubjects?: PinnedSubject[]
 ) {
   try {
     await supabase
@@ -439,6 +449,28 @@ Only vary: camera angle, shot framing, and shot distance. Everything else MUST m
       console.log('Style lock constraints applied');
     }
 
+    // Add pinned subject constraints if any subjects have reference images
+    let pinnedSubjectsConstraints = '';
+    if (pinnedSubjects && pinnedSubjects.length > 0 && isGridTemplate) {
+      const pinnedList = pinnedSubjects.map(ps => {
+        const profileDetails = ps.profile?.subjects?.[0];
+        return `- "${ps.subjectId}": MUST EXACTLY MATCH the pinned reference image. ${profileDetails?.appearance || ''} ${profileDetails?.wardrobe ? `Wearing: ${profileDetails.wardrobe}` : ''}`;
+      }).join('\n');
+      
+      pinnedSubjectsConstraints = `
+=== PINNED ELEMENT REFERENCES (HIGHEST PRIORITY) ===
+The following elements have specific reference images and MUST be reproduced EXACTLY as shown:
+${pinnedList}
+
+These pinned elements take precedence over general style lock constraints.
+=== END PINNED ELEMENTS ===
+`;
+      console.log(`Applied ${pinnedSubjects.length} pinned subject constraints`);
+    }
+
+    // Combine all constraints
+    const allConstraints = styleLockConstraints + pinnedSubjectsConstraints;
+
     // Enhanced system prompt for grid templates
     const systemPrompt = isGridTemplate 
       ? `You are generating a 3×3 cinematic storyboard grid image.
@@ -452,7 +484,7 @@ CRITICAL: DO NOT include ANY text, titles, labels, captions, watermarks, scene n
 or text overlays of any kind in the generated image. The image must be PURELY VISUAL with absolutely no textual elements.
 Each panel should contain only the visual content - no annotations or descriptions embedded in the image.
 
-${styleLockConstraints}`
+${allConstraints}`
       : `You are generating professional motorsport and racing imagery. 
 Create high-quality, cinematic images suitable for marketing and promotional use.
 Focus on dynamic action, dramatic lighting, and professional sports photography aesthetics.
