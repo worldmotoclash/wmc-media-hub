@@ -29,7 +29,12 @@ import {
   Info,
   Check,
   Download,
-  Loader2
+  Loader2,
+  Lock,
+  Eye,
+  Users,
+  Palette,
+  Camera
 } from "lucide-react";
 import { STORYTELLING_PROMPTS } from "@/constants/storytellingPrompts";
 import { GRID_POSITIONS, GRID_TEMPLATES } from "@/constants/gridPositions";
@@ -74,6 +79,42 @@ interface ImageGeneration {
   error_message?: string;
   created_at: string;
   updated_at: string;
+}
+
+// Style Profile interface for master image analysis
+interface StyleProfile {
+  subjects: Array<{
+    id: string;
+    type: 'person' | 'vehicle' | 'animal' | 'object' | 'group';
+    appearance: string;
+    wardrobe?: string;
+    distinguishingTraits: string[];
+    position: string;
+  }>;
+  environment: {
+    setting: string;
+    timeOfDay: string;
+    weather?: string;
+    backgroundElements: string[];
+  };
+  lighting: {
+    direction: string;
+    quality: string;
+    keyTones: string[];
+  };
+  colorGrade: {
+    palette: string[];
+    mood: string;
+    contrast: string;
+    texture: string;
+  };
+  cameraStyle: {
+    lensType: string;
+    depthOfField: string;
+    compositionNotes: string;
+  };
+  visualAnchors: string[];
+  negativeConstraints: string[];
 }
 
 // LLM-focused Image Use Cases (matches video preset pattern)
@@ -282,6 +323,11 @@ const Generate: React.FC = () => {
   const [extractedVariants, setExtractedVariants] = useState<Array<{id: string, url: string, position: string, label: string}>>([]);
   const [extractionProgress, setExtractionProgress] = useState({ current: 0, total: 0 });
   
+  // Style Lock state for master image analysis
+  const [styleProfile, setStyleProfile] = useState<StyleProfile | null>(null);
+  const [isAnalyzingStyle, setIsAnalyzingStyle] = useState(false);
+  const [styleOverride, setStyleOverride] = useState('');
+  
   // Image model state - check URL param for model selection from marketplace
   const initialImageModel = urlModelId 
     ? IMAGE_GENERATION_MODELS.find(m => m.id === urlModelId) || IMAGE_GENERATION_MODELS[0]
@@ -323,6 +369,61 @@ const Generate: React.FC = () => {
 
   // Get current selected template info
   const selectedTemplateInfo = IMAGE_TEMPLATES.find(t => t.id === selectedTemplate);
+  
+  // Check if a grid template is selected that requires style analysis
+  const isGridTemplate = selectedTemplate && ['version1', 'version2', 'version3'].includes(selectedTemplate);
+
+  // Analyze master image when uploaded (for grid templates)
+  const analyzeStyleProfile = async (imageUrl: string, assetId?: string) => {
+    if (!imageUrl) return;
+    
+    setIsAnalyzingStyle(true);
+    try {
+      const response = await supabase.functions.invoke('analyze-master-image', {
+        body: { imageUrl, assetId }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Analysis failed');
+      }
+
+      if (response.data?.success && response.data?.styleProfile) {
+        setStyleProfile(response.data.styleProfile);
+        toast({
+          title: "Style Lock Ready",
+          description: `Identified ${response.data.styleProfile.subjects?.length || 0} subjects and ${response.data.styleProfile.visualAnchors?.length || 0} visual anchors`,
+        });
+      } else {
+        throw new Error(response.data?.error || 'Failed to analyze image');
+      }
+    } catch (error) {
+      console.error('Style analysis error:', error);
+      toast({
+        title: "Style Analysis Failed",
+        description: error instanceof Error ? error.message : 'Failed to analyze image style',
+        variant: "destructive",
+      });
+    }
+    setIsAnalyzingStyle(false);
+  };
+
+  // Handle master image upload with style analysis
+  const handleMasterImageUpload = async (info: { url: string; assetId?: string; salesforceId?: string }) => {
+    setGenData(prev => ({ 
+      ...prev, 
+      startImage: info.url,
+      startImageAssetId: info.assetId || '',
+      startImageSalesforceId: info.salesforceId || ''
+    }));
+    
+    // Clear previous style profile
+    setStyleProfile(null);
+    
+    // Auto-analyze if grid template selected
+    if (isGridTemplate && info.url) {
+      await analyzeStyleProfile(info.url, info.assetId);
+    }
+  };
 
   // Check authentication
   useEffect(() => {
@@ -619,6 +720,9 @@ const Generate: React.FC = () => {
             model: selectedImageModel.model,
             masterAssetId: genData.startImageAssetId || undefined,
             masterSalesforceId: genData.startImageSalesforceId || undefined,
+            // Pass style profile and override for consistency enforcement
+            styleProfile: styleProfile || undefined,
+            styleOverride: styleOverride || undefined,
             salesforceData: {
               title: genData.title,
               description: genData.description,
@@ -1694,12 +1798,18 @@ const Generate: React.FC = () => {
                 <Card className="p-6">
                   <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                     <Image className="w-5 h-5" />
-                    Image Inputs
+                    Master Image
                     {selectedModel?.capabilities.includes('start_end_image') && (
                       <Badge variant="secondary" className="text-xs">Start + End</Badge>
                     )}
                     {STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage && (
                       <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">Required by Template</Badge>
+                    )}
+                    {isGridTemplate && (
+                      <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300 flex items-center gap-1">
+                        <Lock className="w-3 h-3" />
+                        Style Lock
+                      </Badge>
                     )}
                   </h3>
                   
@@ -1708,20 +1818,17 @@ const Generate: React.FC = () => {
                     <ImageDropzone
                       value={genData.startImage}
                       onChange={(url) => setGenData(prev => ({ ...prev, startImage: url }))}
-                      onUploadComplete={(info) => setGenData(prev => ({ 
-                        ...prev, 
-                        startImage: info.url,
-                        startImageAssetId: info.assetId || '',
-                        startImageSalesforceId: info.salesforceId || ''
-                      }))}
-                      label={selectedModel?.capabilities.includes('start_end_image') ? 'Start Image' : 'Source Image'}
-                      description={STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage 
-                        ? 'Reference image for the storytelling template'
-                        : selectedModel?.capabilities.includes('start_end_image') 
-                          ? 'The first frame of your video'
-                          : 'The image to animate into video'}
+                      onUploadComplete={handleMasterImageUpload}
+                      label={selectedModel?.capabilities.includes('start_end_image') ? 'Start Image' : 'Master/Source Image'}
+                      description={isGridTemplate 
+                        ? 'Master image - variants will match this exactly'
+                        : STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage 
+                          ? 'Reference image for the storytelling template'
+                          : selectedModel?.capabilities.includes('start_end_image') 
+                            ? 'The first frame of your video'
+                            : 'The image to animate into video'}
                       required={selectedModel?.id === 'vidu_i2v' || STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage}
-                      disabled={isGenerating}
+                      disabled={isGenerating || isAnalyzingStyle}
                     />
 
                     {/* End Image - Only for start_end_image models */}
@@ -1737,15 +1844,116 @@ const Generate: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Tips for image-to-video */}
+                  {/* Style Lock Panel - Shows when grid template is selected and image is uploaded */}
+                  {isGridTemplate && genData.startImage && (
+                    <div className="mt-6 p-4 border border-emerald-500/30 bg-emerald-500/5 rounded-lg">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Lock className="w-4 h-4 text-emerald-600" />
+                          <span className="font-medium text-emerald-700 dark:text-emerald-400">Style Lock</span>
+                          {isAnalyzingStyle ? (
+                            <Badge variant="outline" className="text-xs text-amber-600 border-amber-300 flex items-center gap-1">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Analyzing...
+                            </Badge>
+                          ) : styleProfile ? (
+                            <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300 flex items-center gap-1">
+                              <Check className="w-3 h-3" />
+                              Ready
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs text-muted-foreground">Not analyzed</Badge>
+                          )}
+                        </div>
+                        {!isAnalyzingStyle && !styleProfile && genData.startImage && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => analyzeStyleProfile(genData.startImage, genData.startImageAssetId)}
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            Analyze Style
+                          </Button>
+                        )}
+                      </div>
+
+                      {styleProfile && (
+                        <div className="space-y-3">
+                          {/* Subjects Summary */}
+                          <div className="flex items-start gap-2">
+                            <Users className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                            <div className="flex-1">
+                              <span className="text-xs font-medium text-muted-foreground">Subjects:</span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {styleProfile.subjects?.map((s, i) => (
+                                  <Badge key={i} variant="secondary" className="text-xs">
+                                    {s.id}: {s.type}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Visual Anchors */}
+                          <div className="flex items-start gap-2">
+                            <Palette className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                            <div className="flex-1">
+                              <span className="text-xs font-medium text-muted-foreground">Visual Anchors (locked):</span>
+                              <ul className="text-xs text-muted-foreground mt-1 list-disc list-inside">
+                                {styleProfile.visualAnchors?.slice(0, 4).map((anchor, i) => (
+                                  <li key={i}>{anchor}</li>
+                                ))}
+                                {(styleProfile.visualAnchors?.length || 0) > 4 && (
+                                  <li className="text-muted-foreground/60">+{styleProfile.visualAnchors!.length - 4} more...</li>
+                                )}
+                              </ul>
+                            </div>
+                          </div>
+
+                          {/* Environment & Camera */}
+                          <div className="flex items-start gap-2">
+                            <Camera className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                            <div className="flex-1">
+                              <span className="text-xs font-medium text-muted-foreground">Environment:</span>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {styleProfile.environment?.setting} • {styleProfile.environment?.timeOfDay} • {styleProfile.lighting?.quality} light
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Override textarea */}
+                          <div className="mt-3">
+                            <Label className="text-xs text-muted-foreground">Extra constraints (optional):</Label>
+                            <Textarea
+                              value={styleOverride}
+                              onChange={(e) => setStyleOverride(e.target.value)}
+                              placeholder="Add extra style constraints or overrides..."
+                              className="mt-1 text-xs h-16"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {isAnalyzingStyle && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Analyzing subjects, environment, lighting, and style...
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Tips */}
                   <div className="mt-4 p-3 bg-muted/50 rounded-lg">
                     <p className="text-xs text-muted-foreground">
-                      <strong>Tips:</strong> Use high-quality images with clear subjects. 
-                      {selectedModel?.capabilities.includes('start_end_image') 
-                        ? ' For best results, use images with similar composition and subjects.'
-                        : STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage
-                          ? ' The template will analyze and expand upon your reference image.'
-                          : ' The prompt describes how the image should be animated.'}
+                      <strong>Tips:</strong> {isGridTemplate 
+                        ? 'Style Lock ensures all 9 grid panels match your master image exactly - same characters, wardrobe, environment, and lighting.'
+                        : selectedModel?.capabilities.includes('start_end_image') 
+                          ? ' For best results, use images with similar composition and subjects.'
+                          : STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage
+                            ? ' The template will analyze and expand upon your reference image.'
+                            : ' The prompt describes how the image should be animated.'}
                     </p>
                   </div>
                 </Card>

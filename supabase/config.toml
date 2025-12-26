@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.sync-asset-to-salesforce]
 verify_jwt = false
+
+[functions.analyze-master-image]
+verify_jwt = false
