@@ -385,6 +385,12 @@ const Generate: React.FC = () => {
   
   // Check if a grid template is selected that requires style analysis
   const isGridTemplate = selectedTemplate && ['version1', 'version2', 'version3'].includes(selectedTemplate);
+  
+  // Check if video model supports image-to-video (enables style lock for video)
+  const isImageToVideoModel = outputType === 'video' && selectedModel?.capabilities.includes('image_to_video');
+  
+  // Style Lock should be available for grid templates OR image-to-video models
+  const supportsStyleLock = isGridTemplate || isImageToVideoModel;
 
   // Analyze master image when uploaded (for grid templates)
   const analyzeStyleProfile = async (imageUrl: string, assetId?: string) => {
@@ -433,8 +439,8 @@ const Generate: React.FC = () => {
     setStyleProfile(null);
     setSubjectReferences({});
     
-    // Auto-analyze if grid template selected
-    if (isGridTemplate && info.url) {
+    // Auto-analyze if grid template selected OR image-to-video model is selected
+    if ((isGridTemplate || isImageToVideoModel) && info.url) {
       await analyzeStyleProfile(info.url, info.assetId);
     }
   };
@@ -850,6 +856,11 @@ const Generate: React.FC = () => {
             },
             audioUrl: genData.audioUrl || undefined,
             imageUrl: genData.imageUrl || undefined,
+            startImage: genData.startImage || undefined,
+            endImage: genData.endImage || undefined,
+            // Pass style profile for image-to-video consistency
+            styleProfile: styleProfile || undefined,
+            styleOverride: styleOverride || undefined,
             extras: {},
             mediaUrlKey,
             salesforceData,
@@ -865,6 +876,11 @@ const Generate: React.FC = () => {
             aspectRatio: genData.aspectRatio,
             creativity: genData.creativity[0],
             model: selectedModel.id,
+            startImage: genData.startImage || undefined,
+            endImage: genData.endImage || undefined,
+            // Pass style profile for image-to-video consistency
+            styleProfile: styleProfile || undefined,
+            styleOverride: styleOverride || undefined,
             mediaUrlKey,
             salesforceData,
           },
@@ -1825,7 +1841,7 @@ const Generate: React.FC = () => {
                     {STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage && (
                       <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">Required by Template</Badge>
                     )}
-                    {isGridTemplate && (
+                    {(isGridTemplate || isImageToVideoModel) && (
                       <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300 flex items-center gap-1">
                         <Lock className="w-3 h-3" />
                         Style Lock
@@ -1842,11 +1858,13 @@ const Generate: React.FC = () => {
                       label={selectedModel?.capabilities.includes('start_end_image') ? 'Start Image' : 'Master/Source Image'}
                       description={isGridTemplate 
                         ? 'Master image - variants will match this exactly'
-                        : STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage 
-                          ? 'Reference image for the storytelling template'
-                          : selectedModel?.capabilities.includes('start_end_image') 
-                            ? 'The first frame of your video'
-                            : 'The image to animate into video'}
+                        : isImageToVideoModel
+                          ? 'Reference image - video will match this style exactly'
+                          : STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage 
+                            ? 'Reference image for the storytelling template'
+                            : selectedModel?.capabilities.includes('start_end_image') 
+                              ? 'The first frame of your video'
+                              : 'The image to animate into video'}
                       required={selectedModel?.id === 'vidu_i2v' || STORYTELLING_PROMPTS.find(p => p.id === selectedTemplate)?.requiresImage}
                       disabled={isGenerating || isAnalyzingStyle}
                     />
@@ -1864,8 +1882,8 @@ const Generate: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Style Lock Panel - Shows when grid template is selected and image is uploaded */}
-                  {isGridTemplate && genData.startImage && (
+                  {/* Style Lock Panel - Shows when grid template OR image-to-video model is selected and image is uploaded */}
+                  {supportsStyleLock && genData.startImage && (
                     <div className="mt-6 p-4 border border-emerald-500/30 bg-emerald-500/5 rounded-lg">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">

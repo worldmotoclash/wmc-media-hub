@@ -6,6 +6,31 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Style Profile interface for consistency enforcement
+interface StyleProfile {
+  subjects?: Array<{
+    id: string;
+    type: string;
+    appearance: string;
+    wardrobe?: string;
+    distinguishingTraits: string[];
+    position: string;
+  }>;
+  environment?: {
+    setting: string;
+    timeOfDay: string;
+    weather?: string;
+    backgroundElements: string[];
+  };
+  lighting?: {
+    direction: string;
+    quality: string;
+    keyTones: string[];
+  };
+  visualAnchors?: string[];
+  negativeConstraints?: string[];
+}
+
 // Interface for the Wavespeed generation request
 interface WavespeedGenerationRequest {
   userId: string;
@@ -22,6 +47,8 @@ interface WavespeedGenerationRequest {
   imageUrl?: string;
   startImage?: string;
   endImage?: string;
+  styleProfile?: StyleProfile;
+  styleOverride?: string;
   extras?: Record<string, any>;
   mediaUrlKey?: string;
   salesforceData?: Record<string, any>;
@@ -242,10 +269,39 @@ Deno.serve(async (req) => {
     const modelConfig = WAVESPEED_MODELS[requestData.model];
     const salesforceData = requestData.salesforceData || {};
     
+    console.log(`🎨 Style Lock: ${requestData.styleProfile ? 'Enabled' : 'Disabled'}`);
+    
+    // Build style-enhanced prompt if style profile is provided
+    let enhancedPrompt = requestData.prompt;
+    if (requestData.styleProfile) {
+      const sp = requestData.styleProfile;
+      const subjectsList = sp.subjects?.map(s => 
+        `${s.id} (${s.type}): ${s.appearance}${s.wardrobe ? `, wearing ${s.wardrobe}` : ''}`
+      ).join('; ') || '';
+      
+      const anchorsList = sp.visualAnchors?.slice(0, 5).join(', ') || '';
+      const envDesc = sp.environment ? `${sp.environment.setting}, ${sp.environment.timeOfDay}` : '';
+      const lightDesc = sp.lighting ? `${sp.lighting.direction} ${sp.lighting.quality} lighting` : '';
+      
+      enhancedPrompt = `[STYLE LOCK - Maintain exact consistency with reference image]
+${requestData.prompt}
+
+MANDATORY CONSISTENCY REQUIREMENTS:
+- Subjects: ${subjectsList}
+- Environment: ${envDesc}
+- Lighting: ${lightDesc}
+- Visual anchors that MUST remain constant: ${anchorsList}
+${requestData.styleOverride ? `\nAdditional constraints: ${requestData.styleOverride}` : ''}
+DO NOT introduce new characters, change wardrobe, or alter the environment from the reference.`;
+      
+      console.log('📝 Enhanced prompt with Style Lock constraints');
+    }
+    
     // Build the generation data
     const generationData = {
       model: requestData.model,
-      prompt: requestData.prompt,
+      prompt: enhancedPrompt,
+      originalPrompt: requestData.prompt,
       durationSec: requestData.durationSec || 8,
       resolution: requestData.resolution || '720p',
       aspectRatio: requestData.aspectRatio || '16:9',
@@ -256,6 +312,7 @@ Deno.serve(async (req) => {
       endImage: requestData.endImage,
       extras: requestData.extras,
       salesforceData: salesforceData,
+      hasStyleProfile: !!requestData.styleProfile,
     };
 
     // Create Supabase record first
