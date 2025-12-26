@@ -256,6 +256,12 @@ serve(async (req) => {
       formData.append("string_Name", variantTitle);
       formData.append("string_ri1__Content_Type__c", "JPG");
       formData.append("string_ri1__URL__c", variantCdnUrl);
+      
+      // Link variant to master content record
+      if (masterSalesforceId) {
+        formData.append("lookup_ri1__Master_Content__c", masterSalesforceId);
+        console.log(`Linking variant to master SFDC record: ${masterSalesforceId}`);
+      }
 
       console.log("=== SALESFORCE SYNC START ===");
       console.log("Sending grid variant to w2x-engine:", W2X_ENGINE_URL);
