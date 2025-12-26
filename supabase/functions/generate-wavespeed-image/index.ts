@@ -7,6 +7,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const WMC_CONTENT_API = "https://api.realintelligence.com/api/wmc-content-master.py";
+const W2X_ENGINE_URL = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
+const ORG_ID = "00D5e000000HEcP";
+
 interface ImageGenerationRequest {
   userId: string;
   model: string;
@@ -15,6 +19,9 @@ interface ImageGenerationRequest {
   height?: number;
   title?: string;
   referenceImageUrl?: string;
+  template?: string;
+  masterAssetId?: string;
+  masterSalesforceId?: string;
   salesforceData?: {
     title: string;
     description?: string;
@@ -53,6 +60,87 @@ const WAVESPEED_IMAGE_MODELS: Record<string, {
   }
 };
 
+// Helper function to escape special regex characters
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Query the wmc-content-master API to find a Salesforce ID by matching URL
+async function findSalesforceIdByUrl(cdnUrl: string, maxAttempts = 3): Promise<string | null> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const delayMs = 2000 * attempt;
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      
+      const apiUrl = `${WMC_CONTENT_API}?orgId=${ORG_ID}&sandbox=False`;
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) continue;
+      
+      const xmlText = await response.text();
+      const escapedUrl = escapeRegExp(cdnUrl);
+      
+      const patterns = [
+        new RegExp(`<content>.*?<id>([^<]+)</id>.*?<url><!\\[CDATA\\[${escapedUrl}\\]\\]></url>.*?</content>`, 's'),
+        new RegExp(`<content>.*?<id>([^<]+)</id>.*?<url>${escapedUrl}</url>.*?</content>`, 's'),
+        new RegExp(`<content>.*?<url><!\\[CDATA\\[${escapedUrl}\\]\\]></url>.*?<id>([^<]+)</id>.*?</content>`, 's'),
+        new RegExp(`<content>.*?<url>${escapedUrl}</url>.*?<id>([^<]+)</id>.*?</content>`, 's'),
+      ];
+      
+      for (const pattern of patterns) {
+        const match = xmlText.match(pattern);
+        if (match && match[1]) {
+          return match[1].trim();
+        }
+      }
+      
+      const contentBlocks = xmlText.match(/<content>[\s\S]*?<\/content>/g) || [];
+      for (const block of contentBlocks) {
+        if (block.includes(cdnUrl)) {
+          const idMatch = block.match(/<id>([^<]+)<\/id>/);
+          if (idMatch && idMatch[1]) {
+            return idMatch[1].trim();
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error querying API (attempt ${attempt}):`, error);
+    }
+  }
+  
+  return null;
+}
+
+// Create SFDC record and get ID
+async function createSfdcRecord(title: string, cdnUrl: string, contentType: string): Promise<string | null> {
+  try {
+    const formData = new FormData();
+    formData.append("retURL", "https://worldmotoclash.com");
+    formData.append("sObj", "ri1__Content__c");
+    formData.append("string_Name", title);
+    formData.append("string_ri1__Content_Type__c", contentType);
+    formData.append("string_ri1__URL__c", cdnUrl);
+
+    console.log("Sending to w2x-engine:", W2X_ENGINE_URL);
+
+    const sfResponse = await fetch(W2X_ENGINE_URL, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (sfResponse.ok) {
+      console.log("w2x-engine call successful, querying API for Salesforce ID...");
+      return await findSalesforceIdByUrl(cdnUrl, 3);
+    } else {
+      console.error("w2x-engine call failed:", sfResponse.status);
+      return null;
+    }
+  } catch (error) {
+    console.error("SFDC sync error:", error);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -60,7 +148,9 @@ serve(async (req) => {
 
   try {
     const body: ImageGenerationRequest = await req.json();
-    const { userId, model, prompt, width = 1024, height = 1024, title, referenceImageUrl, salesforceData } = body;
+    const { userId, model, prompt, width = 1024, height = 1024, title, referenceImageUrl, template, masterAssetId, masterSalesforceId, salesforceData } = body;
+
+    const isGridTemplate = template && ['version1', 'version2', 'version3'].includes(template);
 
     if (!userId || !prompt) {
       return new Response(
@@ -86,6 +176,7 @@ serve(async (req) => {
       .insert({
         user_id: userId,
         prompt,
+        template,
         status: 'pending',
         progress: 0,
         generation_data: {
@@ -94,7 +185,10 @@ serve(async (req) => {
           width,
           height,
           title,
-          salesforceData
+          salesforceData,
+          masterAssetId,
+          masterSalesforceId,
+          isGridTemplate
         }
       })
       .select()
@@ -111,7 +205,9 @@ serve(async (req) => {
     const generationId = genRecord.id;
     console.log(`Created generation record: ${generationId}`);
 
-    EdgeRuntime.waitUntil(generateImage(supabase, generationId, modelConfig, { prompt, width, height, referenceImageUrl }));
+    EdgeRuntime.waitUntil(generateImage(supabase, generationId, modelConfig, { 
+      prompt, width, height, referenceImageUrl, title, template, masterAssetId, masterSalesforceId, isGridTemplate 
+    }));
 
     return new Response(
       JSON.stringify({ success: true, generationId }),
@@ -131,7 +227,17 @@ async function generateImage(
   supabase: any,
   generationId: string,
   modelConfig: { url: string; buildPayload: (params: any) => any },
-  params: { prompt: string; width: number; height: number; referenceImageUrl?: string }
+  params: { 
+    prompt: string; 
+    width: number; 
+    height: number; 
+    referenceImageUrl?: string; 
+    title?: string;
+    template?: string;
+    masterAssetId?: string;
+    masterSalesforceId?: string;
+    isGridTemplate: boolean;
+  }
 ) {
   const wavespeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
   
@@ -152,7 +258,6 @@ async function generateImage(
 
     const payload = modelConfig.buildPayload(params);
     console.log(`Calling Wavespeed API at ${modelConfig.url}`);
-    console.log('Payload:', JSON.stringify(payload));
 
     const response = await fetch(modelConfig.url, {
       method: 'POST',
@@ -170,7 +275,7 @@ async function generateImage(
     }
 
     const result = await response.json();
-    console.log('Wavespeed API response:', JSON.stringify(result));
+    console.log('Wavespeed API response received');
 
     let imageUrl: string | null = null;
 
@@ -195,6 +300,64 @@ async function generateImage(
     await supabase.from('image_generations').update({ progress: 80 }).eq('id', generationId);
     const s3Url = await uploadToWasabiS3(imageUrl, generationId);
 
+    // === Create media_assets record ===
+    const assetType = params.isGridTemplate ? 'generation_master' : 'generated_image';
+    const { data: assetData, error: assetError } = await supabase
+      .from('media_assets')
+      .insert({
+        title: params.title || `Generated Image - ${generationId}`,
+        file_url: s3Url,
+        thumbnail_url: s3Url,
+        source: 'generated',
+        status: 'ready',
+        file_format: 'png',
+        asset_type: assetType,
+        master_id: params.masterAssetId || null,
+        s3_key: `${S3_PATHS.GENERATION_INPUTS}/${generationId}.png`,
+        metadata: {
+          generationId,
+          prompt: params.prompt.substring(0, 500),
+          vendor: 'Wavespeed',
+          template: params.template,
+          isGridTemplate: params.isGridTemplate,
+          masterAssetId: params.masterAssetId,
+          masterSalesforceId: params.masterSalesforceId,
+          createdAt: new Date().toISOString(),
+          sfdcSyncStatus: 'pending',
+        },
+      })
+      .select()
+      .single();
+
+    if (assetError) {
+      console.error('Failed to create media asset:', assetError);
+    } else {
+      console.log('Created media_assets record:', assetData.id);
+    }
+
+    // === SALESFORCE SYNC ===
+    let salesforceId: string | null = null;
+    if (assetData?.id) {
+      console.log('=== SALESFORCE SYNC START ===');
+      salesforceId = await createSfdcRecord(params.title || `Generated Image`, s3Url, 'PNG');
+      
+      if (salesforceId) {
+        await supabase
+          .from('media_assets')
+          .update({ 
+            salesforce_id: salesforceId,
+            metadata: {
+              ...assetData.metadata,
+              sfdcSyncStatus: 'success',
+              sfdcSyncedAt: new Date().toISOString(),
+            }
+          })
+          .eq('id', assetData.id);
+        console.log('Updated with Salesforce ID:', salesforceId);
+      }
+      console.log('=== SALESFORCE SYNC END ===');
+    }
+
     await supabase.from('image_generations').update({
       status: 'completed',
       progress: 100,
@@ -203,6 +366,12 @@ async function generateImage(
 
     console.log(`Generation ${generationId} completed successfully`);
 
+    // === AUTO-EXTRACT 9 GRID CELLS if 3x3 template ===
+    if (params.isGridTemplate) {
+      console.log('=== AUTO-EXTRACTING 9 GRID CELLS ===');
+      await autoExtractGridCells(supabase, generationId, s3Url, params.template || 'grid', assetData?.id, salesforceId);
+    }
+
   } catch (error) {
     console.error('Generation error:', error);
     await supabase.from('image_generations').update({
@@ -210,6 +379,66 @@ async function generateImage(
       error_message: error instanceof Error ? error.message : 'Unknown error'
     }).eq('id', generationId);
   }
+}
+
+async function autoExtractGridCells(
+  supabase: any,
+  generationId: string,
+  sourceUrl: string,
+  template: string,
+  masterAssetId: string | undefined,
+  masterSalesforceId: string | null
+) {
+  const positions = [
+    { row: 0, col: 0, id: 'top-left' },
+    { row: 0, col: 1, id: 'top-center' },
+    { row: 0, col: 2, id: 'top-right' },
+    { row: 1, col: 0, id: 'middle-left' },
+    { row: 1, col: 1, id: 'middle-center' },
+    { row: 1, col: 2, id: 'middle-right' },
+    { row: 2, col: 0, id: 'bottom-left' },
+    { row: 2, col: 1, id: 'bottom-center' },
+    { row: 2, col: 2, id: 'bottom-right' },
+  ];
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+
+  for (const pos of positions) {
+    try {
+      console.log(`Extracting grid cell ${pos.id} (${pos.row},${pos.col})...`);
+      
+      const extractResponse = await fetch(`${supabaseUrl}/functions/v1/extract-grid-image`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        },
+        body: JSON.stringify({
+          sourceUrl,
+          row: pos.row,
+          col: pos.col,
+          generationId,
+          positionId: pos.id,
+          template,
+          masterAssetId,
+          masterSalesforceId,
+        }),
+      });
+
+      if (extractResponse.ok) {
+        const result = await extractResponse.json();
+        console.log(`Grid cell ${pos.id} extracted:`, result.assetId, result.salesforceId);
+      } else {
+        console.error(`Failed to extract ${pos.id}:`, await extractResponse.text());
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error(`Error extracting ${pos.id}:`, error);
+    }
+  }
+
+  console.log('=== GRID EXTRACTION COMPLETE ===');
 }
 
 async function pollForCompletion(apiKey: string, taskId: string, supabase: any, generationId: string): Promise<string> {
