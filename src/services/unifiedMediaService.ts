@@ -484,6 +484,24 @@ function transformSalesforceAsset(salesforceContent: any): MediaAsset {
     return 'salesforce';
   };
 
+  // Determine asset type from content type
+  const getAssetType = (contentType?: string): 'video' | 'image' | undefined => {
+    if (!contentType) return undefined;
+    const ct = contentType.toLowerCase();
+    
+    // Video types
+    if (['mp4', 'm4v', 'mov', 'webm', 'mkv', 'avi', 'wmv', 'flv', 'mpeg', 'mpg', '3gp', 'youtube'].includes(ct)) {
+      return 'video';
+    }
+    
+    // Image types
+    if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff', 'tif', 'svg', 'heic', 'heif'].includes(ct)) {
+      return 'image';
+    }
+    
+    return undefined;
+  };
+
   // Convert duration string (e.g., "3:45") to seconds
   const parseDurationToSeconds = (duration: any): number | undefined => {
     if (typeof duration === 'number') return duration;
@@ -522,7 +540,8 @@ function transformSalesforceAsset(salesforceContent: any): MediaAsset {
     duration: parseDurationToSeconds(salesforceContent.duration),
     fileSize: undefined,
     resolution: undefined,
-    fileFormat: 'mp4',
+    fileFormat: salesforceContent.contentType?.toLowerCase() || 'mp4',
+    assetType: getAssetType(salesforceContent.contentType),
     status: salesforceContent.status,
     metadata: {
       views: salesforceContent.views,
