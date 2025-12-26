@@ -82,7 +82,8 @@ async function findSalesforceIdByUrl(cdnUrl: string, maxAttempts = 3): Promise<s
 async function createAndFindSalesforceRecord(
   title: string, 
   cdnUrl: string, 
-  contentType: string
+  contentType: string,
+  masterSalesforceId?: string
 ): Promise<{ success: boolean; salesforceId: string | null; error?: string }> {
   console.log(`Creating Salesforce record for variant: ${title}`);
   
@@ -93,9 +94,15 @@ async function createAndFindSalesforceRecord(
     formData.append("string_Name", title);
     formData.append("string_ri1__Content_Type__c", contentType);
     formData.append("string_ri1__URL__c", cdnUrl);
+    
+    // Link variant to master content record
+    if (masterSalesforceId) {
+      formData.append("lookup_ri1__Master_Content__c", masterSalesforceId);
+      console.log(`Linking variant to master SFDC record: ${masterSalesforceId}`);
+    }
 
     console.log("Sending to w2x-engine:", W2X_ENGINE_URL);
-    console.log("FormData: Name=" + title + ", Content_Type=" + contentType + ", URL=" + cdnUrl);
+    console.log("FormData: Name=" + title + ", Content_Type=" + contentType + ", URL=" + cdnUrl + ", Master=" + (masterSalesforceId || "none"));
 
     const response = await fetch(W2X_ENGINE_URL, {
       method: "POST",
@@ -386,11 +393,15 @@ serve(async (req) => {
     console.log("=== SALESFORCE SYNC FOR VARIANT ===");
     
     try {
-      // Create Salesforce Content record for the variant
+      // Get master Salesforce ID from either sfMasterId or salesforceData
+      const masterSfId = sfMasterId || salesforceData?.masterContentId;
+      
+      // Create Salesforce Content record for the variant with link to master
       const sfdcResult = await createAndFindSalesforceRecord(
         variantTitle,
         variantCdnUrl,
-        "JPG"
+        "JPG",
+        masterSfId
       );
 
       if (sfdcResult.success && sfdcResult.salesforceId) {
