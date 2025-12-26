@@ -255,7 +255,7 @@ export const trackLogin = async (contactId: string, action: string = 'Login'): P
         const fields: Record<string, string> = {
           'sObj': 'ri__Portal__c',
           'string_ri__Contact__c': contactId,
-          'text_ri__Login_URL__c': 'https://media.worldmotoclash.com',
+          'text_ri__Login_URL__c': window.location.href,
           'text_ri__Action__c': action,
           'text_ri__IP_Address__c': currentIp,
           'text_ri__Login_Country__c': locationData.country,
