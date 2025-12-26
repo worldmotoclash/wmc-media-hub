@@ -9,6 +9,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const WMC_CONTENT_API = "https://api.realintelligence.com/api/wmc-content-master.py";
+const W2X_ENGINE_URL = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
+const ORG_ID = "00D5e000000HEcP";
+
 interface SocialVariantRequest {
   model: string;
   sourceUrl: string;
@@ -29,6 +33,107 @@ interface SocialVariantRequest {
     pixelHeight: number;
     systemFlags: string[];
   };
+}
+
+// Query the wmc-content-master API to find a Salesforce ID by matching URL
+async function findSalesforceIdByUrl(cdnUrl: string, maxAttempts = 3): Promise<string | null> {
+  console.log(`Searching for Salesforce ID matching URL: ${cdnUrl}`);
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const delayMs = 2000 * attempt;
+      console.log(`Attempt ${attempt}/${maxAttempts}: Waiting ${delayMs}ms before querying API...`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      
+      const apiUrl = `${WMC_CONTENT_API}?orgId=${ORG_ID}&sandbox=False`;
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) {
+        console.error(`API request failed: ${response.status}`);
+        continue;
+      }
+      
+      const xmlText = await response.text();
+      
+      // Find all content blocks and check URLs
+      const contentBlocks = xmlText.match(/<content>[\s\S]*?<\/content>/g) || [];
+      
+      for (const block of contentBlocks) {
+        if (block.includes(cdnUrl)) {
+          const idMatch = block.match(/<id>([^<]+)<\/id>/);
+          if (idMatch && idMatch[1]) {
+            const salesforceId = idMatch[1].trim();
+            console.log(`Found Salesforce ID: ${salesforceId}`);
+            return salesforceId;
+          }
+        }
+      }
+      
+      console.log(`URL not found in API response (attempt ${attempt})`);
+    } catch (error) {
+      console.error(`Error querying API (attempt ${attempt}):`, error);
+    }
+  }
+  
+  return null;
+}
+
+// Create a Salesforce Content record via w2x-engine and return the ID
+async function createAndFindSalesforceRecord(
+  title: string, 
+  cdnUrl: string, 
+  contentType: string
+): Promise<{ success: boolean; salesforceId: string | null; error?: string }> {
+  console.log(`Creating Salesforce record for variant: ${title}`);
+  
+  try {
+    const formData = new FormData();
+    formData.append("retURL", "https://worldmotoclash.com");
+    formData.append("sObj", "ri1__Content__c");
+    formData.append("string_Name", title);
+    formData.append("string_ri1__Content_Type__c", contentType);
+    formData.append("string_ri1__URL__c", cdnUrl);
+
+    console.log("Sending to w2x-engine:", W2X_ENGINE_URL);
+    console.log("FormData: Name=" + title + ", Content_Type=" + contentType + ", URL=" + cdnUrl);
+
+    const response = await fetch(W2X_ENGINE_URL, {
+      method: "POST",
+      body: formData,
+    });
+
+    const responseText = await response.text();
+    console.log(`w2x-engine response status: ${response.status}`);
+    console.log(`w2x-engine response: ${responseText.substring(0, 300)}`);
+
+    if (!response.ok) {
+      return { 
+        success: false, 
+        salesforceId: null, 
+        error: `w2x-engine returned ${response.status}` 
+      };
+    }
+
+    // Query API to find the new record
+    const salesforceId = await findSalesforceIdByUrl(cdnUrl, 3);
+    
+    if (salesforceId) {
+      return { success: true, salesforceId };
+    } else {
+      return { 
+        success: false, 
+        salesforceId: null, 
+        error: "Record created but ID not found in API" 
+      };
+    }
+  } catch (error) {
+    console.error("Error creating Salesforce record:", error);
+    return { 
+      success: false, 
+      salesforceId: null, 
+      error: error instanceof Error ? error.message : "Unknown error" 
+    };
+  }
 }
 
 async function resizeImageNative(
@@ -236,10 +341,12 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    const variantTitle = `${platform} ${variantName} (${targetWidth}x${targetHeight})`;
+
     const { data: assetData, error: assetError } = await supabase
       .from("media_assets")
       .insert({
-        title: `${platform} ${variantName} (${targetWidth}x${targetHeight})`,
+        title: variantTitle,
         file_url: variantCdnUrl,
         thumbnail_url: variantCdnUrl,
         source: "generated",
@@ -261,6 +368,7 @@ serve(async (req) => {
           outputFilename,
           model,
           generatedAt: new Date().toISOString(),
+          sfdcSyncStatus: 'pending',
         },
       })
       .select()
@@ -270,53 +378,77 @@ serve(async (req) => {
       console.error("Error inserting media asset:", assetError);
     }
 
+    // === SALESFORCE SYNC FOR VARIANT ===
     let salesforceId: string | null = null;
-    if (salesforceData?.masterContentId) {
-      try {
-        const salesforcePayload = {
-          action: "create_variant",
-          data: {
-            masterContentId: salesforceData.masterContentId,
-            platform: salesforceData.platform,
-            platformVariant: salesforceData.platformVariant,
-            pixelWidth: salesforceData.pixelWidth,
-            pixelHeight: salesforceData.pixelHeight,
-            publicUrl: variantCdnUrl,
-            systemFlags: salesforceData.systemFlags || [
-              "Auto Generated",
-              "Social Kit Output",
-              "Resized Variant",
-              "Derived Asset",
-            ],
-          },
-        };
+    let sfdcSyncStatus: 'success' | 'failed' = 'failed';
+    let sfdcSyncError: string | null = null;
 
-        console.log("Sending to Salesforce:", JSON.stringify(salesforcePayload, null, 2));
+    console.log("=== SALESFORCE SYNC FOR VARIANT ===");
+    
+    try {
+      // Create Salesforce Content record for the variant
+      const sfdcResult = await createAndFindSalesforceRecord(
+        variantTitle,
+        variantCdnUrl,
+        "JPG"
+      );
 
-        const sfResponse = await fetch("https://api.realintelligence.com/web2x-engine.php", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(salesforcePayload),
-        });
+      if (sfdcResult.success && sfdcResult.salesforceId) {
+        salesforceId = sfdcResult.salesforceId;
+        sfdcSyncStatus = 'success';
+        console.log(`Variant synced to Salesforce: ${salesforceId}`);
 
-        if (sfResponse.ok) {
-          const sfResult = await sfResponse.json();
-          salesforceId = sfResult.salesforceId || sfResult.id || null;
-          console.log("Salesforce sync result:", sfResult);
-
-          if (salesforceId && assetData?.id) {
-            await supabase
-              .from("media_assets")
-              .update({ salesforce_id: salesforceId })
-              .eq("id", assetData.id);
-          }
-        } else {
-          console.warn("Salesforce sync warning:", await sfResponse.text());
+        if (assetData?.id) {
+          await supabase
+            .from("media_assets")
+            .update({ 
+              salesforce_id: salesforceId,
+              metadata: {
+                ...assetData.metadata,
+                sfdcSyncStatus: 'success',
+                sfdcSyncedAt: new Date().toISOString(),
+              }
+            })
+            .eq("id", assetData.id);
         }
-      } catch (sfError) {
-        console.error("Salesforce callback error:", sfError);
+      } else {
+        sfdcSyncError = sfdcResult.error || "Unknown sync error";
+        console.warn("Variant SFDC sync failed:", sfdcSyncError);
+
+        if (assetData?.id) {
+          await supabase
+            .from("media_assets")
+            .update({
+              metadata: {
+                ...assetData.metadata,
+                sfdcSyncStatus: 'failed',
+                sfdcSyncError,
+                sfdcSyncAttemptedAt: new Date().toISOString(),
+              }
+            })
+            .eq("id", assetData.id);
+        }
+      }
+    } catch (sfError) {
+      sfdcSyncError = sfError instanceof Error ? sfError.message : "Unknown SFDC error";
+      console.error("Salesforce sync error:", sfError);
+
+      if (assetData?.id) {
+        await supabase
+          .from("media_assets")
+          .update({
+            metadata: {
+              ...assetData.metadata,
+              sfdcSyncStatus: 'failed',
+              sfdcSyncError,
+              sfdcSyncAttemptedAt: new Date().toISOString(),
+            }
+          })
+          .eq("id", assetData.id);
       }
     }
+
+    console.log("=== SALESFORCE SYNC END ===");
 
     console.log("Successfully processed variant:", {
       variantId,
@@ -325,6 +457,7 @@ serve(async (req) => {
       dimensions: `${targetWidth}x${targetHeight}`,
       assetId: assetData?.id,
       s3Key,
+      salesforceId,
     });
 
     return new Response(
@@ -334,6 +467,8 @@ serve(async (req) => {
         s3Key: s3Key,
         assetId: assetData?.id,
         salesforceId,
+        sfdcSyncStatus,
+        sfdcSyncError: sfdcSyncStatus === 'failed' ? sfdcSyncError : undefined,
         dimensions: { width: targetWidth, height: targetHeight },
         platform,
         variantName,

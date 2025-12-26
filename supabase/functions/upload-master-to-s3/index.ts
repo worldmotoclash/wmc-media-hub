@@ -8,6 +8,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const WMC_CONTENT_API = "https://api.realintelligence.com/api/wmc-content-master.py";
+const W2X_ENGINE_URL = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
+const ORG_ID = "00D5e000000HEcP";
+
 interface UploadMasterRequest {
   imageBase64: string;
   filename: string;
@@ -15,6 +19,85 @@ interface UploadMasterRequest {
   width: number;
   height: number;
   title?: string;
+}
+
+// Helper function to escape special regex characters
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Query the wmc-content-master API to find a Salesforce ID by matching URL
+async function findSalesforceIdByUrl(cdnUrl: string, maxAttempts = 3): Promise<string | null> {
+  console.log(`Searching for Salesforce ID matching URL: ${cdnUrl}`);
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      // Wait before querying (give Salesforce time to propagate the new record)
+      const delayMs = 2000 * attempt;
+      console.log(`Attempt ${attempt}/${maxAttempts}: Waiting ${delayMs}ms before querying API...`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      
+      const apiUrl = `${WMC_CONTENT_API}?orgId=${ORG_ID}&sandbox=False`;
+      console.log(`Querying API: ${apiUrl}`);
+      
+      const response = await fetch(apiUrl);
+      if (!response.ok) {
+        console.error(`API request failed: ${response.status}`);
+        continue;
+      }
+      
+      const xmlText = await response.text();
+      console.log(`API response length: ${xmlText.length} characters`);
+      
+      // Parse XML to find content record with matching URL
+      // The XML structure is: <content><id>...</id><url><![CDATA[...]]></url>...</content>
+      const escapedUrl = escapeRegExp(cdnUrl);
+      
+      // Try multiple patterns to match the URL
+      const patterns = [
+        // Pattern 1: URL in CDATA
+        new RegExp(`<content>.*?<id>([^<]+)</id>.*?<url><!\\[CDATA\\[${escapedUrl}\\]\\]></url>.*?</content>`, 's'),
+        // Pattern 2: URL without CDATA
+        new RegExp(`<content>.*?<id>([^<]+)</id>.*?<url>${escapedUrl}</url>.*?</content>`, 's'),
+        // Pattern 3: ID after URL (different order)
+        new RegExp(`<content>.*?<url><!\\[CDATA\\[${escapedUrl}\\]\\]></url>.*?<id>([^<]+)</id>.*?</content>`, 's'),
+        new RegExp(`<content>.*?<url>${escapedUrl}</url>.*?<id>([^<]+)</id>.*?</content>`, 's'),
+      ];
+      
+      for (const pattern of patterns) {
+        const match = xmlText.match(pattern);
+        if (match && match[1]) {
+          const salesforceId = match[1].trim();
+          console.log(`Found Salesforce ID: ${salesforceId} (attempt ${attempt})`);
+          return salesforceId;
+        }
+      }
+      
+      // If patterns didn't work, try a simpler approach: find all content blocks and check URLs
+      const contentBlocks = xmlText.match(/<content>[\s\S]*?<\/content>/g) || [];
+      console.log(`Found ${contentBlocks.length} content blocks, searching for URL match...`);
+      
+      for (const block of contentBlocks) {
+        // Check if this block contains our URL
+        if (block.includes(cdnUrl)) {
+          // Extract ID from this block
+          const idMatch = block.match(/<id>([^<]+)<\/id>/);
+          if (idMatch && idMatch[1]) {
+            const salesforceId = idMatch[1].trim();
+            console.log(`Found Salesforce ID via block search: ${salesforceId}`);
+            return salesforceId;
+          }
+        }
+      }
+      
+      console.log(`URL not found in API response (attempt ${attempt})`);
+    } catch (error) {
+      console.error(`Error querying API (attempt ${attempt}):`, error);
+    }
+  }
+  
+  console.log(`Failed to find Salesforce ID after ${maxAttempts} attempts`);
+  return null;
 }
 
 serve(async (req) => {
@@ -91,6 +174,19 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const imageTitle = title || filename.replace(/\.[^/.]+$/, "");
+    
+    // Initial metadata with sync status
+    const initialMetadata = {
+      width,
+      height,
+      originalFilename: filename,
+      mimeType,
+      masterId,
+      uploadedAt: new Date().toISOString(),
+      isMasterImage: true,
+      sfdcSyncStatus: 'pending' as const,
+    };
+
     const { data: assetData, error: assetError } = await supabase
       .from("media_assets")
       .insert({
@@ -102,15 +198,7 @@ serve(async (req) => {
         file_format: "jpg",
         asset_type: "master_image",
         s3_key: s3Key,
-        metadata: {
-          width,
-          height,
-          originalFilename: filename,
-          mimeType,
-          masterId,
-          uploadedAt: new Date().toISOString(),
-          isMasterImage: true,
-        },
+        metadata: initialMetadata,
       })
       .select()
       .single();
@@ -125,10 +213,12 @@ serve(async (req) => {
 
     console.log("Created media_assets record:", assetData.id);
 
+    // === SALESFORCE SYNC ===
     let salesforceId: string | null = null;
+    let sfdcSyncStatus: 'success' | 'failed' = 'failed';
+    let sfdcSyncError: string | null = null;
+
     try {
-      const sfEndpoint = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
-      
       const fileExtension = filename.split('.').pop()?.toUpperCase() || 'JPG';
       
       const formData = new FormData();
@@ -138,34 +228,91 @@ serve(async (req) => {
       formData.append("string_ri1__Content_Type__c", fileExtension);
       formData.append("string_ri1__URL__c", cdnUrl);
 
-      console.log("Sending to Salesforce via w2x-engine:", sfEndpoint);
-      console.log("FormData fields: Name=" + imageTitle + ", Content_Type=" + fileExtension + ", URL=" + cdnUrl);
+      console.log("=== SALESFORCE SYNC START ===");
+      console.log("Sending to w2x-engine:", W2X_ENGINE_URL);
+      console.log("FormData: Name=" + imageTitle + ", Content_Type=" + fileExtension + ", URL=" + cdnUrl);
 
-      const sfResponse = await fetch(sfEndpoint, {
+      const sfResponse = await fetch(W2X_ENGINE_URL, {
         method: "POST",
         body: formData,
       });
 
-      const sfText = await sfResponse.text();
-      console.log("Salesforce response status:", sfResponse.status);
-      console.log("Salesforce response:", sfText);
-      
-      if (sfResponse.ok && !sfText.includes("ERROR")) {
-        const idMatch = sfText.match(/a[0-9A-Za-z]{17}/);
-        if (idMatch) {
-          salesforceId = idMatch[0];
-          console.log("Extracted Salesforce ID:", salesforceId);
+      const sfResponseText = await sfResponse.text();
+      console.log("w2x-engine response status:", sfResponse.status);
+      console.log("w2x-engine response body:", sfResponseText.substring(0, 500));
+
+      if (sfResponse.ok) {
+        console.log("w2x-engine call successful, now querying API to find Salesforce ID...");
+        
+        // Query the API to find the newly created record by URL
+        salesforceId = await findSalesforceIdByUrl(cdnUrl, 3);
+        
+        if (salesforceId) {
+          sfdcSyncStatus = 'success';
+          console.log("Successfully retrieved Salesforce ID:", salesforceId);
           
+          // Update the media_assets record with the Salesforce ID
           await supabase
             .from("media_assets")
-            .update({ salesforce_id: salesforceId })
+            .update({ 
+              salesforce_id: salesforceId,
+              metadata: {
+                ...initialMetadata,
+                sfdcSyncStatus: 'success',
+                sfdcSyncedAt: new Date().toISOString(),
+              }
+            })
+            .eq("id", assetData.id);
+        } else {
+          sfdcSyncError = "Record created but ID not found in API response";
+          console.warn("SFDC record may have been created but couldn't find matching ID in API");
+          
+          // Update metadata to reflect partial sync
+          await supabase
+            .from("media_assets")
+            .update({
+              metadata: {
+                ...initialMetadata,
+                sfdcSyncStatus: 'failed',
+                sfdcSyncError,
+                sfdcSyncAttemptedAt: new Date().toISOString(),
+              }
+            })
             .eq("id", assetData.id);
         }
       } else {
-        console.warn("Salesforce sync failed:", sfText);
+        sfdcSyncError = `w2x-engine returned status ${sfResponse.status}: ${sfResponseText.substring(0, 200)}`;
+        console.error("w2x-engine call failed:", sfdcSyncError);
+        
+        await supabase
+          .from("media_assets")
+          .update({
+            metadata: {
+              ...initialMetadata,
+              sfdcSyncStatus: 'failed',
+              sfdcSyncError,
+              sfdcSyncAttemptedAt: new Date().toISOString(),
+            }
+          })
+          .eq("id", assetData.id);
       }
+      
+      console.log("=== SALESFORCE SYNC END ===");
     } catch (sfError) {
-      console.error("Salesforce callback error:", sfError);
+      sfdcSyncError = sfError instanceof Error ? sfError.message : "Unknown error during SFDC sync";
+      console.error("Salesforce sync error:", sfError);
+      
+      await supabase
+        .from("media_assets")
+        .update({
+          metadata: {
+            ...initialMetadata,
+            sfdcSyncStatus: 'failed',
+            sfdcSyncError,
+            sfdcSyncAttemptedAt: new Date().toISOString(),
+          }
+        })
+        .eq("id", assetData.id);
     }
 
     return new Response(
@@ -176,6 +323,8 @@ serve(async (req) => {
         cdnUrl,
         s3Key,
         salesforceId,
+        sfdcSyncStatus,
+        sfdcSyncError: sfdcSyncStatus === 'failed' ? sfdcSyncError : undefined,
         dimensions: { width, height },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
