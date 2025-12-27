@@ -79,6 +79,8 @@ interface SfdcSyncMetadata {
   apiOperationId?: string;
   categories?: string[];
   location?: string;
+  modelVendor?: string;
+  modelUsed?: string;
 }
 
 // Create a new Salesforce Content record via w2x-engine with comprehensive fields
@@ -135,6 +137,12 @@ async function createSalesforceRecord(
     if (metadata?.location) {
       formData.append("string_ri1__Location__c", metadata.location.substring(0, 255));
     }
+    if (metadata?.modelVendor) {
+      formData.append("string_ri1__AI_Models_Vendors__c", metadata.modelVendor.substring(0, 255));
+    }
+    if (metadata?.modelUsed) {
+      formData.append("string_ri1__AI_Model_Used__c", metadata.modelUsed.substring(0, 255));
+    }
     
     console.log("SFDC sync metadata fields:", {
       hasPrompt: !!metadata?.prompt,
@@ -143,6 +151,8 @@ async function createSalesforceRecord(
       hasGenId: !!metadata?.generationId,
       hasDuration: typeof metadata?.durationSeconds === 'number',
       hasCreativity: typeof metadata?.creativityLevel === 'number',
+      hasModelVendor: !!metadata?.modelVendor,
+      hasModelUsed: !!metadata?.modelUsed,
     });
 
     const response = await fetch(W2X_ENGINE_URL, {
@@ -303,6 +313,8 @@ serve(async (req) => {
         apiOperationId: assetMetadata.apiOperationId,
         categories: assetMetadata.categories,
         location: assetMetadata.location,
+        modelVendor: assetMetadata.modelVendor || assetMetadata.vendor,
+        modelUsed: assetMetadata.modelUsed || assetMetadata.model,
       };
       
       const created = await createSalesforceRecord(asset.title, asset.file_url, contentType, syncMetadata);

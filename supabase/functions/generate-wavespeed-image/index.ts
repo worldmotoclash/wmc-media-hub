@@ -248,6 +248,8 @@ interface SfdcImageMetadata {
   aspectRatio?: string;
   template?: string;
   masterSalesforceId?: string;
+  modelVendor?: string;
+  modelUsed?: string;
 }
 
 // Create SFDC record and get ID with comprehensive AI generation fields
@@ -284,6 +286,12 @@ async function createSfdcRecord(
     if (metadata?.masterSalesforceId) {
       formData.append("lookup_ri1__Master_Content__c", metadata.masterSalesforceId);
     }
+    if (metadata?.modelVendor) {
+      formData.append("string_ri1__AI_Models_Vendors__c", metadata.modelVendor.substring(0, 255));
+    }
+    if (metadata?.modelUsed) {
+      formData.append("string_ri1__AI_Model_Used__c", metadata.modelUsed.substring(0, 255));
+    }
 
     console.log("Sending to w2x-engine:", W2X_ENGINE_URL);
     console.log("SFDC metadata fields:", {
@@ -291,6 +299,8 @@ async function createSfdcRecord(
       hasRefImage: !!metadata?.referenceImageUrl,
       hasGenId: !!metadata?.generationId,
       hasMaster: !!metadata?.masterSalesforceId,
+      hasModelVendor: !!metadata?.modelVendor,
+      hasModelUsed: !!metadata?.modelUsed,
     });
 
     const sfResponse = await fetch(W2X_ENGINE_URL, {
@@ -535,6 +545,8 @@ ${fullPrompt}`;
         aspectRatio: `${params.width}x${params.height}`,
         template: params.template,
         masterSalesforceId: params.masterSalesforceId,
+        modelVendor: 'Wavespeed AI',
+        modelUsed: params.model,
       });
       
       if (salesforceId) {
@@ -565,7 +577,7 @@ ${fullPrompt}`;
     // === AUTO-EXTRACT 9 GRID CELLS if 3x3 template ===
     if (params.isGridTemplate) {
       console.log('=== AUTO-EXTRACTING 9 GRID CELLS ===');
-      await autoExtractGridCells(supabase, generationId, s3Url, params.template || 'grid', assetData?.id, salesforceId, fullPrompt, params.referenceImageUrl);
+      await autoExtractGridCells(supabase, generationId, s3Url, params.template || 'grid', assetData?.id, salesforceId, fullPrompt, params.referenceImageUrl, 'Wavespeed AI', params.model);
     }
 
   } catch (error) {
@@ -585,7 +597,9 @@ async function autoExtractGridCells(
   masterAssetId: string | undefined,
   masterSalesforceId: string | null,
   prompt?: string,
-  referenceImageUrl?: string
+  referenceImageUrl?: string,
+  modelVendor?: string,
+  modelUsed?: string
 ) {
   const positions = [
     { row: 0, col: 0, id: 'top-left' },
@@ -622,6 +636,8 @@ async function autoExtractGridCells(
           masterSalesforceId,
           prompt,
           referenceImageUrl,
+          modelVendor,
+          modelUsed,
         }),
       });
 
