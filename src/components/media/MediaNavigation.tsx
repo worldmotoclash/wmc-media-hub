@@ -21,6 +21,7 @@ const routeNames: Record<string, string> = {
   "/admin/media/generate": "Generate",
   "/admin/media/playlists": "Playlists",
   "/admin/media/scene-detection": "Scene Detection",
+  "/admin/media/characters": "Character Library",
 };
 
 export function MediaNavigation() {
