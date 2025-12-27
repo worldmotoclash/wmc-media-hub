@@ -1,6 +1,8 @@
 import React from 'react';
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Pin, Users, Sun, Camera } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Loader2, Pin, PinOff, Users, Car, Dog, Box, Sun, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Subject {
@@ -54,60 +56,21 @@ interface StyleLockPreviewProps {
   onSubjectClick: (subject: Subject) => void;
 }
 
-// Map position strings to CSS positions for overlay
-const positionToCSS = (position: string): { top: string; left: string } => {
-  const posLower = position.toLowerCase();
-  let top = '50%';
-  let left = '50%';
-
-  // Vertical positioning
-  if (posLower.includes('top') || posLower.includes('upper')) {
-    top = '15%';
-  } else if (posLower.includes('bottom') || posLower.includes('lower')) {
-    top = '85%';
-  } else if (posLower.includes('foreground')) {
-    top = '75%';
-  } else if (posLower.includes('background') || posLower.includes('distant')) {
-    top = '25%';
-  } else if (posLower.includes('middle') || posLower.includes('center')) {
-    top = '50%';
-  }
-
-  // Horizontal positioning
-  if (posLower.includes('left')) {
-    left = '20%';
-  } else if (posLower.includes('right')) {
-    left = '80%';
-  } else if (posLower.includes('center') || posLower.includes('middle')) {
-    left = '50%';
-  }
-
-  // Combined positions
-  if (posLower.includes('top-left') || posLower.includes('upper-left')) {
-    top = '15%';
-    left = '20%';
-  } else if (posLower.includes('top-right') || posLower.includes('upper-right')) {
-    top = '15%';
-    left = '80%';
-  } else if (posLower.includes('bottom-left') || posLower.includes('lower-left')) {
-    top = '85%';
-    left = '20%';
-  } else if (posLower.includes('bottom-right') || posLower.includes('lower-right')) {
-    top = '85%';
-    left = '80%';
-  }
-
-  return { top, left };
-};
-
 // Get icon for subject type
 const getSubjectIcon = (type: string) => {
   switch (type.toLowerCase()) {
     case 'person':
+      return Users;
     case 'group':
       return Users;
+    case 'vehicle':
+      return Car;
+    case 'animal':
+      return Dog;
+    case 'object':
+      return Box;
     default:
-      return null;
+      return Box;
   }
 };
 
@@ -119,107 +82,144 @@ export const StyleLockPreview: React.FC<StyleLockPreviewProps> = ({
   onSubjectClick,
 }) => {
   return (
-    <div className="relative rounded-lg overflow-hidden border border-border/50 bg-muted/20">
-      {/* Master Image */}
-      <img 
-        src={imageUrl} 
-        alt="Style Lock Preview" 
-        className="w-full h-auto max-h-[300px] object-contain"
-      />
+    <div className="rounded-lg overflow-hidden border border-border/50 bg-muted/20">
+      {/* Master Image - Clean, no overlays */}
+      <div className="relative">
+        <img 
+          src={imageUrl} 
+          alt="Style Lock Preview" 
+          className="w-full h-auto max-h-[250px] object-contain bg-black/20"
+        />
 
-      {/* Loading Overlay */}
-      {isAnalyzing && (
-        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <div className="text-sm text-muted-foreground text-center px-4">
-            <p className="font-medium">Analyzing image...</p>
-            <p className="text-xs mt-1">Detecting subjects, environment, and style</p>
+        {/* Loading Overlay */}
+        {isAnalyzing && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="text-sm text-muted-foreground text-center px-4">
+              <p className="font-medium">Analyzing image...</p>
+              <p className="text-xs mt-1">Detecting subjects, environment, and style</p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Subject Labels Overlay */}
-      {!isAnalyzing && styleProfile?.subjects && styleProfile.subjects.length > 0 && (
-        <>
-          {styleProfile.subjects.map((subject, index) => {
-            const position = positionToCSS(subject.position);
-            const isPinned = !!subjectReferences[subject.id];
-            const Icon = getSubjectIcon(subject.type);
-
-            return (
-              <button
-                key={subject.id || index}
-                type="button"
-                onClick={() => onSubjectClick(subject)}
-                className={cn(
-                  "absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-200",
-                  "hover:scale-110 hover:z-20 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-full"
-                )}
-                style={{ top: position.top, left: position.left }}
-                title={`${subject.id}: ${subject.appearance}`}
+        {/* Environment & Lighting Badges - Bottom corners */}
+        {!isAnalyzing && styleProfile && (
+          <div className="absolute bottom-2 left-2 right-2 flex justify-between pointer-events-none">
+            {styleProfile.environment && (
+              <Badge 
+                variant="outline" 
+                className="bg-background/90 backdrop-blur-sm text-[10px] border-border/50"
               >
-                <Badge 
-                  variant={isPinned ? "default" : "secondary"}
-                  className={cn(
-                    "shadow-lg cursor-pointer text-xs whitespace-nowrap",
-                    "backdrop-blur-sm border",
-                    isPinned 
-                      ? "bg-emerald-600 hover:bg-emerald-700 border-emerald-500 text-white" 
-                      : "bg-background/90 hover:bg-background border-border/50"
-                  )}
-                >
-                  {isPinned && <Pin className="w-3 h-3 mr-1" />}
-                  {Icon && <Icon className="w-3 h-3 mr-1" />}
-                  <span className="font-medium">{subject.id}</span>
-                  <span className="text-[10px] opacity-75 ml-1">({subject.type})</span>
-                </Badge>
-              </button>
-            );
-          })}
-        </>
-      )}
-
-      {/* Environment Badge - Bottom Left */}
-      {!isAnalyzing && styleProfile?.environment && (
-        <div className="absolute bottom-2 left-2">
-          <Badge 
-            variant="outline" 
-            className="bg-background/90 backdrop-blur-sm text-[10px] border-border/50"
-          >
-            <Sun className="w-3 h-3 mr-1" />
-            {styleProfile.environment.setting} • {styleProfile.environment.timeOfDay}
-          </Badge>
-        </div>
-      )}
-
-      {/* Camera/Lighting Badge - Bottom Right */}
-      {!isAnalyzing && styleProfile?.lighting && (
-        <div className="absolute bottom-2 right-2">
-          <Badge 
-            variant="outline" 
-            className="bg-background/90 backdrop-blur-sm text-[10px] border-border/50"
-          >
-            <Camera className="w-3 h-3 mr-1" />
-            {styleProfile.lighting.direction} {styleProfile.lighting.quality}
-          </Badge>
-        </div>
-      )}
-
-      {/* No subjects detected message */}
-      {!isAnalyzing && styleProfile && (!styleProfile.subjects || styleProfile.subjects.length === 0) && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Badge variant="outline" className="bg-background/90 backdrop-blur-sm">
-            No subjects detected
-          </Badge>
-        </div>
-      )}
-
-      {/* Click hint */}
-      {!isAnalyzing && styleProfile?.subjects && styleProfile.subjects.length > 0 && (
-        <div className="absolute top-2 left-2 right-2">
-          <div className="bg-background/80 backdrop-blur-sm rounded-md px-2 py-1 text-[10px] text-muted-foreground text-center">
-            Click subjects to pin reference images for consistency
+                <Sun className="w-3 h-3 mr-1" />
+                {styleProfile.environment.setting} • {styleProfile.environment.timeOfDay}
+              </Badge>
+            )}
+            {styleProfile.lighting && (
+              <Badge 
+                variant="outline" 
+                className="bg-background/90 backdrop-blur-sm text-[10px] border-border/50"
+              >
+                <Camera className="w-3 h-3 mr-1" />
+                {styleProfile.lighting.direction} {styleProfile.lighting.quality}
+              </Badge>
+            )}
           </div>
+        )}
+      </div>
+
+      {/* Subject List - Below Image */}
+      {!isAnalyzing && styleProfile && (
+        <div className="border-t border-border/50">
+          <div className="px-3 py-2 bg-muted/30">
+            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Detected Subjects ({styleProfile.subjects?.length || 0})
+            </h4>
+          </div>
+          
+          {styleProfile.subjects && styleProfile.subjects.length > 0 ? (
+            <ScrollArea className="max-h-[180px]">
+              <div className="divide-y divide-border/30">
+                {styleProfile.subjects.map((subject, index) => {
+                  const isPinned = !!subjectReferences[subject.id];
+                  const Icon = getSubjectIcon(subject.type);
+
+                  return (
+                    <button
+                      key={subject.id || index}
+                      type="button"
+                      onClick={() => onSubjectClick(subject)}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors",
+                        "hover:bg-muted/50 focus:outline-none focus:bg-muted/50",
+                        isPinned && "bg-emerald-500/10"
+                      )}
+                    >
+                      {/* Icon */}
+                      <div className={cn(
+                        "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
+                        isPinned 
+                          ? "bg-emerald-500/20 text-emerald-500" 
+                          : "bg-muted text-muted-foreground"
+                      )}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+
+                      {/* Subject Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm truncate">
+                            {subject.id}
+                          </span>
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            {subject.type}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                          {subject.appearance}
+                        </p>
+                      </div>
+
+                      {/* Pin Status */}
+                      <div className={cn(
+                        "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors",
+                        isPinned 
+                          ? "bg-emerald-500 text-white" 
+                          : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                      )}>
+                        {isPinned ? (
+                          <Pin className="w-4 h-4" />
+                        ) : (
+                          <PinOff className="w-3.5 h-3.5" />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          ) : (
+            <div className="px-3 py-6 text-center">
+              <p className="text-sm text-muted-foreground">No subjects detected</p>
+            </div>
+          )}
+
+          {/* Help text */}
+          {styleProfile.subjects && styleProfile.subjects.length > 0 && (
+            <div className="px-3 py-2 bg-muted/20 border-t border-border/30">
+              <p className="text-[10px] text-muted-foreground text-center">
+                Click a subject to pin a reference image for consistency
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* No profile yet */}
+      {!isAnalyzing && !styleProfile && (
+        <div className="px-3 py-6 text-center border-t border-border/50">
+          <p className="text-sm text-muted-foreground">
+            Upload an image to analyze subjects
+          </p>
         </div>
       )}
     </div>
