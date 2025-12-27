@@ -196,6 +196,19 @@ export async function fetchAllMediaAssets(
         // Apply filters with AND logic between categories
         salesforceAssets = transformedSalesforceAssets;
 
+        // Apply client-side search filtering to Salesforce assets (API doesn't support search param)
+        if (searchQuery) {
+          const searchLower = searchQuery.toLowerCase();
+          salesforceAssets = salesforceAssets.filter(asset => {
+            const titleMatch = asset.title?.toLowerCase().includes(searchLower);
+            const descriptionMatch = asset.description?.toLowerCase().includes(searchLower);
+            const tagMatch = asset.tags?.some(tag => 
+              tag.name?.toLowerCase().includes(searchLower)
+            );
+            return titleMatch || descriptionMatch || tagMatch;
+          });
+        }
+
         // Apply contentOrigin filter to Salesforce assets
         if (filters?.contentOrigin?.length) {
           salesforceAssets = salesforceAssets.filter(asset => {
