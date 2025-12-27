@@ -539,14 +539,15 @@ async function pollWavespeedStatus(
         // Update Salesforce if media_url_key exists
         const { data: generationRecord } = await supabaseClient
           .from('video_generations')
-          .select('media_url_key')
+          .select('media_url_key, generation_data')
           .eq('id', generationId)
           .single();
 
         if (generationRecord?.media_url_key) {
           try {
             console.log(`🔄 Updating Salesforce for Media URL Key: ${generationRecord.media_url_key}`);
-            await updateSalesforceContent(generationRecord.media_url_key, videoUrl);
+            const genData = generationRecord.generation_data || {};
+            await updateSalesforceContent(generationRecord.media_url_key, videoUrl, 'Wavespeed AI', genData.model);
             console.log(`✅ Salesforce content updated successfully`);
           } catch (salesforceError) {
             console.error(`❌ Failed to update Salesforce content:`, salesforceError);
@@ -583,7 +584,7 @@ async function pollWavespeedStatus(
 }
 
 // Update Salesforce content and assign to default playlist
-async function updateSalesforceContent(mediaUrlKey: string, videoUrl: string) {
+async function updateSalesforceContent(mediaUrlKey: string, videoUrl: string, modelVendor?: string, modelUsed?: string) {
   console.log(`🔄 Updating Salesforce for Media URL Key: ${mediaUrlKey}`);
   console.log(`📝 Updating Salesforce - Media Key: ${mediaUrlKey}, Video URL: ${videoUrl}`);
   
@@ -596,12 +597,22 @@ async function updateSalesforceContent(mediaUrlKey: string, videoUrl: string) {
     formData.append('string_ri1__Generation_Status__c', 'COMPLETED');
     formData.append('number_ri1__Generation_Progress__c', '100');
     
+    // Add model vendor and model used
+    if (modelVendor) {
+      formData.append('string_ri1__AI_Models_Vendors__c', modelVendor);
+    }
+    if (modelUsed) {
+      formData.append('string_ri1__AI_Model_Used__c', modelUsed);
+    }
+    
     console.log(`📤 Sending to Salesforce endpoint with payload:`, {
       sObj: 'ri1__Content__c',
       mediaUrlKey,
       videoUrl,
       status: 'COMPLETED',
-      progress: '100'
+      progress: '100',
+      modelVendor,
+      modelUsed,
     });
     
     // Submit to Salesforce via web2case endpoint

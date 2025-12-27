@@ -521,10 +521,10 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
       })
       .eq('id', generationId);
 
-    // Get the media_url_key for Salesforce integration
+    // Get the media_url_key and model info for Salesforce integration
     const { data: generationRecord } = await supabaseClient
       .from('video_generations')
-      .select('media_url_key')
+      .select('media_url_key, generation_data')
       .eq('id', generationId)
       .single();
 
@@ -532,7 +532,9 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
     if (generationRecord?.media_url_key) {
       try {
         console.log(`🔄 Updating Salesforce for Media URL Key: ${generationRecord.media_url_key}`);
-        await updateSalesforceContent(generationRecord.media_url_key, publicVideoUrl);
+        const genData = generationRecord.generation_data || {};
+        const modelUsed = genData.model || 'veo-2';
+        await updateSalesforceContent(generationRecord.media_url_key, publicVideoUrl, 'Google', modelUsed);
         console.log(`✅ Salesforce content updated successfully for key: ${generationRecord.media_url_key}`);
       } catch (salesforceError) {
         console.error(`❌ Failed to update Salesforce content:`, salesforceError);
@@ -908,7 +910,7 @@ async function querySalesforceContentId(mediaUrlKey: string): Promise<string | n
 }
 
 // Helper function to update Salesforce Content record with video URL
-async function updateSalesforceContent(mediaUrlKey: string, videoUrl: string): Promise<void> {
+async function updateSalesforceContent(mediaUrlKey: string, videoUrl: string, modelVendor?: string, modelUsed?: string): Promise<void> {
   try {
     // First, query Salesforce to get the Content record ID
     const contentId = await querySalesforceContentId(mediaUrlKey);
@@ -927,9 +929,18 @@ async function updateSalesforceContent(mediaUrlKey: string, videoUrl: string): P
     formData.append('videoUrl', videoUrl);
     formData.append('status', 'Generated');
     
+    // Add model vendor and model used
+    if (modelVendor) {
+      formData.append('modelVendor', modelVendor);
+    }
+    if (modelUsed) {
+      formData.append('modelUsed', modelUsed);
+    }
+    
     console.log(`📡 Updating Salesforce Content via: ${updateUrl}`);
     console.log(`📝 Content ID: ${contentId}`);
     console.log(`🎥 Video URL: ${videoUrl.substring(0, 120)}...`);
+    console.log(`🤖 Model: ${modelVendor} / ${modelUsed}`);
     
     const response = await fetch(updateUrl, {
       method: 'POST',

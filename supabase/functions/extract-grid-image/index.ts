@@ -25,6 +25,8 @@ interface ExtractGridImageRequest {
   masterSalesforceId?: string;
   prompt?: string; // Parent AI prompt for SFDC sync
   referenceImageUrl?: string; // Reference image used for generation
+  modelVendor?: string; // e.g., "Google", "Wavespeed AI"
+  modelUsed?: string; // e.g., "gemini-2.5-flash-image-preview", "flux-dev"
 }
 
 // Helper function to escape special regex characters
@@ -111,6 +113,8 @@ serve(async (req) => {
       masterSalesforceId,
       prompt,
       referenceImageUrl,
+      modelVendor,
+      modelUsed,
     } = payload;
 
     if (!sourceUrl || row === undefined || col === undefined || !generationId || !positionId) {
@@ -271,6 +275,12 @@ serve(async (req) => {
       if (generationId) {
         formData.append("string_ri1__AI_Gen_Key__c", generationId.substring(0, 255));
       }
+      if (modelVendor) {
+        formData.append("string_ri1__AI_Models_Vendors__c", modelVendor.substring(0, 255));
+      }
+      if (modelUsed) {
+        formData.append("string_ri1__AI_Model_Used__c", modelUsed.substring(0, 255));
+      }
       
       // Link variant to master content record
       if (masterSalesforceId) {
@@ -283,6 +293,8 @@ serve(async (req) => {
         hasRefImage: !!referenceImageUrl,
         hasGenId: !!generationId,
         hasMaster: !!masterSalesforceId,
+        hasModelVendor: !!modelVendor,
+        hasModelUsed: !!modelUsed,
       });
 
       console.log("=== SALESFORCE SYNC START ===");

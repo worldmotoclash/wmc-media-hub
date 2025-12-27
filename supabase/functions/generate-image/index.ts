@@ -264,6 +264,8 @@ interface SfdcImageMetadata {
   aspectRatio?: string;
   template?: string;
   masterSalesforceId?: string;
+  modelVendor?: string;
+  modelUsed?: string;
 }
 
 // Create SFDC record and get ID with comprehensive AI generation fields
@@ -301,6 +303,12 @@ async function createSfdcRecord(
     if (metadata?.masterSalesforceId) {
       formData.append("lookup_ri1__Master_Content__c", metadata.masterSalesforceId);
     }
+    if (metadata?.modelVendor) {
+      formData.append("string_ri1__AI_Models_Vendors__c", metadata.modelVendor.substring(0, 255));
+    }
+    if (metadata?.modelUsed) {
+      formData.append("string_ri1__AI_Model_Used__c", metadata.modelUsed.substring(0, 255));
+    }
 
     console.log("Sending to w2x-engine:", W2X_ENGINE_URL);
     console.log("SFDC metadata fields:", {
@@ -308,6 +316,8 @@ async function createSfdcRecord(
       hasRefImage: !!metadata?.referenceImageUrl,
       hasGenId: !!metadata?.generationId,
       hasMaster: !!metadata?.masterSalesforceId,
+      hasModelVendor: !!metadata?.modelVendor,
+      hasModelUsed: !!metadata?.modelUsed,
     });
 
     const sfResponse = await fetch(W2X_ENGINE_URL, {
@@ -661,6 +671,8 @@ DO NOT include any text, watermarks, labels, or overlays in the generated images
         aspectRatio: '1:1',
         template,
         masterSalesforceId,
+        modelVendor: 'Google',
+        modelUsed: 'gemini-2.5-flash-image-preview',
       });
       
       if (salesforceId) {
@@ -700,7 +712,7 @@ DO NOT include any text, watermarks, labels, or overlays in the generated images
       const extractMasterAssetId = masterAssetId || assetData?.id;
       const extractMasterSalesforceId = masterSalesforceId || salesforceId;
       console.log('Grid extraction master context:', { extractMasterAssetId, extractMasterSalesforceId, originalMasterAssetId: masterAssetId, originalMasterSalesforceId: masterSalesforceId });
-      await autoExtractGridCells(supabase, generationId, s3Url, template || 'grid', extractMasterAssetId, extractMasterSalesforceId, fullPrompt, referenceImageUrl);
+      await autoExtractGridCells(supabase, generationId, s3Url, template || 'grid', extractMasterAssetId, extractMasterSalesforceId, fullPrompt, referenceImageUrl, 'Google', 'gemini-2.5-flash-image-preview');
     }
 
   } catch (error) {
@@ -725,7 +737,9 @@ async function autoExtractGridCells(
   masterAssetId: string | undefined,
   masterSalesforceId: string | null,
   prompt?: string,
-  referenceImageUrl?: string
+  referenceImageUrl?: string,
+  modelVendor?: string,
+  modelUsed?: string
 ) {
   const positions = [
     { row: 0, col: 0, id: 'top-left' },
@@ -762,6 +776,8 @@ async function autoExtractGridCells(
           masterSalesforceId,
           prompt,
           referenceImageUrl,
+          modelVendor,
+          modelUsed,
         }),
       });
 
