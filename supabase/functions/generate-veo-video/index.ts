@@ -252,7 +252,11 @@ DO NOT introduce new characters, change wardrobe, or alter the environment from 
       ri1__Tags__c: salesforceData.tags?.join(';') || '',
       ri1__Keywords__c: salesforceData.keywords?.join(';') || '',
       ri1__Type__c: 'AI Generated',
-      ri1__Status__c: 'Generating'
+      ri1__Status__c: 'Generating',
+      // New fields: Visual Anchors, Extra Constraints, Negative Constraints
+      ri1__Visual_Anchors__c: requestData.styleProfile?.visualAnchors?.join(', ') || '',
+      ri1__Extra_Constraints__c: requestData.styleOverride || '',
+      ri1__Negative_Constraints__c: requestData.styleProfile?.negativeConstraints?.join(', ') || '',
     };
 
     // Start real VEO generation process

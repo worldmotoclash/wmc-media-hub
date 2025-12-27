@@ -266,6 +266,9 @@ interface SfdcImageMetadata {
   masterSalesforceId?: string;
   modelVendor?: string;
   modelUsed?: string;
+  visualAnchors?: string[];
+  extraConstraints?: string;
+  negativeConstraints?: string[];
 }
 
 // Create SFDC record and get ID with comprehensive AI generation fields
@@ -308,6 +311,16 @@ async function createSfdcRecord(
     }
     if (metadata?.modelUsed) {
       formData.append("string_ri1__AI_Model_Used__c", metadata.modelUsed.substring(0, 255));
+    }
+    // New fields: Visual Anchors, Extra Constraints, Negative Constraints
+    if (metadata?.visualAnchors && metadata.visualAnchors.length > 0) {
+      formData.append("string_ri1__Visual_Anchors__c", metadata.visualAnchors.join(', ').substring(0, 32768));
+    }
+    if (metadata?.extraConstraints) {
+      formData.append("string_ri1__Extra_Constraints__c", metadata.extraConstraints.substring(0, 32768));
+    }
+    if (metadata?.negativeConstraints && metadata.negativeConstraints.length > 0) {
+      formData.append("string_ri1__Negative_Constraints__c", metadata.negativeConstraints.join(', ').substring(0, 32768));
     }
 
     console.log("Sending to w2x-engine:", W2X_ENGINE_URL);

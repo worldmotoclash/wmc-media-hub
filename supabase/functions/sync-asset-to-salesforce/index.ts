@@ -81,6 +81,9 @@ interface SfdcSyncMetadata {
   location?: string;
   modelVendor?: string;
   modelUsed?: string;
+  visualAnchors?: string[];
+  extraConstraints?: string;
+  negativeConstraints?: string[];
 }
 
 // Create a new Salesforce Content record via w2x-engine with comprehensive fields
@@ -142,6 +145,16 @@ async function createSalesforceRecord(
     }
     if (metadata?.modelUsed) {
       formData.append("string_ri1__AI_Model_Used__c", metadata.modelUsed.substring(0, 255));
+    }
+    // New fields: Visual Anchors, Extra Constraints, Negative Constraints
+    if (metadata?.visualAnchors && metadata.visualAnchors.length > 0) {
+      formData.append("string_ri1__Visual_Anchors__c", metadata.visualAnchors.join(', ').substring(0, 32768));
+    }
+    if (metadata?.extraConstraints) {
+      formData.append("string_ri1__Extra_Constraints__c", metadata.extraConstraints.substring(0, 32768));
+    }
+    if (metadata?.negativeConstraints && metadata.negativeConstraints.length > 0) {
+      formData.append("string_ri1__Negative_Constraints__c", metadata.negativeConstraints.join(', ').substring(0, 32768));
     }
     
     console.log("SFDC sync metadata fields:", {
@@ -315,6 +328,9 @@ serve(async (req) => {
         location: assetMetadata.location,
         modelVendor: assetMetadata.modelVendor || assetMetadata.vendor,
         modelUsed: assetMetadata.modelUsed || assetMetadata.model,
+        visualAnchors: assetMetadata.visualAnchors,
+        extraConstraints: assetMetadata.extraConstraints || assetMetadata.styleOverride,
+        negativeConstraints: assetMetadata.negativeConstraints,
       };
       
       const created = await createSalesforceRecord(asset.title, asset.file_url, contentType, syncMetadata);
