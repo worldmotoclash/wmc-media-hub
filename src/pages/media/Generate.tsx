@@ -1955,6 +1955,13 @@ const Generate: React.FC = () => {
                           setSelectedSubjectForReference(subject);
                           setReferenceDialogOpen(true);
                         }}
+                        onRemoveReference={(subjectId) => {
+                          setSubjectReferences(prev => {
+                            const updated = { ...prev };
+                            delete updated[subjectId];
+                            return updated;
+                          });
+                        }}
                       />
 
                       {styleProfile && (

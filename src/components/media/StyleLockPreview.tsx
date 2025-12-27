@@ -52,6 +52,7 @@ interface StyleLockPreviewProps {
   subjectReferences: Record<string, SubjectReference>;
   isAnalyzing: boolean;
   onSubjectClick: (subject: Subject) => void;
+  onRemoveReference?: (subjectId: string) => void;
 }
 
 // Get icon for subject type
@@ -77,6 +78,7 @@ export const StyleLockPreview: React.FC<StyleLockPreviewProps> = ({
   subjectReferences,
   isAnalyzing,
   onSubjectClick,
+  onRemoveReference,
 }) => {
   // Get pinned subjects
   const pinnedSubjects = styleProfile?.subjects?.filter(s => !!subjectReferences[s.id]) || [];
@@ -109,27 +111,45 @@ export const StyleLockPreview: React.FC<StyleLockPreviewProps> = ({
               const Icon = getSubjectIcon(subject.type);
               
               return (
-                <button
+                <div
                   key={subject.id}
-                  type="button"
-                  onClick={() => onSubjectClick(subject)}
                   className="group relative rounded-lg overflow-hidden border-2 border-emerald-500/50 hover:border-emerald-500 transition-colors"
-                  title={`${subject.id} - Click to edit`}
                 >
-                  <img 
-                    src={ref.imageUrl} 
-                    alt={subject.id}
-                    className="w-14 h-14 object-cover"
-                  />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-1">
-                    <div className="flex items-center gap-0.5">
-                      <Icon className="w-2.5 h-2.5 text-white/80" />
-                      <span className="text-[9px] text-white font-medium truncate max-w-[40px]">
-                        {subject.id}
-                      </span>
+                  <button
+                    type="button"
+                    onClick={() => onSubjectClick(subject)}
+                    className="block"
+                    title={`${subject.id} - Click to edit`}
+                  >
+                    <img 
+                      src={ref.imageUrl} 
+                      alt={subject.id}
+                      className="w-14 h-14 object-cover"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-1">
+                      <div className="flex items-center gap-0.5">
+                        <Icon className="w-2.5 h-2.5 text-white/80" />
+                        <span className="text-[9px] text-white font-medium truncate max-w-[40px]">
+                          {subject.id}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </button>
+                  </button>
+                  {/* Remove button */}
+                  {onRemoveReference && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemoveReference(subject.id);
+                      }}
+                      className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110"
+                      title="Remove reference"
+                    >
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
