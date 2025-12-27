@@ -669,7 +669,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
               transition={{ delay: index * 0.05 }}
             >
               <Card className="group hover:shadow-lg transition-all duration-200 cursor-pointer">
-                <div className="relative">
+                <div className="relative cursor-pointer" onClick={() => setSelectedAsset(asset)}>
                   {asset.thumbnailUrl ? (
                     <div className="relative">
                       <img
@@ -721,8 +721,6 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     <Badge className={getStatusColor(asset.status)}>
                       {asset.status}
                     </Badge>
-                    {/* Sync Status Badge */}
-                    {asset.syncStatus && getSyncStatusBadge(asset.syncStatus)}
                   </div>
 
                   {asset.duration && (
@@ -770,7 +768,10 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     {asset.resolution && (
                       <div>Resolution: {asset.resolution}</div>
                     )}
-                    <div>Created: {!isNaN(Date.parse(asset.createdAt)) ? new Date(asset.createdAt).toLocaleDateString() : 'Unknown'}</div>
+                    <div className="flex items-center justify-between">
+                      <span>Created: {!isNaN(Date.parse(asset.createdAt)) ? new Date(asset.createdAt).toLocaleDateString() : 'Unknown'}</span>
+                      {asset.syncStatus && getSyncStatusBadge(asset.syncStatus)}
+                    </div>
                   </div>
 
                   <div className="flex gap-2">
