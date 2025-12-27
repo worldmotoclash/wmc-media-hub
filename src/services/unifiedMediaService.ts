@@ -13,7 +13,7 @@ export interface MediaAsset {
   fileSize?: number;
   resolution?: string;
   fileFormat?: string;
-  assetType?: 'video' | 'image' | string;
+  assetType?: 'video' | 'image' | 'audio' | string;
   status: string;
   metadata: Record<string, any>;
   createdAt: string;
@@ -101,6 +101,7 @@ export async function fetchAllMediaAssets(
     // Apply contentOrigin filter (new architecture - takes precedence over sources)
     if (filters?.contentOrigin?.length) {
       const sourcesToInclude: string[] = [];
+      const needsAudioFilter = filters.contentOrigin.includes('audio');
       
       if (filters.contentOrigin.includes('youtube')) {
         sourcesToInclude.push('youtube');
@@ -112,8 +113,17 @@ export async function fetchAllMediaAssets(
         sourcesToInclude.push('local_upload', 's3_bucket');
       }
       
-      if (sourcesToInclude.length > 0) {
+      // Build combined filter for sources and audio
+      if (sourcesToInclude.length > 0 && needsAudioFilter) {
+        // Combine source filter OR audio file_format filter
+        const sourceFilter = `source.in.(${sourcesToInclude.join(',')})`;
+        const audioFilter = 'file_format.ilike.%mp3%,file_format.ilike.%wav%,file_format.ilike.%aac%,file_format.ilike.%m4a%,file_format.ilike.%flac%';
+        query = query.or(`${sourceFilter},${audioFilter}`);
+      } else if (sourcesToInclude.length > 0) {
         query = query.in('source', sourcesToInclude as any);
+      } else if (needsAudioFilter) {
+        // ONLY audio selected - filter by file format
+        query = query.or('file_format.ilike.%mp3%,file_format.ilike.%wav%,file_format.ilike.%aac%,file_format.ilike.%m4a%,file_format.ilike.%flac%');
       }
     } else if (filters?.sources?.length) {
       // Legacy sources filter (fallback)
@@ -168,8 +178,8 @@ export async function fetchAllMediaAssets(
     // Check if we should include Salesforce content based on contentOrigin or sources filters
     const shouldFetchSalesforce = (() => {
       if (filters?.contentOrigin?.length) {
-        // If contentOrigin filter is active, only fetch if youtube is selected
-        return filters.contentOrigin.includes('youtube');
+        // If contentOrigin filter is active, fetch if youtube or audio is selected
+        return filters.contentOrigin.includes('youtube') || filters.contentOrigin.includes('audio');
       }
       // Legacy: fetch if no source filter or if salesforce/youtube/generated is included
       if (!filters?.sources?.length) return true;
@@ -199,6 +209,14 @@ export async function fetchAllMediaAssets(
                 asset.source === 'salesforce' && 
                 asset.status !== 'Generated') {
               return true;
+            }
+            // Audio filter - check file format
+            if (filters.contentOrigin!.includes('audio')) {
+              const audioTypes = ['mp3', 'wav', 'aac', 'flac', 'ogg', 'm4a', 'wma', 'audio'];
+              const fileFormat = asset.fileFormat?.toLowerCase() || '';
+              if (audioTypes.some(type => fileFormat.includes(type))) {
+                return true;
+              }
             }
             return false;
           });
@@ -504,9 +522,14 @@ function transformSalesforceAsset(salesforceContent: any): MediaAsset {
   };
 
   // Determine asset type from content type
-  const getAssetType = (contentType?: string): 'video' | 'image' | undefined => {
+  const getAssetType = (contentType?: string): 'video' | 'image' | 'audio' | undefined => {
     if (!contentType) return undefined;
     const ct = contentType.toLowerCase();
+    
+    // Audio types
+    if (['mp3', 'wav', 'aac', 'flac', 'ogg', 'm4a', 'wma', 'audio'].some(type => ct.includes(type))) {
+      return 'audio';
+    }
     
     // Video types
     if (['mp4', 'm4v', 'mov', 'webm', 'mkv', 'avi', 'wmv', 'flv', 'mpeg', 'mpg', '3gp', 'youtube'].includes(ct)) {
