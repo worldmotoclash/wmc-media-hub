@@ -189,13 +189,9 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
       total: (inSyncCount || 0) + (missingSfdcCount || 0) + (missingFileCount || 0)
     };
 
-    // Calculate content origin stats
-    // YouTube: source = 'youtube'
-    const { count: youtubeCount } = await supabase
-      .from('media_assets')
-      .select('*', { count: 'exact', head: true })
-      .eq('source', 'youtube');
-
+    // Calculate content origin stats from database
+    // YouTube count already set from Salesforce API (lines 67-78, 93)
+    
     // AI Generated: source = 'generated'
     const { count: aiGeneratedCount } = await supabase
       .from('media_assets')
@@ -208,18 +204,16 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
       .select('*', { count: 'exact', head: true })
       .in('source', ['local_upload', 's3_bucket']);
 
-    // Audio: check file_format for audio types
+    // Audio: check file_format for audio types (add to Salesforce audio count)
     const { count: audioCount } = await supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
       .or('file_format.ilike.%mp3%,file_format.ilike.%wav%,file_format.ilike.%aac%,file_format.ilike.%m4a%,file_format.ilike.%audio%');
 
-    stats.contentOrigin = {
-      youtube: youtubeCount || 0,
-      aiGenerated: aiGeneratedCount || 0,
-      uploaded: uploadedCount || 0,
-      audio: audioCount || 0
-    };
+    // Preserve YouTube/Audio counts from Salesforce, add database counts for others
+    stats.contentOrigin.aiGenerated = aiGeneratedCount || 0;
+    stats.contentOrigin.uploaded = uploadedCount || 0;
+    stats.contentOrigin.audio += (audioCount || 0);
 
     // Calculate total
     stats.totalCount = stats.salesforce.count + 
