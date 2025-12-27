@@ -137,7 +137,7 @@ export const StyleLockPreview: React.FC<StyleLockPreviewProps> = ({
           </div>
           
           {styleProfile.subjects && styleProfile.subjects.length > 0 ? (
-            <ScrollArea className="max-h-[180px]">
+            <ScrollArea className="max-h-[320px]">
               <div className="divide-y divide-border/30">
                 {styleProfile.subjects.map((subject, index) => {
                   const isPinned = !!subjectReferences[subject.id];

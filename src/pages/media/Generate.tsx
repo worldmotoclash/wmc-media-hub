@@ -1970,21 +1970,53 @@ const Generate: React.FC = () => {
                             </div>
                           )}
 
-                          {/* Visual Anchors */}
+                          {/* Visual Anchors with Reference Image Support */}
                           <div className="flex items-start gap-2">
                             <Palette className="w-4 h-4 mt-0.5 text-muted-foreground" />
                             <div className="flex-1">
                               <span className="text-xs font-medium text-muted-foreground">Visual Anchors (locked):</span>
-                              <ul className="text-xs text-muted-foreground mt-1 list-disc list-inside">
-                                {styleProfile.visualAnchors?.slice(0, 4).map((anchor, i) => (
-                                  <li key={i}>{anchor}</li>
+                              <div className="mt-2 space-y-2">
+                                {styleProfile.visualAnchors?.map((anchor, i) => (
+                                  <div key={i} className="flex items-center justify-between bg-muted/30 rounded px-2 py-1.5 group">
+                                    <span className="text-xs text-muted-foreground truncate flex-1">{anchor}</span>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 px-2 text-xs opacity-60 group-hover:opacity-100 transition-opacity"
+                                      onClick={() => {
+                                        toast({
+                                          title: "Reference Image",
+                                          description: "Anchor reference images will be supported in a future update",
+                                        });
+                                      }}
+                                    >
+                                      <Image className="w-3 h-3 mr-1" />
+                                      Add Ref
+                                    </Button>
+                                  </div>
                                 ))}
-                                {(styleProfile.visualAnchors?.length || 0) > 4 && (
-                                  <li className="text-muted-foreground/60">+{styleProfile.visualAnchors!.length - 4} more...</li>
-                                )}
-                              </ul>
+                              </div>
                             </div>
                           </div>
+                          
+                          {/* Negative Constraints */}
+                          {styleProfile.negativeConstraints && styleProfile.negativeConstraints.length > 0 && (
+                            <div className="flex items-start gap-2 mt-3">
+                              <AlertCircle className="w-4 h-4 mt-0.5 text-destructive/70" />
+                              <div className="flex-1">
+                                <span className="text-xs font-medium text-destructive/70">Negative Constraints:</span>
+                                <ul className="text-xs text-muted-foreground mt-1 list-disc list-inside">
+                                  {styleProfile.negativeConstraints.slice(0, 3).map((constraint, i) => (
+                                    <li key={i}>{constraint}</li>
+                                  ))}
+                                  {styleProfile.negativeConstraints.length > 3 && (
+                                    <li className="text-muted-foreground/60">+{styleProfile.negativeConstraints.length - 3} more...</li>
+                                  )}
+                                </ul>
+                              </div>
+                            </div>
+                          )}
 
                           {/* Override textarea */}
                           <div className="mt-3">
