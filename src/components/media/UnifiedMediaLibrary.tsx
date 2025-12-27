@@ -28,9 +28,17 @@ import { LibrarianWorkflowDialog } from "./LibrarianWorkflowDialog";
 import VideoPreviewModal from "./VideoPreviewModal";
 import ImagePreviewModal from "./ImagePreviewModal";
 import AudioPreviewModal from "./AudioPreviewModal";
+import MiniAudioPlayer from "./MiniAudioPlayer";
 import MediaSourceDashboard from "./MediaSourceDashboard";
 import { S3BucketConfigManager } from "./S3BucketConfigManager";
 import { MediaNavigation } from "./MediaNavigation";
+
+interface MiniPlayerState {
+  isOpen: boolean;
+  audioUrl: string;
+  title: string;
+  source: string;
+}
 
 export const UnifiedMediaLibrary: React.FC = () => {
   const [assets, setAssets] = useState<MediaAsset[]>([]);
@@ -49,10 +57,29 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalAssets, setTotalAssets] = useState(0);
+  const [miniPlayer, setMiniPlayer] = useState<MiniPlayerState>({
+    isOpen: false,
+    audioUrl: '',
+    title: '',
+    source: '',
+  });
   const pageSize = 20;
   const { user } = useUser();
   useSupabaseAuth(); // Ensure Supabase auth when user is logged in
   const navigate = useNavigate();
+
+  const handlePlayInBackground = (asset: MediaAsset) => {
+    setMiniPlayer({
+      isOpen: true,
+      audioUrl: asset.fileUrl || '',
+      title: asset.title,
+      source: asset.source,
+    });
+  };
+
+  const closeMiniPlayer = () => {
+    setMiniPlayer(prev => ({ ...prev, isOpen: false }));
+  };
 
   useEffect(() => {
     if (!user) {
@@ -1139,6 +1166,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
             asset={selectedAsset}
             isOpen={!!selectedAsset}
             onClose={() => setSelectedAsset(null)}
+            onPlayInBackground={handlePlayInBackground}
           />
         ) : (
           <ImagePreviewModal
@@ -1164,6 +1192,15 @@ export const UnifiedMediaLibrary: React.FC = () => {
           }}
         />
       )}
+
+      {/* Mini Audio Player */}
+      <MiniAudioPlayer
+        audioUrl={miniPlayer.audioUrl}
+        title={miniPlayer.title}
+        source={miniPlayer.source}
+        isOpen={miniPlayer.isOpen}
+        onClose={closeMiniPlayer}
+      />
     </div>
     </div>
   );
