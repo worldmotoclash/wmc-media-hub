@@ -1946,9 +1946,8 @@ const Generate: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Visual Preview with Subject Overlays */}
+                      {/* Subject List with Pinned Thumbnails */}
                       <StyleLockPreview
-                        imageUrl={genData.startImage}
                         styleProfile={styleProfile}
                         subjectReferences={subjectReferences}
                         isAnalyzing={isAnalyzingStyle}
