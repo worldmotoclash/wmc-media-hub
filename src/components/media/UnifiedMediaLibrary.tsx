@@ -57,6 +57,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalAssets, setTotalAssets] = useState(0);
+  const [brokenThumbnails, setBrokenThumbnails] = useState<Set<string>>(new Set());
   const [miniPlayer, setMiniPlayer] = useState<MiniPlayerState>({
     isOpen: false,
     audioUrl: '',
@@ -730,14 +731,14 @@ export const UnifiedMediaLibrary: React.FC = () => {
                         </Badge>
                       )}
                     </div>
-                  ) : asset.thumbnailUrl ? (
+                  ) : asset.thumbnailUrl && !brokenThumbnails.has(asset.id) ? (
                     <div className="relative">
                       <img
                         src={asset.thumbnailUrl}
                         alt={asset.title}
                         className="w-full h-48 object-cover rounded-t-lg"
-                        onError={(e) => {
-                          e.currentTarget.src = '/placeholder.svg';
+                        onError={() => {
+                          setBrokenThumbnails(prev => new Set(prev).add(asset.id));
                         }}
                       />
                       {asset.assetType === 'video' && (
@@ -982,14 +983,14 @@ export const UnifiedMediaLibrary: React.FC = () => {
                 <TableRow key={asset.id} className="cursor-pointer hover:bg-muted/50">
                   <TableCell>
                     <div className="relative w-12 h-12 rounded overflow-hidden bg-muted flex items-center justify-center">
-                      {asset.thumbnailUrl ? (
+                      {asset.thumbnailUrl && !brokenThumbnails.has(asset.id) ? (
                         <>
                           <img
                             src={asset.thumbnailUrl}
                             alt={asset.title}
                             className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.currentTarget.src = '/placeholder.svg';
+                            onError={() => {
+                              setBrokenThumbnails(prev => new Set(prev).add(asset.id));
                             }}
                           />
                           {asset.assetType === 'video' && (
