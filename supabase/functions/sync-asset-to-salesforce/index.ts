@@ -65,8 +65,29 @@ async function findSalesforceIdByUrl(cdnUrl: string, xmlCache?: string): Promise
   return null;
 }
 
-// Create a new Salesforce Content record via w2x-engine
-async function createSalesforceRecord(title: string, cdnUrl: string, contentType: string): Promise<boolean> {
+// Interface for SFDC sync metadata
+interface SfdcSyncMetadata {
+  prompt?: string;
+  referenceImageUrl?: string;
+  generationId?: string;
+  description?: string;
+  aspectRatio?: string;
+  masterSalesforceId?: string;
+  durationSeconds?: number;
+  negativePrompt?: string;
+  creativityLevel?: number;
+  apiOperationId?: string;
+  categories?: string[];
+  location?: string;
+}
+
+// Create a new Salesforce Content record via w2x-engine with comprehensive fields
+async function createSalesforceRecord(
+  title: string, 
+  cdnUrl: string, 
+  contentType: string,
+  metadata?: SfdcSyncMetadata
+): Promise<boolean> {
   console.log(`Creating Salesforce record: ${title}`);
   
   try {
@@ -76,6 +97,53 @@ async function createSalesforceRecord(title: string, cdnUrl: string, contentType
     formData.append("string_Name", title);
     formData.append("string_ri1__Content_Type__c", contentType);
     formData.append("string_ri1__URL__c", cdnUrl);
+    
+    // AI Generation Fields
+    if (metadata?.prompt) {
+      formData.append("string_ri1__AI_Prompt__c", metadata.prompt.substring(0, 32768));
+    }
+    if (metadata?.negativePrompt) {
+      formData.append("string_ri1__AI_Negative_Prompt__c", metadata.negativePrompt.substring(0, 32768));
+    }
+    if (metadata?.referenceImageUrl) {
+      formData.append("string_ri1__AI_Reference_Image__c", metadata.referenceImageUrl.substring(0, 255));
+    }
+    if (metadata?.generationId) {
+      formData.append("string_ri1__AI_Gen_Key__c", metadata.generationId.substring(0, 255));
+    }
+    if (metadata?.description) {
+      formData.append("string_ri1__Description__c", metadata.description.substring(0, 32768));
+    }
+    if (metadata?.aspectRatio) {
+      formData.append("string_ri1__Aspect_Ratio__c", metadata.aspectRatio);
+    }
+    if (metadata?.masterSalesforceId) {
+      formData.append("lookup_ri1__Master_Content__c", metadata.masterSalesforceId);
+    }
+    if (typeof metadata?.durationSeconds === 'number') {
+      formData.append("number_ri1__Length_in_Seconds__c", metadata.durationSeconds.toString());
+    }
+    if (typeof metadata?.creativityLevel === 'number') {
+      formData.append("number_ri1__AI_Creativity_Level__c", metadata.creativityLevel.toString());
+    }
+    if (metadata?.apiOperationId) {
+      formData.append("string_ri1__API_Operation_ID__c", metadata.apiOperationId.substring(0, 255));
+    }
+    if (metadata?.categories && metadata.categories.length > 0) {
+      formData.append("string_ri1__Categories__c", metadata.categories.join(";"));
+    }
+    if (metadata?.location) {
+      formData.append("string_ri1__Location__c", metadata.location.substring(0, 255));
+    }
+    
+    console.log("SFDC sync metadata fields:", {
+      hasPrompt: !!metadata?.prompt,
+      hasNegativePrompt: !!metadata?.negativePrompt,
+      hasRefImage: !!metadata?.referenceImageUrl,
+      hasGenId: !!metadata?.generationId,
+      hasDuration: typeof metadata?.durationSeconds === 'number',
+      hasCreativity: typeof metadata?.creativityLevel === 'number',
+    });
 
     const response = await fetch(W2X_ENGINE_URL, {
       method: "POST",
@@ -220,7 +288,24 @@ serve(async (req) => {
                           asset.file_url.split('.').pop()?.toUpperCase() || 
                           'JPG';
       
-      const created = await createSalesforceRecord(asset.title, asset.file_url, contentType);
+      // Extract metadata from asset for SFDC sync
+      const assetMetadata = asset.metadata || {};
+      const syncMetadata: SfdcSyncMetadata = {
+        prompt: assetMetadata.prompt,
+        referenceImageUrl: assetMetadata.referenceImageUrl,
+        generationId: assetMetadata.generationId,
+        description: asset.description,
+        aspectRatio: asset.resolution,
+        masterSalesforceId: assetMetadata.masterSalesforceId,
+        durationSeconds: asset.duration,
+        negativePrompt: assetMetadata.negativePrompt,
+        creativityLevel: assetMetadata.creativity,
+        apiOperationId: assetMetadata.apiOperationId,
+        categories: assetMetadata.categories,
+        location: assetMetadata.location,
+      };
+      
+      const created = await createSalesforceRecord(asset.title, asset.file_url, contentType, syncMetadata);
       
       if (!created) {
         results.push({

@@ -23,6 +23,8 @@ interface ExtractGridImageRequest {
   title?: string;
   masterAssetId?: string;
   masterSalesforceId?: string;
+  prompt?: string; // Parent AI prompt for SFDC sync
+  referenceImageUrl?: string; // Reference image used for generation
 }
 
 // Helper function to escape special regex characters
@@ -107,6 +109,8 @@ serve(async (req) => {
       title,
       masterAssetId,
       masterSalesforceId,
+      prompt,
+      referenceImageUrl,
     } = payload;
 
     if (!sourceUrl || row === undefined || col === undefined || !generationId || !positionId) {
@@ -257,11 +261,29 @@ serve(async (req) => {
       formData.append("string_ri1__Content_Type__c", "JPG");
       formData.append("string_ri1__URL__c", variantCdnUrl);
       
+      // AI Generation Fields
+      if (prompt) {
+        formData.append("string_ri1__AI_Prompt__c", prompt.substring(0, 32768));
+      }
+      if (referenceImageUrl) {
+        formData.append("string_ri1__AI_Reference_Image__c", referenceImageUrl.substring(0, 255));
+      }
+      if (generationId) {
+        formData.append("string_ri1__AI_Gen_Key__c", generationId.substring(0, 255));
+      }
+      
       // Link variant to master content record
       if (masterSalesforceId) {
         formData.append("lookup_ri1__Master_Content__c", masterSalesforceId);
         console.log(`Linking variant to master SFDC record: ${masterSalesforceId}`);
       }
+      
+      console.log("SFDC metadata fields:", {
+        hasPrompt: !!prompt,
+        hasRefImage: !!referenceImageUrl,
+        hasGenId: !!generationId,
+        hasMaster: !!masterSalesforceId,
+      });
 
       console.log("=== SALESFORCE SYNC START ===");
       console.log("Sending grid variant to w2x-engine:", W2X_ENGINE_URL);
