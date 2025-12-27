@@ -270,9 +270,36 @@ export async function fetchAllMediaAssets(
       }
     }
 
-    // Combine and sort results
+    // Combine and sort results (respecting user's sort selection with case-insensitive title sorting)
     const allAssets = [...transformedAssets, ...salesforceAssets]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .sort((a, b) => {
+        const field = sort?.field || 'created_at';
+        const ascending = sort?.direction === 'asc';
+        
+        let comparison = 0;
+        
+        switch (field) {
+          case 'title':
+            // Case-insensitive comparison using localeCompare
+            comparison = (a.title || '').localeCompare(b.title || '', undefined, { 
+              sensitivity: 'base',  // Ignores case and diacritics
+              numeric: true         // "File2" comes before "File10"
+            });
+            break;
+          case 'file_size':
+            comparison = (a.fileSize || 0) - (b.fileSize || 0);
+            break;
+          case 'asset_type':
+            comparison = (a.assetType || '').localeCompare(b.assetType || '');
+            break;
+          case 'created_at':
+          default:
+            comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+            break;
+        }
+        
+        return ascending ? comparison : -comparison;
+      })
       .slice(0, limit);
 
     return {
