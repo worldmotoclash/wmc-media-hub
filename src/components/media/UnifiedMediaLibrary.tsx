@@ -27,6 +27,7 @@ import {
 import { LibrarianWorkflowDialog } from "./LibrarianWorkflowDialog";
 import VideoPreviewModal from "./VideoPreviewModal";
 import ImagePreviewModal from "./ImagePreviewModal";
+import AudioPreviewModal from "./AudioPreviewModal";
 import MediaSourceDashboard from "./MediaSourceDashboard";
 import { S3BucketConfigManager } from "./S3BucketConfigManager";
 import { MediaNavigation } from "./MediaNavigation";
@@ -1130,6 +1131,12 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       selectedAsset.status === 'pending' ? 'Processing' : 'Draft') as 'Draft' | 'Synced' | 'Error' | 'Processing',
               tags: selectedAsset.tags.map(t => t.name)
             }}
+            isOpen={!!selectedAsset}
+            onClose={() => setSelectedAsset(null)}
+          />
+        ) : selectedAsset.assetType === 'audio' ? (
+          <AudioPreviewModal
+            asset={selectedAsset}
             isOpen={!!selectedAsset}
             onClose={() => setSelectedAsset(null)}
           />
