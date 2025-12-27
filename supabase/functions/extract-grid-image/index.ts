@@ -281,6 +281,16 @@ serve(async (req) => {
       if (modelUsed) {
         formData.append("string_ri1__AI_Model_Used__c", modelUsed.substring(0, 255));
       }
+      // AI Template field - human-readable template names for grid variants
+      if (template) {
+        const templateNames: Record<string, string> = {
+          'version1': 'V1 Contact Sheet (3x3)',
+          'version2': 'V2 Trailer/Keyframes (3x3)',
+          'version3': "V3 Director's Cut (3x3)",
+        };
+        const templateLabel = templateNames[template] || template;
+        formData.append("string_ri1__AI_Template__c", templateLabel.substring(0, 255));
+      }
       
       // Link variant to master content record
       if (masterSalesforceId) {
@@ -295,6 +305,7 @@ serve(async (req) => {
         hasMaster: !!masterSalesforceId,
         hasModelVendor: !!modelVendor,
         hasModelUsed: !!modelUsed,
+        hasTemplate: !!template,
       });
 
       console.log("=== SALESFORCE SYNC START ===");

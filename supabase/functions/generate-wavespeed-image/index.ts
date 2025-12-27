@@ -295,6 +295,16 @@ async function createSfdcRecord(
     if (metadata?.modelUsed) {
       formData.append("string_ri1__AI_Model_Used__c", metadata.modelUsed.substring(0, 255));
     }
+    // AI Template field - human-readable template names
+    if (metadata?.template) {
+      const templateNames: Record<string, string> = {
+        'version1': 'V1 Contact Sheet (3x3)',
+        'version2': 'V2 Trailer/Keyframes (3x3)',
+        'version3': "V3 Director's Cut (3x3)",
+      };
+      const templateLabel = templateNames[metadata.template] || metadata.template;
+      formData.append("string_ri1__AI_Template__c", templateLabel.substring(0, 255));
+    }
     // New fields: Visual Anchors, Extra Constraints, Negative Constraints
     if (metadata?.visualAnchors && metadata.visualAnchors.length > 0) {
       formData.append("string_ri1__Visual_Anchors__c", metadata.visualAnchors.join(', ').substring(0, 32768));
