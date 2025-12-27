@@ -670,7 +670,39 @@ export const UnifiedMediaLibrary: React.FC = () => {
             >
               <Card className="group hover:shadow-lg transition-all duration-200 cursor-pointer">
                 <div className="relative cursor-pointer" onClick={() => setSelectedAsset(asset)}>
-                  {asset.thumbnailUrl ? (
+                  {asset.assetType === 'audio' ? (
+                    // Audio asset placeholder with waveform visualization
+                    <div className="w-full h-48 bg-gradient-to-br from-orange-500/10 to-amber-500/10 rounded-t-lg flex flex-col items-center justify-center relative overflow-hidden">
+                      {/* Animated waveform bars */}
+                      <div className="flex items-center gap-1 mb-3">
+                        {[...Array(12)].map((_, i) => (
+                          <motion.div
+                            key={i}
+                            className="w-1.5 bg-gradient-to-t from-orange-500 to-amber-400 rounded-full"
+                            initial={{ height: 8 }}
+                            animate={{ 
+                              height: [8, 20 + Math.random() * 30, 8],
+                            }}
+                            transition={{
+                              duration: 0.8 + Math.random() * 0.4,
+                              repeat: Infinity,
+                              delay: i * 0.1,
+                              ease: "easeInOut"
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <div className="w-16 h-16 rounded-full bg-orange-500/20 flex items-center justify-center">
+                        <Music className="w-8 h-8 text-orange-500" />
+                      </div>
+                      {/* Audio format badge */}
+                      {asset.fileFormat && (
+                        <Badge variant="outline" className="absolute bottom-3 left-3 bg-background/80 text-xs uppercase">
+                          {asset.fileFormat}
+                        </Badge>
+                      )}
+                    </div>
+                  ) : asset.thumbnailUrl ? (
                     <div className="relative">
                       <img
                         src={asset.thumbnailUrl}
@@ -706,13 +738,15 @@ export const UnifiedMediaLibrary: React.FC = () => {
                         <Video className="w-3 h-3 mr-1" />
                       ) : asset.assetType === 'image' ? (
                         <Image className="w-3 h-3 mr-1" />
+                      ) : asset.assetType === 'audio' ? (
+                        <Music className="w-3 h-3 mr-1" />
                       ) : null}
                       {asset.assetType || asset.source.replace('_', ' ')}
                     </Badge>
                     {/* Content Origin Badge */}
-                    {getContentOriginIcon(asset.source) && (
+                    {getContentOriginIcon(asset.source, asset.fileFormat) && (
                       <Badge variant="secondary" className="text-xs px-1.5">
-                        {getContentOriginIcon(asset.source)}
+                        {getContentOriginIcon(asset.source, asset.fileFormat)}
                       </Badge>
                     )}
                   </div>
@@ -723,10 +757,11 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     </Badge>
                   </div>
 
-                  {asset.duration && (
+                  {(asset.duration || asset.metadata?.formatted_duration) && (
                     <div className="absolute bottom-2 right-2">
-                      <Badge variant="outline" className="bg-black/50 text-white border-white/20">
-                        {formatDuration(asset.duration || (asset.metadata?.formatted_duration))}
+                      <Badge variant="outline" className={`border-white/20 ${asset.assetType === 'audio' ? 'bg-orange-500/80 text-white' : 'bg-black/50 text-white'}`}>
+                        {asset.assetType === 'audio' && <Music className="w-3 h-3 mr-1" />}
+                        {formatDuration(asset.duration || asset.metadata?.formatted_duration)}
                       </Badge>
                     </div>
                   )}
