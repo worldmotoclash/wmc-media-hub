@@ -17,7 +17,7 @@ import Documents from "./pages/Documents";
 import Updates from "./pages/Updates";
 import ThankYou from "./pages/ThankYou";
 import NotFound from "./pages/NotFound";
-import DashboardComparison from "./components/DashboardComparison";
+
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import CookiePolicy from "./pages/CookiePolicy";
@@ -56,7 +56,7 @@ const App = () => (
                 <Route path="/user-dashboard" element={<UserDashboard />} />
                 <Route path="/documents" element={<Documents />} />
                 <Route path="/updates" element={<Updates />} />
-                <Route path="/dashboard-comparison" element={<DashboardComparison />} />
+                
                 <Route path="/investment-opportunity" element={<InvestmentOpportunity />} />
                 <Route path="/test-tracking" element={<TestTracking />} />
                 <Route path="/test-login-tracking" element={<TestLoginTracking />} />
