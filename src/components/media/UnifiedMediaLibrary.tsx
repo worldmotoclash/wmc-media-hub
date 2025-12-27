@@ -741,9 +741,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
                         }}
                       />
                       {asset.assetType === 'video' && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
-                          <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-                            <Play className="w-6 h-6 text-foreground ml-0.5" fill="currentColor" />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-colors">
+                          <div className="w-14 h-14 rounded-full bg-white/95 flex items-center justify-center shadow-lg backdrop-blur-sm border border-white/20">
+                            <Play className="w-7 h-7 text-gray-900 ml-1" fill="currentColor" />
                           </div>
                         </div>
                       )}
@@ -987,7 +987,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
                           />
                           {asset.assetType === 'video' && (
                             <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                              <Play className="w-4 h-4 text-white" fill="currentColor" />
+                              <div className="w-6 h-6 rounded-full bg-white/95 flex items-center justify-center">
+                                <Play className="w-3 h-3 text-gray-900 ml-0.5" fill="currentColor" />
+                              </div>
                             </div>
                           )}
                         </>
@@ -1178,7 +1180,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
               status: (selectedAsset.status === 'approved' ? 'Synced' : 
                       selectedAsset.status === 'rejected' ? 'Error' : 
                       selectedAsset.status === 'pending' ? 'Processing' : 'Draft') as 'Draft' | 'Synced' | 'Error' | 'Processing',
-              tags: selectedAsset.tags.map(t => t.name)
+              tags: selectedAsset.tags.map(t => t.name),
+              youtubeId: selectedAsset.metadata?.youtube_id as string | undefined,
+              contentType: selectedAsset.source === 'youtube' ? 'Youtube' : undefined
             }}
             isOpen={!!selectedAsset}
             onClose={() => setSelectedAsset(null)}
