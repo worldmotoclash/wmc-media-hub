@@ -312,6 +312,16 @@ async function createSfdcRecord(
     if (metadata?.modelUsed) {
       formData.append("string_ri1__AI_Model_Used__c", metadata.modelUsed.substring(0, 255));
     }
+    // AI Template field - human-readable template names
+    if (metadata?.template) {
+      const templateNames: Record<string, string> = {
+        'version1': 'V1 Contact Sheet (3x3)',
+        'version2': 'V2 Trailer/Keyframes (3x3)',
+        'version3': "V3 Director's Cut (3x3)",
+      };
+      const templateLabel = templateNames[metadata.template] || metadata.template;
+      formData.append("string_ri1__AI_Template__c", templateLabel.substring(0, 255));
+    }
     // New fields: Visual Anchors, Extra Constraints, Negative Constraints
     if (metadata?.visualAnchors && metadata.visualAnchors.length > 0) {
       formData.append("string_ri1__Visual_Anchors__c", metadata.visualAnchors.join(', ').substring(0, 32768));
@@ -720,11 +730,16 @@ DO NOT include any text, watermarks, labels, or overlays in the generated images
     // === AUTO-EXTRACT 9 GRID CELLS if 3x3 template ===
     if (isGridTemplate) {
       console.log('=== AUTO-EXTRACTING 9 GRID CELLS ===');
-      // Use the reference image's masterAssetId/masterSalesforceId if provided,
-      // otherwise fall back to the grid image itself as master
-      const extractMasterAssetId = masterAssetId || assetData?.id;
-      const extractMasterSalesforceId = masterSalesforceId || salesforceId;
-      console.log('Grid extraction master context:', { extractMasterAssetId, extractMasterSalesforceId, originalMasterAssetId: masterAssetId, originalMasterSalesforceId: masterSalesforceId });
+      // The GENERATED GRID IMAGE is the master for its extracted cells
+      // Reference image ID is passed separately via referenceImageUrl (stored in ri1__AI_Reference_Image__c)
+      const extractMasterAssetId = assetData?.id; // Grid image's asset ID
+      const extractMasterSalesforceId = salesforceId; // Grid image's SFDC ID
+      console.log('Grid extraction master context:', { 
+        extractMasterAssetId, 
+        extractMasterSalesforceId, 
+        referenceImageUrl,
+        template 
+      });
       await autoExtractGridCells(supabase, generationId, s3Url, template || 'grid', extractMasterAssetId, extractMasterSalesforceId, fullPrompt, referenceImageUrl, 'Google', 'gemini-2.5-flash-image-preview');
     }
 

@@ -43,6 +43,7 @@ import { GRID_POSITIONS, GRID_TEMPLATES } from "@/constants/gridPositions";
 import { ImageDropzone } from "@/components/media/ImageDropzone";
 import { SubjectReferenceDialog } from "@/components/media/SubjectReferenceDialog";
 import { StyleLockPreview } from "@/components/media/StyleLockPreview";
+import { GridVariantsDisplay } from "@/components/media/GridVariantsDisplay";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -1552,123 +1553,12 @@ const Generate: React.FC = () => {
               </div>
             </Card>
 
-            {/* Grid Extraction Section - Only show for 3x3 templates */}
+            {/* Grid Variants Display - Auto-loaded for 3x3 templates */}
             {GRID_TEMPLATES.includes(selectedTemplate) && (
-              <Card className="p-6 mb-6">
-                <h4 className="font-semibold mb-4 flex items-center gap-2">
-                  <Grid3X3 className="w-5 h-5 text-primary" />
-                  Extract Individual Images
-                </h4>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Extract individual images from the 3×3 grid. Each extracted image will be saved to your media library.
-                </p>
-
-                {/* Extract All Button */}
-                <div className="flex gap-4 items-center mb-6">
-                  <Button
-                    onClick={handleExtractAll}
-                    disabled={isExtracting || extractingAll || extractedVariants.length >= 9}
-                    className="flex-shrink-0"
-                  >
-                    {extractingAll ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Extracting {extractionProgress.current}/{extractionProgress.total}...
-                      </>
-                    ) : (
-                      <>
-                        <Grid3X3 className="w-4 h-4 mr-2" />
-                        Extract All 9 Images
-                      </>
-                    )}
-                  </Button>
-                  {extractedVariants.length > 0 && (
-                    <Badge variant="secondary">
-                      {extractedVariants.length}/9 extracted
-                    </Badge>
-                  )}
-                </div>
-
-                {/* Individual Position Selector */}
-                <div className="flex gap-4 items-end mb-6">
-                  <div className="flex-1 max-w-xs">
-                    <Label className="text-sm mb-2 block">Or select individual position</Label>
-                    <Select 
-                      value={selectedGridPosition} 
-                      onValueChange={setSelectedGridPosition}
-                      disabled={isExtracting || extractingAll}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose grid position..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {GRID_POSITIONS.map(pos => {
-                          const isExtracted = extractedVariants.some(v => v.position === pos.id);
-                          return (
-                            <SelectItem 
-                              key={pos.id} 
-                              value={pos.id}
-                              disabled={isExtracted}
-                            >
-                              {pos.label} {isExtracted && '✓'}
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button 
-                    onClick={() => handleExtractImage()} 
-                    disabled={!selectedGridPosition || isExtracting || extractingAll}
-                    variant="outline"
-                  >
-                    {isExtracting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Extracting...
-                      </>
-                    ) : (
-                      'Extract & Save'
-                    )}
-                  </Button>
-                </div>
-
-                {/* Extracted Variants Grid */}
-                {extractedVariants.length > 0 && (
-                  <div className="mt-6">
-                    <Label className="text-sm mb-3 block">Extracted Images</Label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {extractedVariants.map(v => (
-                        <div key={v.id} className="relative group">
-                          <img 
-                            src={v.url} 
-                            alt={v.label}
-                            className="w-full aspect-square object-cover rounded-lg border"
-                          />
-                          <Badge 
-                            className="absolute top-2 left-2 text-xs"
-                            variant="secondary"
-                          >
-                            {v.label.split(' ')[0]} {v.label.split(' ')[1]}
-                          </Badge>
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              asChild
-                            >
-                              <a href={v.url} download target="_blank" rel="noopener noreferrer">
-                                <Download className="w-4 h-4 mr-1" />
-                                Download
-                              </a>
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </Card>
+              <GridVariantsDisplay 
+                generationId={currentImageGeneration.id}
+                gridImageUrl={currentImageGeneration.image_url}
+              />
             )}
           </motion.div>
         )}
