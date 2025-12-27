@@ -80,8 +80,15 @@ serve(async (req) => {
     
     const fullAnalysisSystemPrompt = `You are a cinematic style analyst. Analyze images to extract a comprehensive "Style Profile" that can be used to maintain consistency when generating variant images.
 
+CRITICAL RULE FOR SUBJECT DETECTION:
+- ALWAYS detect people/characters SEPARATELY from vehicles they ride or operate
+- If someone is riding a motorcycle, list the RIDER as a "person" subject AND the MOTORCYCLE as a separate "vehicle" subject
+- If Santa is on a trike, detect "Santa" as a person AND "Santa's trike" as a separate vehicle
+- Named/recognizable characters (Santa, celebrities, mascots) should use their name as the subject ID
+- Generic people should be labeled descriptively (e.g., "Rider in blue helmet", "Spectator with red shirt")
+
 Focus on extracting:
-1. ALL subjects (people, vehicles, animals, objects) with detailed descriptions
+1. ALL subjects (people, vehicles, animals, objects) with detailed descriptions - remember to separate riders from vehicles!
 2. Their exact appearance, wardrobe, colors, textures
 3. The environment, setting, time of day, weather
 4. Lighting direction, quality, and tone
