@@ -239,8 +239,24 @@ async function findSalesforceIdByUrl(cdnUrl: string, maxAttempts = 3): Promise<s
   return null;
 }
 
-// Create SFDC record and get ID
-async function createSfdcRecord(title: string, cdnUrl: string, contentType: string): Promise<string | null> {
+// Interface for SFDC metadata
+interface SfdcImageMetadata {
+  prompt?: string;
+  referenceImageUrl?: string;
+  generationId?: string;
+  description?: string;
+  aspectRatio?: string;
+  template?: string;
+  masterSalesforceId?: string;
+}
+
+// Create SFDC record and get ID with comprehensive AI generation fields
+async function createSfdcRecord(
+  title: string, 
+  cdnUrl: string, 
+  contentType: string,
+  metadata?: SfdcImageMetadata
+): Promise<string | null> {
   try {
     const formData = new FormData();
     formData.append("retURL", "https://worldmotoclash.com");
@@ -248,8 +264,34 @@ async function createSfdcRecord(title: string, cdnUrl: string, contentType: stri
     formData.append("string_Name", title);
     formData.append("string_ri1__Content_Type__c", contentType);
     formData.append("string_ri1__URL__c", cdnUrl);
+    
+    // AI Generation Fields
+    if (metadata?.prompt) {
+      formData.append("string_ri1__AI_Prompt__c", metadata.prompt.substring(0, 32768));
+    }
+    if (metadata?.referenceImageUrl) {
+      formData.append("string_ri1__AI_Reference_Image__c", metadata.referenceImageUrl.substring(0, 255));
+    }
+    if (metadata?.generationId) {
+      formData.append("string_ri1__AI_Gen_Key__c", metadata.generationId.substring(0, 255));
+    }
+    if (metadata?.description) {
+      formData.append("string_ri1__Description__c", metadata.description.substring(0, 32768));
+    }
+    if (metadata?.aspectRatio) {
+      formData.append("string_ri1__Aspect_Ratio__c", metadata.aspectRatio);
+    }
+    if (metadata?.masterSalesforceId) {
+      formData.append("lookup_ri1__Master_Content__c", metadata.masterSalesforceId);
+    }
 
     console.log("Sending to w2x-engine:", W2X_ENGINE_URL);
+    console.log("SFDC metadata fields:", {
+      hasPrompt: !!metadata?.prompt,
+      hasRefImage: !!metadata?.referenceImageUrl,
+      hasGenId: !!metadata?.generationId,
+      hasMaster: !!metadata?.masterSalesforceId,
+    });
 
     const sfResponse = await fetch(W2X_ENGINE_URL, {
       method: "POST",
@@ -486,7 +528,14 @@ ${fullPrompt}`;
     let salesforceId: string | null = null;
     if (assetData?.id) {
       console.log('=== SALESFORCE SYNC START ===');
-      salesforceId = await createSfdcRecord(params.title || `Generated Image`, s3Url, 'PNG');
+      salesforceId = await createSfdcRecord(params.title || `Generated Image`, s3Url, 'PNG', {
+        prompt: fullPrompt,
+        referenceImageUrl: params.referenceImageUrl,
+        generationId,
+        aspectRatio: `${params.width}x${params.height}`,
+        template: params.template,
+        masterSalesforceId: params.masterSalesforceId,
+      });
       
       if (salesforceId) {
         await supabase
@@ -516,7 +565,7 @@ ${fullPrompt}`;
     // === AUTO-EXTRACT 9 GRID CELLS if 3x3 template ===
     if (params.isGridTemplate) {
       console.log('=== AUTO-EXTRACTING 9 GRID CELLS ===');
-      await autoExtractGridCells(supabase, generationId, s3Url, params.template || 'grid', assetData?.id, salesforceId);
+      await autoExtractGridCells(supabase, generationId, s3Url, params.template || 'grid', assetData?.id, salesforceId, fullPrompt, params.referenceImageUrl);
     }
 
   } catch (error) {
@@ -534,7 +583,9 @@ async function autoExtractGridCells(
   sourceUrl: string,
   template: string,
   masterAssetId: string | undefined,
-  masterSalesforceId: string | null
+  masterSalesforceId: string | null,
+  prompt?: string,
+  referenceImageUrl?: string
 ) {
   const positions = [
     { row: 0, col: 0, id: 'top-left' },
@@ -569,6 +620,8 @@ async function autoExtractGridCells(
           template,
           masterAssetId,
           masterSalesforceId,
+          prompt,
+          referenceImageUrl,
         }),
       });
 
