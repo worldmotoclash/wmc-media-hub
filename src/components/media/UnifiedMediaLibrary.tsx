@@ -358,8 +358,8 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     <SelectValue placeholder="Sort by..." />
                   </SelectTrigger>
                   <SelectContent className="bg-background border shadow-lg z-50">
-                    <SelectItem value="created_at-desc">Date (Newest first)</SelectItem>
-                    <SelectItem value="created_at-asc">Date (Oldest first)</SelectItem>
+                    <SelectItem value="created_at-desc">Created (Newest first)</SelectItem>
+                    <SelectItem value="created_at-asc">Created (Oldest first)</SelectItem>
                     <SelectItem value="title-asc">Name (A-Z)</SelectItem>
                     <SelectItem value="title-desc">Name (Z-A)</SelectItem>
                     <SelectItem value="file_size-desc">Size (Largest first)</SelectItem>
@@ -749,11 +749,18 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       )}
                     </div>
                   ) : (
-                    <div className="w-full h-48 bg-muted rounded-t-lg flex items-center justify-center">
+                    <div className="w-full h-48 bg-gradient-to-br from-slate-800 to-slate-900 rounded-t-lg flex items-center justify-center relative">
                       {asset.assetType === 'video' ? (
-                        <Video className="w-12 h-12 text-muted-foreground" />
+                        <>
+                          <Video className="w-16 h-16 text-slate-500" />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-14 h-14 rounded-full bg-white/95 flex items-center justify-center shadow-lg backdrop-blur-sm border border-white/20">
+                              <Play className="w-7 h-7 text-gray-900 ml-1" fill="currentColor" />
+                            </div>
+                          </div>
+                        </>
                       ) : asset.assetType === 'image' ? (
-                        <Image className="w-12 h-12 text-muted-foreground" />
+                        <Image className="w-12 h-12 text-slate-400" />
                       ) : (
                         <span className="text-4xl">{getSourceIcon(asset.source)}</span>
                       )}
@@ -995,9 +1002,18 @@ export const UnifiedMediaLibrary: React.FC = () => {
                         </>
                       ) : (
                         asset.assetType === 'video' ? (
-                          <Video className="w-5 h-5 text-muted-foreground" />
+                          <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center relative">
+                            <Video className="w-5 h-5 text-slate-500" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="w-6 h-6 rounded-full bg-white/95 flex items-center justify-center">
+                                <Play className="w-3 h-3 text-gray-900 ml-0.5" fill="currentColor" />
+                              </div>
+                            </div>
+                          </div>
                         ) : (
-                          <Image className="w-5 h-5 text-muted-foreground" />
+                          <div className="w-full h-full bg-muted flex items-center justify-center">
+                            <Image className="w-5 h-5 text-muted-foreground" />
+                          </div>
                         )
                       )}
                     </div>
