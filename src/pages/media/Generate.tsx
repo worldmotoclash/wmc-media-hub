@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
   ArrowLeft, 
@@ -1293,7 +1294,35 @@ const Generate: React.FC = () => {
             transition={{ delay: 0.25, duration: 0.6 }}
           >
             <Card className="p-6 mb-6">
-              <Label className="text-sm font-medium mb-3 block">Select Template (Optional)</Label>
+              <div className="flex items-center gap-2 mb-3">
+                <Label className="text-sm font-medium">Select Template (Optional)</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-5 w-5">
+                      <Info className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-96" align="start">
+                    <div className="space-y-3">
+                      <h4 className="font-semibold">Template Comparison</h4>
+                      <div className="space-y-3 text-sm">
+                        <div className="border-l-2 border-blue-500 pl-3">
+                          <p className="font-medium">V1 – Contact Sheet</p>
+                          <p className="text-muted-foreground">Technical shot coverage. Generates a 3×3 grid showing every camera angle (wide, medium, close-up, low angle, high angle) of the same scene. Best for seeing your subject from all perspectives.</p>
+                        </div>
+                        <div className="border-l-2 border-purple-500 pl-3">
+                          <p className="font-medium">V2 – Trailer/Keyframes</p>
+                          <p className="text-muted-foreground">Video production focus. Creates a narrative sequence of keyframes designed as a storyboard for AI video generation. Includes emotional arc (setup → build → turn → payoff) with edit-motivated continuity.</p>
+                        </div>
+                        <div className="border-l-2 border-amber-500 pl-3">
+                          <p className="font-medium">V3 – Director's Cut</p>
+                          <p className="text-muted-foreground">Story-driven. A meta-prompt that takes your story synopsis and designs a custom storyboard. Analyzes your narrative to create scene-appropriate shots rather than following a fixed structure.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
               <p className="text-sm text-muted-foreground mb-4">
                 Choose a template to generate 3×3 grids. Skip for single image generation.
               </p>
