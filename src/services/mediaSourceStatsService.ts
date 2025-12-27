@@ -39,6 +39,9 @@ export interface MediaSourceStats {
   contentOrigin: ContentOriginStats;
   // API connection status
   salesforceApiStatus: ApiConnectionStatus;
+  // Total library count (DB + Salesforce API)
+  totalLibraryAssets: number;
+  salesforceApiAssets: number;
 }
 
 export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
@@ -50,7 +53,9 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
     totalCount: 0,
     syncHealth: { inSync: 0, missingSfdc: 0, missingFile: 0, total: 0 },
     contentOrigin: { youtube: 0, aiGenerated: 0, uploaded: 0, audio: 0 },
-    salesforceApiStatus: { isConnected: false, lastChecked: new Date().toISOString() }
+    salesforceApiStatus: { isConnected: false, lastChecked: new Date().toISOString() },
+    totalLibraryAssets: 0,
+    salesforceApiAssets: 0
   };
 
   try {
@@ -220,6 +225,12 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
                       stats.s3Buckets.reduce((sum, bucket) => sum + bucket.count, 0) +
                       stats.databaseAssets.count +
                       stats.generatedVideos.count;
+
+    // Store Salesforce API asset count for display
+    stats.salesforceApiAssets = stats.salesforce.count;
+    
+    // Total library assets = Database assets + Salesforce API assets (unique content from API)
+    stats.totalLibraryAssets = stats.syncHealth.total + stats.salesforce.count;
 
   } catch (error) {
     console.error('Error fetching media source stats:', error);

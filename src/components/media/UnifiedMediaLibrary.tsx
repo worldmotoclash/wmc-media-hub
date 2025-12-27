@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music } from "lucide-react";
+import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -1086,6 +1086,17 @@ export const UnifiedMediaLibrary: React.FC = () => {
             Showing {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalAssets)} of {totalAssets} assets
           </p>
           <div className="flex items-center gap-2">
+            {/* Go to First Page */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1 || isFiltering}
+              title="Go to first page"
+            >
+              <ChevronsLeft className="w-4 h-4" />
+            </Button>
+            {/* Previous Page */}
             <Button
               variant="outline"
               size="sm"
@@ -1121,6 +1132,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                 );
               })}
             </div>
+            {/* Next Page */}
             <Button
               variant="outline"
               size="sm"
@@ -1129,6 +1141,16 @@ export const UnifiedMediaLibrary: React.FC = () => {
             >
               Next
               <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+            {/* Go to Last Page */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages || isFiltering}
+              title="Go to last page"
+            >
+              <ChevronsRight className="w-4 h-4" />
             </Button>
           </div>
         </div>

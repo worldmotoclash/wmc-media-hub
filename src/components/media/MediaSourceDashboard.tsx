@@ -133,8 +133,11 @@ const MediaSourceDashboard: React.FC = () => {
                         All synced
                       </Badge>
                     )}
-                    <Badge variant="secondary">
-                      {syncHealth.total} assets
+                    <Badge variant="secondary" title="Database assets tracked for sync">
+                      {syncHealth.total} DB
+                    </Badge>
+                    <Badge variant="outline" title="Total assets in library (DB + Salesforce API)">
+                      {stats.totalLibraryAssets} total
                     </Badge>
                   </div>
                 )}
