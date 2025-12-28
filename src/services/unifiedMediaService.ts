@@ -73,6 +73,26 @@ export interface SortOption {
 // Sync status for an asset
 export type SyncStatus = 'in_sync' | 'missing_sfdc' | 'missing_file' | 'unknown';
 
+// Fetch counts for each asset type
+export async function fetchAssetTypeCounts(): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from('media_assets')
+    .select('asset_type');
+    
+  if (error) {
+    console.error('Error fetching asset type counts:', error);
+    return {};
+  }
+  
+  const counts: Record<string, number> = {};
+  data?.forEach(row => {
+    const type = row.asset_type || 'unknown';
+    counts[type] = (counts[type] || 0) + 1;
+  });
+  
+  return counts;
+}
+
 // Fetch all media assets with unified search
 export async function fetchAllMediaAssets(
   searchQuery?: string,
