@@ -101,8 +101,9 @@ const MediaSourceDashboard: React.FC = () => {
   const syncPercentage = syncHealth.total > 0 
     ? Math.round((syncHealth.inSync / syncHealth.total) * 100) 
     : 100;
-  
+
   const hasIssues = syncHealth.missingSfdc > 0 || syncHealth.missingFile > 0;
+  const filesCount = syncHealth.inSync + syncHealth.missingSfdc;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -133,11 +134,8 @@ const MediaSourceDashboard: React.FC = () => {
                         All synced
                       </Badge>
                     )}
-                    <Badge variant="secondary" title="Database assets tracked for sync">
-                      {syncHealth.total} DB
-                    </Badge>
-                    <Badge variant="outline" title="Total assets in library (DB + Salesforce API)">
-                      {stats.totalLibraryAssets} total
+                    <Badge variant="secondary" title="Files tracked in storage (has a file_url)">
+                      {filesCount} files
                     </Badge>
                   </div>
                 )}
