@@ -14,7 +14,6 @@ interface BucketConfig {
   bucket_name: string;
   endpoint_url: string;
   region?: string;
-  access_key_id: string;
 }
 
 async function testS3Connection(bucket: BucketConfig): Promise<{ success: boolean; error?: string; details?: any }> {
@@ -90,58 +89,50 @@ serve(async (req) => {
       });
     }
 
-    // Check if this is the default fallback config (not a real UUID)
-    const isDefaultConfig = bucketConfigId === 'default-wasabi';
-    
-    let bucket: BucketConfig;
-    
-    if (isDefaultConfig) {
-      // Use hardcoded default Wasabi config for testing
-      bucket = {
-        id: 'default-wasabi',
-        name: 'Wasabi Production',
-        bucket_name: 'shortf-media',
-        endpoint_url: 'https://s3.us-central-1.wasabisys.com',
-        region: 'us-central-1',
-        access_key_id: Deno.env.get('WASABI_ACCESS_KEY_ID') || '',
-      };
-      console.log(`[TEST] Using default Wasabi config for testing`);
-    } else {
-      // Load bucket configuration from database
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      );
+    // Validate that bucketConfigId is a valid UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(bucketConfigId)) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Invalid bucketConfigId - must be a valid UUID from the database' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-      const { data, error: bucketError } = await supabase
-        .from('s3_bucket_configs')
-        .select('*')
-        .eq('id', bucketConfigId)
-        .maybeSingle();
+    // Load bucket configuration from database
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
 
-      if (bucketError) {
-        console.error('[DB] Error loading bucket config:', bucketError);
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: 'Failed to load bucket configuration', 
-          details: bucketError.message 
-        }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+    const { data: bucket, error: bucketError } = await supabase
+      .from('s3_bucket_configs')
+      .select('*')
+      .eq('id', bucketConfigId)
+      .maybeSingle();
 
-      if (!data) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: `Bucket configuration not found: ${bucketConfigId}` 
-        }), {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      
-      bucket = data;
+    if (bucketError) {
+      console.error('[DB] Error loading bucket config:', bucketError);
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Failed to load bucket configuration', 
+        details: bucketError.message 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!bucket) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: `Bucket configuration not found: ${bucketConfigId}` 
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     console.log(`[TEST] Testing connection for ${bucket.name} (${bucket.bucket_name})`);
