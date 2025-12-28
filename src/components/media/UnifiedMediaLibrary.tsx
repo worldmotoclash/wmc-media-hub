@@ -40,6 +40,11 @@ interface MiniPlayerState {
   source: string;
 }
 
+// Helper to check if asset type is any image variant
+const isImageType = (assetType?: string) => {
+  return ['image', 'master_image', 'image_variant', 'generation_master', 'grid_variant'].includes(assetType || '');
+};
+
 export const UnifiedMediaLibrary: React.FC = () => {
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [tags, setTags] = useState<MediaTag[]>([]);
@@ -739,7 +744,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                   ) : asset.thumbnailUrl ? (
                     <div className="relative">
                       <img
-                        src={brokenThumbnails.has(asset.id) && asset.assetType === 'image' ? '/placeholder.svg' : asset.thumbnailUrl}
+                        src={brokenThumbnails.has(asset.id) && isImageType(asset.assetType) ? '/placeholder.svg' : asset.thumbnailUrl}
                         alt={asset.title}
                         className="w-full h-48 object-cover rounded-t-lg"
                         onError={(e) => {
@@ -779,7 +784,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                             </div>
                           </div>
                         </>
-                      ) : asset.assetType === 'image' ? (
+                      ) : isImageType(asset.assetType) ? (
                         <Image className="w-12 h-12 text-slate-400" />
                       ) : (
                         <span className="text-4xl">{getSourceIcon(asset.source)}</span>
@@ -1007,7 +1012,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                           {/* Show image or placeholder fallback for images */}
                           {!(brokenThumbnails.has(asset.id) && asset.assetType === 'video') && (
                             <img
-                              src={brokenThumbnails.has(asset.id) && asset.assetType === 'image' ? '/placeholder.svg' : asset.thumbnailUrl}
+                              src={brokenThumbnails.has(asset.id) && isImageType(asset.assetType) ? '/placeholder.svg' : asset.thumbnailUrl}
                               alt={asset.title}
                               className="w-full h-full object-cover"
                               onError={() => {
