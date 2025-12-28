@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { RefreshCw, CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronRight, Youtube, Sparkles, Upload, Link2, Wifi, WifiOff, Music, CloudUpload } from 'lucide-react';
+import { RefreshCw, CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronRight, Youtube, Sparkles, Upload, Link2, Wifi, WifiOff, Music, CloudUpload, Video, Image, HardDrive } from 'lucide-react';
 import { getMediaSourceStats, type MediaSourceStats } from '@/services/mediaSourceStatsService';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -97,7 +97,7 @@ const MediaSourceDashboard: React.FC = () => {
 
   if (!stats) return null;
 
-  const { syncHealth, contentOrigin, salesforceApiStatus } = stats;
+  const { syncHealth, contentOrigin, salesforceApiStatus, wasabiBreakdown } = stats;
   const syncPercentage = syncHealth.total > 0 
     ? Math.round((syncHealth.inSync / syncHealth.total) * 100) 
     : 100;
@@ -268,6 +268,59 @@ const MediaSourceDashboard: React.FC = () => {
                   </div>
                 </div>
               )}
+            </div>
+
+            <Separator />
+
+            {/* Wasabi Storage Section */}
+            <div>
+              <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                <HardDrive className="h-4 w-4" />
+                Wasabi Storage
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Videos */}
+                <div className="border rounded-lg p-4 bg-blue-500/5 border-blue-500/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Video className="h-5 w-5 text-blue-500" />
+                      <span className="font-medium text-sm">Videos</span>
+                    </div>
+                    <span className="text-2xl font-bold text-blue-600">{wasabiBreakdown.videos}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    .mp4, .mov, .webm files
+                  </p>
+                </div>
+
+                {/* Images */}
+                <div className="border rounded-lg p-4 bg-emerald-500/5 border-emerald-500/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Image className="h-5 w-5 text-emerald-500" />
+                      <span className="font-medium text-sm">Images</span>
+                    </div>
+                    <span className="text-2xl font-bold text-emerald-600">{wasabiBreakdown.images}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    .jpg, .png, .webp files
+                  </p>
+                </div>
+
+                {/* Total */}
+                <div className="border rounded-lg p-4 bg-violet-500/5 border-violet-500/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <HardDrive className="h-5 w-5 text-violet-500" />
+                      <span className="font-medium text-sm">Total</span>
+                    </div>
+                    <span className="text-2xl font-bold text-violet-600">{wasabiBreakdown.total}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    All media on Wasabi
+                  </p>
+                </div>
+              </div>
             </div>
 
             <Separator />
