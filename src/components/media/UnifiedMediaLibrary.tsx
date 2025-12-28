@@ -741,7 +741,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                         </Badge>
                       )}
                     </div>
-                  ) : asset.thumbnailUrl ? (
+                  ) : asset.thumbnailUrl && asset.thumbnailUrl.trim() !== '' ? (
                     <div className="relative">
                       <img
                         src={brokenThumbnails.has(asset.id) && isImageType(asset.assetType) ? '/placeholder.svg' : asset.thumbnailUrl}
