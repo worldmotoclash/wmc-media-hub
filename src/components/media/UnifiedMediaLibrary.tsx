@@ -18,7 +18,6 @@ import {
   fetchMediaTags,
   fetchS3BucketConfigs,
   scanS3Bucket,
-  fetchAssetTypeCounts,
   MediaAsset,
   MediaTag,
   S3BucketConfig,
@@ -70,7 +69,6 @@ export const UnifiedMediaLibrary: React.FC = () => {
     title: '',
     source: '',
   });
-  const [assetTypeCounts, setAssetTypeCounts] = useState<Record<string, number>>({});
   const pageSize = 20;
   const { user } = useUser();
   useSupabaseAuth(); // Ensure Supabase auth when user is logged in
@@ -124,15 +122,13 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const loadLibraryData = async () => {
     try {
       setIsInitialLoading(true);
-      const [assetsData, tagsData, typeCounts] = await Promise.all([
+      const [assetsData, tagsData] = await Promise.all([
         fetchAllMediaAssets(undefined, undefined, 50, 0, sortOption),
-        fetchMediaTags(),
-        fetchAssetTypeCounts()
+        fetchMediaTags()
       ]);
 
       setAssets(assetsData.assets);
       setTags(tagsData);
-      setAssetTypeCounts(typeCounts);
     } catch (error) {
       console.error('Error loading library data:', error);
       toast.error('Failed to load media library data');
@@ -428,9 +424,8 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       }
                     }}
                   />
-                  <label htmlFor="type-video" className="text-sm flex items-center justify-between flex-1">
-                    <span className="flex items-center"><Video className="w-4 h-4 mr-1.5" /> Video</span>
-                    <Badge variant="secondary" className="ml-2 text-xs">{assetTypeCounts['video'] || 0}</Badge>
+                  <label htmlFor="type-video" className="text-sm flex items-center">
+                    <Video className="w-4 h-4 mr-1.5" /> Video
                   </label>
                 </div>
                 
@@ -457,15 +452,8 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       }
                     }}
                   />
-                  <label htmlFor="type-image" className="text-sm flex items-center justify-between flex-1">
-                    <span className="flex items-center"><Image className="w-4 h-4 mr-1.5" /> Image</span>
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      {(assetTypeCounts['image'] || 0) + 
-                       (assetTypeCounts['master_image'] || 0) + 
-                       (assetTypeCounts['image_variant'] || 0) + 
-                       (assetTypeCounts['grid_variant'] || 0) + 
-                       (assetTypeCounts['generation_master'] || 0)}
-                    </Badge>
+                  <label htmlFor="type-image" className="text-sm flex items-center">
+                    <Image className="w-4 h-4 mr-1.5" /> Image
                   </label>
                 </div>
                 
@@ -483,9 +471,8 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       }
                     }}
                   />
-                  <label htmlFor="type-master" className="text-sm text-muted-foreground flex items-center justify-between flex-1">
-                    <span>Masters</span>
-                    <Badge variant="outline" className="ml-2 text-xs">{assetTypeCounts['master_image'] || 0}</Badge>
+                  <label htmlFor="type-master" className="text-sm text-muted-foreground">
+                    Masters
                   </label>
                 </div>
                 
@@ -508,11 +495,8 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       }
                     }}
                   />
-                  <label htmlFor="type-variant" className="text-sm text-muted-foreground flex items-center justify-between flex-1">
-                    <span>Variants</span>
-                    <Badge variant="outline" className="ml-2 text-xs">
-                      {(assetTypeCounts['image_variant'] || 0) + (assetTypeCounts['grid_variant'] || 0)}
-                    </Badge>
+                  <label htmlFor="type-variant" className="text-sm text-muted-foreground">
+                    Variants
                   </label>
                 </div>
                 
@@ -530,9 +514,8 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       }
                     }}
                   />
-                  <label htmlFor="type-grid" className="text-sm text-muted-foreground flex items-center justify-between flex-1">
-                    <span className="flex items-center gap-1"><LayoutGrid className="w-3 h-3" /> 3x3 Grids</span>
-                    <Badge variant="outline" className="ml-2 text-xs">{assetTypeCounts['generation_master'] || 0}</Badge>
+                  <label htmlFor="type-grid" className="text-sm text-muted-foreground flex items-center gap-1">
+                    <LayoutGrid className="w-3 h-3" /> 3x3 Grids
                   </label>
                 </div>
               </div>
