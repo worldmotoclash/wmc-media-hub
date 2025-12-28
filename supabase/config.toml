@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.analyze-master-image]
 verify_jwt = false
+
+[functions.enrich-salesforce-content]
+verify_jwt = false
