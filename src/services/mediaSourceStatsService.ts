@@ -22,6 +22,12 @@ export interface ContentOriginStats {
   audio: number;
 }
 
+export interface WasabiMediaBreakdown {
+  videos: number;
+  images: number;
+  total: number;
+}
+
 export interface ApiConnectionStatus {
   isConnected: boolean;
   lastChecked: string;
@@ -42,6 +48,8 @@ export interface MediaSourceStats {
   // Total library count (DB + Salesforce API)
   totalLibraryAssets: number;
   salesforceApiAssets: number;
+  // Wasabi storage breakdown
+  wasabiBreakdown: WasabiMediaBreakdown;
 }
 
 export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
@@ -55,7 +63,8 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
     contentOrigin: { youtube: 0, aiGenerated: 0, uploaded: 0, audio: 0 },
     salesforceApiStatus: { isConnected: false, lastChecked: new Date().toISOString() },
     totalLibraryAssets: 0,
-    salesforceApiAssets: 0
+    salesforceApiAssets: 0,
+    wasabiBreakdown: { videos: 0, images: 0, total: 0 }
   };
 
   try {
@@ -219,6 +228,25 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
     stats.contentOrigin.aiGenerated = aiGeneratedCount || 0;
     stats.contentOrigin.uploaded = uploadedCount || 0;
     stats.contentOrigin.audio += (audioCount || 0);
+
+    // Get Wasabi (S3) breakdown by media type
+    const { count: wasabiVideos } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('source', 's3_bucket')
+      .eq('asset_type', 'video');
+
+    const { count: wasabiImages } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('source', 's3_bucket')
+      .eq('asset_type', 'image');
+
+    stats.wasabiBreakdown = {
+      videos: wasabiVideos || 0,
+      images: wasabiImages || 0,
+      total: (wasabiVideos || 0) + (wasabiImages || 0)
+    };
 
     // Calculate total
     stats.totalCount = stats.salesforce.count + 
