@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.enrich-salesforce-content]
 verify_jwt = false
+
+[functions.create-video-thumbnail]
+verify_jwt = false
