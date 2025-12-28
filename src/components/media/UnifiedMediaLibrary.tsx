@@ -98,6 +98,11 @@ export const UnifiedMediaLibrary: React.FC = () => {
     }
   }, [activeTab]);
 
+  // Reset broken thumbnails when assets change
+  useEffect(() => {
+    setBrokenThumbnails(new Set());
+  }, [searchQuery, filters, sortOption, currentPage]);
+
   useEffect(() => {
     // Only search/load assets when on library tab
     if (activeTab !== 'library') return;
@@ -731,20 +736,34 @@ export const UnifiedMediaLibrary: React.FC = () => {
                         </Badge>
                       )}
                     </div>
-                  ) : asset.thumbnailUrl && !brokenThumbnails.has(asset.id) ? (
+                  ) : asset.thumbnailUrl ? (
                     <div className="relative">
                       <img
-                        src={asset.thumbnailUrl}
+                        src={brokenThumbnails.has(asset.id) && asset.assetType === 'image' ? '/placeholder.svg' : asset.thumbnailUrl}
                         alt={asset.title}
                         className="w-full h-48 object-cover rounded-t-lg"
-                        onError={() => {
-                          setBrokenThumbnails(prev => new Set(prev).add(asset.id));
+                        onError={(e) => {
+                          if (!brokenThumbnails.has(asset.id)) {
+                            setBrokenThumbnails(prev => new Set(prev).add(asset.id));
+                          }
                         }}
+                        style={{ display: brokenThumbnails.has(asset.id) && asset.assetType === 'video' ? 'none' : 'block' }}
                       />
-                      {asset.assetType === 'video' && (
+                      {asset.assetType === 'video' && !brokenThumbnails.has(asset.id) && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-colors">
                           <div className="w-14 h-14 rounded-full bg-white/95 flex items-center justify-center shadow-lg backdrop-blur-sm border border-white/20">
                             <Play className="w-7 h-7 text-gray-900 ml-1" fill="currentColor" />
+                          </div>
+                        </div>
+                      )}
+                      {/* Video icon fallback when thumbnail is broken */}
+                      {asset.assetType === 'video' && brokenThumbnails.has(asset.id) && (
+                        <div className="w-full h-48 bg-gradient-to-br from-slate-800 to-slate-900 rounded-t-lg flex items-center justify-center relative">
+                          <Video className="w-16 h-16 text-slate-500" />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-14 h-14 rounded-full bg-white/95 flex items-center justify-center shadow-lg backdrop-blur-sm border border-white/20">
+                              <Play className="w-7 h-7 text-gray-900 ml-1" fill="currentColor" />
+                            </div>
                           </div>
                         </div>
                       )}
@@ -983,20 +1002,37 @@ export const UnifiedMediaLibrary: React.FC = () => {
                 <TableRow key={asset.id} className="cursor-pointer hover:bg-muted/50">
                   <TableCell>
                     <div className="relative w-12 h-12 rounded overflow-hidden bg-muted flex items-center justify-center">
-                      {asset.thumbnailUrl && !brokenThumbnails.has(asset.id) ? (
+                      {asset.thumbnailUrl ? (
                         <>
-                          <img
-                            src={asset.thumbnailUrl}
-                            alt={asset.title}
-                            className="w-full h-full object-cover"
-                            onError={() => {
-                              setBrokenThumbnails(prev => new Set(prev).add(asset.id));
-                            }}
-                          />
-                          {asset.assetType === 'video' && (
+                          {/* Show image or placeholder fallback for images */}
+                          {!(brokenThumbnails.has(asset.id) && asset.assetType === 'video') && (
+                            <img
+                              src={brokenThumbnails.has(asset.id) && asset.assetType === 'image' ? '/placeholder.svg' : asset.thumbnailUrl}
+                              alt={asset.title}
+                              className="w-full h-full object-cover"
+                              onError={() => {
+                                if (!brokenThumbnails.has(asset.id)) {
+                                  setBrokenThumbnails(prev => new Set(prev).add(asset.id));
+                                }
+                              }}
+                            />
+                          )}
+                          {/* Video play button overlay */}
+                          {asset.assetType === 'video' && !brokenThumbnails.has(asset.id) && (
                             <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                               <div className="w-6 h-6 rounded-full bg-white/95 flex items-center justify-center">
                                 <Play className="w-3 h-3 text-gray-900 ml-0.5" fill="currentColor" />
+                              </div>
+                            </div>
+                          )}
+                          {/* Video icon fallback when thumbnail is broken */}
+                          {asset.assetType === 'video' && brokenThumbnails.has(asset.id) && (
+                            <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center relative">
+                              <Video className="w-5 h-5 text-slate-500" />
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="w-6 h-6 rounded-full bg-white/95 flex items-center justify-center">
+                                  <Play className="w-3 h-3 text-gray-900 ml-0.5" fill="currentColor" />
+                                </div>
                               </div>
                             </div>
                           )}
