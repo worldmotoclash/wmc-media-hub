@@ -130,18 +130,38 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
     setScanningIds(prev => new Set(prev).add(configId));
     
     try {
-      const { data, error } = await supabase.functions.invoke('scan-s3-buckets', {
-        body: { bucketConfigId: configId, forceRescan: true }
-      });
-
-      if (error) throw error;
-
-      // Handle the actual response data format
-      const result = data as any;
+      // Use fetch with extended timeout (2 minutes) for large bucket scans
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+      
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      
+      const response = await fetch(
+        'https://vlwumuuolvxhiixqbnub.supabase.co/functions/v1/scan-s3-buckets',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsd3VtdXVvbHZ4aGlpeHFibnViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcyNTg4NDgsImV4cCI6MjA3MjgzNDg0OH0.jjIqbaNQbYaHDmw1zJS-PC_wqviePfOtMtfv21K7x_Q'}`,
+          },
+          body: JSON.stringify({ bucketConfigId: configId, forceRescan: true }),
+          signal: controller.signal,
+        }
+      );
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Scan failed with status ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
       if (result?.success) {
         toast({
           title: "Scan Complete",
-          description: `Found ${result.totalVideos} videos (${result.newVideos} new, ${result.updatedVideos} updated)`,
+          description: `Found ${result.totalMedia || 0} media files (${result.newMedia || 0} new, ${result.updatedMedia || 0} updated)`,
         });
       } else {
         throw new Error(result?.error || 'Scan failed');
@@ -154,9 +174,12 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
       }, 1000);
     } catch (error: any) {
       console.error('Scan error:', error);
+      const isTimeout = error.name === 'AbortError';
       toast({
-        title: "Scan Failed",
-        description: error.message || "Failed to scan S3 bucket",
+        title: isTimeout ? "Scan Timeout" : "Scan Failed",
+        description: isTimeout 
+          ? "The scan is taking longer than expected. Check back shortly - it may still complete in the background."
+          : (error.message || "Failed to scan S3 bucket"),
         variant: "destructive",
       });
     } finally {

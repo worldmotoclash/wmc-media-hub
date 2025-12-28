@@ -269,12 +269,30 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
 
 export const refreshS3BucketScan = async (bucketConfigId: string): Promise<void> => {
   try {
-    const { error } = await supabase.functions.invoke('scan-s3-buckets', {
-      body: { bucketConfigId, forceRescan: true }
-    });
+    // Use fetch with extended timeout (2 minutes) for large bucket scans
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
     
-    if (error) {
-      throw error;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    
+    const response = await fetch(
+      'https://vlwumuuolvxhiixqbnub.supabase.co/functions/v1/scan-s3-buckets',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsd3VtdXVvbHZ4aGlpeHFibnViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcyNTg4NDgsImV4cCI6MjA3MjgzNDg0OH0.jjIqbaNQbYaHDmw1zJS-PC_wqviePfOtMtfv21K7x_Q'}`,
+        },
+        body: JSON.stringify({ bucketConfigId, forceRescan: true }),
+        signal: controller.signal,
+      }
+    );
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Scan failed with status ${response.status}`);
     }
   } catch (error) {
     console.error('Error scanning S3 bucket:', error);
