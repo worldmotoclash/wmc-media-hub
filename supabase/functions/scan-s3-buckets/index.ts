@@ -16,7 +16,6 @@ interface BucketConfig {
   region?: string;
   scan_frequency_hours?: number;
   is_active?: boolean;
-  access_key_id: string;
 }
 
 interface S3Object {
@@ -142,48 +141,36 @@ serve(async (req) => {
       });
     }
 
-    // Check if this is the default fallback config (not a real UUID)
-    const isDefaultConfig = bucketConfigId === 'default-wasabi';
-    
-    let bucket: BucketConfig;
-    
-    if (isDefaultConfig) {
-      // Use hardcoded default Wasabi config for scanning
-      bucket = {
-        id: 'default-wasabi',
-        name: 'Wasabi Production',
-        bucket_name: 'shortf-media',
-        endpoint_url: 'https://s3.us-central-1.wasabisys.com',
-        region: 'us-central-1',
-        is_active: true,
-        access_key_id: Deno.env.get('WASABI_ACCESS_KEY_ID') || '',
-      };
-      console.log(`[SCAN] Using default Wasabi config`);
-    } else {
-      // Load bucket configuration from database
-      const { data, error: bucketError } = await supabase
-        .from('s3_bucket_configs')
-        .select('*')
-        .eq('id', bucketConfigId)
-        .eq('is_active', true)
-        .maybeSingle();
+    // Validate that bucketConfigId is a valid UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(bucketConfigId)) {
+      return new Response(JSON.stringify({ error: 'Invalid bucketConfigId - must be a valid UUID from the database' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-      if (bucketError) {
-        console.error('[DB] Error loading bucket config:', bucketError);
-        return new Response(JSON.stringify({ error: 'Failed to load bucket configuration', details: bucketError.message }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+    // Load bucket configuration from database
+    const { data: bucket, error: bucketError } = await supabase
+      .from('s3_bucket_configs')
+      .select('*')
+      .eq('id', bucketConfigId)
+      .eq('is_active', true)
+      .maybeSingle();
 
-      if (!data) {
-        return new Response(JSON.stringify({ error: `Bucket configuration not found or inactive: ${bucketConfigId}` }), {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      
-      bucket = data;
+    if (bucketError) {
+      console.error('[DB] Error loading bucket config:', bucketError);
+      return new Response(JSON.stringify({ error: 'Failed to load bucket configuration', details: bucketError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!bucket) {
+      return new Response(JSON.stringify({ error: `Bucket configuration not found or inactive: ${bucketConfigId}` }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     console.log(`[SCAN] Starting for ${bucket.name} (${bucket.bucket_name}) @ ${bucket.endpoint_url}`);
@@ -238,16 +225,14 @@ serve(async (req) => {
       }
     }
 
-    // Update last_scanned_at in the bucket configuration (skip for default config)
-    if (!isDefaultConfig) {
-      const { error: updateError } = await supabase
-        .from('s3_bucket_configs')
-        .update({ last_scanned_at: new Date().toISOString() })
-        .eq('id', bucketConfigId);
-        
-      if (updateError) {
-        console.error('[DB] Failed to update last_scanned_at:', updateError);
-      }
+    // Update last_scanned_at in the bucket configuration
+    const { error: updateError } = await supabase
+      .from('s3_bucket_configs')
+      .update({ last_scanned_at: new Date().toISOString() })
+      .eq('id', bucketConfigId);
+      
+    if (updateError) {
+      console.error('[DB] Failed to update last_scanned_at:', updateError);
     }
 
     const result = {
