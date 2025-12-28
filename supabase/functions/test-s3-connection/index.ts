@@ -82,11 +82,6 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
-
     const { bucketConfigId } = await req.json();
     if (!bucketConfigId) {
       return new Response(JSON.stringify({ error: 'bucketConfigId is required' }), {
@@ -95,33 +90,58 @@ serve(async (req) => {
       });
     }
 
-    // Load bucket configuration from database
-    const { data: bucket, error: bucketError } = await supabase
-      .from('s3_bucket_configs')
-      .select('*')
-      .eq('id', bucketConfigId)
-      .maybeSingle();
+    // Check if this is the default fallback config (not a real UUID)
+    const isDefaultConfig = bucketConfigId === 'default-wasabi';
+    
+    let bucket: BucketConfig;
+    
+    if (isDefaultConfig) {
+      // Use hardcoded default Wasabi config for testing
+      bucket = {
+        id: 'default-wasabi',
+        name: 'Wasabi Production',
+        bucket_name: 'shortf-media',
+        endpoint_url: 'https://s3.us-central-1.wasabisys.com',
+        region: 'us-central-1',
+        access_key_id: Deno.env.get('WASABI_ACCESS_KEY_ID') || '',
+      };
+      console.log(`[TEST] Using default Wasabi config for testing`);
+    } else {
+      // Load bucket configuration from database
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      );
 
-    if (bucketError) {
-      console.error('[DB] Error loading bucket config:', bucketError);
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'Failed to load bucket configuration', 
-        details: bucketError.message 
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+      const { data, error: bucketError } = await supabase
+        .from('s3_bucket_configs')
+        .select('*')
+        .eq('id', bucketConfigId)
+        .maybeSingle();
 
-    if (!bucket) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: `Bucket configuration not found: ${bucketConfigId}` 
-      }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      if (bucketError) {
+        console.error('[DB] Error loading bucket config:', bucketError);
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'Failed to load bucket configuration', 
+          details: bucketError.message 
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (!data) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: `Bucket configuration not found: ${bucketConfigId}` 
+        }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      bucket = data;
     }
 
     console.log(`[TEST] Testing connection for ${bucket.name} (${bucket.bucket_name})`);
