@@ -174,25 +174,28 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
       lastUpdated: new Date().toISOString()
     };
 
-    // Calculate sync health stats
-    // In Sync: has salesforce_id AND has file_url
+    // Calculate sync health stats - ONLY for S3 bucket (Wasabi) assets
+    // In Sync: S3 bucket assets with salesforce_id AND file_url
     const { count: inSyncCount } = await supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
+      .eq('source', 's3_bucket')
       .not('salesforce_id', 'is', null)
       .not('file_url', 'is', null);
 
-    // Missing SFDC: has file_url but no salesforce_id
+    // Missing SFDC: S3 bucket assets with file_url but no salesforce_id
     const { count: missingSfdcCount } = await supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
+      .eq('source', 's3_bucket')
       .is('salesforce_id', null)
       .not('file_url', 'is', null);
 
-    // Missing File: has salesforce_id but no file_url
+    // Missing File: S3 bucket assets with salesforce_id but no file_url
     const { count: missingFileCount } = await supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
+      .eq('source', 's3_bucket')
       .not('salesforce_id', 'is', null)
       .is('file_url', null);
 
