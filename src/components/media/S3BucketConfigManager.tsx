@@ -80,14 +80,15 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
 
   const handleScan = async (configId: string) => {
     setScanningIds(prev => new Set(prev).add(configId));
-    
+
     try {
+      // Short timeout since the scan now runs in the background
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000);
-      
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
-      
+
       const response = await fetch(
         'https://vlwumuuolvxhiixqbnub.supabase.co/functions/v1/scan-s3-buckets',
         {
@@ -101,21 +102,40 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
         }
       );
       clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Scan failed with status ${response.status}`);
-      }
-      
-      const result = await response.json();
-      
-      if (result?.success) {
+
+      const payload = await response.json().catch(() => ({} as any));
+
+      if (response.status === 202) {
         toast({
-          title: "Scan Complete",
-          description: `Found ${result.totalMedia || 0} media files (${result.newMedia || 0} new, ${result.updatedMedia || 0} updated)`,
+          title: 'Scan Started',
+          description: 'Scanning is running in the background. The Last scan timestamp will update shortly.',
+        });
+
+        // Refresh soon (and again later) to pick up last_scanned_at updates.
+        setTimeout(() => {
+          loadConfigs();
+          onConfigChange();
+        }, 3000);
+
+        setTimeout(() => {
+          loadConfigs();
+          onConfigChange();
+        }, 15000);
+
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(payload?.error || `Scan failed with status ${response.status}`);
+      }
+
+      if (payload?.success) {
+        toast({
+          title: 'Scan Complete',
+          description: `Found ${payload.totalMedia || 0} media files (${payload.newMedia || 0} new, ${payload.updatedMedia || 0} updated)`,
         });
       } else {
-        throw new Error(result?.error || 'Scan failed');
+        throw new Error(payload?.error || 'Scan failed');
       }
 
       setTimeout(() => {
@@ -126,11 +146,11 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
       console.error('Scan error:', error);
       const isTimeout = error.name === 'AbortError';
       toast({
-        title: isTimeout ? "Scan Timeout" : "Scan Failed",
-        description: isTimeout 
-          ? "The scan is taking longer than expected. Check back shortly - it may still complete in the background."
-          : (error.message || "Failed to scan S3 bucket"),
-        variant: "destructive",
+        title: isTimeout ? 'Scan Start Timeout' : 'Scan Failed',
+        description: isTimeout
+          ? 'Scan start request timed out. Please try again.'
+          : (error.message || 'Failed to scan S3 bucket'),
+        variant: 'destructive',
       });
     } finally {
       setScanningIds(prev => {

@@ -127,6 +127,8 @@ function getFileExtension(key: string): string {
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
+  const startedAt = new Date().toISOString();
+
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -173,81 +175,106 @@ serve(async (req) => {
       });
     }
 
-    console.log(`[SCAN] Starting for ${bucket.name} (${bucket.bucket_name}) @ ${bucket.endpoint_url}`);
-    const objects = await listS3ObjectsPaginated(bucket);
-
-    let totalMedia = 0;
-    let newMedia = 0;
-    let updatedMedia = 0;
-
-    for (const obj of objects) {
-      if (!isMediaFile(obj.Key)) continue;
-      totalMedia++;
-
-      const title = extractTitleFromKey(obj.Key);
-      const fileFormat = getFileExtension(obj.Key);
-      const assetType = getAssetType(obj.Key);
-      const fileUrl = `${bucket.endpoint_url}/${bucket.bucket_name}/${encodeURI(obj.Key)}`;
-
-      const { data: existing } = await supabase
-        .from('media_assets')
-        .select('id')
-        .eq('source_id', obj.Key)
-        .eq('source', 's3_bucket')
-        .maybeSingle();
-
-      const assetData = {
-        title,
-        source: 's3_bucket' as const,
-        source_id: obj.Key,
-        file_url: fileUrl,
-        file_format: fileFormat,
-        file_size: obj.Size ?? null,
-        asset_type: assetType,
-        status: 'pending',
-        metadata: {
-          bucket: bucket.bucket_name,
-          etag: obj.ETag,
-          last_modified: obj.LastModified,
-          endpoint: bucket.endpoint_url,
-        },
-        updated_at: new Date().toISOString(),
-      };
-
-      if (existing?.id) {
-        const { error } = await supabase.from('media_assets').update(assetData).eq('id', existing.id);
-        if (!error) updatedMedia++;
-        else console.error('[DB] Update error', error);
-      } else {
-        const { data, error } = await supabase.from('media_assets').insert(assetData).select('id').single();
-        if (!error) newMedia++;
-        else console.error('[DB] Insert error', error);
-      }
-    }
-
-    // Update last_scanned_at in the bucket configuration
-    const { error: updateError } = await supabase
+    // Mark as "scanned" immediately so UI doesn't stay at "Never" while the long scan runs.
+    const { error: preUpdateError } = await supabase
       .from('s3_bucket_configs')
-      .update({ last_scanned_at: new Date().toISOString() })
+      .update({ last_scanned_at: startedAt })
       .eq('id', bucketConfigId);
-      
-    if (updateError) {
-      console.error('[DB] Failed to update last_scanned_at:', updateError);
+
+    if (preUpdateError) {
+      console.error('[DB] Failed to pre-update last_scanned_at:', preUpdateError);
     }
 
-    const result = {
-      success: true,
-      bucket: bucket.bucket_name,
-      endpoint: bucket.endpoint_url,
-      totalObjects: objects.length,
-      totalMedia,
-      newMedia,
-      updatedMedia,
-      scannedAt: new Date().toISOString(),
+    const runScan = async () => {
+      try {
+        console.log(`[SCAN] Starting for ${bucket.name} (${bucket.bucket_name}) @ ${bucket.endpoint_url}`);
+        const objects = await listS3ObjectsPaginated(bucket);
+
+        let totalMedia = 0;
+        let newMedia = 0;
+        let updatedMedia = 0;
+
+        for (const obj of objects) {
+          if (!isMediaFile(obj.Key)) continue;
+          totalMedia++;
+
+          const title = extractTitleFromKey(obj.Key);
+          const fileFormat = getFileExtension(obj.Key);
+          const assetType = getAssetType(obj.Key);
+          const fileUrl = `${bucket.endpoint_url}/${bucket.bucket_name}/${encodeURI(obj.Key)}`;
+
+          const { data: existing } = await supabase
+            .from('media_assets')
+            .select('id')
+            .eq('source_id', obj.Key)
+            .eq('source', 's3_bucket')
+            .maybeSingle();
+
+          const assetData = {
+            title,
+            source: 's3_bucket' as const,
+            source_id: obj.Key,
+            file_url: fileUrl,
+            file_format: fileFormat,
+            file_size: obj.Size ?? null,
+            asset_type: assetType,
+            status: 'pending',
+            metadata: {
+              bucket: bucket.bucket_name,
+              etag: obj.ETag,
+              last_modified: obj.LastModified,
+              endpoint: bucket.endpoint_url,
+            },
+            updated_at: new Date().toISOString(),
+          };
+
+          if (existing?.id) {
+            const { error } = await supabase.from('media_assets').update(assetData).eq('id', existing.id);
+            if (!error) updatedMedia++;
+            else console.error('[DB] Update error', error);
+          } else {
+            const { error } = await supabase.from('media_assets').insert(assetData).select('id').single();
+            if (!error) newMedia++;
+            else console.error('[DB] Insert error', error);
+          }
+        }
+
+        const finishedAt = new Date().toISOString();
+
+        const { error: updateError } = await supabase
+          .from('s3_bucket_configs')
+          .update({ last_scanned_at: finishedAt })
+          .eq('id', bucketConfigId);
+
+        if (updateError) {
+          console.error('[DB] Failed to update last_scanned_at:', updateError);
+        }
+
+        const result = {
+          success: true,
+          bucket: bucket.bucket_name,
+          endpoint: bucket.endpoint_url,
+          totalObjects: objects.length,
+          totalMedia,
+          newMedia,
+          updatedMedia,
+          scannedAt: finishedAt,
+        };
+
+        console.log('[SCAN] Complete', result);
+      } catch (e: any) {
+        console.error('[SCAN] Background error', e?.message || e);
+      }
     };
 
-    console.log('[SCAN] Complete', result);
-    return new Response(JSON.stringify(result), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    // Run in background to avoid client timeouts.
+    // @ts-ignore EdgeRuntime is available in Supabase Edge Functions
+    EdgeRuntime.waitUntil(runScan());
+
+    return new Response(JSON.stringify({ success: true, status: 'started', startedAt }), {
+      status: 202,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (e: any) {
     console.error('[SCAN] Error', e?.message || e);
     return new Response(JSON.stringify({ error: 'Scan failed', details: String(e?.message || e) }), {
@@ -256,3 +283,4 @@ serve(async (req) => {
     });
   }
 });
+
