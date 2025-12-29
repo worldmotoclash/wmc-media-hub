@@ -61,6 +61,8 @@ export interface VideoContent {
   junctionId?: string; // Junction record ID for playlist-video relationship
   youtubeId?: string; // YouTube video ID for YouTube content
   thumbnailCandidates?: string[]; // Array of thumbnail URLs to try in order
+  createdAt?: string; // Raw ISO date string for created date
+  updatedAt?: string; // Raw ISO date string for updated date
 }
 
 // API configuration
@@ -447,7 +449,9 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
     playlistPosition: (salesforceVideo as any).playlistPosition,
     junctionId: (salesforceVideo as any).junctionId,
     youtubeId: videoId,
-    thumbnailCandidates: videoId ? getYouTubeThumbnailCandidates(videoId) : undefined
+    thumbnailCandidates: videoId ? getYouTubeThumbnailCandidates(videoId) : undefined,
+    createdAt: salesforceVideo.CreatedDate || undefined,
+    updatedAt: salesforceVideo.LastModifiedDate || undefined
   };
 };
 
