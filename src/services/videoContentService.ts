@@ -147,8 +147,8 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
           ri__Content_Type__c: video.getElementsByTagName('contenttype')[0]?.textContent || '',
           ri__Tags__c: '', // Not provided in API
           ri__AI_Percentage__c: video.getElementsByTagName('aipercentage')[0]?.textContent || '0',
-          CreatedDate: '',
-          LastModifiedDate: '',
+          CreatedDate: video.getElementsByTagName('createddate')[0]?.textContent?.trim() || '',
+          LastModifiedDate: video.getElementsByTagName('createddate')[0]?.textContent?.trim() || '',
           playlistPosition: parseFloat(video.getElementsByTagName('playlistorder')[0]?.textContent || '') || (index + 1),
           junctionId: video.getElementsByTagName('id')[0]?.textContent || `fallback_${index}`
         };
