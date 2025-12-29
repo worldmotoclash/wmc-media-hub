@@ -112,7 +112,11 @@ serve(async (req) => {
       imageDataLength: payload.thumbnailImageBase64?.length || 0,
     });
 
-    const { videoSalesforceId, videoTitle, thumbnailImageBase64, mimeType = "image/jpeg" } = payload;
+    const { videoSalesforceId: rawVideoId, videoTitle, thumbnailImageBase64, mimeType = "image/jpeg" } = payload;
+
+    // Strip 'sf_' prefix if present (the UI may send prefixed IDs)
+    const videoSalesforceId = rawVideoId.startsWith('sf_') ? rawVideoId.substring(3) : rawVideoId;
+    console.log("Normalized videoSalesforceId:", videoSalesforceId, "(original:", rawVideoId, ")");
 
     // Validate required fields
     if (!videoSalesforceId || !videoTitle || !thumbnailImageBase64) {
