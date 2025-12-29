@@ -691,9 +691,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
             {/* Tags Filter */}
             <div className="space-y-3">
               <label className="text-sm font-medium mb-2 block">Tags</label>
-              <div className="space-y-1 max-h-48 overflow-y-auto">
+              <div className="space-y-2 max-h-64 overflow-y-auto pb-2">
                 {tags.map(tag => (
-                  <div key={tag.id} className="min-h-8 flex items-center space-x-2">
+                  <div key={tag.id} className="min-h-9 flex items-center space-x-2">
                     <Checkbox
                       id={tag.id}
                       checked={filters.tags?.includes(tag.id) || false}
