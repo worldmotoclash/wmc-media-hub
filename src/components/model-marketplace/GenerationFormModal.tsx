@@ -243,6 +243,7 @@ export const GenerationFormModal: React.FC<GenerationFormModalProps> = ({
         response = await supabase.functions.invoke('generate-wavespeed-video', {
           body: {
             userId: user?.id,
+            creatorContactId: user?.id,
             model: wsModel,
             prompt: genData.mainPrompt,
             durationSec: genData.duration[0],
@@ -263,6 +264,7 @@ export const GenerationFormModal: React.FC<GenerationFormModalProps> = ({
         response = await supabase.functions.invoke('generate-veo-video', {
           body: {
             userId: user?.id,
+            creatorContactId: user?.id,
             prompt: genData.mainPrompt,
             negativePrompt: genData.negativePrompt || undefined,
             duration: genData.duration[0],

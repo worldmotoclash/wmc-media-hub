@@ -141,6 +141,7 @@ Extract the still x.y
 
 interface ImageGenerationRequest {
   userId: string;
+  creatorContactId?: string; // Salesforce Contact ID of the creator
   model: string;
   prompt: string;
   width?: number;
@@ -253,6 +254,7 @@ interface SfdcImageMetadata {
   visualAnchors?: string[];
   extraConstraints?: string;
   negativeConstraints?: string[];
+  creatorContactId?: string; // Salesforce Contact ID of the creator
 }
 
 // Create SFDC record and get ID with comprehensive AI generation fields
@@ -315,6 +317,10 @@ async function createSfdcRecord(
     if (metadata?.negativeConstraints && metadata.negativeConstraints.length > 0) {
       formData.append("string_ri1__Negative_Constraints__c", metadata.negativeConstraints.join(', ').substring(0, 32768));
     }
+    // Creator Contact ID - link content to the creator
+    if (metadata?.creatorContactId) {
+      formData.append("lookup_ri1__Contact__c", metadata.creatorContactId);
+    }
 
     console.log("Sending to w2x-engine:", W2X_ENGINE_URL);
     console.log("SFDC metadata fields:", {
@@ -351,7 +357,7 @@ serve(async (req) => {
 
   try {
     const body: ImageGenerationRequest = await req.json();
-    const { userId, model, prompt, width = 1024, height = 1024, title, referenceImageUrl, template, masterAssetId, masterSalesforceId, salesforceData } = body;
+    const { userId, creatorContactId, model, prompt, width = 1024, height = 1024, title, referenceImageUrl, template, masterAssetId, masterSalesforceId, salesforceData } = body;
 
     const isGridTemplate = template && ['version1', 'version2', 'version3'].includes(template);
 
@@ -391,7 +397,8 @@ serve(async (req) => {
           salesforceData,
           masterAssetId,
           masterSalesforceId,
-          isGridTemplate
+          isGridTemplate,
+          creatorContactId
         }
       })
       .select()
@@ -409,7 +416,7 @@ serve(async (req) => {
     console.log(`Created generation record: ${generationId}`);
 
     EdgeRuntime.waitUntil(generateImage(supabase, generationId, modelConfig, { 
-      prompt, width, height, referenceImageUrl, title, template, masterAssetId, masterSalesforceId, isGridTemplate 
+      prompt, width, height, referenceImageUrl, title, template, masterAssetId, masterSalesforceId, isGridTemplate, creatorContactId, model 
     }));
 
     return new Response(
@@ -440,6 +447,8 @@ async function generateImage(
     masterAssetId?: string;
     masterSalesforceId?: string;
     isGridTemplate: boolean;
+    creatorContactId?: string;
+    model?: string;
   }
 ) {
   const wavespeedApiKey = Deno.env.get('WAVESPEED_API_KEY');
@@ -544,6 +553,7 @@ ${fullPrompt}`;
           isGridTemplate: params.isGridTemplate,
           masterAssetId: params.masterAssetId,
           masterSalesforceId: params.masterSalesforceId,
+          creatorContactId: params.creatorContactId,
           createdAt: new Date().toISOString(),
           sfdcSyncStatus: 'pending',
         },
@@ -570,6 +580,7 @@ ${fullPrompt}`;
         masterSalesforceId: params.masterSalesforceId,
         modelVendor: 'Wavespeed AI',
         modelUsed: params.model,
+        creatorContactId: params.creatorContactId,
       });
       
       if (salesforceId) {
