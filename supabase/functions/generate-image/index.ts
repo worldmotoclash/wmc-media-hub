@@ -750,7 +750,7 @@ DO NOT include any text, watermarks, labels, or overlays in the generated images
         referenceImageUrl,
         template 
       });
-      await autoExtractGridCells(supabase, generationId, s3Url, template || 'grid', extractMasterAssetId, extractMasterSalesforceId, fullPrompt, referenceImageUrl, 'Google', 'gemini-2.5-flash-image-preview');
+      await autoExtractGridCells(supabase, generationId, s3Url, template || 'grid', extractMasterAssetId, extractMasterSalesforceId, fullPrompt, referenceImageUrl, 'Google', 'gemini-2.5-flash-image-preview', creatorContactId);
     }
 
   } catch (error) {
@@ -777,7 +777,8 @@ async function autoExtractGridCells(
   prompt?: string,
   referenceImageUrl?: string,
   modelVendor?: string,
-  modelUsed?: string
+  modelUsed?: string,
+  creatorContactId?: string
 ) {
   const positions = [
     { row: 0, col: 0, id: 'top-left' },
@@ -816,6 +817,7 @@ async function autoExtractGridCells(
           referenceImageUrl,
           modelVendor,
           modelUsed,
+          creatorContactId,
         }),
       });
 

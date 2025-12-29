@@ -27,6 +27,7 @@ interface ExtractGridImageRequest {
   referenceImageUrl?: string; // Reference image used for generation
   modelVendor?: string; // e.g., "Google", "Wavespeed AI"
   modelUsed?: string; // e.g., "gemini-2.5-flash-image-preview", "flux-dev"
+  creatorContactId?: string; // Salesforce Contact ID for creator linkage
 }
 
 // Helper function to escape special regex characters
@@ -115,6 +116,7 @@ serve(async (req) => {
       referenceImageUrl,
       modelVendor,
       modelUsed,
+      creatorContactId,
     } = payload;
 
     if (!sourceUrl || row === undefined || col === undefined || !generationId || !positionId) {
@@ -298,6 +300,12 @@ serve(async (req) => {
         console.log(`Linking variant to master SFDC record: ${masterSalesforceId}`);
       }
       
+      // Link to creator Contact
+      if (creatorContactId) {
+        formData.append("lookup_ri1__Contact__c", creatorContactId);
+        console.log(`Linking variant to creator Contact: ${creatorContactId}`);
+      }
+      
       console.log("SFDC metadata fields:", {
         hasPrompt: !!prompt,
         hasRefImage: !!referenceImageUrl,
@@ -306,6 +314,7 @@ serve(async (req) => {
         hasModelVendor: !!modelVendor,
         hasModelUsed: !!modelUsed,
         hasTemplate: !!template,
+        hasCreatorContact: !!creatorContactId,
       });
 
       console.log("=== SALESFORCE SYNC START ===");
