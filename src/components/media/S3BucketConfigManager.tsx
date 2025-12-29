@@ -239,19 +239,18 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
     setRegeneratingIds(prev => new Set(prev).add(config.id));
 
     try {
-      // Get all assets from this bucket
+      // Get all assets from S3 bucket source - source_id contains the file path, not bucket name
       const { data: assets, error: fetchError } = await supabase
         .from('media_assets')
-        .select('id, file_url, s3_key')
-        .eq('source', 's3_bucket')
-        .ilike('source_id', `%${config.bucket_name}%`);
+        .select('id, file_url, s3_key, source_id')
+        .eq('source', 's3_bucket');
 
       if (fetchError) throw fetchError;
 
       if (!assets || assets.length === 0) {
         toast({
           title: "No Assets Found",
-          description: "No assets found for this bucket to update.",
+          description: "No S3 bucket assets found to update.",
         });
         return;
       }
@@ -259,12 +258,14 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
       // Update each asset's file_url to use CDN
       let updated = 0;
       for (const asset of assets) {
-        if (asset.s3_key) {
-          const newUrl = `${config.cdn_base_url}/${asset.s3_key}`;
+        // Use s3_key if available, otherwise use source_id as the file path
+        const filePath = asset.s3_key || asset.source_id;
+        if (filePath) {
+          const newUrl = `${config.cdn_base_url}/${encodeURI(filePath)}`;
           if (asset.file_url !== newUrl) {
             const { error: updateError } = await supabase
               .from('media_assets')
-              .update({ file_url: newUrl })
+              .update({ file_url: newUrl, s3_key: filePath })
               .eq('id', asset.id);
             
             if (!updateError) updated++;
