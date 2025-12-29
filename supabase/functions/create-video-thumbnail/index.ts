@@ -234,23 +234,52 @@ serve(async (req) => {
     // === STEP 4: Update original video's thumbnail lookup field ===
     console.log("=== STEP 4: Updating video's thumbnail lookup field ===");
     
+    // Correct field names for update-engine-content.php
+    const updateParams = {
+      "ID_ri1___Content__c": videoSalesforceId,
+      "id_ri1__Thumbnail__c": thumbnailSalesforceId,
+      "sObj": "ri1__Content__c",
+      "retURL": "https://worldmotoclash.com"
+    };
+
+    console.log("Update params:", JSON.stringify(updateParams));
+
+    // Try POST first
     const updateFormData = new FormData();
-    updateFormData.append("contentId", videoSalesforceId);
-    updateFormData.append("lookup_ri1__Thumbnail__c", thumbnailSalesforceId);
+    Object.entries(updateParams).forEach(([key, value]) => {
+      updateFormData.append(key, value);
+    });
 
-    console.log("Sending update to:", UPDATE_ENGINE_URL);
-    console.log("Update: contentId=" + videoSalesforceId + ", lookup_ri1__Thumbnail__c=" + thumbnailSalesforceId);
+    console.log("Sending POST update to:", UPDATE_ENGINE_URL);
 
-    const updateResponse = await fetch(UPDATE_ENGINE_URL, {
+    let updateResponse = await fetch(UPDATE_ENGINE_URL, {
       method: "POST",
       body: updateFormData,
     });
 
-    const updateResponseText = await updateResponse.text();
-    console.log("update-engine response status:", updateResponse.status);
-    console.log("update-engine response body:", updateResponseText.substring(0, 500));
+    let updateResponseText = await updateResponse.text();
+    console.log("update-engine POST response status:", updateResponse.status);
+    console.log("update-engine POST response body:", updateResponseText.substring(0, 500));
 
-    if (!updateResponse.ok) {
+    // If POST returns 404 or WordPress error page, try GET as fallback
+    const isWpError = updateResponseText.includes("Page not found") || updateResponseText.includes("<!DOCTYPE html>");
+    if (updateResponse.status === 404 || isWpError) {
+      console.log("POST failed with 404/WP error, trying GET fallback...");
+      
+      const queryString = new URLSearchParams(updateParams).toString();
+      const getUrl = `${UPDATE_ENGINE_URL}?${queryString}`;
+      console.log("Sending GET update to:", getUrl);
+
+      updateResponse = await fetch(getUrl, { method: "GET" });
+      updateResponseText = await updateResponse.text();
+      console.log("update-engine GET response status:", updateResponse.status);
+      console.log("update-engine GET response body:", updateResponseText.substring(0, 500));
+    }
+
+    // Check final result
+    const updateSuccess = updateResponse.ok && !updateResponseText.includes("Page not found");
+    
+    if (!updateSuccess) {
       console.warn("Failed to update video's thumbnail field, but thumbnail was created");
       return new Response(
         JSON.stringify({
@@ -259,11 +288,14 @@ serve(async (req) => {
           thumbnailSalesforceId,
           thumbnailCdnUrl,
           videoSalesforceId,
+          updateStatus: updateResponse.status,
           updateError: updateResponseText.substring(0, 500)
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    console.log("Video thumbnail field updated successfully");
 
     console.log("=== CREATE VIDEO THUMBNAIL COMPLETE ===");
     console.log("Summary:", {
