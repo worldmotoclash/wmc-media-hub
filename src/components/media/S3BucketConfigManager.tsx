@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/contexts/UserContext';
 import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
-import { Trash2, RefreshCw, Clock, Wifi, WifiOff, AlertCircle, Pencil, Globe } from 'lucide-react';
+import { Trash2, RefreshCw, Clock, Wifi, WifiOff, AlertCircle, Pencil, Globe, Link } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { S3BucketConfigDialog } from './S3BucketConfigDialog';
 import { S3BucketConfigEditDialog } from './S3BucketConfigEditDialog';
@@ -34,6 +34,7 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
   const [error, setError] = useState<string | null>(null);
   const [scanningIds, setScanningIds] = useState<Set<string>>(new Set());
   const [testingIds, setTestingIds] = useState<Set<string>>(new Set());
+  const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(new Set());
   const [editingConfig, setEditingConfig] = useState<S3BucketConfig | null>(null);
   const { toast } = useToast();
   const { user } = useUser();
@@ -233,6 +234,74 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
     onConfigChange();
   };
 
+  const handleRegenerateCdnUrls = async (config: S3BucketConfig) => {
+    if (!config.cdn_base_url) {
+      toast({
+        title: "CDN URL Not Set",
+        description: "Please set a CDN Base URL first by editing the bucket configuration.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setRegeneratingIds(prev => new Set(prev).add(config.id));
+
+    try {
+      // Get all assets from this bucket
+      const { data: assets, error: fetchError } = await supabase
+        .from('media_assets')
+        .select('id, file_url, s3_key')
+        .eq('source', 's3_bucket')
+        .ilike('source_id', `%${config.bucket_name}%`);
+
+      if (fetchError) throw fetchError;
+
+      if (!assets || assets.length === 0) {
+        toast({
+          title: "No Assets Found",
+          description: "No assets found for this bucket to update.",
+        });
+        return;
+      }
+
+      // Update each asset's file_url to use CDN
+      let updated = 0;
+      for (const asset of assets) {
+        if (asset.s3_key) {
+          const newUrl = `${config.cdn_base_url}/${asset.s3_key}`;
+          if (asset.file_url !== newUrl) {
+            const { error: updateError } = await supabase
+              .from('media_assets')
+              .update({ file_url: newUrl })
+              .eq('id', asset.id);
+            
+            if (!updateError) updated++;
+          }
+        }
+      }
+
+      toast({
+        title: "CDN URLs Updated",
+        description: `Updated ${updated} of ${assets.length} assets to use CDN URL.`,
+      });
+
+      onConfigChange();
+    } catch (error: any) {
+      console.error('Regenerate CDN URLs error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to regenerate CDN URLs",
+        variant: "destructive",
+      });
+    } finally {
+      setRegeneratingIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(config.id);
+        return newSet;
+      });
+    }
+  };
+
   const formatLastScanned = (dateString: string | null) => {
     if (!dateString) return 'Never';
     const date = new Date(dateString);
@@ -348,6 +417,19 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
                       <RefreshCw className={`w-4 h-4 mr-2 ${scanningIds.has(config.id) ? 'animate-spin' : ''}`} />
                       {scanningIds.has(config.id) ? 'Scanning...' : 'Scan'}
                     </Button>
+
+                    {config.cdn_base_url && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleRegenerateCdnUrls(config)}
+                        disabled={regeneratingIds.has(config.id)}
+                        title="Update all existing assets to use CDN URL"
+                      >
+                        <Link className={`w-4 h-4 mr-2 ${regeneratingIds.has(config.id) ? 'animate-spin' : ''}`} />
+                        {regeneratingIds.has(config.id) ? 'Updating...' : 'Apply CDN'}
+                      </Button>
+                    )}
                     
                     <AlertDialog>
                       <AlertDialogTrigger asChild>

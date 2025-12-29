@@ -267,6 +267,26 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
       total: (wasabiVideos || 0) + (wasabiImages || 0)
     };
 
+    // Get S3 bucket totals more accurately (all asset types from S3)
+    const { count: totalS3Assets } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('source', 's3_bucket');
+
+    // Count all image-type assets from S3 (not just asset_type = 'image')
+    const { count: s3AllImages } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('source', 's3_bucket')
+      .in('asset_type', ['image', 'master_image', 'image_variant', 'grid_variant', 'generation_master']);
+
+    // Update wasabi breakdown with accurate counts
+    stats.wasabiBreakdown = {
+      videos: wasabiVideos || 0,
+      images: s3AllImages || wasabiImages || 0,
+      total: totalS3Assets || ((wasabiVideos || 0) + (wasabiImages || 0))
+    };
+
     // Get asset type counts
     const { count: videoCount } = await supabase
       .from('media_assets')
