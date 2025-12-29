@@ -28,6 +28,20 @@ export interface WasabiMediaBreakdown {
   total: number;
 }
 
+export interface AssetTypeStats {
+  video: number;
+  allImages: number;
+  masters: number;
+  variants: number;
+  grids: number;
+}
+
+export interface StatusStats {
+  pending: number;
+  approved: number;
+  rejected: number;
+}
+
 export interface ApiConnectionStatus {
   isConnected: boolean;
   lastChecked: string;
@@ -50,6 +64,9 @@ export interface MediaSourceStats {
   salesforceApiAssets: number;
   // Wasabi storage breakdown
   wasabiBreakdown: WasabiMediaBreakdown;
+  // Filter-specific counts
+  assetTypes: AssetTypeStats;
+  statusCounts: StatusStats;
 }
 
 export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
@@ -64,7 +81,9 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
     salesforceApiStatus: { isConnected: false, lastChecked: new Date().toISOString() },
     totalLibraryAssets: 0,
     salesforceApiAssets: 0,
-    wasabiBreakdown: { videos: 0, images: 0, total: 0 }
+    wasabiBreakdown: { videos: 0, images: 0, total: 0 },
+    assetTypes: { video: 0, allImages: 0, masters: 0, variants: 0, grids: 0 },
+    statusCounts: { pending: 0, approved: 0, rejected: 0 }
   };
 
   try {
@@ -246,6 +265,65 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
       videos: wasabiVideos || 0,
       images: wasabiImages || 0,
       total: (wasabiVideos || 0) + (wasabiImages || 0)
+    };
+
+    // Get asset type counts
+    const { count: videoCount } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('asset_type', 'video');
+
+    const { count: masterCount } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('asset_type', 'master_image');
+
+    const { count: imageVariantCount } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('asset_type', 'image_variant');
+
+    const { count: gridVariantCount } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('asset_type', 'grid_variant');
+
+    const { count: generationMasterCount } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('asset_type', 'generation_master');
+
+    const variantsTotal = (imageVariantCount || 0) + (gridVariantCount || 0);
+    const allImagesTotal = (masterCount || 0) + variantsTotal + (generationMasterCount || 0);
+
+    stats.assetTypes = {
+      video: videoCount || 0,
+      allImages: allImagesTotal,
+      masters: masterCount || 0,
+      variants: variantsTotal,
+      grids: generationMasterCount || 0
+    };
+
+    // Get status counts
+    const { count: pendingCount } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending');
+
+    const { count: approvedCount } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'approved');
+
+    const { count: rejectedCount } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'rejected');
+
+    stats.statusCounts = {
+      pending: pendingCount || 0,
+      approved: approvedCount || 0,
+      rejected: rejectedCount || 0
     };
 
     // Calculate total

@@ -24,6 +24,7 @@ import {
   SearchFilters,
   SortOption
 } from "@/services/unifiedMediaService";
+import { getMediaSourceStats, MediaSourceStats } from "@/services/mediaSourceStatsService";
 import { LibrarianWorkflowDialog } from "./LibrarianWorkflowDialog";
 import VideoPreviewModal from "./VideoPreviewModal";
 import ImagePreviewModal from "./ImagePreviewModal";
@@ -63,6 +64,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalAssets, setTotalAssets] = useState(0);
   const [brokenThumbnails, setBrokenThumbnails] = useState<Set<string>>(new Set());
+  const [filterCounts, setFilterCounts] = useState<MediaSourceStats | null>(null);
   const [miniPlayer, setMiniPlayer] = useState<MiniPlayerState>({
     isOpen: false,
     audioUrl: '',
@@ -98,10 +100,20 @@ export const UnifiedMediaLibrary: React.FC = () => {
     // Only load initial data for the active tab
     if (activeTab === 'library') {
       loadLibraryData();
+      loadFilterCounts();
     } else if (activeTab === 's3-config') {
       loadS3ConfigData();
     }
   }, [activeTab]);
+
+  const loadFilterCounts = async () => {
+    try {
+      const stats = await getMediaSourceStats();
+      setFilterCounts(stats);
+    } catch (error) {
+      console.error('Error loading filter counts:', error);
+    }
+  };
 
   // Reset broken thumbnails when assets change
   useEffect(() => {
@@ -424,8 +436,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       }
                     }}
                   />
-                  <label htmlFor="type-video" className="text-sm flex items-center">
-                    <Video className="w-4 h-4 mr-1.5" /> Video
+                  <label htmlFor="type-video" className="text-sm flex items-center justify-between flex-1">
+                    <span className="flex items-center"><Video className="w-4 h-4 mr-1.5" /> Video</span>
+                    <span className="text-muted-foreground text-xs">{filterCounts?.assetTypes?.video ?? '—'}</span>
                   </label>
                 </div>
                 
@@ -452,8 +465,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       }
                     }}
                   />
-                  <label htmlFor="type-image" className="text-sm flex items-center">
-                    <Image className="w-4 h-4 mr-1.5" /> Image
+                  <label htmlFor="type-image" className="text-sm flex items-center justify-between flex-1">
+                    <span className="flex items-center"><Image className="w-4 h-4 mr-1.5" /> Image</span>
+                    <span className="text-muted-foreground text-xs">{filterCounts?.assetTypes?.allImages ?? '—'}</span>
                   </label>
                 </div>
                 
@@ -471,8 +485,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       }
                     }}
                   />
-                  <label htmlFor="type-master" className="text-sm text-muted-foreground">
-                    Masters
+                  <label htmlFor="type-master" className="text-sm text-muted-foreground flex items-center justify-between flex-1">
+                    <span>Masters</span>
+                    <span className="text-xs">{filterCounts?.assetTypes?.masters ?? '—'}</span>
                   </label>
                 </div>
                 
@@ -495,8 +510,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       }
                     }}
                   />
-                  <label htmlFor="type-variant" className="text-sm text-muted-foreground">
-                    Variants
+                  <label htmlFor="type-variant" className="text-sm text-muted-foreground flex items-center justify-between flex-1">
+                    <span>Variants</span>
+                    <span className="text-xs">{filterCounts?.assetTypes?.variants ?? '—'}</span>
                   </label>
                 </div>
                 
@@ -514,8 +530,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       }
                     }}
                   />
-                  <label htmlFor="type-grid" className="text-sm text-muted-foreground flex items-center gap-1">
-                    <LayoutGrid className="w-3 h-3" /> 3x3 Grids
+                  <label htmlFor="type-grid" className="text-sm text-muted-foreground flex items-center justify-between flex-1">
+                    <span className="flex items-center gap-1"><LayoutGrid className="w-3 h-3" /> 3x3 Grids</span>
+                    <span className="text-xs">{filterCounts?.assetTypes?.grids ?? '—'}</span>
                   </label>
                 </div>
               </div>
@@ -539,8 +556,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       }
                     }}
                   />
-                  <label htmlFor="origin-youtube" className="text-sm flex items-center gap-1.5">
-                    <Youtube className="w-4 h-4 text-red-500" /> YouTube
+                  <label htmlFor="origin-youtube" className="text-sm flex items-center justify-between flex-1">
+                    <span className="flex items-center gap-1.5"><Youtube className="w-4 h-4 text-red-500" /> YouTube</span>
+                    <span className="text-muted-foreground text-xs">{filterCounts?.contentOrigin?.youtube ?? '—'}</span>
                   </label>
                 </div>
                 
@@ -558,8 +576,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       }
                     }}
                   />
-                  <label htmlFor="origin-ai-generated" className="text-sm flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-purple-500" /> AI Generated
+                  <label htmlFor="origin-ai-generated" className="text-sm flex items-center justify-between flex-1">
+                    <span className="flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-purple-500" /> AI Generated</span>
+                    <span className="text-muted-foreground text-xs">{filterCounts?.contentOrigin?.aiGenerated ?? '—'}</span>
                   </label>
                 </div>
                 
@@ -577,8 +596,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       }
                     }}
                   />
-                  <label htmlFor="origin-uploaded" className="text-sm flex items-center gap-1.5">
-                    <Upload className="w-4 h-4 text-blue-500" /> Uploaded
+                  <label htmlFor="origin-uploaded" className="text-sm flex items-center justify-between flex-1">
+                    <span className="flex items-center gap-1.5"><Upload className="w-4 h-4 text-blue-500" /> Uploaded</span>
+                    <span className="text-muted-foreground text-xs">{filterCounts?.contentOrigin?.uploaded ?? '—'}</span>
                   </label>
                 </div>
                 
@@ -596,8 +616,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       }
                     }}
                   />
-                  <label htmlFor="origin-audio" className="text-sm flex items-center gap-1.5">
-                    <Music className="w-4 h-4 text-orange-500" /> Audio
+                  <label htmlFor="origin-audio" className="text-sm flex items-center justify-between flex-1">
+                    <span className="flex items-center gap-1.5"><Music className="w-4 h-4 text-orange-500" /> Audio</span>
+                    <span className="text-muted-foreground text-xs">{filterCounts?.contentOrigin?.audio ?? '—'}</span>
                   </label>
                 </div>
               </div>
@@ -616,8 +637,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
                         handleFilterChange('syncStatus', checked ? 'in_sync' : undefined);
                       }}
                     />
-                    <label htmlFor="sync-in-sync" className="text-sm flex items-center gap-1.5">
-                      <CheckCircle className="w-4 h-4 text-green-500" /> In Sync
+                    <label htmlFor="sync-in-sync" className="text-sm flex items-center justify-between flex-1">
+                      <span className="flex items-center gap-1.5"><CheckCircle className="w-4 h-4 text-green-500" /> In Sync</span>
+                      <span className="text-muted-foreground text-xs">{filterCounts?.syncHealth?.inSync ?? '—'}</span>
                     </label>
                   </div>
                   <div className="min-h-8 flex items-center space-x-2">
@@ -628,8 +650,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
                         handleFilterChange('syncStatus', checked ? 'missing_sfdc' : undefined);
                       }}
                     />
-                    <label htmlFor="sync-missing-sfdc" className="text-sm flex items-center gap-1.5">
-                      <AlertTriangle className="w-4 h-4 text-yellow-500" /> Missing SFDC
+                    <label htmlFor="sync-missing-sfdc" className="text-sm flex items-center justify-between flex-1">
+                      <span className="flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 text-yellow-500" /> Missing SFDC</span>
+                      <span className="text-muted-foreground text-xs">{filterCounts?.syncHealth?.missingSfdc ?? '—'}</span>
                     </label>
                   </div>
                 </div>
@@ -654,8 +677,11 @@ export const UnifiedMediaLibrary: React.FC = () => {
                         }
                       }}
                     />
-                    <label htmlFor={status} className="text-sm capitalize">
-                      {status}
+                    <label htmlFor={status} className="text-sm capitalize flex items-center justify-between flex-1">
+                      <span>{status}</span>
+                      <span className="text-muted-foreground text-xs">
+                        {filterCounts?.statusCounts?.[status as keyof typeof filterCounts.statusCounts] ?? '—'}
+                      </span>
                     </label>
                   </div>
                 ))}
