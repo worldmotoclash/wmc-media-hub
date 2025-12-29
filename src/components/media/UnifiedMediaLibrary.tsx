@@ -767,10 +767,14 @@ export const UnifiedMediaLibrary: React.FC = () => {
                         </Badge>
                       )}
                     </div>
-                  ) : asset.thumbnailUrl && asset.thumbnailUrl.trim() !== '' ? (
+                  ) : (asset.thumbnailUrl && asset.thumbnailUrl.trim() !== '') || (isImageType(asset.assetType) && asset.fileUrl) ? (
                     <div className="relative">
                       <img
-                        src={brokenThumbnails.has(asset.id) && isImageType(asset.assetType) ? '/placeholder.svg' : asset.thumbnailUrl}
+                        src={brokenThumbnails.has(asset.id) 
+                          ? '/placeholder.svg' 
+                          : (asset.thumbnailUrl && asset.thumbnailUrl.trim() !== '' 
+                              ? asset.thumbnailUrl 
+                              : asset.fileUrl)}
                         alt={asset.title}
                         className="w-full h-48 object-cover rounded-t-lg"
                         onError={(e) => {
@@ -810,8 +814,6 @@ export const UnifiedMediaLibrary: React.FC = () => {
                             </div>
                           </div>
                         </>
-                      ) : isImageType(asset.assetType) ? (
-                        <Image className="w-12 h-12 text-slate-400" />
                       ) : (
                         <span className="text-4xl">{getSourceIcon(asset.source)}</span>
                       )}
