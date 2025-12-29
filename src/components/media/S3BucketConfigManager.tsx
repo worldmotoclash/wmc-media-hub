@@ -51,15 +51,7 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
       setLoading(true);
       setError(null);
       
-      const canAccessDatabase = hasValidSession();
-      
-      if (!canAccessDatabase) {
-        setError('Please log in to manage S3 bucket configurations.');
-        setConfigs([]);
-        setLoading(false);
-        return;
-      }
-      
+      // SELECT is public - no auth needed for reads
       const { data, error: fetchError } = await supabase
         .from('s3_bucket_configs')
         .select('*')
