@@ -67,12 +67,22 @@ export const S3BucketConfigEditDialog: React.FC<S3BucketConfigEditDialogProps> =
         cdn_base_url: formData.cdn_base_url.trim() || null
       };
 
-      const { error } = await supabase
+      console.log('Updating S3 config with:', updateData);
+
+      const { data, error } = await supabase
         .from('s3_bucket_configs')
         .update(updateData)
-        .eq('id', config.id);
+        .eq('id', config.id)
+        .select();
 
       if (error) throw error;
+
+      // Check if the update actually affected any rows
+      if (!data || data.length === 0) {
+        throw new Error('Update failed - no rows were modified. This may be a permissions issue.');
+      }
+
+      console.log('Update successful, returned data:', data);
 
       toast({
         title: "Success",
@@ -82,6 +92,7 @@ export const S3BucketConfigEditDialog: React.FC<S3BucketConfigEditDialogProps> =
       onOpenChange(false);
       onConfigUpdated();
     } catch (error: any) {
+      console.error('Failed to update S3 config:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to update S3 bucket configuration",
