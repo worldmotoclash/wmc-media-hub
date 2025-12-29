@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/contexts/UserContext';
 import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
-import { Plus, Loader2, AlertTriangle } from 'lucide-react';
+import { Plus, Loader2, AlertTriangle, Globe } from 'lucide-react';
 
 interface S3BucketConfigDialogProps {
   onConfigAdded: () => void;
@@ -36,7 +36,8 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
     bucket_name: '',
     endpoint_url: '',
     region: 'us-east-1',
-    scan_frequency_hours: 24
+    scan_frequency_hours: 24,
+    cdn_base_url: ''
   });
   const { toast } = useToast();
   const { user } = useUser();
@@ -77,9 +78,14 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
     setLoading(true);
 
     try {
+      const insertData = {
+        ...formData,
+        cdn_base_url: formData.cdn_base_url.trim() || null
+      };
+      
       const { error } = await supabase
         .from('s3_bucket_configs')
-        .insert([formData]);
+        .insert([insertData]);
 
       if (error) throw error;
 
@@ -93,7 +99,8 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
         bucket_name: '',
         endpoint_url: '',
         region: 'us-east-1',
-        scan_frequency_hours: 24
+        scan_frequency_hours: 24,
+        cdn_base_url: ''
       });
       setOpen(false);
       onConfigAdded();
@@ -195,6 +202,22 @@ export const S3BucketConfigDialog: React.FC<S3BucketConfigDialogProps> = ({ onCo
                 <SelectItem value="ap-southeast-1">AP Southeast 1</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="border rounded-lg p-4 bg-muted/30">
+            <div className="flex items-center gap-2 mb-2">
+              <Globe className="w-4 h-4 text-primary" />
+              <Label htmlFor="cdn_base_url" className="font-medium">CDN Base URL (Optional)</Label>
+            </div>
+            <Input
+              id="cdn_base_url"
+              value={formData.cdn_base_url}
+              onChange={(e) => setFormData(prev => ({ ...prev, cdn_base_url: e.target.value }))}
+              placeholder="https://media.worldmotoclash.com"
+            />
+            <p className="text-sm text-muted-foreground mt-2">
+              If configured, media URLs will use this domain instead of the raw S3 endpoint.
+            </p>
           </div>
           
           <div>

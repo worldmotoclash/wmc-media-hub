@@ -6,9 +6,10 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/contexts/UserContext';
 import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
-import { Trash2, RefreshCw, Clock, Wifi, WifiOff, AlertCircle } from 'lucide-react';
+import { Trash2, RefreshCw, Clock, Wifi, WifiOff, AlertCircle, Pencil, Globe } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { S3BucketConfigDialog } from './S3BucketConfigDialog';
+import { S3BucketConfigEditDialog } from './S3BucketConfigEditDialog';
 
 interface S3BucketConfig {
   id: string;
@@ -20,6 +21,7 @@ interface S3BucketConfig {
   last_scanned_at: string | null;
   is_active: boolean;
   created_at: string;
+  cdn_base_url: string | null;
 }
 
 interface S3BucketConfigManagerProps {
@@ -32,6 +34,7 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
   const [error, setError] = useState<string | null>(null);
   const [scanningIds, setScanningIds] = useState<Set<string>>(new Set());
   const [testingIds, setTestingIds] = useState<Set<string>>(new Set());
+  const [editingConfig, setEditingConfig] = useState<S3BucketConfig | null>(null);
   const { toast } = useToast();
   const { user } = useUser();
   const { isReady, hasValidSession } = useSupabaseAuth();
@@ -279,6 +282,12 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
                     <p className="text-sm text-muted-foreground mt-1">
                       {config.bucket_name} • {config.endpoint_url}
                     </p>
+                    {config.cdn_base_url && (
+                      <div className="flex items-center gap-1 mt-1 text-sm text-primary">
+                        <Globe className="w-3 h-3" />
+                        <span>CDN: {config.cdn_base_url}</span>
+                      </div>
+                    )}
                   </div>
                   <Badge variant={config.is_active ? "default" : "secondary"}>
                     {config.is_active ? "Active" : "Inactive"}
@@ -310,6 +319,15 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
                     <Button
                       size="sm"
                       variant="outline"
+                      onClick={() => setEditingConfig(config)}
+                    >
+                      <Pencil className="w-4 h-4 mr-2" />
+                      Edit
+                    </Button>
+                    
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={() => handleTestConnection(config.id)}
                       disabled={testingIds.has(config.id)}
                     >
@@ -318,7 +336,7 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
                       ) : (
                         <Wifi className="w-4 h-4 mr-2" />
                       )}
-                      {testingIds.has(config.id) ? 'Testing...' : 'Test Connection'}
+                      {testingIds.has(config.id) ? 'Testing...' : 'Test'}
                     </Button>
                     
                     <Button
@@ -328,7 +346,7 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
                       disabled={scanningIds.has(config.id) || testingIds.has(config.id)}
                     >
                       <RefreshCw className={`w-4 h-4 mr-2 ${scanningIds.has(config.id) ? 'animate-spin' : ''}`} />
-                      {scanningIds.has(config.id) ? 'Scanning...' : 'Scan Now'}
+                      {scanningIds.has(config.id) ? 'Scanning...' : 'Scan'}
                     </Button>
                     
                     <AlertDialog>
@@ -359,6 +377,16 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
           ))}
         </div>
       )}
+
+      <S3BucketConfigEditDialog
+        config={editingConfig}
+        open={!!editingConfig}
+        onOpenChange={(open) => !open && setEditingConfig(null)}
+        onConfigUpdated={() => {
+          loadConfigs();
+          onConfigChange();
+        }}
+      />
     </div>
   );
 };

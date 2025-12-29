@@ -291,6 +291,7 @@ export type Database = {
       s3_bucket_configs: {
         Row: {
           bucket_name: string
+          cdn_base_url: string | null
           created_at: string
           endpoint_url: string
           id: string
@@ -303,6 +304,7 @@ export type Database = {
         }
         Insert: {
           bucket_name: string
+          cdn_base_url?: string | null
           created_at?: string
           endpoint_url: string
           id?: string
@@ -315,6 +317,7 @@ export type Database = {
         }
         Update: {
           bucket_name?: string
+          cdn_base_url?: string | null
           created_at?: string
           endpoint_url?: string
           id?: string
