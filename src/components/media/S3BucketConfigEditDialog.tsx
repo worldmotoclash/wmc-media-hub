@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
 import { Loader2, Globe } from 'lucide-react';
 
 interface S3BucketConfig {
@@ -39,6 +40,7 @@ export const S3BucketConfigEditDialog: React.FC<S3BucketConfigEditDialogProps> =
     cdn_base_url: ''
   });
   const { toast } = useToast();
+  const { hasValidSession, checkAndCreateSession } = useSupabaseAuth();
 
   useEffect(() => {
     if (config) {
@@ -55,6 +57,25 @@ export const S3BucketConfigEditDialog: React.FC<S3BucketConfigEditDialogProps> =
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!config) return;
+
+    // Ensure we have a real Supabase session (required for RLS policies using auth.uid())
+    if (!hasValidSession()) {
+      toast({
+        title: "Database Authentication Required",
+        description: "Attempting to establish database connection...",
+        variant: "destructive",
+      });
+
+      const sessionCreated = await checkAndCreateSession();
+      if (!sessionCreated) {
+        toast({
+          title: "Database Connection Failed",
+          description: "Cannot save changes because Anonymous Authentication is disabled in Supabase. Enable it (or add Supabase login) to edit bucket configs.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
 
     setLoading(true);
 

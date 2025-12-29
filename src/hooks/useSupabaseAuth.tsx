@@ -22,13 +22,16 @@ export const useSupabaseAuth = () => {
       // If user is logged in but no Supabase session, try anonymous auth
       if (user) {
         const { data, error } = await supabase.auth.signInAnonymously();
-        
+
         if (error) {
-          // Anonymous auth is disabled - this is OK, we can still proceed without it
-          if (error.message.includes('anonymous_provider_disabled') || error.message.includes('Anonymous sign-ins are disabled')) {
-            console.warn('Anonymous authentication is disabled in Supabase. Proceeding without Supabase session.');
-            setIsReady(true); // Mark as ready so UI doesn't hang
-            return true; // Return true to indicate we can proceed
+          // Anonymous auth disabled means we cannot perform authenticated DB writes.
+          if (
+            error.message.includes('anonymous_provider_disabled') ||
+            error.message.includes('Anonymous sign-ins are disabled')
+          ) {
+            console.warn('Anonymous authentication is disabled in Supabase. Auth-required DB writes will not work.');
+            setIsReady(true);
+            return false;
           }
           throw error;
         }
@@ -38,7 +41,7 @@ export const useSupabaseAuth = () => {
         console.log('Supabase anonymous auth successful');
         return true;
       }
-      
+
       setIsReady(true);
       return false;
     } catch (error: any) {
@@ -64,9 +67,9 @@ export const useSupabaseAuth = () => {
   }, []);
 
   const hasValidSession = useCallback(() => {
-    // If anonymous auth is disabled, consider the user as having valid access if they're logged in
-    return session !== null || user !== null;
-  }, [session, user]);
+    // Only a real Supabase session will satisfy auth.uid() in RLS policies.
+    return session !== null;
+  }, [session]);
 
   return { 
     session, 
