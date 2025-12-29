@@ -31,6 +31,7 @@ interface LibraryImage {
   title?: string;
   created_at: string;
   source: 'generated' | 'media_asset';
+  salesforceId?: string;
 }
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -98,8 +99,8 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
       // Fetch from media_assets (S3/SFDC images)
       const { data: mediaAssets, error: mediaError } = await supabase
         .from('media_assets')
-        .select('id, file_url, title, created_at')
-        .in('asset_type', ['image', 'photo', 'master'])
+        .select('id, file_url, title, created_at, salesforce_id')
+        .in('asset_type', ['image', 'photo', 'master', 'master_image'])
         .not('file_url', 'is', null)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -110,7 +111,8 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
           url: asset.file_url!,
           title: asset.title,
           created_at: asset.created_at,
-          source: 'media_asset' as const
+          source: 'media_asset' as const,
+          salesforceId: asset.salesforce_id || undefined,
         })));
       }
 
@@ -253,10 +255,16 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
     onChange('');
   }, [onChange]);
 
-  const handleLibrarySelect = useCallback((url: string) => {
-    onChange(url);
+  const handleLibrarySelect = useCallback((img: LibraryImage) => {
+    onChange(img.url);
+    // Also trigger onUploadComplete to ensure proper state handling
+    onUploadComplete?.({ 
+      url: img.url, 
+      assetId: img.id, 
+      salesforceId: img.salesforceId 
+    });
     toast.success('Image selected from library');
-  }, [onChange]);
+  }, [onChange, onUploadComplete]);
 
   return (
     <div className="space-y-3">
@@ -429,7 +437,7 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
                       <button
                         key={img.id}
                         type="button"
-                        onClick={() => handleLibrarySelect(img.url)}
+                        onClick={() => handleLibrarySelect(img)}
                         className="relative aspect-square rounded-md overflow-hidden border border-border hover:border-primary hover:ring-2 hover:ring-primary/20 transition-all group"
                       >
                         <img
