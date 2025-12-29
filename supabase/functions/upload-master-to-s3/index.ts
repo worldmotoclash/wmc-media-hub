@@ -19,6 +19,7 @@ interface UploadMasterRequest {
   width: number;
   height: number;
   title?: string;
+  creatorContactId?: string;
 }
 
 // Helper function to escape special regex characters
@@ -113,7 +114,7 @@ serve(async (req) => {
       dimensions: `${payload.width}x${payload.height}`,
     });
 
-    const { imageBase64, filename, mimeType, width, height, title } = payload;
+    const { imageBase64, filename, mimeType, width, height, title, creatorContactId } = payload;
 
     if (!imageBase64 || !filename || !width || !height) {
       return new Response(
@@ -185,6 +186,7 @@ serve(async (req) => {
       uploadedAt: new Date().toISOString(),
       isMasterImage: true,
       sfdcSyncStatus: 'pending' as const,
+      creatorContactId,
     };
 
     const { data: assetData, error: assetError } = await supabase
@@ -227,6 +229,12 @@ serve(async (req) => {
       formData.append("string_Name", imageTitle);
       formData.append("string_ri1__Content_Type__c", fileExtension);
       formData.append("string_ri1__URL__c", cdnUrl);
+      
+      // Link to creator Contact if provided
+      if (creatorContactId) {
+        formData.append("lookup_ri1__Contact__c", creatorContactId);
+        console.log(`Linking content to creator Contact: ${creatorContactId}`);
+      }
 
       console.log("=== SALESFORCE SYNC START ===");
       console.log("Sending to w2x-engine:", W2X_ENGINE_URL);

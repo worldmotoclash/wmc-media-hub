@@ -10,6 +10,7 @@ import { IMAGE_PROCESSING_MODELS, getAvailableImageProcessingModels } from "@/se
 import { ImagePlus, AlertCircle, Cpu, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { PlatformVariantSelector } from "./PlatformVariantSelector";
+import { useUser } from "@/contexts/UserContext";
 
 interface SocialKitGeneratorModalProps {
   open: boolean;
@@ -30,6 +31,7 @@ export function SocialKitGeneratorModal({
   masterAsset,
   onComplete
 }: SocialKitGeneratorModalProps) {
+  const { user } = useUser();
   const [selectedVariants, setSelectedVariants] = useState<Set<string>>(
     new Set(SOCIAL_VARIANTS.map(v => v.id))
   );
@@ -107,7 +109,8 @@ export function SocialKitGeneratorModal({
           masterAsset.url,
           masterAsset.masterId || masterAsset.id,
           masterAsset.salesforce_id,
-          selectedModel
+          selectedModel,
+          user?.id  // Pass creator Contact ID
         );
 
         // Update status
