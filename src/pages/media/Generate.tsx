@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
@@ -36,7 +37,8 @@ import {
   Users,
   Palette,
   Camera,
-  Pin
+  Pin,
+  RefreshCw
 } from "lucide-react";
 import { STORYTELLING_PROMPTS } from "@/constants/storytellingPrompts";
 import { GRID_POSITIONS, GRID_TEMPLATES } from "@/constants/gridPositions";
@@ -344,6 +346,10 @@ const Generate: React.FC = () => {
   const [referenceDialogOpen, setReferenceDialogOpen] = useState(false);
   const [selectedSubjectForReference, setSelectedSubjectForReference] = useState<StyleProfile['subjects'][0] | null>(null);
   
+  // Style lock confirmation dialog state
+  const [styleLockConfirmOpen, setStyleLockConfirmOpen] = useState(false);
+  const [pendingImageInfo, setPendingImageInfo] = useState<{ url: string; assetId?: string; salesforceId?: string } | null>(null);
+  
   // Image model state - check URL param for model selection from marketplace
   const initialImageModel = urlModelId 
     ? IMAGE_GENERATION_MODELS.find(m => m.id === urlModelId) || IMAGE_GENERATION_MODELS[0]
@@ -431,6 +437,22 @@ const Generate: React.FC = () => {
 
   // Handle master image upload with style analysis
   const handleMasterImageUpload = async (info: { url: string; assetId?: string; salesforceId?: string }) => {
+    // Check if there's an existing style lock that should be confirmed
+    const hasExistingStyleLock = styleProfile || styleOverride.trim();
+    
+    if (hasExistingStyleLock) {
+      // Show confirmation dialog
+      setPendingImageInfo(info);
+      setStyleLockConfirmOpen(true);
+      return;
+    }
+    
+    // No existing style lock, proceed directly
+    await applyImageSelection(info, false);
+  };
+
+  // Apply image selection with optional style lock reset
+  const applyImageSelection = async (info: { url: string; assetId?: string; salesforceId?: string }, keepStyleLock: boolean) => {
     setGenData(prev => ({ 
       ...prev, 
       startImage: info.url,
@@ -438,13 +460,25 @@ const Generate: React.FC = () => {
       startImageSalesforceId: info.salesforceId || ''
     }));
     
-    // Clear previous style profile and subject references
-    setStyleProfile(null);
-    setSubjectReferences({});
+    if (!keepStyleLock) {
+      // Clear previous style profile, subject references, and override
+      setStyleProfile(null);
+      setSubjectReferences({});
+      setStyleOverride('');
+    }
     
     // Auto-analyze if grid template selected OR image-to-video model is selected
     if ((isGridTemplate || isImageToVideoModel) && info.url) {
       await analyzeStyleProfile(info.url, info.assetId);
+    }
+  };
+
+  // Handle style lock confirmation
+  const handleStyleLockConfirm = async (keepStyleLock: boolean) => {
+    setStyleLockConfirmOpen(false);
+    if (pendingImageInfo) {
+      await applyImageSelection(pendingImageInfo, keepStyleLock);
+      setPendingImageInfo(null);
     }
   };
 
@@ -2003,6 +2037,40 @@ const Generate: React.FC = () => {
           });
         }}
       />
+
+      {/* Style Lock Confirmation Dialog */}
+      <AlertDialog open={styleLockConfirmOpen} onOpenChange={setStyleLockConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Lock className="w-5 h-5 text-primary" />
+              Style Lock Settings
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              You have existing style lock settings from your previous generation. Would you like to keep these settings for the new image, or reset them?
+              {styleProfile && (
+                <div className="mt-3 p-3 rounded-md bg-muted/50 text-sm">
+                  <div className="font-medium text-foreground">Current Style Lock:</div>
+                  <div className="text-muted-foreground mt-1">
+                    {styleProfile.subjects.length} subject(s), {styleProfile.environment.setting}
+                    {styleOverride && <span className="block mt-1">+ Custom constraints</span>}
+                  </div>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel onClick={() => handleStyleLockConfirm(false)} className="flex items-center gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Reset Style Lock
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleStyleLockConfirm(true)} className="flex items-center gap-2">
+              <Lock className="w-4 h-4" />
+              Keep Style Lock
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
