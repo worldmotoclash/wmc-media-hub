@@ -81,7 +81,8 @@ export async function processVariant(
   masterImageUrl: string,
   masterId: string,
   salesforceMasterId?: string,
-  model: string = "native_resize"
+  model: string = "native_resize",
+  creatorContactId?: string
 ): Promise<{ success: boolean; url?: string; error?: string; assetId?: string; s3Key?: string }> {
   try {
     const response = await supabase.functions.invoke("generate-social-variant", {
@@ -97,6 +98,7 @@ export async function processVariant(
         jobId: jobId,
         variantId: variant.id,
         sfMasterId: salesforceMasterId,
+        creatorContactId,
         salesforceData: salesforceMasterId ? {
           masterContentId: salesforceMasterId,
           platform: variant.platform,

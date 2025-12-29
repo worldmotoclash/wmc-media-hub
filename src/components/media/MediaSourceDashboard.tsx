@@ -8,8 +8,10 @@ import { RefreshCw, CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronRig
 import { getMediaSourceStats, type MediaSourceStats } from '@/services/mediaSourceStatsService';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useUser } from '@/contexts/UserContext';
 
 const MediaSourceDashboard: React.FC = () => {
+  const { user } = useUser();
   const [isOpen, setIsOpen] = useState(false);
   const [stats, setStats] = useState<MediaSourceStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,7 +59,10 @@ const MediaSourceDashboard: React.FC = () => {
       toast.info(`Syncing ${missingAssets.length} assets to Salesforce...`);
 
       const { data, error: syncError } = await supabase.functions.invoke('sync-asset-to-salesforce', {
-        body: { assetIds: missingAssets.map(a => a.id) }
+        body: { 
+          assetIds: missingAssets.map(a => a.id),
+          creatorContactId: user?.id  // Pass logged-in user's Salesforce Contact ID
+        }
       });
 
       if (syncError) throw syncError;

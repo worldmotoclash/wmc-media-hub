@@ -13,6 +13,7 @@ const ORG_ID = "00D5e000000HEcP";
 interface SyncRequest {
   assetId?: string;
   assetIds?: string[];
+  creatorContactId?: string;
 }
 
 // Helper function to escape special regex characters
@@ -84,6 +85,7 @@ interface SfdcSyncMetadata {
   visualAnchors?: string[];
   extraConstraints?: string;
   negativeConstraints?: string[];
+  creatorContactId?: string;
 }
 
 // Create a new Salesforce Content record via w2x-engine with comprehensive fields
@@ -156,6 +158,11 @@ async function createSalesforceRecord(
     if (metadata?.negativeConstraints && metadata.negativeConstraints.length > 0) {
       formData.append("string_ri1__Negative_Constraints__c", metadata.negativeConstraints.join(', ').substring(0, 32768));
     }
+    // Creator Contact ID - link to the Contact who created this content
+    if (metadata?.creatorContactId) {
+      formData.append("lookup_ri1__Contact__c", metadata.creatorContactId);
+      console.log(`Linking content to creator Contact: ${metadata.creatorContactId}`);
+    }
     
     console.log("SFDC sync metadata fields:", {
       hasPrompt: !!metadata?.prompt,
@@ -192,6 +199,7 @@ serve(async (req) => {
   try {
     const payload: SyncRequest = await req.json();
     const assetIds = payload.assetIds || (payload.assetId ? [payload.assetId] : []);
+    const creatorContactId = payload.creatorContactId;
     
     if (assetIds.length === 0) {
       return new Response(
@@ -331,6 +339,8 @@ serve(async (req) => {
         visualAnchors: assetMetadata.visualAnchors,
         extraConstraints: assetMetadata.extraConstraints || assetMetadata.styleOverride,
         negativeConstraints: assetMetadata.negativeConstraints,
+        // Use creatorContactId from request, or fallback to stored metadata
+        creatorContactId: creatorContactId || assetMetadata.creatorContactId,
       };
       
       const created = await createSalesforceRecord(asset.title, asset.file_url, contentType, syncMetadata);

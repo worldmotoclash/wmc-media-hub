@@ -25,6 +25,7 @@ interface SocialVariantRequest {
   jobId?: string;
   variantId?: string;
   sfMasterId?: string;
+  creatorContactId?: string;
   salesforceData?: {
     masterContentId: string;
     platform: string;
@@ -83,7 +84,8 @@ async function createAndFindSalesforceRecord(
   title: string, 
   cdnUrl: string, 
   contentType: string,
-  masterSalesforceId?: string
+  masterSalesforceId?: string,
+  creatorContactId?: string
 ): Promise<{ success: boolean; salesforceId: string | null; error?: string }> {
   console.log(`Creating Salesforce record for variant: ${title}`);
   
@@ -100,9 +102,15 @@ async function createAndFindSalesforceRecord(
       formData.append("lookup_ri1__Master_Content__c", masterSalesforceId);
       console.log(`Linking variant to master SFDC record: ${masterSalesforceId}`);
     }
+    
+    // Link to creator Contact if provided
+    if (creatorContactId) {
+      formData.append("lookup_ri1__Contact__c", creatorContactId);
+      console.log(`Linking variant to creator Contact: ${creatorContactId}`);
+    }
 
     console.log("Sending to w2x-engine:", W2X_ENGINE_URL);
-    console.log("FormData: Name=" + title + ", Content_Type=" + contentType + ", URL=" + cdnUrl + ", Master=" + (masterSalesforceId || "none"));
+    console.log("FormData: Name=" + title + ", Content_Type=" + contentType + ", URL=" + cdnUrl + ", Master=" + (masterSalesforceId || "none") + ", Contact=" + (creatorContactId || "none"));
 
     const response = await fetch(W2X_ENGINE_URL, {
       method: "POST",
@@ -256,6 +264,7 @@ serve(async (req) => {
       jobId,
       variantId,
       sfMasterId,
+      creatorContactId,
       salesforceData,
     } = payload;
 
@@ -376,6 +385,7 @@ serve(async (req) => {
           model,
           generatedAt: new Date().toISOString(),
           sfdcSyncStatus: 'pending',
+          creatorContactId,
         },
       })
       .select()
@@ -396,12 +406,13 @@ serve(async (req) => {
       // Get master Salesforce ID from either sfMasterId or salesforceData
       const masterSfId = sfMasterId || salesforceData?.masterContentId;
       
-      // Create Salesforce Content record for the variant with link to master
+      // Create Salesforce Content record for the variant with link to master and creator
       const sfdcResult = await createAndFindSalesforceRecord(
         variantTitle,
         variantCdnUrl,
         "JPG",
-        masterSfId
+        masterSfId,
+        creatorContactId
       );
 
       if (sfdcResult.success && sfdcResult.salesforceId) {

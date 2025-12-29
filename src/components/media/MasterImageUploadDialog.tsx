@@ -10,6 +10,7 @@ import { Upload, ImageIcon, X, Loader2, Cloud } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useUser } from "@/contexts/UserContext";
 
 interface MasterImageUploadDialogProps {
   open: boolean;
@@ -56,6 +57,7 @@ export function MasterImageUploadDialog({
   onOpenChange,
   onUploadComplete,
 }: MasterImageUploadDialogProps) {
+  const { user } = useUser();
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -148,6 +150,7 @@ export function MasterImageUploadDialog({
           width: dimensions.width,
           height: dimensions.height,
           title: selectedFile.name.replace(/\.[^/.]+$/, ""),
+          creatorContactId: user?.id,  // Pass creator Contact ID
         },
       });
 
