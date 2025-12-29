@@ -433,7 +433,8 @@ serve(async (req) => {
       isGridTemplate,
       styleProfile,
       styleOverride,
-      pinnedSubjects
+      pinnedSubjects,
+      creatorContactId
     );
 
     if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
@@ -476,7 +477,8 @@ async function generateImage(
   isGridTemplate: boolean,
   styleProfile?: StyleProfile,
   styleOverride?: string,
-  pinnedSubjects?: PinnedSubject[]
+  pinnedSubjects?: PinnedSubject[],
+  creatorContactId?: string
 ) {
   try {
     await supabase
