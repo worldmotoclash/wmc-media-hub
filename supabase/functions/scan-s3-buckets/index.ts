@@ -16,6 +16,7 @@ interface BucketConfig {
   region?: string;
   scan_frequency_hours?: number;
   is_active?: boolean;
+  cdn_base_url?: string | null;
 }
 
 interface S3Object {
@@ -201,7 +202,11 @@ serve(async (req) => {
           const title = extractTitleFromKey(obj.Key);
           const fileFormat = getFileExtension(obj.Key);
           const assetType = getAssetType(obj.Key);
-          const fileUrl = `${bucket.endpoint_url}/${bucket.bucket_name}/${encodeURI(obj.Key)}`;
+          
+          // Use CDN URL if configured, otherwise use raw S3 URL
+          const fileUrl = bucket.cdn_base_url
+            ? `${bucket.cdn_base_url}/${encodeURI(obj.Key)}`
+            : `${bucket.endpoint_url}/${bucket.bucket_name}/${encodeURI(obj.Key)}`;
 
           const { data: existing } = await supabase
             .from('media_assets')
@@ -224,6 +229,7 @@ serve(async (req) => {
               etag: obj.ETag,
               last_modified: obj.LastModified,
               endpoint: bucket.endpoint_url,
+              cdn_base_url: bucket.cdn_base_url || null,
             },
             updated_at: new Date().toISOString(),
           };
