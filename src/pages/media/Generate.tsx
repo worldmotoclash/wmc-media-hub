@@ -736,6 +736,7 @@ const Generate: React.FC = () => {
         response = await supabase.functions.invoke('generate-image', {
           body: {
             userId: user?.id,
+            creatorContactId: user?.id,
             prompt: fullPrompt,
             template: selectedTemplate || undefined,
             referenceImageUrl: genData.startImage || undefined,

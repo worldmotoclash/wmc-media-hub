@@ -184,6 +184,7 @@ interface PinnedSubject {
 
 interface ImageGenerationRequest {
   userId: string;
+  creatorContactId?: string; // Salesforce Contact ID of the creator
   prompt: string;
   template?: string;
   referenceImageUrl?: string;
@@ -269,6 +270,7 @@ interface SfdcImageMetadata {
   visualAnchors?: string[];
   extraConstraints?: string;
   negativeConstraints?: string[];
+  creatorContactId?: string; // Salesforce Contact ID of the creator
 }
 
 // Create SFDC record and get ID with comprehensive AI generation fields
@@ -332,6 +334,10 @@ async function createSfdcRecord(
     if (metadata?.negativeConstraints && metadata.negativeConstraints.length > 0) {
       formData.append("string_ri1__Negative_Constraints__c", metadata.negativeConstraints.join(', ').substring(0, 32768));
     }
+    // Creator Contact ID - link content to the creator
+    if (metadata?.creatorContactId) {
+      formData.append("lookup_ri1__Contact__c", metadata.creatorContactId);
+    }
 
     console.log("Sending to w2x-engine:", W2X_ENGINE_URL);
     console.log("SFDC metadata fields:", {
@@ -368,7 +374,7 @@ serve(async (req) => {
 
   try {
     const requestData: ImageGenerationRequest = await req.json();
-    const { userId, prompt, template, referenceImageUrl, title, model, masterAssetId, masterSalesforceId, styleProfile, styleOverride, pinnedSubjects, salesforceData } = requestData;
+    const { userId, creatorContactId, prompt, template, referenceImageUrl, title, model, masterAssetId, masterSalesforceId, styleProfile, styleOverride, pinnedSubjects, salesforceData } = requestData;
 
     const selectedModel = model || 'google/gemini-2.5-flash-image-preview';
     const isGridTemplate = template && ['version1', 'version2', 'version3'].includes(template);
@@ -670,6 +676,7 @@ DO NOT include any text, watermarks, labels, or overlays in the generated images
           isGridTemplate,
           masterAssetId,
           masterSalesforceId,
+          creatorContactId,
           createdAt: new Date().toISOString(),
           sfdcSyncStatus: 'pending',
         },
@@ -696,6 +703,7 @@ DO NOT include any text, watermarks, labels, or overlays in the generated images
         masterSalesforceId,
         modelVendor: 'Google',
         modelUsed: 'gemini-2.5-flash-image-preview',
+        creatorContactId,
       });
       
       if (salesforceId) {
