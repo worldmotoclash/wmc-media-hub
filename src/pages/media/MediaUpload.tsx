@@ -247,6 +247,7 @@ const MediaUpload: React.FC = () => {
         response = await supabase.functions.invoke('generate-wavespeed-video', {
           body: {
             userId: user.id,
+            creatorContactId: user.id,
             model: genData.model,
             prompt: genData.mainPrompt,
             durationSec: genData.duration[0],
@@ -268,6 +269,7 @@ const MediaUpload: React.FC = () => {
         response = await supabase.functions.invoke('generate-veo-video', {
           body: {
             userId: user.id,
+            creatorContactId: user.id,
             prompt: genData.mainPrompt,
             negativePrompt: genData.negativePrompt || undefined,
             duration: genData.duration[0],

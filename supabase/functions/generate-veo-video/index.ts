@@ -40,6 +40,7 @@ interface StyleProfile {
 // Interface for the video generation request
 interface VeoGenerationRequest {
   userId: string;
+  creatorContactId?: string; // Salesforce Contact ID of the creator
   prompt: string;
   negativePrompt?: string;
   duration?: number;
@@ -192,6 +193,7 @@ DO NOT introduce new characters, change wardrobe, or alter the environment from 
       hasStyleProfile: !!requestData.styleProfile,
       startImage: requestData.startImage,
       endImage: requestData.endImage,
+      creatorContactId: requestData.creatorContactId,
     };
 
     // Create Supabase record first
@@ -257,6 +259,8 @@ DO NOT introduce new characters, change wardrobe, or alter the environment from 
       ri1__Visual_Anchors__c: requestData.styleProfile?.visualAnchors?.join(', ') || '',
       ri1__Extra_Constraints__c: requestData.styleOverride || '',
       ri1__Negative_Constraints__c: requestData.styleProfile?.negativeConstraints?.join(', ') || '',
+      // Creator Contact ID - link content to the creator
+      lookup_ri1__Contact__c: requestData.creatorContactId || '',
     };
 
     // Start real VEO generation process

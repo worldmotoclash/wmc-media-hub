@@ -34,6 +34,7 @@ interface StyleProfile {
 // Interface for the Wavespeed generation request
 interface WavespeedGenerationRequest {
   userId: string;
+  creatorContactId?: string; // Salesforce Contact ID of the creator
   model: string;
   prompt: string;
   durationSec?: number;
@@ -313,6 +314,7 @@ DO NOT introduce new characters, change wardrobe, or alter the environment from 
       extras: requestData.extras,
       salesforceData: salesforceData,
       hasStyleProfile: !!requestData.styleProfile,
+      creatorContactId: requestData.creatorContactId,
     };
 
     // Create Supabase record first
@@ -362,6 +364,8 @@ DO NOT introduce new characters, change wardrobe, or alter the environment from 
       ri1__Visual_Anchors__c: requestData.styleProfile?.visualAnchors?.join(', ') || '',
       ri1__Extra_Constraints__c: requestData.styleOverride || '',
       ri1__Negative_Constraints__c: requestData.styleProfile?.negativeConstraints?.join(', ') || '',
+      // Creator Contact ID - link content to the creator
+      lookup_ri1__Contact__c: requestData.creatorContactId || '',
     };
 
     // Start Wavespeed generation process

@@ -717,6 +717,7 @@ const Generate: React.FC = () => {
         response = await supabase.functions.invoke('generate-wavespeed-image', {
           body: {
             userId: user?.id,
+            creatorContactId: user?.id,
             model: selectedImageModel.id,
             prompt: fullPrompt,
             width: dimensions.width,
@@ -849,6 +850,7 @@ const Generate: React.FC = () => {
         response = await supabase.functions.invoke('generate-wavespeed-video', {
           body: {
             userId: user?.id,
+            creatorContactId: user?.id,
             model: wsModel,
             prompt: fullPrompt,
             durationSec: genData.duration[0],
@@ -874,6 +876,7 @@ const Generate: React.FC = () => {
         response = await supabase.functions.invoke('generate-veo-video', {
           body: {
             userId: user?.id,
+            creatorContactId: user?.id,
             prompt: fullPrompt,
             negativePrompt: genData.negativePrompt || undefined,
             duration: genData.duration[0],
