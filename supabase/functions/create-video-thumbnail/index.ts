@@ -188,6 +188,7 @@ serve(async (req) => {
     formData.append("string_Name", thumbnailName);
     formData.append("string_ri1__Content_Type__c", "JPG");
     formData.append("string_ri1__URL__c", thumbnailCdnUrl);
+    formData.append("string_ri1__Storage_Object_Key__c", s3Key);
 
     console.log("Sending to w2x-engine:", W2X_ENGINE_URL);
     console.log("FormData: Name=" + thumbnailName + ", Content_Type=JPG, URL=" + thumbnailCdnUrl);
