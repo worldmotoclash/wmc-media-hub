@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@/contexts/UserContext';
@@ -6,7 +5,6 @@ import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
 import MediaHubHero from '@/components/media/MediaHubHero';
 import ActionCards from '@/components/media/ActionCards';
-import SearchBar from '@/components/media/SearchBar';
 import RecentActivity from '@/components/media/RecentActivity';
 import RecentUploads from '@/components/media/RecentUploads';
 import Footer from '@/components/Footer';
@@ -35,7 +33,6 @@ const MediaHub: React.FC = () => {
       <Navbar />
       <MediaHubHero />
       <ActionCards />
-      <SearchBar />
       <RecentActivity />
       <RecentUploads />
       <Footer />
