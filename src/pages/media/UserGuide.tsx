@@ -41,13 +41,15 @@ const tocItems = [
   { id: 'dashboard', title: '2. Media Hub Dashboard' },
   { id: 'ai-generation', title: '3. AI Content Generation' },
   { id: 'style-lock', title: '4. Style Lock Feature' },
-  { id: 'social-kit', title: '5. Social Kit' },
-  { id: 'asset-library', title: '6. Asset Library' },
-  { id: 'scene-detection', title: '7. Scene Detection' },
-  { id: 'playlist-manager', title: '8. Playlist Manager' },
-  { id: 'model-marketplace', title: '9. Model Marketplace' },
-  { id: 'character-library', title: '10. Character Library' },
-  { id: 'salesforce', title: '11. Salesforce Integration' },
+  { id: 'grid-templates', title: '5. 3x3 Grid Templates' },
+  { id: 'social-kit', title: '6. Social Kit' },
+  { id: 'asset-library', title: '7. Asset Library' },
+  { id: 's3-configuration', title: '8. S3 Bucket Configuration' },
+  { id: 'scene-detection', title: '9. Scene Detection' },
+  { id: 'playlist-manager', title: '10. Playlist Manager' },
+  { id: 'model-marketplace', title: '11. Model Marketplace' },
+  { id: 'character-library', title: '12. Character Library' },
+  { id: 'salesforce', title: '13. Salesforce Integration' },
 ];
 
 const UserGuide: React.FC = () => {
@@ -280,7 +282,79 @@ const UserGuide: React.FC = () => {
                 </GuideTip>
               </GuideSection>
 
-              {/* Section 5: Social Kit */}
+              {/* Section 5: 3x3 Grid Templates */}
+              <GuideSection id="grid-templates" title="3x3 Grid Templates" icon={Grid3X3}>
+                <p className="text-muted-foreground mb-6">
+                  Generate 9 variations of your content in a single image using the 3x3 grid template. 
+                  This is perfect for exploring different styles, poses, or compositions quickly.
+                </p>
+
+                <GuideSubSection title="What is a 3x3 Grid?">
+                  <p className="text-muted-foreground mb-4">
+                    A 3x3 grid generates a single image containing 9 variations arranged in a 3-row by 3-column 
+                    layout. Each cell shows a different interpretation of your prompt, allowing you to compare 
+                    options side-by-side.
+                  </p>
+                  <div className="p-4 rounded-lg border border-border bg-card/50 mb-4">
+                    <div className="grid grid-cols-3 gap-2 aspect-square max-w-xs mx-auto">
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+                        <div key={n} className="bg-muted rounded flex items-center justify-center text-muted-foreground text-sm font-medium">
+                          {n}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-center text-xs text-muted-foreground mt-3">Example 3x3 grid layout</p>
+                  </div>
+                </GuideSubSection>
+
+                <GuideSubSection title="How to Generate a 3x3 Grid">
+                  <GuideStep number={1} title="Select 3x3 Grid Model">
+                    In the Model Marketplace or Generate page, choose a model with "3x3 Grid" capability 
+                    (e.g., Flux 3x3 Grid).
+                  </GuideStep>
+                  <GuideStep number={2} title="Write Your Prompt">
+                    Describe what you want - the AI will create 9 variations based on your description.
+                  </GuideStep>
+                  <GuideStep number={3} title="Add Reference (Optional)">
+                    Include a reference image to guide the style of all 9 variations.
+                  </GuideStep>
+                  <GuideStep number={4} title="Generate">
+                    Click generate to create your 3x3 grid image.
+                  </GuideStep>
+                  <GuideStep number={5} title="Extract Individual Images">
+                    Use the "Extract Grid Image" feature to save any cell as a standalone image.
+                  </GuideStep>
+                </GuideSubSection>
+
+                <GuideSubSection title="Grid Position Reference">
+                  <GuideTable
+                    headers={['Position', 'Grid Location', 'Description']}
+                    rows={[
+                      ['1', 'Top Left', 'First variation'],
+                      ['2', 'Top Center', 'Second variation'],
+                      ['3', 'Top Right', 'Third variation'],
+                      ['4', 'Middle Left', 'Fourth variation'],
+                      ['5', 'Center', 'Fifth variation (center focus)'],
+                      ['6', 'Middle Right', 'Sixth variation'],
+                      ['7', 'Bottom Left', 'Seventh variation'],
+                      ['8', 'Bottom Center', 'Eighth variation'],
+                      ['9', 'Bottom Right', 'Ninth variation'],
+                    ]}
+                  />
+                </GuideSubSection>
+
+                <GuideTip type="tip">
+                  Use 3x3 grids when you're exploring creative directions. Once you find a variation you 
+                  like, extract it and use it as a reference for further refinement.
+                </GuideTip>
+
+                <GuideTip type="note">
+                  The extracted images maintain high quality and are automatically saved with metadata 
+                  linking them back to the original grid.
+                </GuideTip>
+              </GuideSection>
+
+              {/* Section 6: Social Kit */}
               <GuideSection id="social-kit" title="Social Kit" icon={Layers}>
                 <p className="text-muted-foreground mb-6">
                   Generate platform-optimized image variants from a single master image. Perfect for 
@@ -325,7 +399,7 @@ const UserGuide: React.FC = () => {
                 </GuideTip>
               </GuideSection>
 
-              {/* Section 6: Asset Library */}
+              {/* Section 7: Asset Library */}
               <GuideSection id="asset-library" title="Asset Library" icon={PlaySquare}>
                 <p className="text-muted-foreground mb-6">
                   Browse, search, and manage all media assets across S3 buckets and sources.
@@ -375,6 +449,90 @@ const UserGuide: React.FC = () => {
                     Mark content as approved for use or reject if unsuitable.
                   </GuideStep>
                 </GuideSubSection>
+              </GuideSection>
+
+              {/* Section 8: S3 Bucket Configuration */}
+              <GuideSection id="s3-configuration" title="S3 Bucket Configuration" icon={Database}>
+                <p className="text-muted-foreground mb-6">
+                  Connect and manage Amazon S3 buckets to store and retrieve media assets. 
+                  The Media Hub supports multiple bucket configurations for different use cases.
+                </p>
+
+                <GuideSubSection title="Adding a New S3 Bucket">
+                  <GuideStep number={1} title="Open S3 Configuration">
+                    Navigate to the Asset Library and click "Configure S3 Buckets" or the settings icon.
+                  </GuideStep>
+                  <GuideStep number={2} title="Click Add New Bucket">
+                    Click the "Add Bucket" button to open the configuration form.
+                  </GuideStep>
+                  <GuideStep number={3} title="Enter Bucket Details">
+                    Provide the following information:
+                  </GuideStep>
+                </GuideSubSection>
+
+                <GuideSubSection title="Required Configuration Fields">
+                  <GuideTable
+                    headers={['Field', 'Description', 'Example']}
+                    rows={[
+                      ['Bucket Name', 'The name of your S3 bucket', 'wmc-media-assets'],
+                      ['Endpoint URL', 'S3-compatible endpoint URL', 'https://s3.us-east-1.amazonaws.com'],
+                      ['Region', 'AWS region where bucket is located', 'us-east-1'],
+                      ['CDN Base URL', 'Optional CDN URL for faster delivery', 'https://cdn.example.com'],
+                      ['Display Name', 'Friendly name shown in the UI', 'Production Assets'],
+                    ]}
+                  />
+                </GuideSubSection>
+
+                <GuideSubSection title="Bucket Operations">
+                  <div className="grid md:grid-cols-2 gap-4 mb-6">
+                    <div className="p-4 rounded-lg border border-border bg-card/50">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Search className="w-4 h-4 text-primary" />
+                        <span className="font-semibold">Scan Bucket</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Scan the bucket to discover and import new media files into the library.
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-lg border border-border bg-card/50">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle className="w-4 h-4 text-emerald-500" />
+                        <span className="font-semibold">Test Connection</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Verify that credentials and configuration are correct before saving.
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-lg border border-border bg-card/50">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Clock className="w-4 h-4 text-blue-500" />
+                        <span className="font-semibold">Auto-Scan Schedule</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Set automatic scan frequency (e.g., every 24 hours) to keep library updated.
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-lg border border-border bg-card/50">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Settings className="w-4 h-4 text-amber-500" />
+                        <span className="font-semibold">Edit/Delete</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Modify bucket settings or remove a bucket configuration.
+                      </p>
+                    </div>
+                  </div>
+                </GuideSubSection>
+
+                <GuideTip type="warning">
+                  S3 credentials (Access Key and Secret Key) are stored securely and are required for 
+                  bucket operations. Ensure you have the necessary IAM permissions for read/write access.
+                </GuideTip>
+
+                <GuideTip type="tip">
+                  Use a CDN Base URL when available to reduce latency and improve load times for 
+                  media assets displayed in the application.
+                </GuideTip>
               </GuideSection>
 
               {/* Section 7: Scene Detection */}
