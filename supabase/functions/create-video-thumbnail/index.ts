@@ -188,10 +188,17 @@ serve(async (req) => {
     formData.append("string_Name", thumbnailName);
     formData.append("string_ri1__Content_Type__c", "JPG");
     formData.append("string_ri1__URL__c", thumbnailCdnUrl);
+
+    // Salesforce requires Storage Object Key for media hosted in S3/Wasabi
+    // Some environments expect the raw field name, others expect the typed "string_" prefix,
+    // so we send both for compatibility.
     formData.append("string_ri1__Storage_Object_Key__c", s3Key);
+    formData.append("ri1__Storage_Object_Key__c", s3Key);
 
     console.log("Sending to w2x-engine:", W2X_ENGINE_URL);
-    console.log("FormData: Name=" + thumbnailName + ", Content_Type=JPG, URL=" + thumbnailCdnUrl);
+    console.log(
+      `FormData: Name=${thumbnailName}, Content_Type=JPG, URL=${thumbnailCdnUrl}, Storage_Object_Key=${s3Key}`
+    );
 
     const sfCreateResponse = await fetch(W2X_ENGINE_URL, {
       method: "POST",
@@ -202,12 +209,20 @@ serve(async (req) => {
     console.log("w2x-engine response status:", sfCreateResponse.status);
     console.log("w2x-engine response body:", sfCreateResponseText.substring(0, 500));
 
-    if (!sfCreateResponse.ok) {
-      console.error("Failed to create Salesforce record");
+    // w2x-engine may return HTTP 200 even when the Salesforce insert failed.
+    const engineReportedFailure =
+      /ERROR creating the record!/i.test(sfCreateResponseText) ||
+      /\[success\]\s*=\>\s*false/i.test(sfCreateResponseText) ||
+      /REQUIRED_FIELD_MISSING/i.test(sfCreateResponseText);
+
+    if (!sfCreateResponse.ok || engineReportedFailure) {
+      console.error("Failed to create Salesforce record via w2x-engine");
       return new Response(
-        JSON.stringify({ 
-          error: "Failed to create Salesforce thumbnail record", 
-          details: sfCreateResponseText.substring(0, 500) 
+        JSON.stringify({
+          error: "Failed to create Salesforce thumbnail record",
+          details: sfCreateResponseText.substring(0, 1000),
+          thumbnailCdnUrl,
+          s3Key,
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
