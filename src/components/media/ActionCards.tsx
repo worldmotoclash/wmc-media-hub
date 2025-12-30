@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload, Sparkles, PlaySquare, Scissors, ListVideo, Layers } from 'lucide-react';
+import { Upload, Sparkles, PlaySquare, Scissors, ListVideo, Layers, BookOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const ActionCards: React.FC = () => {
@@ -53,6 +53,14 @@ const ActionCards: React.FC = () => {
       href: '/admin/media/social-kit',
       color: 'from-amber-500/20 to-amber-500/10',
       iconColor: 'text-amber-500'
+    },
+    {
+      title: 'User Guide',
+      description: 'Learn how to use all Media Hub features',
+      icon: BookOpen,
+      href: '/admin/media/user-guide',
+      color: 'from-slate-500/20 to-slate-500/10',
+      iconColor: 'text-slate-500'
     }
   ];
 
