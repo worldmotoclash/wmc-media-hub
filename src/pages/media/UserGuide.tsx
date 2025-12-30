@@ -280,8 +280,15 @@ const UserGuide: React.FC = () => {
                 </GuideTip>
 
                 <GuideTip type="note">
-                  Your work is automatically saved and synced to Salesforce. You do not need to manually 
-                  save in most cases - the system handles this in the background.
+                  <strong>Auto-Save vs Manual Save:</strong> Most content operations (uploads, AI generations, 
+                  tagging during upload) save automatically. However, these actions require explicit saving:
+                  <ul className="list-disc list-inside mt-2 space-y-1">
+                    <li><strong>S3 Bucket Configuration</strong> - Click "Save" after testing connection</li>
+                    <li><strong>Character Library</strong> - Click "Save Character" when adding/editing</li>
+                    <li><strong>Playlist Reordering</strong> - Click "Save Order" after drag-and-drop</li>
+                    <li><strong>Librarian Workflow</strong> - Click "Save Changes" or "Approve & Save"</li>
+                    <li><strong>Failed Salesforce Syncs</strong> - Manually trigger re-sync</li>
+                  </ul>
                 </GuideTip>
               </GuideSection>
 
