@@ -28,6 +28,12 @@ const Footer: React.FC = () => {
           <div className="md:col-span-4">
             <h4 className="text-lg font-semibold mb-4">Quick Links</h4>
             <ul className="space-y-2">
+              <li>
+                <Link to="/admin/media/user-guide" className="text-gray-400 hover:text-white transition-colors flex items-center">
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  User Guide
+                </Link>
+              </li>
               {user ? (
                 <>
                   <li>
@@ -40,12 +46,6 @@ const Footer: React.FC = () => {
                     <Link to="/admin/media/upload" className="text-gray-400 hover:text-white transition-colors flex items-center">
                       <Upload className="w-4 h-4 mr-2" />
                       Upload Content
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/admin/media/user-guide" className="text-gray-400 hover:text-white transition-colors flex items-center">
-                      <BookOpen className="w-4 h-4 mr-2" />
-                      User Guide
                     </Link>
                   </li>
                   {!isMediaHubPage && (
