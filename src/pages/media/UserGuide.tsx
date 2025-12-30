@@ -862,23 +862,37 @@ const UserGuide: React.FC = () => {
               <GuideSection id="librarian-workflow" title="Librarian Workflow" icon={Workflow} role="editor">
                 <p className="text-muted-foreground mb-6">
                   Review and approve pending content to ensure quality and proper organization.
+                  The Librarian workflow is accessed per-asset, not as a separate mode.
                 </p>
 
+                <GuideSubSection title="How to Access">
+                  <p className="text-muted-foreground mb-4">
+                    The Librarian workflow opens when you click <strong>"Review"</strong> on any asset with <strong>pending</strong> status:
+                  </p>
+                  <ul className="list-disc list-inside space-y-2 text-muted-foreground mb-4">
+                    <li><strong>Grid View:</strong> Look for the "Review" button (tag icon) on pending asset cards</li>
+                    <li><strong>List View:</strong> Click the tag icon in the actions column</li>
+                  </ul>
+                </GuideSubSection>
+
                 <GuideSubSection title="Workflow Steps">
-                  <GuideStep number={1} title="Access Librarian Mode">
-                    Click "Librarian" button in library toolbar.
+                  <GuideStep number={1} title="Find Pending Assets">
+                    In the Asset Library, filter by status "Pending" or look for assets with pending badges.
                   </GuideStep>
-                  <GuideStep number={2} title="Review Pending Assets">
-                    See all assets awaiting review.
+                  <GuideStep number={2} title="Click Review">
+                    Click the "Review" button on the asset card to open the Librarian dialog.
                   </GuideStep>
-                  <GuideStep number={3} title="Add Metadata">
-                    Verify/add title, description, and tags.
+                  <GuideStep number={3} title="Review & Tag Tab">
+                    Preview the asset and update its status (Pending, Approved, Rejected). Add or manage tags.
                   </GuideStep>
-                  <GuideStep number={4} title="Approve or Reject">
-                    Mark as Approved (visible to Viewers) or Rejected (hidden).
+                  <GuideStep number={4} title="Metadata Tab">
+                    Edit title and description if needed.
                   </GuideStep>
-                  <GuideStep number={5} title="Save Changes">
-                    Click "Save Changes" or "Approve & Save" (manual save required).
+                  <GuideStep number={5} title="Link to SFDC Tab">
+                    Optionally link the asset to Salesforce playlists and categories.
+                  </GuideStep>
+                  <GuideStep number={6} title="Save Changes">
+                    Click "Save Changes" to apply updates (manual save required).
                   </GuideStep>
                 </GuideSubSection>
 
