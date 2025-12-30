@@ -423,6 +423,31 @@ const UserGuide: React.FC = () => {
                   />
                 </GuideSubSection>
 
+                <GuideSubSection title="Filtering by 3×3 Grid Masters">
+                  <p className="text-muted-foreground mb-4">
+                    When you generate images using 3×3 grid templates, the resulting master images are tagged 
+                    with <code className="bg-muted px-2 py-1 rounded text-sm">generation_master</code>. 
+                    You can quickly filter the library to show only these grid masters:
+                  </p>
+                  <GuideStep number={1} title="Open the Filter Panel">
+                    Click the <strong>Filter</strong> button at the top of the Asset Library.
+                  </GuideStep>
+                  <GuideStep number={2} title="Select 'Grid Master' Filter">
+                    Look for the "Asset Type" or "Tags" filter and select <strong>generation_master</strong> 
+                    to display only 3×3 grid master images.
+                  </GuideStep>
+                  <GuideStep number={3} title="View Results">
+                    The library will update to show only your generated 3×3 grid images, each containing 
+                    9 panels with consistent characters/scenes that can be extracted individually.
+                  </GuideStep>
+                  <GuideTip type="tip">
+                    <Grid3X3 className="w-4 h-4 inline mr-1" />
+                    Grid masters are perfect for creating storyboards, social media sequences, or 
+                    extracting individual frames for different platforms. Each of the 9 panels can be 
+                    extracted using the "Extract Grid Image" feature.
+                  </GuideTip>
+                </GuideSubSection>
+
                 <GuideTip type="tip">
                   Use the search bar with multiple keywords to narrow results. For example: "COTA 2024 podium".
                 </GuideTip>
