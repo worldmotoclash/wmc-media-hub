@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import AnimatedLogo from './AnimatedLogo';
-import { Shield, FileText, Cookie, Upload, FolderOpen, Briefcase } from 'lucide-react';
+import { Shield, FileText, Cookie, Upload, FolderOpen, Briefcase, BookOpen } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
 
 const Footer: React.FC = () => {
@@ -40,6 +40,12 @@ const Footer: React.FC = () => {
                     <Link to="/admin/media/upload" className="text-gray-400 hover:text-white transition-colors flex items-center">
                       <Upload className="w-4 h-4 mr-2" />
                       Upload Content
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/admin/media/user-guide" className="text-gray-400 hover:text-white transition-colors flex items-center">
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      User Guide
                     </Link>
                   </li>
                   {!isMediaHubPage && (
