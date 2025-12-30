@@ -106,7 +106,10 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, on
 
       if (error) {
         console.error('Edge function error:', error);
-        toast.error(`Failed to create thumbnail: ${error.message}`);
+        // Supabase returns a generic non-2xx message; the real details are in the function JSON.
+        toast.error('Failed to create thumbnail', {
+          description: error.message,
+        });
         return;
       }
 
@@ -115,11 +118,16 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, on
           description: `Thumbnail ID: ${data.thumbnailSalesforceId}`
         });
       } else {
-        toast.error(data?.error || 'Failed to create thumbnail');
+        const details =
+          (data?.engineBody && String(data.engineBody).slice(0, 180)) ||
+          data?.details ||
+          data?.note ||
+          undefined;
+
+        toast.error(data?.error || 'Failed to create thumbnail', {
+          description: details,
+        });
       }
-    } catch (error) {
-      console.error('Error creating thumbnail:', error);
-      toast.error('An error occurred while creating the thumbnail');
     } finally {
       setIsCreatingThumbnail(false);
     }
