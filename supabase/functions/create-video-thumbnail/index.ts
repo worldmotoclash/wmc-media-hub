@@ -121,8 +121,11 @@ serve(async (req) => {
     // Validate required fields
     if (!videoSalesforceId || !videoTitle || !thumbnailImageBase64) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: videoSalesforceId, videoTitle, thumbnailImageBase64" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          success: false,
+          error: "Missing required fields: videoSalesforceId, videoTitle, thumbnailImageBase64",
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -132,8 +135,8 @@ serve(async (req) => {
     if (!s3Config.accessKeyId || !s3Config.secretAccessKey) {
       console.error("Missing Wasabi credentials");
       return new Response(
-        JSON.stringify({ error: "S3 credentials not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: false, error: "S3 credentials not configured" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -169,8 +172,13 @@ serve(async (req) => {
       const errorText = await uploadResponse.text();
       console.error("S3 upload failed:", errorText);
       return new Response(
-        JSON.stringify({ error: "Failed to upload thumbnail to S3", details: errorText }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          success: false,
+          error: "Failed to upload thumbnail to S3",
+          details: errorText,
+          s3Key,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -207,7 +215,7 @@ serve(async (req) => {
 
     const sfCreateResponseText = await sfCreateResponse.text();
     console.log("w2x-engine response status:", sfCreateResponse.status);
-    console.log("w2x-engine response body:", sfCreateResponseText.substring(0, 500));
+    console.log("w2x-engine response body:", sfCreateResponseText.substring(0, 2000));
 
     // w2x-engine may return HTTP 200 even when the Salesforce insert failed.
     const engineReportedFailure =
@@ -219,12 +227,20 @@ serve(async (req) => {
       console.error("Failed to create Salesforce record via w2x-engine");
       return new Response(
         JSON.stringify({
+          success: false,
           error: "Failed to create Salesforce thumbnail record",
-          details: sfCreateResponseText.substring(0, 1000),
+          engineStatus: sfCreateResponse.status,
+          engineBody: sfCreateResponseText.substring(0, 6000),
           thumbnailCdnUrl,
           s3Key,
+          sentFields: {
+            name: thumbnailName,
+            contentType: "JPG",
+            url: thumbnailCdnUrl,
+            storageObjectKey: s3Key,
+          },
         }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -236,12 +252,14 @@ serve(async (req) => {
     if (!thumbnailSalesforceId) {
       console.error("Could not find the newly created thumbnail in Salesforce");
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
+          success: false,
           error: "Thumbnail record created but ID not found",
           thumbnailCdnUrl,
-          note: "The thumbnail was uploaded but we couldn't retrieve its Salesforce ID. You may need to manually link it."
+          note:
+            "The thumbnail was uploaded but we couldn't retrieve its Salesforce ID. You may need to manually link it.",
         }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -305,9 +323,9 @@ serve(async (req) => {
           thumbnailCdnUrl,
           videoSalesforceId,
           updateStatus: updateResponse.status,
-          updateError: updateResponseText.substring(0, 500)
+          updateError: updateResponseText.substring(0, 2000),
         }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     
