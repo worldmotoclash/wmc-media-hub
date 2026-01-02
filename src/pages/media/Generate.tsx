@@ -27,6 +27,7 @@ import {
   Image,
   FileText,
   X,
+  XCircle,
   AlertCircle,
   Info,
   Check,
@@ -69,7 +70,7 @@ interface SalesforceData {
 
 interface VideoGeneration {
   id: string;
-  status: 'pending' | 'generating' | 'completed' | 'failed';
+  status: 'pending' | 'generating' | 'completed' | 'failed' | 'cancelled';
   progress: number;
   generation_data: any;
   video_url?: string;
@@ -80,7 +81,7 @@ interface VideoGeneration {
 
 interface ImageGeneration {
   id: string;
-  status: 'pending' | 'generating' | 'completed' | 'failed';
+  status: 'pending' | 'generating' | 'completed' | 'failed' | 'cancelled';
   progress: number;
   image_url?: string;
   error_message?: string;
@@ -536,7 +537,7 @@ const Generate: React.FC = () => {
 
   // Polling for video generation updates
   useEffect(() => {
-    if (!user || !currentGeneration || currentGeneration.status === 'completed' || currentGeneration.status === 'failed') return;
+    if (!user || !currentGeneration || currentGeneration.status === 'completed' || currentGeneration.status === 'failed' || currentGeneration.status === 'cancelled') return;
 
     const pollInterval = setInterval(async () => {
       try {
@@ -553,7 +554,7 @@ const Generate: React.FC = () => {
           const updatedGeneration = statusData;
           const typedGeneration: VideoGeneration = {
             id: updatedGeneration.id,
-            status: updatedGeneration.status as 'pending' | 'generating' | 'completed' | 'failed',
+            status: updatedGeneration.status as 'pending' | 'generating' | 'completed' | 'failed' | 'cancelled',
             progress: updatedGeneration.progress,
             generation_data: { model: updatedGeneration.model },
             video_url: updatedGeneration.video_url,
@@ -582,6 +583,10 @@ const Generate: React.FC = () => {
               description: updatedGeneration.error_message || 'Unknown error occurred',
               variant: "destructive",
             });
+          } else if (updatedGeneration.status === 'cancelled') {
+            clearInterval(pollInterval);
+            setGenerationStatus('Generation cancelled');
+            setIsGenerating(false);
           } else if (updatedGeneration.status === 'generating') {
             setGenerationStatus(`Generating video... ${updatedGeneration.progress}%`);
           }
@@ -596,7 +601,7 @@ const Generate: React.FC = () => {
 
   // Polling for image generation updates
   useEffect(() => {
-    if (!user || !currentImageGeneration || currentImageGeneration.status === 'completed' || currentImageGeneration.status === 'failed') return;
+    if (!user || !currentImageGeneration || currentImageGeneration.status === 'completed' || currentImageGeneration.status === 'failed' || currentImageGeneration.status === 'cancelled') return;
 
     const pollInterval = setInterval(async () => {
       try {
@@ -613,7 +618,7 @@ const Generate: React.FC = () => {
           const updatedGeneration = statusData;
           const typedGeneration: ImageGeneration = {
             id: updatedGeneration.id,
-            status: updatedGeneration.status as 'pending' | 'generating' | 'completed' | 'failed',
+            status: updatedGeneration.status as 'pending' | 'generating' | 'completed' | 'failed' | 'cancelled',
             progress: updatedGeneration.progress,
             image_url: updatedGeneration.image_url,
             error_message: updatedGeneration.error_message,
@@ -641,6 +646,10 @@ const Generate: React.FC = () => {
               description: updatedGeneration.error_message || 'Unknown error occurred',
               variant: "destructive",
             });
+          } else if (updatedGeneration.status === 'cancelled') {
+            clearInterval(pollInterval);
+            setGenerationStatus('Generation cancelled');
+            setIsGenerating(false);
           } else if (updatedGeneration.status === 'generating') {
             setGenerationStatus(`Generating image... ${updatedGeneration.progress}%`);
           }
@@ -659,6 +668,48 @@ const Generate: React.FC = () => {
     const newSearchParams = new URLSearchParams(searchParams);
     newSearchParams.set('preset', presetId);
     window.history.replaceState(null, '', `?${newSearchParams.toString()}`);
+  };
+
+  // Cancel generation handler
+  const handleCancelGeneration = async () => {
+    const generationId = outputType === 'video' ? currentGeneration?.id : currentImageGeneration?.id;
+    const generationType = outputType || 'image';
+    
+    if (!generationId) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('cancel-generation', {
+        body: { id: generationId, type: generationType }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        setIsGenerating(false);
+        setGenerationStatus('Generation cancelled');
+        setGenerationProgress(0);
+        
+        if (outputType === 'video') {
+          setCurrentGeneration(prev => prev ? { ...prev, status: 'cancelled' } : null);
+        } else {
+          setCurrentImageGeneration(prev => prev ? { ...prev, status: 'cancelled' } : null);
+        }
+        
+        toast({
+          title: "Cancelled",
+          description: `${generationType.charAt(0).toUpperCase() + generationType.slice(1)} generation was cancelled`,
+        });
+      } else {
+        throw new Error(data?.error || 'Failed to cancel generation');
+      }
+    } catch (error) {
+      console.error('Cancel error:', error);
+      toast({
+        title: "Cancel Failed",
+        description: error instanceof Error ? error.message : 'Failed to cancel generation',
+        variant: "destructive",
+      });
+    }
   };
 
   const handleChangeModel = () => {
@@ -1490,9 +1541,20 @@ const Generate: React.FC = () => {
           >
             <Card className="p-6 mb-6 bg-primary/5 border-primary/20">
               <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-primary animate-spin" />
-                  <span className="text-sm font-medium">Generating {outputType === 'image' ? 'Image' : 'Video'}</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-primary animate-spin" />
+                    <span className="text-sm font-medium">Generating {outputType === 'image' ? 'Image' : 'Video'}</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCancelGeneration}
+                    className="text-destructive hover:bg-destructive/10"
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Cancel
+                  </Button>
                 </div>
                 <Progress value={generationProgress} className="w-full" />
                 <p className="text-sm text-muted-foreground">{generationStatus}</p>
