@@ -202,13 +202,46 @@ export const MODEL_REGISTRY: AIModel[] = [
     changelog: ['v4.1: Improved lip-sync', 'v4.0: Multi-shot coherence'],
     uptime: 94.5
   },
+  // Veo 3.1 Models (Latest)
   {
-    id: 'veo3_fast',
-    name: 'veo3_fast',
-    displayName: 'Veo3 Fast',
+    id: 'veo31',
+    name: 'veo31',
+    displayName: 'Veo 3.1',
     vendor: 'Google',
-    pricing: { basis: 'per_second', basePrice: 0.25, currency: 'USD' },
-    capabilities: ['google_quality', 'fast_turnaround', 'audio_generation'],
+    pricing: { basis: 'per_second', basePrice: 0.30, currency: 'USD' },
+    capabilities: ['google_quality', 'audio_generation', 'cinematic', 'high_quality'],
+    qualityTier: '1080p',
+    speedTier: 'High-fidelity',
+    specs: {
+      maxDuration: 30,
+      supportedDurations: [5, 8, 10, 15, 20, 25, 30],
+      maxResolution: '1080p',
+      aspectRatios: ['16:9', '9:16', '1:1', '21:9'],
+      fpsOptions: [24, 30, 60],
+      audioSupport: true
+    },
+    latency: { typical: 180, range: [120, 240] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['Cinematic motion', 'Native dialogue', 'Spatial sound', 'Scene continuity'],
+    description: 'Generates cinematic motion with native dialogue, spatial sound, and realistic scene continuity.',
+    promptTips: [
+      'Use quotes for dialogue: "Hello world"',
+      'Describe ambient sounds and effects',
+      'Excellent for cinematic storytelling',
+      'Supports complex scene continuity'
+    ],
+    sampleVideos: [],
+    changelog: ['v3.1: Cinematic motion + spatial audio', 'v3.0: Initial release'],
+    uptime: 99.2
+  },
+  {
+    id: 'veo31_fast',
+    name: 'veo31_fast',
+    displayName: 'Veo 3.1 Fast',
+    vendor: 'Google',
+    pricing: { basis: 'per_second', basePrice: 0.12, currency: 'USD' },
+    capabilities: ['google_quality', 'fast_turnaround', 'audio_generation', 'cost_effective'],
     qualityTier: '1080p',
     speedTier: 'Standard',
     specs: {
@@ -219,52 +252,330 @@ export const MODEL_REGISTRY: AIModel[] = [
       fpsOptions: [24, 30],
       audioSupport: true
     },
-    latency: { typical: 90, range: [60, 120] },
+    latency: { typical: 60, range: [40, 90] },
     commercialUse: 'allowed',
     status: 'online',
-    strengths: ['Google AI', 'Native Audio', 'Fast'],
-    description: 'Google\'s fast video generation with native audio, dialogue, and sound effects.',
+    strengths: ['30% faster', '62.5% cheaper', 'High visual fidelity'],
+    description: '30% faster and 62.5% cheaper than base model, while preserving high visual fidelity.',
     promptTips: [
-      'Works well with natural language',
-      'Use quotes for dialogue: "Hello world"',
-      'Describe ambient sounds and effects',
-      'Good for realistic content'
+      'Great for rapid iteration',
+      'Good for short-form and social content',
+      'Use for previews and testing'
     ],
     sampleVideos: [],
-    changelog: ['v3.2: Speed improvements', 'v3.1: Quality enhancements'],
-    uptime: 99.1
+    changelog: ['v3.1: Speed optimizations', 'v3.0: Initial release'],
+    uptime: 99.5
   },
   {
-    id: 'veo3_full',
-    name: 'veo3_full',
-    displayName: 'Veo3 Premium',
+    id: 'veo31_i2v',
+    name: 'veo31_i2v',
+    displayName: 'Veo 3.1 I2V',
     vendor: 'Google',
-    pricing: { basis: 'per_run', basePrice: 3.20, currency: 'USD' },
-    capabilities: ['google_quality', 'audio_generation', 'premium', 'long_form'],
+    pricing: { basis: 'per_second', basePrice: 0.28, currency: 'USD' },
+    capabilities: ['google_quality', 'image_to_video', 'audio_generation', 'realistic_motion'],
     qualityTier: '1080p',
     speedTier: 'High-fidelity',
     specs: {
-      maxDuration: 60,
-      supportedDurations: [5, 8, 10, 15, 20, 25, 30, 45, 60],
+      maxDuration: 20,
+      supportedDurations: [5, 8, 10, 15, 20],
+      maxResolution: '1080p',
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      fpsOptions: [24, 30],
+      audioSupport: true
+    },
+    latency: { typical: 150, range: [100, 200] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['Image-to-Video', 'Natural ambient audio', 'Lifelike motion'],
+    description: 'Turns a still image into smooth, lifelike motion with natural ambient audio.',
+    promptTips: [
+      'Provide high-quality source images',
+      'Describe the desired motion',
+      'Ambient audio is auto-generated'
+    ],
+    sampleVideos: [],
+    changelog: ['v3.1: Enhanced image conditioning', 'v3.0: I2V support'],
+    uptime: 98.8
+  },
+  {
+    id: 'veo31_fast_i2v',
+    name: 'veo31_fast_i2v',
+    displayName: 'Veo 3.1 Fast I2V',
+    vendor: 'Google',
+    pricing: { basis: 'per_second', basePrice: 0.10, currency: 'USD' },
+    capabilities: ['google_quality', 'image_to_video', 'fast_turnaround', 'cost_effective'],
+    qualityTier: '1080p',
+    speedTier: 'Ultra-fast',
+    specs: {
+      maxDuration: 15,
+      supportedDurations: [5, 8, 10, 15],
+      maxResolution: '1080p',
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      fpsOptions: [24, 30],
+      audioSupport: true
+    },
+    latency: { typical: 45, range: [30, 60] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['Fast I2V', 'Cost-effective', 'Rapid iteration'],
+    description: 'High-performance I2V version for rapid testing, previews, and content iteration.',
+    promptTips: [
+      'Best for quick iterations',
+      'Good for preview generation',
+      'Cost-effective for testing'
+    ],
+    sampleVideos: [],
+    changelog: ['v3.1: Speed optimized I2V', 'v3.0: Initial release'],
+    uptime: 99.3
+  },
+  {
+    id: 'veo31_r2v',
+    name: 'veo31_r2v',
+    displayName: 'Veo 3.1 R2V',
+    vendor: 'Google',
+    pricing: { basis: 'per_second', basePrice: 0.35, currency: 'USD' },
+    capabilities: ['google_quality', 'reference_video', 'cinematic', 'style_control'],
+    qualityTier: '1080p',
+    speedTier: 'High-fidelity',
+    specs: {
+      maxDuration: 20,
+      supportedDurations: [5, 8, 10, 15, 20],
       maxResolution: '1080p',
       aspectRatios: ['16:9', '9:16', '1:1', '21:9'],
       fpsOptions: [24, 30, 60],
       audioSupport: true
     },
-    latency: { typical: 300, range: [240, 420] },
+    latency: { typical: 200, range: [150, 280] },
     commercialUse: 'allowed',
     status: 'online',
-    strengths: ['Premium Quality', 'Long-form', '60fps'],
-    description: 'Premium Google Veo3 with extended duration, higher fidelity, and native audio.',
+    strengths: ['Reference video', 'Style preservation', 'Cinematic tone'],
+    description: 'Transforms a single reference video into a new, high-fidelity scene while preserving motion style, framing, and cinematic tone.',
     promptTips: [
-      'Use quotes for dialogue: "Hello world"',
-      'Excellent for complete productions',
-      'Supports complex narratives and extended scenes',
-      'Describe ambient sounds and effects'
+      'Provide a reference video for style',
+      'Motion and framing are preserved',
+      'Great for style transfer'
     ],
     sampleVideos: [],
-    changelog: ['v3.2: Enhanced audio quality', 'v3.1: Better sync'],
-    uptime: 98.7
+    changelog: ['v3.1: Reference-to-video support', 'v3.0: Initial release'],
+    uptime: 97.5
+  },
+  {
+    id: 'veo31_extend',
+    name: 'veo31_extend',
+    displayName: 'Veo 3.1 Video Extend',
+    vendor: 'Google',
+    pricing: { basis: 'per_second', basePrice: 0.25, currency: 'USD' },
+    capabilities: ['google_quality', 'video_extend', 'audio_generation', 'long_form'],
+    qualityTier: '1080p',
+    speedTier: 'High-fidelity',
+    specs: {
+      maxDuration: 30,
+      supportedDurations: [5, 10, 15, 20, 25, 30],
+      maxResolution: '1080p',
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      fpsOptions: [24, 30],
+      audioSupport: true
+    },
+    latency: { typical: 180, range: [120, 240] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['Video continuation', 'Scene continuity', 'Audio sync'],
+    description: 'Extend an existing Veo video with cinematic continuity (scene, motion, and audio) for "what happens next" storytelling.',
+    promptTips: [
+      'Requires a Veo-generated input video',
+      'Describe what happens next',
+      'Maintains style and audio'
+    ],
+    sampleVideos: [],
+    changelog: ['v3.1: Video extend support', 'v3.0: Initial release'],
+    uptime: 98.0
+  },
+  {
+    id: 'veo31_fast_extend',
+    name: 'veo31_fast_extend',
+    displayName: 'Veo 3.1 Fast Video Extend',
+    vendor: 'Google',
+    pricing: { basis: 'per_second', basePrice: 0.10, currency: 'USD' },
+    capabilities: ['google_quality', 'video_extend', 'fast_turnaround', 'cost_effective'],
+    qualityTier: '1080p',
+    speedTier: 'Ultra-fast',
+    specs: {
+      maxDuration: 20,
+      supportedDurations: [5, 10, 15, 20],
+      maxResolution: '1080p',
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      fpsOptions: [24, 30],
+      audioSupport: true
+    },
+    latency: { typical: 60, range: [40, 90] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['Fast extend', 'Cost-efficient', 'Multi-branch'],
+    description: 'High-speed, cost-efficient extend workflow for rapid iteration, previews, and multi-branch continuations.',
+    promptTips: [
+      'Good for testing different story branches',
+      'Fast iteration on continuations',
+      'Preview before full extend'
+    ],
+    sampleVideos: [],
+    changelog: ['v3.1: Fast extend support', 'v3.0: Initial release'],
+    uptime: 99.0
+  },
+  // Veo 3 Models
+  {
+    id: 'veo3',
+    name: 'veo3',
+    displayName: 'Veo 3',
+    vendor: 'Google',
+    pricing: { basis: 'per_second', basePrice: 0.28, currency: 'USD' },
+    capabilities: ['google_quality', 'audio_generation', 'cinematic', 'premium'],
+    qualityTier: '1080p',
+    speedTier: 'High-fidelity',
+    specs: {
+      maxDuration: 30,
+      supportedDurations: [5, 8, 10, 15, 20, 25, 30],
+      maxResolution: '1080p',
+      aspectRatios: ['16:9', '9:16', '1:1', '21:9'],
+      fpsOptions: [24, 30, 60],
+      audioSupport: true
+    },
+    latency: { typical: 200, range: [150, 300] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['DeepMind flagship', 'Native dialogue', 'Ambient sound', 'Realistic motion'],
+    description: 'Flagship text-to-video model from DeepMind, supporting native dialogue, ambient sound, and realistic motion.',
+    promptTips: [
+      'Use quotes for dialogue',
+      'Describe ambient sounds',
+      'Excellent for realistic content'
+    ],
+    sampleVideos: [],
+    changelog: ['v3.0: Flagship release with audio', 'v2.5: Legacy version'],
+    uptime: 98.5
+  },
+  {
+    id: 'veo3_fast',
+    name: 'veo3_fast',
+    displayName: 'Veo 3 Fast',
+    vendor: 'Google',
+    pricing: { basis: 'per_second', basePrice: 0.10, currency: 'USD' },
+    capabilities: ['google_quality', 'fast_turnaround', 'audio_generation', 'cost_effective'],
+    qualityTier: '1080p',
+    speedTier: 'Standard',
+    specs: {
+      maxDuration: 30,
+      supportedDurations: [5, 8, 10, 15, 20, 25, 30],
+      maxResolution: '1080p',
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      fpsOptions: [24, 30],
+      audioSupport: true
+    },
+    latency: { typical: 60, range: [40, 90] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['30% faster', '62.5% cheaper', 'Short-form optimized'],
+    description: '30% faster and 62.5% cheaper; optimized for short-form and social content.',
+    promptTips: [
+      'Great for social media content',
+      'Works well with natural language',
+      'Use for rapid iteration'
+    ],
+    sampleVideos: [],
+    changelog: ['v3.0: Speed optimizations', 'v2.5: Legacy version'],
+    uptime: 99.1
+  },
+  {
+    id: 'veo3_i2v',
+    name: 'veo3_i2v',
+    displayName: 'Veo 3 I2V',
+    vendor: 'Google',
+    pricing: { basis: 'per_second', basePrice: 0.25, currency: 'USD' },
+    capabilities: ['google_quality', 'image_to_video', 'audio_generation', 'realistic_motion'],
+    qualityTier: '1080p',
+    speedTier: 'High-fidelity',
+    specs: {
+      maxDuration: 20,
+      supportedDurations: [5, 8, 10, 15, 20],
+      maxResolution: '1080p',
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      fpsOptions: [24, 30],
+      audioSupport: true
+    },
+    latency: { typical: 150, range: [100, 200] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['Image-to-Video', 'Lifelike motion', 'Synchronized audio'],
+    description: 'Converts still images into smooth, lifelike motion with synchronized audio.',
+    promptTips: [
+      'Use high-quality source images',
+      'Describe the motion you want',
+      'Audio is auto-generated'
+    ],
+    sampleVideos: [],
+    changelog: ['v3.0: I2V with audio', 'v2.5: Legacy I2V'],
+    uptime: 98.2
+  },
+  {
+    id: 'veo3_fast_i2v',
+    name: 'veo3_fast_i2v',
+    displayName: 'Veo 3 Fast I2V',
+    vendor: 'Google',
+    pricing: { basis: 'per_second', basePrice: 0.08, currency: 'USD' },
+    capabilities: ['google_quality', 'image_to_video', 'fast_turnaround', 'cost_effective'],
+    qualityTier: '1080p',
+    speedTier: 'Ultra-fast',
+    specs: {
+      maxDuration: 15,
+      supportedDurations: [5, 8, 10, 15],
+      maxResolution: '1080p',
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      fpsOptions: [24, 30],
+      audioSupport: true
+    },
+    latency: { typical: 45, range: [30, 60] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['Fast I2V', 'Cost-efficient', 'Rapid iteration'],
+    description: 'High-speed, cost-efficient I2V version for rapid iteration.',
+    promptTips: [
+      'Best for quick tests',
+      'Preview generation',
+      'Cost-effective for iteration'
+    ],
+    sampleVideos: [],
+    changelog: ['v3.0: Fast I2V release', 'v2.5: Legacy fast'],
+    uptime: 99.0
+  },
+  {
+    id: 'veo2_i2v',
+    name: 'veo2_i2v',
+    displayName: 'Veo 2 I2V (Legacy)',
+    vendor: 'Google',
+    pricing: { basis: 'per_second', basePrice: 0.15, currency: 'USD' },
+    capabilities: ['google_quality', 'image_to_video', 'stylized'],
+    qualityTier: '720p',
+    speedTier: 'Standard',
+    specs: {
+      maxDuration: 15,
+      supportedDurations: [5, 8, 10, 15],
+      maxResolution: '720p',
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      fpsOptions: [24, 30],
+      audioSupport: false
+    },
+    latency: { typical: 90, range: [60, 120] },
+    commercialUse: 'allowed',
+    status: 'online',
+    strengths: ['Legacy generation', 'Nostalgic style', 'Stylized motion'],
+    description: 'Legacy generation model with nostalgic or stylized motion.',
+    promptTips: [
+      'Good for stylized content',
+      'Nostalgic aesthetic',
+      'Cost-effective option'
+    ],
+    sampleVideos: [],
+    changelog: ['v2.0: Legacy maintained', 'v1.5: Original release'],
+    uptime: 96.5
   },
   {
     id: 'sora_wavespeed',
@@ -640,7 +951,10 @@ export const MODEL_CAPABILITIES: ModelCapability[] = [
   { id: 'openai_quality', name: 'OpenAI Quality', description: 'OpenAI powered generation' },
   { id: 'premium_quality', name: 'Premium Quality', description: 'Premium tier quality' },
   { id: 'start_end_image', name: 'Start/End Image', description: 'Supports both start and end image frames' },
-  { id: 'transition', name: 'Transition', description: 'Creates smooth transitions between frames' }
+  { id: 'transition', name: 'Transition', description: 'Creates smooth transitions between frames' },
+  { id: 'video_extend', name: 'Video Extend', description: 'Extends existing videos with seamless continuity' },
+  { id: 'reference_video', name: 'Reference Video', description: 'Uses reference video for style and motion' },
+  { id: 'stylized', name: 'Stylized', description: 'Artistic and stylized video output' }
 ];
 
 export const getModelById = (id: string): AIModel | undefined => {
