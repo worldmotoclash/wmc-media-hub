@@ -48,6 +48,7 @@ interface WavespeedGenerationRequest {
   imageUrl?: string;
   startImage?: string;
   endImage?: string;
+  sourceVideoUrl?: string; // For video extend models
   styleProfile?: StyleProfile;
   styleOverride?: string;
   extras?: Record<string, any>;
@@ -232,6 +233,145 @@ const WAVESPEED_MODELS: Record<string, {
       ...extras
     }),
     estimatedCostPer5s: 0.40
+  },
+  // Veo 3.1 Video Extend Models
+  'veo31_extend': {
+    url: 'https://api.wavespeed.ai/api/v3/google/veo-3.1/video-extend',
+    buildPayload: ({ prompt, durationSec, sourceVideoUrl, aspectRatio, extras }) => ({
+      video_url: sourceVideoUrl,
+      prompt: prompt || '',
+      duration: durationSec || 10,
+      aspect_ratio: aspectRatio || '16:9',
+      preserve_audio: true,
+      preserve_style: true,
+      ...extras
+    }),
+    estimatedCostPer5s: 0.25
+  },
+  'veo31_fast_extend': {
+    url: 'https://api.wavespeed.ai/api/v3/google/veo-3.1-fast/video-extend',
+    buildPayload: ({ prompt, durationSec, sourceVideoUrl, aspectRatio, extras }) => ({
+      video_url: sourceVideoUrl,
+      prompt: prompt || '',
+      duration: Math.min(durationSec || 10, 20),
+      aspect_ratio: aspectRatio || '16:9',
+      preserve_audio: true,
+      preserve_style: true,
+      ...extras
+    }),
+    estimatedCostPer5s: 0.10
+  },
+  // Veo 3.1 Standard Models
+  'veo31': {
+    url: 'https://api.wavespeed.ai/api/v3/google/veo-3.1',
+    buildPayload: ({ prompt, durationSec, aspectRatio, resolution, extras }) => ({
+      prompt,
+      duration: Math.min(durationSec || 10, 30),
+      aspect_ratio: aspectRatio || '16:9',
+      resolution: resolution || '1080p',
+      ...extras
+    }),
+    estimatedCostPer5s: 0.30
+  },
+  'veo31_fast': {
+    url: 'https://api.wavespeed.ai/api/v3/google/veo-3.1-fast',
+    buildPayload: ({ prompt, durationSec, aspectRatio, resolution, extras }) => ({
+      prompt,
+      duration: Math.min(durationSec || 10, 30),
+      aspect_ratio: aspectRatio || '16:9',
+      resolution: resolution || '1080p',
+      ...extras
+    }),
+    estimatedCostPer5s: 0.12
+  },
+  'veo31_i2v': {
+    url: 'https://api.wavespeed.ai/api/v3/google/veo-3.1/image-to-video',
+    buildPayload: ({ prompt, durationSec, imageUrl, aspectRatio, extras }) => ({
+      image_url: imageUrl,
+      prompt: prompt || '',
+      duration: Math.min(durationSec || 10, 20),
+      aspect_ratio: aspectRatio || '16:9',
+      ...extras
+    }),
+    estimatedCostPer5s: 0.28
+  },
+  'veo31_fast_i2v': {
+    url: 'https://api.wavespeed.ai/api/v3/google/veo-3.1-fast/image-to-video',
+    buildPayload: ({ prompt, durationSec, imageUrl, aspectRatio, extras }) => ({
+      image_url: imageUrl,
+      prompt: prompt || '',
+      duration: Math.min(durationSec || 10, 15),
+      aspect_ratio: aspectRatio || '16:9',
+      ...extras
+    }),
+    estimatedCostPer5s: 0.10
+  },
+  'veo31_r2v': {
+    url: 'https://api.wavespeed.ai/api/v3/google/veo-3.1/reference-to-video',
+    buildPayload: ({ prompt, durationSec, sourceVideoUrl, aspectRatio, extras }) => ({
+      reference_video_url: sourceVideoUrl,
+      prompt: prompt || '',
+      duration: Math.min(durationSec || 10, 20),
+      aspect_ratio: aspectRatio || '16:9',
+      ...extras
+    }),
+    estimatedCostPer5s: 0.35
+  },
+  // Veo 3 Models
+  'veo3': {
+    url: 'https://api.wavespeed.ai/api/v3/google/veo-3',
+    buildPayload: ({ prompt, durationSec, aspectRatio, resolution, extras }) => ({
+      prompt,
+      duration: Math.min(durationSec || 10, 30),
+      aspect_ratio: aspectRatio || '16:9',
+      resolution: resolution || '1080p',
+      ...extras
+    }),
+    estimatedCostPer5s: 0.28
+  },
+  'veo3_fast': {
+    url: 'https://api.wavespeed.ai/api/v3/google/veo-3-fast',
+    buildPayload: ({ prompt, durationSec, aspectRatio, resolution, extras }) => ({
+      prompt,
+      duration: Math.min(durationSec || 10, 30),
+      aspect_ratio: aspectRatio || '16:9',
+      resolution: resolution || '1080p',
+      ...extras
+    }),
+    estimatedCostPer5s: 0.10
+  },
+  'veo3_i2v': {
+    url: 'https://api.wavespeed.ai/api/v3/google/veo-3/image-to-video',
+    buildPayload: ({ prompt, durationSec, imageUrl, aspectRatio, extras }) => ({
+      image_url: imageUrl,
+      prompt: prompt || '',
+      duration: Math.min(durationSec || 10, 20),
+      aspect_ratio: aspectRatio || '16:9',
+      ...extras
+    }),
+    estimatedCostPer5s: 0.25
+  },
+  'veo3_fast_i2v': {
+    url: 'https://api.wavespeed.ai/api/v3/google/veo-3-fast/image-to-video',
+    buildPayload: ({ prompt, durationSec, imageUrl, aspectRatio, extras }) => ({
+      image_url: imageUrl,
+      prompt: prompt || '',
+      duration: Math.min(durationSec || 10, 15),
+      aspect_ratio: aspectRatio || '16:9',
+      ...extras
+    }),
+    estimatedCostPer5s: 0.08
+  },
+  'veo2_i2v': {
+    url: 'https://api.wavespeed.ai/api/v3/google/veo-2/image-to-video',
+    buildPayload: ({ prompt, durationSec, imageUrl, aspectRatio, extras }) => ({
+      image_url: imageUrl,
+      prompt: prompt || '',
+      duration: Math.min(durationSec || 10, 15),
+      aspect_ratio: aspectRatio || '16:9',
+      ...extras
+    }),
+    estimatedCostPer5s: 0.15
   }
 };
 
@@ -311,6 +451,7 @@ DO NOT introduce new characters, change wardrobe, or alter the environment from 
       imageUrl: requestData.imageUrl,
       startImage: requestData.startImage,
       endImage: requestData.endImage,
+      sourceVideoUrl: requestData.sourceVideoUrl, // For video extend models
       extras: requestData.extras,
       salesforceData: salesforceData,
       hasStyleProfile: !!requestData.styleProfile,
