@@ -20,7 +20,8 @@ import {
   Clock, 
   Monitor, 
   ArrowLeft,
-  Sparkles 
+  Sparkles,
+  XCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,7 +43,7 @@ interface SalesforceData {
 
 interface VideoGeneration {
   id: string;
-  status: 'pending' | 'generating' | 'completed' | 'failed';
+  status: 'pending' | 'generating' | 'completed' | 'failed' | 'cancelled';
   progress: number;
   generation_data: any;
   video_url?: string;
@@ -140,7 +141,7 @@ export const GenerationFormModal: React.FC<GenerationFormModalProps> = ({
           const updatedGeneration = statusData;
           const typedGeneration: VideoGeneration = {
             id: updatedGeneration.id,
-            status: updatedGeneration.status as 'pending' | 'generating' | 'completed' | 'failed',
+            status: updatedGeneration.status as 'pending' | 'generating' | 'completed' | 'failed' | 'cancelled',
             progress: updatedGeneration.progress,
             generation_data: { model: updatedGeneration.model },
             video_url: updatedGeneration.video_url,
@@ -169,6 +170,10 @@ export const GenerationFormModal: React.FC<GenerationFormModalProps> = ({
               description: updatedGeneration.error_message || 'Unknown error occurred',
               variant: "destructive",
             });
+          } else if (updatedGeneration.status === 'cancelled') {
+            clearInterval(pollInterval);
+            setGenerationStatus('Generation cancelled');
+            setIsGenerating(false);
           } else if (updatedGeneration.status === 'generating') {
             setGenerationStatus(`Generating video... ${updatedGeneration.progress}%`);
           }
@@ -384,6 +389,40 @@ export const GenerationFormModal: React.FC<GenerationFormModalProps> = ({
     }));
   };
 
+  // Cancel generation handler
+  const handleCancelGeneration = async () => {
+    if (!currentGeneration?.id) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('cancel-generation', {
+        body: { id: currentGeneration.id, type: 'video' }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        setIsGenerating(false);
+        setGenerationStatus('Generation cancelled');
+        setGenerationProgress(0);
+        setCurrentGeneration(prev => prev ? { ...prev, status: 'cancelled' } : null);
+        
+        toast({
+          title: "Cancelled",
+          description: "Video generation was cancelled",
+        });
+      } else {
+        throw new Error(data?.error || 'Failed to cancel generation');
+      }
+    } catch (error) {
+      console.error('Cancel error:', error);
+      toast({
+        title: "Cancel Failed",
+        description: error instanceof Error ? error.message : 'Failed to cancel generation',
+        variant: "destructive",
+      });
+    }
+  };
+
   if (!selectedModel) return null;
 
   return (
@@ -411,9 +450,20 @@ export const GenerationFormModal: React.FC<GenerationFormModalProps> = ({
         {isGenerating && (
           <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-primary animate-spin" />
-                <span className="text-sm font-medium">Generating Video</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-primary animate-spin" />
+                  <span className="text-sm font-medium">Generating Video</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCancelGeneration}
+                  className="text-destructive hover:bg-destructive/10"
+                >
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Cancel
+                </Button>
               </div>
               <Progress value={generationProgress} className="w-full" />
               <p className="text-sm text-muted-foreground">{generationStatus}</p>
