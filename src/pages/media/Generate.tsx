@@ -47,6 +47,7 @@ import { ImageDropzone } from "@/components/media/ImageDropzone";
 import { SubjectReferenceDialog } from "@/components/media/SubjectReferenceDialog";
 import { StyleLockPreview } from "@/components/media/StyleLockPreview";
 import { GridVariantsDisplay } from "@/components/media/GridVariantsDisplay";
+import { VideoExtendWorkflow } from "@/components/media/VideoExtendWorkflow";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -256,6 +257,14 @@ const PRESETS = [
     icon: Smartphone,
     color: 'bg-pink-500',
     settings: { duration: [6], resolution: '720p', fps: 30, audio: false, aspectRatio: '9:16' }
+  },
+  {
+    id: 'extend',
+    name: 'Extend',
+    description: 'Continue video',
+    icon: RefreshCw,
+    color: 'bg-indigo-500',
+    settings: { duration: [10], resolution: '1080p', fps: 30, audio: true, aspectRatio: '16:9' }
   }
 ];
 
@@ -1494,8 +1503,30 @@ const Generate: React.FC = () => {
           </motion.div>
         )}
 
-        {/* Selected Model & Change Option - only for video */}
-        {outputType === 'video' && (
+        {/* Video Extend Workflow - dedicated UI for extend preset */}
+        {outputType === 'video' && selectedPreset === 'extend' && user?.id && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+          >
+            <Card className="p-6 mb-6">
+              <VideoExtendWorkflow
+                userId={user.id}
+                onComplete={(videoUrl) => {
+                  toast({
+                    title: "Video Extended!",
+                    description: "Your extended video is ready to view"
+                  });
+                }}
+                onCancel={() => setSelectedPreset('teaser')}
+              />
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Selected Model & Change Option - only for video (not for extend preset) */}
+        {outputType === 'video' && selectedPreset !== 'extend' && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1663,8 +1694,8 @@ const Generate: React.FC = () => {
           </motion.div>
         )}
 
-        {/* Form - Hidden when completed or no output type selected */}
-        {outputType && (!currentGeneration || currentGeneration.status !== 'completed') && (!currentImageGeneration || currentImageGeneration.status !== 'completed') && (
+        {/* Form - Hidden when completed, no output type selected, or using extend preset (which has its own UI) */}
+        {outputType && selectedPreset !== 'extend' && (!currentGeneration || currentGeneration.status !== 'completed') && (!currentImageGeneration || currentImageGeneration.status !== 'completed') && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

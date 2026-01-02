@@ -11,7 +11,8 @@ const INITIAL_DEFAULTS: Record<string, string> = {
   'cinematic': 'veo3_full',       // High quality 
   'lip-sync': 'dreamina_1080p',   // Good for talking heads
   'multi-shot': 'kling_pro',      // Coherent, longer duration
-  'social': 'wan_fun'             // Good for social content, 9:16 aspect ratio
+  'social': 'wan_fun',            // Good for social content, 9:16 aspect ratio
+  'extend': 'veo31_extend'        // Video extend capability
 };
 
 const STORAGE_KEY = 'preset_default_models';
