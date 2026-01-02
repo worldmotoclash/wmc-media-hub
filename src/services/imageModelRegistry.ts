@@ -25,7 +25,7 @@ export interface ImageModel {
 }
 
 export const IMAGE_MODEL_REGISTRY: ImageModel[] = [
-  // Lovable AI models (via AI Gateway)
+  // Lovable AI models (via AI Gateway) - Nano Banana Series
   {
     id: 'gemini-flash-image',
     name: 'gemini-flash-image',
@@ -59,6 +59,127 @@ export const IMAGE_MODEL_REGISTRY: ImageModel[] = [
     strengths: ['Premium quality', 'Complex scenes', 'Included in plan', 'Pro tier'],
     commercialUse: 'allowed',
     uptime: 98.5
+  },
+  // Nano Banana Pro Edit variants (via WaveSpeed)
+  {
+    id: 'nano-banana-pro-edit',
+    name: 'nano-banana-pro-edit',
+    displayName: 'Nano Banana Pro Edit',
+    vendor: 'Wavespeed',
+    brand: 'Google',
+    model: 'google/nano-banana-pro/edit',
+    description: 'Google Nano Banana Pro (Gemini 3.0 Pro Image) Edit enables image editing with next-gen quality',
+    qualityTier: 'premium',
+    speedTier: 'standard',
+    pricing: { basis: 'per_image', basePrice: 0.03, currency: 'USD' },
+    capabilities: ['image_editing', 'premium_quality', 'inpainting'],
+    status: 'online',
+    strengths: ['Pro-tier editing', 'High fidelity', 'Precise edits'],
+    commercialUse: 'allowed',
+    uptime: 98.0
+  },
+  {
+    id: 'nano-banana-pro-edit-ultra',
+    name: 'nano-banana-pro-edit-ultra',
+    displayName: 'Nano Banana Pro Edit Ultra',
+    vendor: 'Wavespeed',
+    brand: 'Google',
+    model: 'google/nano-banana-pro/edit-ultra',
+    description: 'Google Nano Banana Pro (Gemini 3.0 Pro Image) Edit with ultra-high quality output',
+    qualityTier: 'premium',
+    speedTier: 'standard',
+    pricing: { basis: 'per_image', basePrice: 0.05, currency: 'USD' },
+    capabilities: ['image_editing', 'premium_quality', 'ultra_quality', 'inpainting'],
+    status: 'online',
+    strengths: ['Ultra quality', 'Maximum fidelity', 'Professional edits'],
+    commercialUse: 'allowed',
+    uptime: 97.5
+  },
+  {
+    id: 'nano-banana-pro-edit-multi',
+    name: 'nano-banana-pro-edit-multi',
+    displayName: 'Nano Banana Pro Edit Multi',
+    vendor: 'Wavespeed',
+    brand: 'Google',
+    model: 'google/nano-banana-pro/edit-multi',
+    description: 'Google Nano Banana Pro (Gemini 3.0 Pro Image) Edit for next-gen multi-image editing',
+    qualityTier: 'premium',
+    speedTier: 'standard',
+    pricing: { basis: 'per_image', basePrice: 0.04, currency: 'USD' },
+    capabilities: ['image_editing', 'multi_image', 'premium_quality', 'batch_editing'],
+    status: 'online',
+    strengths: ['Multi-image support', 'Batch editing', 'Consistent style'],
+    commercialUse: 'allowed',
+    uptime: 97.8
+  },
+  {
+    id: 'nano-banana-pro-t2i',
+    name: 'nano-banana-pro-t2i',
+    displayName: 'Nano Banana Pro Text-to-Image',
+    vendor: 'Wavespeed',
+    brand: 'Google',
+    model: 'google/nano-banana-pro/text-to-image',
+    description: 'Google Nano Banana Pro (Gemini 3.0 Pro Image) cutting-edge text-to-image generation',
+    qualityTier: 'premium',
+    speedTier: 'fast',
+    pricing: { basis: 'per_image', basePrice: 0.025, currency: 'USD' },
+    capabilities: ['text_to_image', 'premium_quality', 'fast_generation'],
+    status: 'online',
+    strengths: ['Pro-tier quality', 'Fast generation', 'Detailed output'],
+    commercialUse: 'allowed',
+    uptime: 98.5
+  },
+  {
+    id: 'nano-banana-pro-t2i-ultra',
+    name: 'nano-banana-pro-t2i-ultra',
+    displayName: 'Nano Banana Pro Text-to-Image Ultra',
+    vendor: 'Wavespeed',
+    brand: 'Google',
+    model: 'google/nano-banana-pro/text-to-image-ultra',
+    description: 'Google Nano Banana Pro (Gemini 3.0 Pro Image) ultra-quality text-to-image',
+    qualityTier: 'premium',
+    speedTier: 'standard',
+    pricing: { basis: 'per_image', basePrice: 0.04, currency: 'USD' },
+    capabilities: ['text_to_image', 'ultra_quality', 'premium_quality'],
+    status: 'online',
+    strengths: ['Ultra quality', 'Maximum detail', 'Professional output'],
+    commercialUse: 'allowed',
+    uptime: 97.5
+  },
+  {
+    id: 'nano-banana-pro-t2i-multi',
+    name: 'nano-banana-pro-t2i-multi',
+    displayName: 'Nano Banana Pro Text-to-Image Multi',
+    vendor: 'Wavespeed',
+    brand: 'Google',
+    model: 'google/nano-banana-pro/text-to-image-multi',
+    description: 'Google Nano Banana Pro (Gemini 3.0 Pro Image) next-gen multi-image text-to-image',
+    qualityTier: 'premium',
+    speedTier: 'standard',
+    pricing: { basis: 'per_image', basePrice: 0.035, currency: 'USD' },
+    capabilities: ['text_to_image', 'multi_image', 'premium_quality', 'batch_generation'],
+    status: 'online',
+    strengths: ['Multi-image output', 'Batch generation', 'Consistent style'],
+    commercialUse: 'allowed',
+    uptime: 98.0
+  },
+  // Original Nano Banana (via WaveSpeed)
+  {
+    id: 'nano-banana-t2i',
+    name: 'nano-banana-t2i',
+    displayName: 'Nano Banana Text-to-Image',
+    vendor: 'Wavespeed',
+    brand: 'Google',
+    model: 'google/nano-banana/text-to-image',
+    description: 'Google Nano Banana cutting-edge text-to-image model',
+    qualityTier: 'standard',
+    speedTier: 'fast',
+    pricing: { basis: 'per_image', basePrice: 0.015, currency: 'USD' },
+    capabilities: ['text_to_image', 'fast_generation'],
+    status: 'online',
+    strengths: ['Fast', 'Cost-effective', 'Good quality'],
+    commercialUse: 'allowed',
+    uptime: 99.0
   },
   // Wavespeed FLUX models
   {
