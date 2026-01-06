@@ -323,6 +323,33 @@ serve(async (req) => {
         .eq("id", assetData.id);
     }
 
+    // === AUTO-TAGGING ===
+    // Trigger auto-tagging in the background (don't wait for it)
+    console.log("Triggering auto-tagging for asset:", assetData.id);
+    const autoTagUrl = `${supabaseUrl}/functions/v1/auto-tag-media-asset`;
+    
+    EdgeRuntime.waitUntil(
+      fetch(autoTagUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
+          assetId: assetData.id,
+          mediaUrl: cdnUrl,
+          mediaType: 'image',
+        }),
+      }).then(res => {
+        console.log(`Auto-tagging response status: ${res.status}`);
+        return res.json();
+      }).then(result => {
+        console.log("Auto-tagging result:", result);
+      }).catch(err => {
+        console.error("Auto-tagging error:", err);
+      })
+    );
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -334,6 +361,7 @@ serve(async (req) => {
         sfdcSyncStatus,
         sfdcSyncError: sfdcSyncStatus === 'failed' ? sfdcSyncError : undefined,
         dimensions: { width, height },
+        autoTaggingQueued: true,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

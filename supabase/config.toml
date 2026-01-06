@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.cancel-generation]
 verify_jwt = false
+
+[functions.auto-tag-media-asset]
+verify_jwt = false

@@ -234,14 +234,45 @@ serve(async (req) => {
             updated_at: new Date().toISOString(),
           };
 
+          let assetId: string | null = null;
+          let isNewAsset = false;
+
           if (existing?.id) {
             const { error } = await supabase.from('media_assets').update(assetData).eq('id', existing.id);
-            if (!error) updatedMedia++;
+            if (!error) {
+              updatedMedia++;
+              assetId = existing.id;
+            }
             else console.error('[DB] Update error', error);
           } else {
-            const { error } = await supabase.from('media_assets').insert(assetData).select('id').single();
-            if (!error) newMedia++;
+            const { data: newAsset, error } = await supabase.from('media_assets').insert(assetData).select('id').single();
+            if (!error && newAsset) {
+              newMedia++;
+              assetId = newAsset.id;
+              isNewAsset = true;
+            }
             else console.error('[DB] Insert error', error);
+          }
+
+          // Trigger auto-tagging for newly discovered assets (images only for now, to save API costs)
+          if (isNewAsset && assetId && assetType === 'image') {
+            const autoTagUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/auto-tag-media-asset`;
+            fetch(autoTagUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              },
+              body: JSON.stringify({
+                assetId,
+                mediaUrl: fileUrl,
+                mediaType: assetType,
+              }),
+            }).then(res => {
+              console.log(`[AutoTag] Queued for ${assetId}: ${res.status}`);
+            }).catch(err => {
+              console.error(`[AutoTag] Failed to queue ${assetId}:`, err);
+            });
           }
         }
 
