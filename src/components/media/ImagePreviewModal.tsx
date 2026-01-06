@@ -1,18 +1,69 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, FileImage, Layers, Download, ExternalLink, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Calendar, FileImage, Layers, Download, ExternalLink, CheckCircle, AlertTriangle, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MediaAsset } from '@/services/unifiedMediaService';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface ImagePreviewModalProps {
   asset: MediaAsset | null;
   isOpen: boolean;
   onClose: () => void;
+  onAssetUpdated?: () => void;
 }
 
-const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({ asset, isOpen, onClose }) => {
+const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({ asset, isOpen, onClose, onAssetUpdated }) => {
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
   if (!asset) return null;
+
+  const handleReanalyze = async () => {
+    if (!asset.id || !asset.fileUrl) {
+      toast.error('Asset URL not available');
+      return;
+    }
+
+    // Skip Salesforce-only assets
+    if (asset.source === 'salesforce' && !asset.id.match(/^[0-9a-f-]{36}$/i)) {
+      toast.error('Cannot re-analyze Salesforce-only assets');
+      return;
+    }
+
+    setIsAnalyzing(true);
+    toast.info('Starting AI analysis...', { duration: 3000 });
+
+    try {
+      const { data, error } = await supabase.functions.invoke('auto-tag-media-asset', {
+        body: {
+          assetId: asset.id,
+          mediaUrl: asset.fileUrl || asset.thumbnailUrl,
+          mediaType: 'image',
+        }
+      });
+
+      if (error) {
+        console.error('Re-analyze error:', error);
+        toast.error('Failed to analyze asset', { description: error.message });
+        return;
+      }
+
+      if (data?.success) {
+        toast.success('AI analysis complete!', {
+          description: `Applied ${data.tagCount} tags: ${data.tagsApplied?.slice(0, 3).join(', ')}${data.tagCount > 3 ? '...' : ''}`
+        });
+        onAssetUpdated?.();
+      } else {
+        toast.error(data?.error || 'Analysis failed');
+      }
+    } catch (err) {
+      console.error('Re-analyze error:', err);
+      toast.error('Failed to analyze asset');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -193,8 +244,71 @@ const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({ asset, isOpen, on
               </div>
             )}
 
+            {/* AI Analysis Info */}
+            {asset.metadata?.aiAnalysis && (
+              <div className="p-3 bg-muted/50 rounded-lg border">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-foreground text-sm flex items-center gap-1">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                    AI Analysis
+                  </h4>
+                  <span className="text-xs text-muted-foreground">
+                    {asset.metadata.aiAnalysis.confidence 
+                      ? `${Math.round(asset.metadata.aiAnalysis.confidence * 100)}% confidence` 
+                      : ''}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                  {asset.metadata.aiAnalysis.scene && (
+                    <div>
+                      <span className="text-muted-foreground">Scene:</span>{' '}
+                      <span className="font-medium">{asset.metadata.aiAnalysis.scene}</span>
+                    </div>
+                  )}
+                  {asset.metadata.aiAnalysis.mood && (
+                    <div>
+                      <span className="text-muted-foreground">Mood:</span>{' '}
+                      <span className="font-medium">{asset.metadata.aiAnalysis.mood}</span>
+                    </div>
+                  )}
+                  {asset.metadata.aiAnalysis.energy && (
+                    <div>
+                      <span className="text-muted-foreground">Energy:</span>{' '}
+                      <span className="font-medium">{asset.metadata.aiAnalysis.energy}</span>
+                    </div>
+                  )}
+                  {asset.metadata.aiAnalysis.useCase && (
+                    <div>
+                      <span className="text-muted-foreground">Use:</span>{' '}
+                      <span className="font-medium">{asset.metadata.aiAnalysis.useCase}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Actions */}
-            <div className="flex gap-2 pt-2">
+            <div className="flex flex-wrap gap-2 pt-2">
+              {/* Re-analyze Button */}
+              <Button 
+                variant="outline"
+                onClick={handleReanalyze}
+                disabled={isAnalyzing || asset.source === 'salesforce'}
+                title={asset.source === 'salesforce' ? 'Cannot analyze Salesforce-only assets' : 'Run AI analysis to generate tags'}
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Re-analyze
+                  </>
+                )}
+              </Button>
+
               {asset.fileUrl && (
                 <>
                   <Button 

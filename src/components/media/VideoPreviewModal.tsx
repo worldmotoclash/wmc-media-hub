@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock, Eye, Calendar, Image, Loader2 } from 'lucide-react';
+import { Clock, Eye, Calendar, Image, Loader2, Sparkles } from 'lucide-react';
 import { VideoContent } from '@/services/videoContentService';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,10 +11,12 @@ interface VideoPreviewModalProps {
   video: VideoContent | null;
   isOpen: boolean;
   onClose: () => void;
+  onVideoUpdated?: () => void;
 }
 
-const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, onClose }) => {
+const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, onClose, onVideoUpdated }) => {
   const [isCreatingThumbnail, setIsCreatingThumbnail] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -133,7 +135,55 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, on
     }
   };
 
+  const handleReanalyze = async () => {
+    if (!video.id || !video.videoSrc) {
+      toast.error('Video URL not available');
+      return;
+    }
+
+    // Check if this is a valid UUID (local asset) vs Salesforce ID
+    const isLocalAsset = video.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    if (!isLocalAsset) {
+      toast.error('Cannot re-analyze Salesforce-only assets');
+      return;
+    }
+
+    setIsAnalyzing(true);
+    toast.info('Starting AI analysis...', { duration: 3000 });
+
+    try {
+      const { data, error } = await supabase.functions.invoke('auto-tag-media-asset', {
+        body: {
+          assetId: video.id,
+          mediaUrl: video.thumbnail || video.videoSrc,
+          mediaType: 'video',
+        }
+      });
+
+      if (error) {
+        console.error('Re-analyze error:', error);
+        toast.error('Failed to analyze video', { description: error.message });
+        return;
+      }
+
+      if (data?.success) {
+        toast.success('AI analysis complete!', {
+          description: `Applied ${data.tagCount} tags: ${data.tagsApplied?.slice(0, 3).join(', ')}${data.tagCount > 3 ? '...' : ''}`
+        });
+        onVideoUpdated?.();
+      } else {
+        toast.error(data?.error || 'Analysis failed');
+      }
+    } catch (err) {
+      console.error('Re-analyze error:', err);
+      toast.error('Failed to analyze video');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const isYouTube = video.contentType === 'Youtube' || video.youtubeId;
+  const isLocalAsset = video.id?.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -212,26 +262,52 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, on
                 </div>
               </div>
 
-              {/* Create Thumbnail Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCreateThumbnail}
-                disabled={isCreatingThumbnail}
-                className="flex items-center gap-2"
-              >
-                {isCreatingThumbnail ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <Image className="w-4 h-4" />
-                    Create Thumbnail
-                  </>
+              <div className="flex gap-2">
+                {/* Re-analyze Button */}
+                {isLocalAsset && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleReanalyze}
+                    disabled={isAnalyzing}
+                    className="flex items-center gap-2"
+                    title="Run AI analysis to generate tags"
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Analyzing...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Re-analyze
+                      </>
+                    )}
+                  </Button>
                 )}
-              </Button>
+
+                {/* Create Thumbnail Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCreateThumbnail}
+                  disabled={isCreatingThumbnail}
+                  className="flex items-center gap-2"
+                >
+                  {isCreatingThumbnail ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Image className="w-4 h-4" />
+                      Create Thumbnail
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
             
             {/* Status-specific information */}

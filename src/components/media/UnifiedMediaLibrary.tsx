@@ -1272,6 +1272,10 @@ export const UnifiedMediaLibrary: React.FC = () => {
             }}
             isOpen={!!selectedAsset}
             onClose={() => setSelectedAsset(null)}
+            onVideoUpdated={() => {
+              loadAssets();
+              setSelectedAsset(null);
+            }}
           />
         ) : selectedAsset.assetType === 'audio' ? (
           <AudioPreviewModal
@@ -1285,6 +1289,10 @@ export const UnifiedMediaLibrary: React.FC = () => {
             asset={selectedAsset}
             isOpen={!!selectedAsset}
             onClose={() => setSelectedAsset(null)}
+            onAssetUpdated={() => {
+              loadAssets();
+              setSelectedAsset(null);
+            }}
           />
         )
       )}
