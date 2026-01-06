@@ -25,6 +25,7 @@ import {
   SortOption
 } from "@/services/unifiedMediaService";
 import { getMediaSourceStats, MediaSourceStats } from "@/services/mediaSourceStatsService";
+import { supabase } from "@/integrations/supabase/client";
 import { LibrarianWorkflowDialog } from "./LibrarianWorkflowDialog";
 import VideoPreviewModal from "./VideoPreviewModal";
 import ImagePreviewModal from "./ImagePreviewModal";
@@ -71,10 +72,106 @@ export const UnifiedMediaLibrary: React.FC = () => {
     title: '',
     source: '',
   });
+  
+  // Bulk selection state
+  const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
+  const [isBulkTagging, setIsBulkTagging] = useState(false);
+  const [bulkTagProgress, setBulkTagProgress] = useState({ current: 0, total: 0 });
+  
   const pageSize = 20;
   const { user } = useUser();
   useSupabaseAuth(); // Ensure Supabase auth when user is logged in
   const navigate = useNavigate();
+
+  // Bulk selection helpers
+  const toggleAssetSelection = (assetId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSelectedAssetIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(assetId)) {
+        newSet.delete(assetId);
+      } else {
+        newSet.add(assetId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedAssetIds.size === assets.length) {
+      setSelectedAssetIds(new Set());
+    } else {
+      setSelectedAssetIds(new Set(assets.map(a => a.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedAssetIds(new Set());
+  };
+
+  // Get selected assets that can be tagged (local assets with URLs)
+  const getTaggableAssets = () => {
+    return assets.filter(asset => 
+      selectedAssetIds.has(asset.id) && 
+      asset.source !== 'salesforce' &&
+      asset.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) &&
+      (asset.fileUrl || asset.thumbnailUrl)
+    );
+  };
+
+  const handleBulkAutoTag = async () => {
+    const taggableAssets = getTaggableAssets();
+    if (taggableAssets.length === 0) {
+      toast.error('No taggable assets selected', {
+        description: 'Select local assets with valid URLs to auto-tag.'
+      });
+      return;
+    }
+
+    setIsBulkTagging(true);
+    setBulkTagProgress({ current: 0, total: taggableAssets.length });
+    
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < taggableAssets.length; i++) {
+      const asset = taggableAssets[i];
+      setBulkTagProgress({ current: i + 1, total: taggableAssets.length });
+
+      try {
+        const { data, error } = await supabase.functions.invoke('auto-tag-media-asset', {
+          body: {
+            assetId: asset.id,
+            mediaUrl: asset.fileUrl || asset.thumbnailUrl,
+            mediaType: asset.assetType === 'video' ? 'video' : 'image',
+          }
+        });
+
+        if (error || !data?.success) {
+          console.error(`Failed to tag ${asset.title}:`, error || data?.error);
+          failCount++;
+        } else {
+          successCount++;
+        }
+      } catch (err) {
+        console.error(`Error tagging ${asset.title}:`, err);
+        failCount++;
+      }
+    }
+
+    setIsBulkTagging(false);
+    setBulkTagProgress({ current: 0, total: 0 });
+    clearSelection();
+    
+    if (successCount > 0) {
+      toast.success(`Successfully tagged ${successCount} asset${successCount > 1 ? 's' : ''}`, {
+        description: failCount > 0 ? `${failCount} failed` : undefined
+      });
+      loadAssets();
+    } else {
+      toast.error('Failed to tag assets');
+    }
+  };
 
   const handlePlayInBackground = (asset: MediaAsset) => {
     setMiniPlayer({
@@ -723,6 +820,61 @@ export const UnifiedMediaLibrary: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Bulk Action Bar */}
+      {selectedAssetIds.size > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="sticky top-4 z-20 bg-primary text-primary-foreground rounded-lg p-4 shadow-lg flex items-center justify-between"
+        >
+          <div className="flex items-center gap-4">
+            <Checkbox
+              checked={selectedAssetIds.size === assets.length}
+              onCheckedChange={toggleSelectAll}
+              className="border-primary-foreground data-[state=checked]:bg-primary-foreground data-[state=checked]:text-primary"
+            />
+            <span className="font-medium">
+              {selectedAssetIds.size} asset{selectedAssetIds.size > 1 ? 's' : ''} selected
+            </span>
+            {isBulkTagging && (
+              <span className="text-sm opacity-80">
+                Processing {bulkTagProgress.current}/{bulkTagProgress.total}...
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleBulkAutoTag}
+              disabled={isBulkTagging || getTaggableAssets().length === 0}
+              className="flex items-center gap-2"
+            >
+              {isBulkTagging ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Tagging...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Auto-Tag ({getTaggableAssets().length})
+                </>
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearSelection}
+              disabled={isBulkTagging}
+              className="text-primary-foreground hover:bg-primary-foreground/20"
+            >
+              Clear
+            </Button>
+          </div>
+        </motion.div>
+      )}
+
       {/* Results - Grid View */}
       {viewMode === 'grid' ? (
         <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 transition-opacity ${isFiltering ? 'opacity-50' : ''}`}>
@@ -733,8 +885,21 @@ export const UnifiedMediaLibrary: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
             >
-              <Card className="group hover:shadow-lg transition-all duration-200 cursor-pointer">
+              <Card className={`group hover:shadow-lg transition-all duration-200 cursor-pointer ${selectedAssetIds.has(asset.id) ? 'ring-2 ring-primary' : ''}`}>
                 <div className="relative cursor-pointer" onClick={() => setSelectedAsset(asset)}>
+                  {/* Selection Checkbox */}
+                  <div 
+                    className={`absolute top-2 left-2 z-10 transition-opacity ${selectedAssetIds.size > 0 || 'opacity-0 group-hover:opacity-100'}`}
+                    onClick={(e) => toggleAssetSelection(asset.id, e)}
+                  >
+                    <div className="w-6 h-6 rounded bg-background/90 backdrop-blur-sm border flex items-center justify-center">
+                      <Checkbox
+                        checked={selectedAssetIds.has(asset.id)}
+                        onCheckedChange={() => {}}
+                        className="pointer-events-none"
+                      />
+                    </div>
+                  </div>
                   {asset.assetType === 'audio' ? (
                     // Audio asset placeholder with waveform visualization
                     <div className="w-full h-48 bg-gradient-to-br from-orange-500/10 to-amber-500/10 rounded-t-lg flex flex-col items-center justify-center relative overflow-hidden">
@@ -942,6 +1107,12 @@ export const UnifiedMediaLibrary: React.FC = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={selectedAssetIds.size === assets.length && assets.length > 0}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </TableHead>
                 <TableHead className="w-16">Preview</TableHead>
                 <TableHead 
                   className="cursor-pointer hover:bg-muted/50 select-none"
@@ -1032,7 +1203,17 @@ export const UnifiedMediaLibrary: React.FC = () => {
             </TableHeader>
             <TableBody>
               {assets.map((asset) => (
-                <TableRow key={asset.id} className="cursor-pointer hover:bg-muted/50">
+                <TableRow 
+                  key={asset.id} 
+                  className={`cursor-pointer hover:bg-muted/50 ${selectedAssetIds.has(asset.id) ? 'bg-primary/5' : ''}`}
+                >
+                  <TableCell onClick={(e) => toggleAssetSelection(asset.id, e)}>
+                    <Checkbox
+                      checked={selectedAssetIds.has(asset.id)}
+                      onCheckedChange={() => {}}
+                      className="pointer-events-none"
+                    />
+                  </TableCell>
                   <TableCell>
                     <div className="relative w-12 h-12 rounded overflow-hidden bg-muted flex items-center justify-center">
                       {asset.thumbnailUrl ? (
