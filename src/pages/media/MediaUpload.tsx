@@ -386,15 +386,37 @@ const MediaUpload: React.FC = () => {
     
     try {
       if (selectedFile) {
-        // Stage 1: Reading file (0-30%)
+        // Stage 1: Reading file and extracting video dimensions (0-30%)
         setUploadProgress(5);
+        
+        // Extract video dimensions
+        const videoDimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+          const video = document.createElement('video');
+          video.preload = 'metadata';
+          video.muted = true;
+          
+          video.onloadedmetadata = () => {
+            resolve({ width: video.videoWidth, height: video.videoHeight });
+            URL.revokeObjectURL(video.src);
+          };
+          
+          video.onerror = () => {
+            URL.revokeObjectURL(video.src);
+            // Default dimensions if extraction fails
+            resolve({ width: 1920, height: 1080 });
+          };
+          
+          video.src = URL.createObjectURL(selectedFile);
+        });
+        
+        setUploadProgress(15);
         
         const reader = new FileReader();
         const base64Promise = new Promise<string>((resolve, reject) => {
           reader.onprogress = (event) => {
             if (event.lengthComputable) {
-              const readProgress = (event.loaded / event.total) * 25;
-              setUploadProgress(5 + readProgress);
+              const readProgress = (event.loaded / event.total) * 15;
+              setUploadProgress(15 + readProgress);
             }
           };
           reader.onload = () => {
@@ -423,10 +445,11 @@ const MediaUpload: React.FC = () => {
 
         const { data, error } = await supabase.functions.invoke('upload-master-to-s3', {
           body: {
-            fileName: selectedFile.name,
-            fileType: selectedFile.type,
-            fileSize: selectedFile.size,
-            imageData: base64Data,
+            imageBase64: base64Data,
+            filename: selectedFile.name,
+            mimeType: selectedFile.type,
+            width: videoDimensions.width,
+            height: videoDimensions.height,
             title: uploadData.title,
             description: uploadData.description,
             tags: uploadData.tags.split(',').map(t => t.trim()).filter(Boolean),
