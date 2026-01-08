@@ -61,6 +61,7 @@ const MediaUpload: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   
   // AI Generation form state with Salesforce fields
@@ -278,12 +279,21 @@ const MediaUpload: React.FC = () => {
     }
 
     setIsUploading(true);
+    setUploadProgress(0);
     
     try {
       if (selectedFile) {
-        // Convert file to base64
+        // Stage 1: Reading file (0-30%)
+        setUploadProgress(5);
+        
         const reader = new FileReader();
         const base64Promise = new Promise<string>((resolve, reject) => {
+          reader.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const readProgress = (event.loaded / event.total) * 25;
+              setUploadProgress(5 + readProgress);
+            }
+          };
           reader.onload = () => {
             const result = reader.result as string;
             const base64 = result.split(',')[1];
@@ -293,8 +303,21 @@ const MediaUpload: React.FC = () => {
         });
         reader.readAsDataURL(selectedFile);
         const base64Data = await base64Promise;
+        
+        // Stage 2: Uploading to S3 (30-90%)
+        setUploadProgress(35);
+        
+        // Simulate upload progress since edge function doesn't stream progress
+        const progressInterval = setInterval(() => {
+          setUploadProgress(prev => {
+            if (prev >= 85) {
+              clearInterval(progressInterval);
+              return prev;
+            }
+            return prev + 5;
+          });
+        }, 500);
 
-        // Upload to S3 via edge function
         const { data, error } = await supabase.functions.invoke('upload-master-to-s3', {
           body: {
             fileName: selectedFile.name,
@@ -306,17 +329,26 @@ const MediaUpload: React.FC = () => {
             tags: uploadData.tags.split(',').map(t => t.trim()).filter(Boolean),
           },
         });
+        
+        clearInterval(progressInterval);
 
         if (error) throw error;
+        
+        // Stage 3: Complete (100%)
+        setUploadProgress(100);
         
         toast({
           title: "Upload successful!",
           description: "Video has been uploaded and is being processed.",
         });
         
+        // Brief delay to show 100%
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         // Clear form
         setSelectedFile(null);
         setUploadData({ url: '', title: '', description: '', tags: '', keywords: '' });
+        setUploadProgress(0);
         
         // Navigate to library
         navigate('/admin/media/library');
@@ -753,6 +785,18 @@ const MediaUpload: React.FC = () => {
                         />
                       </div>
                     </div>
+
+                    {isUploading && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">
+                            {uploadProgress < 30 ? 'Reading file...' : uploadProgress < 90 ? 'Uploading to S3...' : 'Finalizing...'}
+                          </span>
+                          <span className="font-medium">{Math.round(uploadProgress)}%</span>
+                        </div>
+                        <Progress value={uploadProgress} className="w-full" />
+                      </div>
+                    )}
 
                     <Button type="submit" className="w-full" disabled={isUploading}>
                       {isUploading ? (
