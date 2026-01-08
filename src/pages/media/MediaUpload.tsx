@@ -386,31 +386,65 @@ const MediaUpload: React.FC = () => {
     
     try {
       if (selectedFile) {
-        // Stage 1: Reading file and extracting video dimensions (0-30%)
+        const isVideo = selectedFile.type.startsWith('video/');
+        
+        // Stage 1: Extract dimensions and thumbnail (0-25%)
         setUploadProgress(5);
         
-        // Extract video dimensions
-        const videoDimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
-          const video = document.createElement('video');
-          video.preload = 'metadata';
-          video.muted = true;
+        // Extract video/image dimensions and thumbnail
+        let dimensions = { width: 1920, height: 1080 };
+        let thumbnailBase64: string | null = null;
+        
+        if (isVideo) {
+          // Extract dimensions and thumbnail from video
+          const videoData = await new Promise<{ width: number; height: number; thumbnail: string | null }>((resolve) => {
+            const video = document.createElement('video');
+            video.preload = 'auto';
+            video.muted = true;
+            
+            video.onloadeddata = () => {
+              const width = video.videoWidth;
+              const height = video.videoHeight;
+              
+              // Seek to 1 second for thumbnail
+              video.currentTime = Math.min(1, video.duration * 0.1);
+            };
+            
+            video.onseeked = () => {
+              // Extract thumbnail frame
+              const canvas = document.createElement('canvas');
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              const ctx = canvas.getContext('2d');
+              ctx?.drawImage(video, 0, 0);
+              
+              const thumbnailDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+              const thumbnail = thumbnailDataUrl.split(',')[1];
+              
+              URL.revokeObjectURL(video.src);
+              resolve({ 
+                width: video.videoWidth, 
+                height: video.videoHeight, 
+                thumbnail 
+              });
+            };
+            
+            video.onerror = () => {
+              URL.revokeObjectURL(video.src);
+              resolve({ width: 1920, height: 1080, thumbnail: null });
+            };
+            
+            video.src = URL.createObjectURL(selectedFile);
+          });
           
-          video.onloadedmetadata = () => {
-            resolve({ width: video.videoWidth, height: video.videoHeight });
-            URL.revokeObjectURL(video.src);
-          };
-          
-          video.onerror = () => {
-            URL.revokeObjectURL(video.src);
-            // Default dimensions if extraction fails
-            resolve({ width: 1920, height: 1080 });
-          };
-          
-          video.src = URL.createObjectURL(selectedFile);
-        });
+          dimensions = { width: videoData.width, height: videoData.height };
+          thumbnailBase64 = videoData.thumbnail;
+          console.log('Extracted video dimensions:', dimensions, 'thumbnail:', thumbnailBase64 ? 'yes' : 'no');
+        }
         
         setUploadProgress(15);
         
+        // Read file as base64
         const reader = new FileReader();
         const base64Promise = new Promise<string>((resolve, reject) => {
           reader.onprogress = (event) => {
@@ -448,11 +482,12 @@ const MediaUpload: React.FC = () => {
             imageBase64: base64Data,
             filename: selectedFile.name,
             mimeType: selectedFile.type,
-            width: videoDimensions.width,
-            height: videoDimensions.height,
+            width: dimensions.width,
+            height: dimensions.height,
             title: uploadData.title,
             description: uploadData.description,
             tags: uploadData.tags.split(',').map(t => t.trim()).filter(Boolean),
+            thumbnailBase64: thumbnailBase64, // Include thumbnail for videos
           },
         });
         

@@ -20,6 +20,7 @@ interface UploadMasterRequest {
   height: number;
   title?: string;
   creatorContactId?: string;
+  thumbnailBase64?: string; // Optional thumbnail for video uploads
 }
 
 // Helper function to escape special regex characters
@@ -114,7 +115,7 @@ serve(async (req) => {
       dimensions: `${payload.width}x${payload.height}`,
     });
 
-    const { imageBase64, filename, mimeType, width, height, title, creatorContactId } = payload;
+    const { imageBase64, filename, mimeType, width, height, title, creatorContactId, thumbnailBase64 } = payload;
 
     if (!imageBase64 || !filename || !width || !height) {
       return new Response(
@@ -122,6 +123,13 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Detect if this is a video or image based on mimeType
+    const isVideo = mimeType?.startsWith('video/');
+    const fileExtension = filename.split('.').pop()?.toLowerCase() || (isVideo ? 'mp4' : 'jpg');
+    const assetType = isVideo ? 'video' : 'master_image';
+
+    console.log(`Detected media type: ${assetType}, extension: ${fileExtension}, isVideo: ${isVideo}`);
 
     const s3Config = getS3Config();
     
@@ -133,9 +141,6 @@ serve(async (req) => {
       );
     }
 
-    const masterId = crypto.randomUUID();
-    const s3Key = `${S3_PATHS.SOCIAL_MEDIA_MASTERS}/${masterId}/master.jpg`;
-
     const aws = new AwsClient({
       accessKeyId: s3Config.accessKeyId,
       secretAccessKey: s3Config.secretAccessKey,
@@ -143,7 +148,36 @@ serve(async (req) => {
       service: "s3",
     });
 
-    const imageData = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
+    const masterId = crypto.randomUUID();
+    const s3Key = `${S3_PATHS.SOCIAL_MEDIA_MASTERS}/${masterId}/master.${fileExtension}`;
+
+    // Upload thumbnail for videos if provided
+    let thumbnailUrl: string | null = null;
+    if (isVideo && thumbnailBase64) {
+      const thumbKey = `${S3_PATHS.SOCIAL_MEDIA_MASTERS}/${masterId}/thumbnail.jpg`;
+      const thumbData = Uint8Array.from(atob(thumbnailBase64), c => c.charCodeAt(0));
+      const thumbUploadUrl = `${s3Config.endpoint}/${s3Config.bucketName}/${thumbKey}`;
+      
+      console.log("Uploading video thumbnail to S3:", thumbUploadUrl);
+      
+      const thumbResponse = await aws.fetch(thumbUploadUrl, {
+        method: "PUT",
+        body: thumbData,
+        headers: {
+          "Content-Type": "image/jpeg",
+          "Content-Length": thumbData.length.toString(),
+        },
+      });
+      
+      if (thumbResponse.ok) {
+        thumbnailUrl = getCdnUrl(thumbKey);
+        console.log("Thumbnail uploaded successfully:", thumbnailUrl);
+      } else {
+        console.warn("Thumbnail upload failed, will use video URL as fallback");
+      }
+    }
+
+    const fileData = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
 
     const uploadUrl = `${s3Config.endpoint}/${s3Config.bucketName}/${s3Key}`;
 
@@ -151,10 +185,10 @@ serve(async (req) => {
 
     const uploadResponse = await aws.fetch(uploadUrl, {
       method: "PUT",
-      body: imageData,
+      body: fileData,
       headers: {
         "Content-Type": mimeType || "image/jpeg",
-        "Content-Length": imageData.length.toString(),
+        "Content-Length": fileData.length.toString(),
       },
     });
 
@@ -194,11 +228,11 @@ serve(async (req) => {
       .insert({
         title: imageTitle,
         file_url: cdnUrl,
-        thumbnail_url: cdnUrl,
+        thumbnail_url: thumbnailUrl || cdnUrl, // Use separate thumbnail for videos
         source: "local_upload",
         status: "ready",
-        file_format: "jpg",
-        asset_type: "master_image",
+        file_format: fileExtension,
+        asset_type: assetType,
         s3_key: s3Key,
         metadata: initialMetadata,
       })
@@ -338,7 +372,7 @@ serve(async (req) => {
         body: JSON.stringify({
           assetId: assetData.id,
           mediaUrl: cdnUrl,
-          mediaType: 'image',
+          mediaType: isVideo ? 'video' : 'image',
         }),
       }).then(res => {
         console.log(`Auto-tagging response status: ${res.status}`);
