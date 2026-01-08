@@ -19,6 +19,8 @@ interface UploadMasterRequest {
   width: number;
   height: number;
   title?: string;
+  description?: string; // AI-suggested or manual description
+  tags?: string[]; // AI-suggested tags/categories
   creatorContactId?: string;
   thumbnailBase64?: string; // Optional thumbnail for video uploads
   duration?: number; // Video duration in seconds
@@ -116,7 +118,7 @@ serve(async (req) => {
       dimensions: `${payload.width}x${payload.height}`,
     });
 
-    const { imageBase64, filename, mimeType, width, height, title, creatorContactId, thumbnailBase64, duration } = payload;
+    const { imageBase64, filename, mimeType, width, height, title, description, tags, creatorContactId, thumbnailBase64, duration } = payload;
 
     if (!imageBase64 || !filename || !width || !height) {
       return new Response(
@@ -232,6 +234,7 @@ serve(async (req) => {
       .from("media_assets")
       .insert({
         title: imageTitle,
+        description: description || null, // Store AI-suggested or manual description
         file_url: cdnUrl,
         thumbnail_url: thumbnailUrl || cdnUrl, // Use separate thumbnail for videos
         source: "local_upload",
@@ -240,6 +243,7 @@ serve(async (req) => {
         asset_type: assetType,
         s3_key: s3Key,
         duration: isVideo ? duration : null, // Store duration for videos
+        file_size: fileData.length, // Store file size in bytes
         metadata: initialMetadata,
       })
       .select()
@@ -269,6 +273,29 @@ serve(async (req) => {
       formData.append("string_Name", imageTitle);
       formData.append("string_ri1__Content_Type__c", fileExtension);
       formData.append("string_ri1__URL__c", cdnUrl);
+      
+      // Add description if provided
+      if (description) {
+        formData.append("string_ri1__Description__c", description.substring(0, 32768));
+      }
+      
+      // Add categories/tags if provided (semicolon-separated for Salesforce picklist)
+      if (tags && tags.length > 0) {
+        formData.append("string_ri1__Categories__c", tags.join(";"));
+      }
+      
+      // Add duration for videos (in seconds)
+      if (isVideo && duration) {
+        formData.append("number_ri1__Length_in_Seconds__c", Math.round(duration).toString());
+      }
+      
+      // Add file size in bytes
+      formData.append("number_ri1__File_Size__c", fileData.length.toString());
+      
+      // Add thumbnail URL for videos
+      if (thumbnailUrl) {
+        formData.append("string_id_ri1__Thumbnail__c", thumbnailUrl);
+      }
       
       // Link to creator Contact if provided
       if (creatorContactId) {
