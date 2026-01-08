@@ -1050,12 +1050,17 @@ export const UnifiedMediaLibrary: React.FC = () => {
                   </div>
 
                   <div className="text-xs text-muted-foreground space-y-1 mb-3">
-                    {asset.fileSize && (
-                      <div>Size: {formatFileSize(asset.fileSize)}</div>
-                    )}
-                    {asset.resolution && (
-                      <div>Resolution: {asset.resolution}</div>
-                    )}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {asset.fileSize && (
+                        <span>{formatFileSize(asset.fileSize)}</span>
+                      )}
+                      {asset.duration && asset.assetType === 'video' && (
+                        <span>• {formatDuration(asset.duration)}</span>
+                      )}
+                      {asset.resolution && (
+                        <span>• {asset.resolution}</span>
+                      )}
+                    </div>
                     <div className="flex items-center justify-between">
                       <span>Created: {!isNaN(Date.parse(asset.createdAt)) ? new Date(asset.createdAt).toLocaleDateString() : 'Unknown'}</span>
                       {asset.syncStatus && getSyncStatusBadge(asset.syncStatus)}
@@ -1184,6 +1189,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     )}
                   </div>
                 </TableHead>
+                <TableHead className="w-20">Duration</TableHead>
                 <TableHead 
                   className="w-32 cursor-pointer hover:bg-muted/50 select-none"
                   onClick={() => setSortOption(prev => ({ 
@@ -1299,6 +1305,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatFileSize(asset.fileSize)}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {asset.duration ? formatDuration(asset.duration) : '–'}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {!isNaN(Date.parse(asset.createdAt)) ? new Date(asset.createdAt).toLocaleDateString() : 'Unknown'}

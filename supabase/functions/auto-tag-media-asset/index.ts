@@ -7,30 +7,38 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Tag categories that map to media_tags
-const SCENE_TAGS = [
-  'Race Track', 'Pit Lane', 'Paddock', 'Victory', 'Studio',
-  'Interview', 'Product', 'Demo', 'Outdoor', 'Night',
-  'Sunset', 'Urban', 'Industrial', 'Crowd', 'Event',
-  'Lifestyle', 'VIP', 'Aerial', 'POV', 'Onboard',
-  'AI-Generated', 'Mixed Reality', 'Abstract'
+// ========== KNEWTV AI CONTRACT PICKLIST VALUES ==========
+
+const APPROVED_CATEGORIES = [
+  'Promotional', 'Fan Reactions', 'Racer Backstories', 
+  'Website Swiper AI Video', 'News', 'Education & Training', 'Motorworks', 'Unclassified'
 ];
 
-const MOOD_TAGS = [
-  'Intense', 'High Energy', 'Aggressive', 'Dramatic', 'Cinematic',
-  'Epic', 'Triumphant', 'Celebratory', 'Competitive', 'Focused',
-  'Gritty', 'Raw', 'Confident', 'Bold', 'Futuristic',
-  'Sleek', 'Premium', 'Inspirational', 'Emotional', 'Playful',
-  'Relaxed', 'Atmospheric', 'Mysterious', 'Dark', 'Bright'
+const APPROVED_CONTENT_TYPES = [
+  'Promotional', 'Teaser', 'Interview', 'Behind the Scenes',
+  'Announcement', 'Highlight', 'Educational', 'Experimental'
 ];
 
-const ENERGY_TAGS = ['Low Energy', 'Medium Energy', 'High Energy', 'Explosive'];
-
-const USE_CASE_TAGS = [
-  'Hero Content', 'Social Feed', 'Short-Form', 'Paid Ad', 'Digital Signage',
-  'Website', 'Email Marketing', 'Press', 'Presentation', 'Sponsor Activation',
-  'Merch', 'Event Promo', 'Highlight Reel', 'Archive', 'Training'
+const APPROVED_LOCATIONS = [
+  'Race Track – On Track', 'Race Track – Grid / Start', 'Race Track – Pit Lane',
+  'Race Track – Paddock / Garage', 'Race Track – Victory / Podium', 'Studio',
+  'Interview / Talking Head', 'Outdoor – Day', 'Outdoor – Night', 'Sunset / Golden Hour',
+  'Urban / City', 'Industrial / Warehouse', 'Crowd / Fan Experience',
+  'Festival / Event Atmosphere', 'Hospitality / VIP Experience', 'Lifestyle / Off-Track',
+  'Aerial / Drone', 'POV / Helmet Cam', 'Onboard / Vehicle Mounted',
+  'AI-Generated / Virtual', 'Mixed Reality / Composited', 'Abstract / Graphic',
+  'Unknown / Unclassified'
 ];
+
+const APPROVED_MOODS = [
+  'Intense', 'High Energy', 'Aggressive', 'Adrenaline', 'Dramatic', 'Cinematic', 'Epic',
+  'Triumphant', 'Celebratory', 'Competitive', 'Focused', 'Tense', 'Gritty', 'Raw', 'Serious',
+  'Confident', 'Bold', 'Rebellious', 'Futuristic', 'Sleek', 'Premium', 'Inspirational',
+  'Emotional', 'Playful', 'Fun', 'Relaxed', 'Chill', 'Atmospheric', 'Mysterious', 'Dark',
+  'Moody', 'Bright', 'Uplifting', 'Heroic', 'Technical', 'Informative', 'Neutral'
+];
+
+// ========== INTERFACES ==========
 
 interface AutoTagRequest {
   assetId: string;
@@ -39,59 +47,131 @@ interface AutoTagRequest {
   skipSalesforce?: boolean;
 }
 
-interface AIAnalysisResult {
-  objects: string[];
-  actions: string;
-  scene: string;
-  mood: string;
-  energy: string;
-  useCase: string;
+interface SalesforceAnalysisResult {
   description: string;
+  categories: string[];
+  contentType: string;
+  location: string;
+  mood: string;
   confidence: number;
 }
 
-// Perform AI visual analysis using Lovable AI Gateway
-async function performAIAnalysis(
+// ========== KNEWTV AI CONTRACT PROMPT ==========
+
+const KNEWTV_SYSTEM_PROMPT = `You are an AI video analysis and metadata classification engine for KnewTV Media Hub.
+
+Your job is to analyze uploaded media and generate structured metadata that maps cleanly and consistently into Salesforce.
+
+Follow the rules below exactly.
+
+🎯 1. REQUIRED OUTPUT FIELDS (DO NOT SKIP)
+You must always return values for the following Salesforce fields:
+- ri1__Description__c
+- ri1__Categories__c  
+- ri1__Content_Type__c
+- ri1__Location__c
+- ri1__AI_Creativity_Level__c (mood/tone)
+- ri1__AI_Percentage__c (confidence score)
+
+📝 2. DESCRIPTION (ri1__Description__c)
+Write a clear, neutral, human-readable summary of what happens in the media.
+Do NOT mention "AI", "model", or "analysis".
+1–3 sentences max.
+Describe subject, action, and setting.
+
+🗂️ 3. CATEGORIES (ri1__Categories__c)
+Select 1–3 values max from the approved Category picklist.
+Choose categories based on content intent, not camera style or mood.
+Never invent new categories.
+If unsure, include Unclassified.
+
+🎬 4. CONTENT TYPE (ri1__Content_Type__c)
+Select exactly ONE from: Promotional, Teaser, Interview, Behind the Scenes, Announcement, Highlight, Educational, Experimental
+If no clear intent exists, default to: Promotional
+
+🌍 5. SCENE / LOCATION (ri1__Location__c)
+Select exactly one from the approved Scene list.
+PRIORITY RULES:
+- If motorsport racing context is visible → choose a Race Track scene.
+- Race Track scenes override Outdoor / City / Studio.
+- Camera style does NOT override scene.
+If uncertain → Unknown / Unclassified
+
+🎭 6. MOOD / TONE (ri1__AI_Creativity_Level__c)
+Select 1 primary mood only.
+Choose emotional tone, not color or lighting.
+Do NOT select more than one.
+If no dominant mood exists → Neutral
+
+📊 7. CONFIDENCE SCORE (ri1__AI_Percentage__c)
+Output a numeric confidence value from 0–100.
+Represents confidence in correct scene + mood classification.
+If confidence < 80:
+- Use safer defaults
+- Prefer Neutral mood
+- Prefer Unknown / Unclassified scene
+
+🚫 8. FORBIDDEN BEHAVIOR
+- Do NOT create new picklist values.
+- Do NOT return free-text tags.
+- Do NOT exceed category or mood limits.`;
+
+// ========== AI ANALYSIS FUNCTION ==========
+
+async function performSalesforceAnalysis(
   mediaUrl: string, 
   mediaType: 'image' | 'video',
   apiKey: string
-): Promise<AIAnalysisResult> {
-  console.log(`[AI] Performing analysis for ${mediaType}: ${mediaUrl}`);
+): Promise<SalesforceAnalysisResult> {
+  console.log(`[AI] Performing Salesforce-mapped analysis for ${mediaType}: ${mediaUrl}`);
   
-  const systemPrompt = `You are an AI media analyst specializing in motorsport and racing content. 
-Analyze the provided ${mediaType} and extract semantic intelligence for content tagging.
-Be precise with your classifications. Keep descriptions factual and concise.`;
+  const userPrompt = `Analyze this ${mediaType} and classify it for Salesforce Content records.
 
-  const userPrompt = `Analyze this ${mediaType} and extract:
-1. OBJECTS: Primary physical elements visible (e.g., motorcycle, helmet, crowd, track)
-2. ACTIONS: Dominant actions as comma-separated verb phrases (e.g., racing, overtaking)
-3. SCENE: Single best category (Race Track, Pit Lane, Paddock, Studio, Interview, Outdoor, Night, Sunset, Urban, Aerial, POV, AI-Generated, Abstract, etc.)
-4. MOOD: Dominant tone (Intense, Cinematic, Epic, Celebratory, Competitive, Gritty, Premium, Atmospheric, etc.)
-5. ENERGY: Level (Low, Medium, High, Explosive)
-6. USE CASE: Primary use (Hero Content, Social Feed, Short-Form, Paid Ad, Website, Press, Event Promo, Archive, etc.)
-7. DESCRIPTION: 1-2 sentence factual description
-8. CONFIDENCE: Your confidence 0.0-1.0
+Media URL: ${mediaUrl}
 
-Media URL: ${mediaUrl}`;
+Return the classification using the analyze_media_for_salesforce function.`;
 
   const tools = [{
     type: 'function',
     function: {
-      name: 'analyze_media',
-      description: 'Extract semantic tags from media content',
+      name: 'analyze_media_for_salesforce',
+      description: 'Classify media content for Salesforce ri1__Content__c records following KnewTV data governance rules',
       parameters: {
         type: 'object',
         properties: {
-          objects: { type: 'array', items: { type: 'string' } },
-          actions: { type: 'string' },
-          scene: { type: 'string' },
-          mood: { type: 'string' },
-          energy: { type: 'string', enum: ['Low', 'Medium', 'High', 'Explosive'] },
-          useCase: { type: 'string' },
-          description: { type: 'string' },
-          confidence: { type: 'number', minimum: 0, maximum: 1 }
+          description: { 
+            type: 'string', 
+            description: '1-3 sentence factual description. No AI/model mentions. Describe subject, action, setting.' 
+          },
+          categories: { 
+            type: 'array', 
+            items: { type: 'string', enum: APPROVED_CATEGORIES },
+            maxItems: 3,
+            description: 'Select 1-3 categories based on content intent'
+          },
+          contentType: { 
+            type: 'string', 
+            enum: APPROVED_CONTENT_TYPES,
+            description: 'Single content type. Default to Promotional if unclear.'
+          },
+          location: { 
+            type: 'string', 
+            enum: APPROVED_LOCATIONS,
+            description: 'Scene/location. Race Track scenes take priority. Use Unknown / Unclassified if uncertain.'
+          },
+          mood: { 
+            type: 'string', 
+            enum: APPROVED_MOODS,
+            description: 'Single primary mood/tone. Default to Neutral if unclear.'
+          },
+          confidence: { 
+            type: 'integer', 
+            minimum: 0, 
+            maximum: 100,
+            description: 'Confidence 0-100 in classification accuracy. Use safer defaults if <80.'
+          }
         },
-        required: ['objects', 'actions', 'scene', 'mood', 'energy', 'useCase', 'description', 'confidence']
+        required: ['description', 'categories', 'contentType', 'location', 'mood', 'confidence']
       }
     }
   }];
@@ -105,7 +185,7 @@ Media URL: ${mediaUrl}`;
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
       messages: [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: KNEWTV_SYSTEM_PROMPT },
         { 
           role: 'user', 
           content: [
@@ -115,7 +195,7 @@ Media URL: ${mediaUrl}`;
         }
       ],
       tools,
-      tool_choice: { type: 'function', function: { name: 'analyze_media' } }
+      tool_choice: { type: 'function', function: { name: 'analyze_media_for_salesforce' } }
     }),
   });
 
@@ -128,32 +208,34 @@ Media URL: ${mediaUrl}`;
   const data = await response.json();
   const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
   
-  if (!toolCall || toolCall.function.name !== 'analyze_media') {
+  if (!toolCall || toolCall.function.name !== 'analyze_media_for_salesforce') {
     throw new Error('No valid tool call response from AI');
   }
 
   const result = JSON.parse(toolCall.function.arguments);
-  console.log('[AI] Analysis result:', result);
+  console.log('[AI] Salesforce analysis result:', result);
+
+  // Apply safety defaults if confidence is low
+  const confidence = result.confidence || 50;
+  const useSafeDefaults = confidence < 80;
 
   return {
-    objects: result.objects || [],
-    actions: result.actions || '',
-    scene: result.scene || 'Unknown',
-    mood: result.mood || 'Neutral',
-    energy: result.energy || 'Medium',
-    useCase: result.useCase || 'Archive',
-    description: result.description || '',
-    confidence: result.confidence || 0.5,
+    description: result.description || 'Media content uploaded to KnewTV.',
+    categories: result.categories?.length > 0 ? result.categories : ['Unclassified'],
+    contentType: useSafeDefaults && !result.contentType ? 'Promotional' : (result.contentType || 'Promotional'),
+    location: useSafeDefaults ? (result.location || 'Unknown / Unclassified') : (result.location || 'Unknown / Unclassified'),
+    mood: useSafeDefaults ? 'Neutral' : (result.mood || 'Neutral'),
+    confidence,
   };
 }
 
-// Find or create a tag by name
+// ========== TAG HELPERS ==========
+
 async function findOrCreateTag(
   supabase: ReturnType<typeof createClient>,
   tagName: string,
   color?: string
 ): Promise<string> {
-  // First try to find existing tag (case-insensitive)
   const { data: existingTag } = await supabase
     .from('media_tags')
     .select('id')
@@ -164,7 +246,6 @@ async function findOrCreateTag(
     return existingTag.id;
   }
 
-  // Create new tag
   const tagColor = color || getTagColor(tagName);
   const { data: newTag, error } = await supabase
     .from('media_tags')
@@ -181,58 +262,55 @@ async function findOrCreateTag(
   return newTag.id;
 }
 
-// Get color based on tag category
 function getTagColor(tagName: string): string {
-  if (SCENE_TAGS.some(t => tagName.toLowerCase().includes(t.toLowerCase()))) {
-    return '#3b82f6'; // Blue for scene
+  // Location tags - Blue
+  if (APPROVED_LOCATIONS.some(loc => tagName.toLowerCase().includes(loc.toLowerCase().split(' ')[0]))) {
+    return '#3b82f6';
   }
-  if (MOOD_TAGS.some(t => tagName.toLowerCase().includes(t.toLowerCase()))) {
-    return '#8b5cf6'; // Purple for mood
+  // Mood tags - Purple
+  if (APPROVED_MOODS.includes(tagName)) {
+    return '#8b5cf6';
   }
-  if (ENERGY_TAGS.some(t => tagName.toLowerCase().includes(t.toLowerCase()))) {
-    return '#ef4444'; // Red for energy
+  // Category tags - Green
+  if (APPROVED_CATEGORIES.includes(tagName)) {
+    return '#22c55e';
   }
-  if (USE_CASE_TAGS.some(t => tagName.toLowerCase().includes(t.toLowerCase()))) {
-    return '#22c55e'; // Green for use case
+  // Content type tags - Orange
+  if (APPROVED_CONTENT_TYPES.includes(tagName)) {
+    return '#f97316';
   }
   return '#6366f1'; // Default indigo
 }
 
-// Map AI analysis to tag names
-function extractTagsFromAnalysis(analysis: AIAnalysisResult): string[] {
+function extractTagsFromAnalysis(analysis: SalesforceAnalysisResult): string[] {
   const tags: string[] = [];
 
-  // Add scene tag
-  if (analysis.scene) {
-    tags.push(analysis.scene);
-  }
-
-  // Add mood tag
-  if (analysis.mood) {
-    tags.push(analysis.mood);
-  }
-
-  // Add energy tag with suffix for clarity
-  if (analysis.energy) {
-    tags.push(`${analysis.energy} Energy`);
-  }
-
-  // Add use case tag
-  if (analysis.useCase) {
-    tags.push(analysis.useCase);
-  }
-
-  // Add object tags (limit to top 5)
-  const objectTags = analysis.objects.slice(0, 5);
-  for (const obj of objectTags) {
-    if (obj.length > 2 && obj.length < 30) {
-      // Capitalize first letter
-      tags.push(obj.charAt(0).toUpperCase() + obj.slice(1).toLowerCase());
+  // Add categories as tags
+  for (const category of analysis.categories) {
+    if (category && category !== 'Unclassified') {
+      tags.push(category);
     }
   }
 
-  return [...new Set(tags)]; // Remove duplicates
+  // Add location as tag (simplified)
+  if (analysis.location && analysis.location !== 'Unknown / Unclassified') {
+    tags.push(analysis.location);
+  }
+
+  // Add mood as tag
+  if (analysis.mood && analysis.mood !== 'Neutral') {
+    tags.push(analysis.mood);
+  }
+
+  // Add content type as tag
+  if (analysis.contentType) {
+    tags.push(analysis.contentType);
+  }
+
+  return [...new Set(tags)];
 }
+
+// ========== MAIN HANDLER ==========
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -251,7 +329,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`=== Auto-tagging asset ${assetId} ===`);
+    console.log(`=== Auto-tagging asset ${assetId} (KnewTV Contract) ===`);
     console.log(`Media URL: ${mediaUrl}`);
     console.log(`Media Type: ${mediaType}`);
 
@@ -264,9 +342,9 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Step 1: Perform AI analysis
-    console.log('[Step 1] Performing AI analysis...');
-    const analysis = await performAIAnalysis(mediaUrl, mediaType, LOVABLE_API_KEY);
+    // Step 1: Perform Salesforce-mapped AI analysis
+    console.log('[Step 1] Performing Salesforce-mapped AI analysis...');
+    const analysis = await performSalesforceAnalysis(mediaUrl, mediaType, LOVABLE_API_KEY);
 
     // Step 2: Extract tag names from analysis
     console.log('[Step 2] Extracting tags from analysis...');
@@ -311,23 +389,22 @@ serve(async (req) => {
       }
     }
 
-    // Step 6: Update asset metadata with AI analysis
-    console.log('[Step 6] Updating asset metadata...');
+    // Step 6: Update asset metadata with Salesforce-mapped analysis
+    console.log('[Step 6] Updating asset metadata with SFDC-mapped analysis...');
     const { error: updateError } = await supabase
       .from('media_assets')
       .update({
         description: analysis.description || undefined,
         metadata: {
-          aiAnalysis: {
-            objects: analysis.objects,
-            actions: analysis.actions,
-            scene: analysis.scene,
+          sfdcAnalysis: {
+            description: analysis.description,
+            categories: analysis.categories,
+            contentType: analysis.contentType,
+            location: analysis.location,
             mood: analysis.mood,
-            energy: analysis.energy,
-            useCase: analysis.useCase,
             confidence: analysis.confidence,
-            analyzedAt: new Date().toISOString(),
           },
+          analyzedAt: new Date().toISOString(),
           autoTagged: true,
           autoTaggedAt: new Date().toISOString(),
         },
@@ -345,11 +422,18 @@ serve(async (req) => {
       .from('content_review_activities')
       .insert({
         media_asset_id: assetId,
-        action: 'auto_tagged',
+        action: 'auto_tagged_sfdc',
         details: {
           tagCount: tagIds.length,
           tags: tagNames,
-          confidence: analysis.confidence,
+          sfdcMapping: {
+            description: analysis.description,
+            categories: analysis.categories.join(';'),
+            contentType: analysis.contentType,
+            location: analysis.location,
+            mood: analysis.mood,
+            confidence: analysis.confidence,
+          },
           processingTimeMs: Date.now() - startTime,
         }
       });
@@ -363,12 +447,13 @@ serve(async (req) => {
         assetId,
         tagsApplied: tagNames,
         tagCount: tagIds.length,
-        analysis: {
-          scene: analysis.scene,
-          mood: analysis.mood,
-          energy: analysis.energy,
-          useCase: analysis.useCase,
-          confidence: analysis.confidence,
+        sfdcMapping: {
+          'ri1__Description__c': analysis.description,
+          'ri1__Categories__c': analysis.categories.join(';'),
+          'ri1__Content_Type__c': analysis.contentType,
+          'ri1__Location__c': analysis.location,
+          'ri1__AI_Creativity_Level__c': analysis.mood,
+          'ri1__AI_Percentage__c': analysis.confidence,
         },
         processingTimeMs: duration,
       }),
