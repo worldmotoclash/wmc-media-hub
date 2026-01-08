@@ -391,21 +391,19 @@ const MediaUpload: React.FC = () => {
         // Stage 1: Extract dimensions and thumbnail (0-25%)
         setUploadProgress(5);
         
-        // Extract video/image dimensions and thumbnail
+        // Extract video/image dimensions, thumbnail, and duration
         let dimensions = { width: 1920, height: 1080 };
         let thumbnailBase64: string | null = null;
+        let videoDuration: number = 0;
         
         if (isVideo) {
-          // Extract dimensions and thumbnail from video
-          const videoData = await new Promise<{ width: number; height: number; thumbnail: string | null }>((resolve) => {
+          // Extract dimensions, duration, and thumbnail from video
+          const videoData = await new Promise<{ width: number; height: number; thumbnail: string | null; duration: number }>((resolve) => {
             const video = document.createElement('video');
             video.preload = 'auto';
             video.muted = true;
             
             video.onloadeddata = () => {
-              const width = video.videoWidth;
-              const height = video.videoHeight;
-              
               // Seek to 1 second for thumbnail
               video.currentTime = Math.min(1, video.duration * 0.1);
             };
@@ -425,13 +423,14 @@ const MediaUpload: React.FC = () => {
               resolve({ 
                 width: video.videoWidth, 
                 height: video.videoHeight, 
-                thumbnail 
+                thumbnail,
+                duration: video.duration
               });
             };
             
             video.onerror = () => {
               URL.revokeObjectURL(video.src);
-              resolve({ width: 1920, height: 1080, thumbnail: null });
+              resolve({ width: 1920, height: 1080, thumbnail: null, duration: 0 });
             };
             
             video.src = URL.createObjectURL(selectedFile);
@@ -439,7 +438,8 @@ const MediaUpload: React.FC = () => {
           
           dimensions = { width: videoData.width, height: videoData.height };
           thumbnailBase64 = videoData.thumbnail;
-          console.log('Extracted video dimensions:', dimensions, 'thumbnail:', thumbnailBase64 ? 'yes' : 'no');
+          videoDuration = videoData.duration;
+          console.log('Extracted video dimensions:', dimensions, 'duration:', videoDuration, 'thumbnail:', thumbnailBase64 ? 'yes' : 'no');
         }
         
         setUploadProgress(15);
@@ -488,6 +488,7 @@ const MediaUpload: React.FC = () => {
             description: uploadData.description,
             tags: uploadData.tags.split(',').map(t => t.trim()).filter(Boolean),
             thumbnailBase64: thumbnailBase64, // Include thumbnail for videos
+            duration: isVideo ? videoDuration : undefined, // Include duration for videos
           },
         });
         

@@ -21,6 +21,7 @@ interface UploadMasterRequest {
   title?: string;
   creatorContactId?: string;
   thumbnailBase64?: string; // Optional thumbnail for video uploads
+  duration?: number; // Video duration in seconds
 }
 
 // Helper function to escape special regex characters
@@ -115,7 +116,7 @@ serve(async (req) => {
       dimensions: `${payload.width}x${payload.height}`,
     });
 
-    const { imageBase64, filename, mimeType, width, height, title, creatorContactId, thumbnailBase64 } = payload;
+    const { imageBase64, filename, mimeType, width, height, title, creatorContactId, thumbnailBase64, duration } = payload;
 
     if (!imageBase64 || !filename || !width || !height) {
       return new Response(
@@ -129,7 +130,7 @@ serve(async (req) => {
     const fileExtension = filename.split('.').pop()?.toLowerCase() || (isVideo ? 'mp4' : 'jpg');
     const assetType = isVideo ? 'video' : 'master_image';
 
-    console.log(`Detected media type: ${assetType}, extension: ${fileExtension}, isVideo: ${isVideo}`);
+    console.log(`Detected media type: ${assetType}, extension: ${fileExtension}, isVideo: ${isVideo}, duration: ${duration}`);
 
     const s3Config = getS3Config();
     
@@ -149,12 +150,14 @@ serve(async (req) => {
     });
 
     const masterId = crypto.randomUUID();
-    const s3Key = `${S3_PATHS.SOCIAL_MEDIA_MASTERS}/${masterId}/master.${fileExtension}`;
+    // Use different S3 path for videos vs images
+    const s3BasePath = isVideo ? S3_PATHS.VIDEO_MASTERS : S3_PATHS.SOCIAL_MEDIA_MASTERS;
+    const s3Key = `${s3BasePath}/${masterId}/master.${fileExtension}`;
 
     // Upload thumbnail for videos if provided
     let thumbnailUrl: string | null = null;
     if (isVideo && thumbnailBase64) {
-      const thumbKey = `${S3_PATHS.SOCIAL_MEDIA_MASTERS}/${masterId}/thumbnail.jpg`;
+      const thumbKey = `${s3BasePath}/${masterId}/thumbnail.jpg`;
       const thumbData = Uint8Array.from(atob(thumbnailBase64), c => c.charCodeAt(0));
       const thumbUploadUrl = `${s3Config.endpoint}/${s3Config.bucketName}/${thumbKey}`;
       
@@ -218,7 +221,9 @@ serve(async (req) => {
       mimeType,
       masterId,
       uploadedAt: new Date().toISOString(),
-      isMasterImage: true,
+      isMasterImage: !isVideo,
+      isVideo,
+      duration: isVideo ? duration : undefined,
       sfdcSyncStatus: 'pending' as const,
       creatorContactId,
     };
@@ -234,6 +239,7 @@ serve(async (req) => {
         file_format: fileExtension,
         asset_type: assetType,
         s3_key: s3Key,
+        duration: isVideo ? duration : null, // Store duration for videos
         metadata: initialMetadata,
       })
       .select()
