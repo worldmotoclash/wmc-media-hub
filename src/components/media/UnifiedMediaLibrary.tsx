@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music } from "lucide-react";
+import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music, Info } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -34,6 +34,7 @@ import MiniAudioPlayer from "./MiniAudioPlayer";
 import MediaSourceDashboard from "./MediaSourceDashboard";
 import { S3BucketConfigManager } from "./S3BucketConfigManager";
 import { MediaNavigation } from "./MediaNavigation";
+import { MediaAssetDetailsDrawer } from "./MediaAssetDetailsDrawer";
 
 interface MiniPlayerState {
   isOpen: boolean;
@@ -77,6 +78,10 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
   const [isBulkTagging, setIsBulkTagging] = useState(false);
   const [bulkTagProgress, setBulkTagProgress] = useState({ current: 0, total: 0 });
+  
+  // Details drawer state
+  const [detailsAsset, setDetailsAsset] = useState<MediaAsset | null>(null);
+  const [showDetailsDrawer, setShowDetailsDrawer] = useState(false);
   
   const pageSize = 20;
   const { user } = useUser();
@@ -1078,6 +1083,17 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       Preview
                     </Button>
                     
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setDetailsAsset(asset);
+                        setShowDetailsDrawer(true);
+                      }}
+                    >
+                      <Info className="w-3 h-3" />
+                    </Button>
+                    
                     {asset.status === 'pending' && (
                       <Button
                         size="sm"
@@ -1321,6 +1337,16 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       >
                         <Eye className="w-4 h-4" />
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setDetailsAsset(asset);
+                          setShowDetailsDrawer(true);
+                        }}
+                      >
+                        <Info className="w-4 h-4" />
+                      </Button>
                       {asset.status === 'pending' && (
                         <Button
                           size="sm"
@@ -1510,6 +1536,17 @@ export const UnifiedMediaLibrary: React.FC = () => {
         source={miniPlayer.source}
         isOpen={miniPlayer.isOpen}
         onClose={closeMiniPlayer}
+      />
+
+      {/* Media Asset Details Drawer */}
+      <MediaAssetDetailsDrawer
+        asset={detailsAsset}
+        open={showDetailsDrawer}
+        onOpenChange={setShowDetailsDrawer}
+        onPreview={(asset) => {
+          setShowDetailsDrawer(false);
+          setSelectedAsset(asset);
+        }}
       />
     </div>
     </div>
