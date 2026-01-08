@@ -79,6 +79,7 @@ export interface SearchFilters {
   status?: string[];
   tags?: string[];
   assetTypes?: string[];
+  excludeAssetTypes?: string[]; // For hiding variants by default
   dateRange?: {
     start: string;
     end: string;
@@ -176,6 +177,13 @@ export async function fetchAllMediaAssets(
 
     if (filters?.assetTypes?.length) {
       query = query.in('asset_type', filters.assetTypes);
+    }
+
+    // Exclude specific asset types (for hiding variants by default)
+    if (filters?.excludeAssetTypes?.length) {
+      for (const assetType of filters.excludeAssetTypes) {
+        query = query.neq('asset_type', assetType);
+      }
     }
 
     if (filters?.dateRange) {
@@ -327,6 +335,13 @@ export async function fetchAllMediaAssets(
             // Exclude assets with unknown type when filter is active
             return false;
           });
+        }
+
+        // Apply excludeAssetTypes filtering (for hiding variants by default)
+        if (filters?.excludeAssetTypes?.length) {
+          salesforceAssets = salesforceAssets.filter(asset => 
+            !filters.excludeAssetTypes!.includes(asset.assetType || '')
+          );
         }
       } catch (error) {
         console.warn('Failed to fetch Salesforce content:', error);
@@ -692,4 +707,71 @@ function transformSalesforceAsset(salesforceContent: any): MediaAsset {
     salesforceId: salesforceContent.id,
     syncStatus: 'in_sync' // SFDC content is always synced
   };
+}
+
+// Fetch variant counts for master assets
+export async function fetchVariantCounts(): Promise<Map<string, number>> {
+  try {
+    const { data, error } = await supabase
+      .from('media_assets')
+      .select('metadata, master_id')
+      .in('asset_type', ['image_variant', 'grid_variant']);
+
+    if (error) {
+      console.error('Error fetching variant counts:', error);
+      return new Map();
+    }
+
+    // Count variants by masterAssetId (can be UUID or Salesforce ID)
+    const countMap = new Map<string, number>();
+    data?.forEach(asset => {
+      // Check metadata.masterAssetId first (for social kit variants)
+      const masterId = (asset.metadata as any)?.masterAssetId || asset.master_id;
+      if (masterId) {
+        countMap.set(masterId, (countMap.get(masterId) || 0) + 1);
+      }
+    });
+
+    return countMap;
+  } catch (error) {
+    console.error('Error in fetchVariantCounts:', error);
+    return new Map();
+  }
+}
+
+// Fetch variants for a specific master asset
+export async function fetchVariantsForMaster(masterId: string, salesforceId?: string | null): Promise<MediaAsset[]> {
+  try {
+    // Build query for variants that reference this master
+    const { data, error } = await supabase
+      .from('media_assets')
+      .select(`
+        *,
+        media_asset_tags (
+          media_tags (*)
+        ),
+        content_review_activities (*)
+      `)
+      .in('asset_type', ['image_variant', 'grid_variant'])
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching variants for master:', error);
+      return [];
+    }
+
+    // Filter by master ID (could be in metadata.masterAssetId or master_id column)
+    const matchingAssets = (data || []).filter(asset => {
+      const metaMasterId = (asset.metadata as any)?.masterAssetId;
+      // Match by UUID master_id, metadata masterAssetId, or Salesforce ID
+      return asset.master_id === masterId || 
+             metaMasterId === masterId || 
+             (salesforceId && metaMasterId === salesforceId);
+    });
+
+    return matchingAssets.map(transformDatabaseAsset);
+  } catch (error) {
+    console.error('Error in fetchVariantsForMaster:', error);
+    return [];
+  }
 }

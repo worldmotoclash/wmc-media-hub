@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music, Info, SlidersHorizontal } from "lucide-react";
+import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music, Info, SlidersHorizontal, ChevronDown, ChevronUp, Layers, Grid3x3 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -18,6 +18,8 @@ import {
   fetchMediaTags,
   fetchS3BucketConfigs,
   scanS3Bucket,
+  fetchVariantCounts,
+  fetchVariantsForMaster,
   MediaAsset,
   MediaTag,
   S3BucketConfig,
@@ -59,7 +61,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [selectedAsset, setSelectedAsset] = useState<MediaAsset | null>(null);
   const [showWorkflowDialog, setShowWorkflowDialog] = useState(false);
   const [workflowAsset, setWorkflowAsset] = useState<MediaAsset | null>(null);
-  const [filters, setFilters] = useState<SearchFilters>({});
+  const [filters, setFilters] = useState<SearchFilters>({
+    excludeAssetTypes: ['image_variant', 'grid_variant'] // Hide variants by default
+  });
   const [sortOption, setSortOption] = useState<SortOption>({ field: 'created_at', direction: 'desc' });
   const [isScanning, setIsScanning] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('library');
@@ -86,6 +90,13 @@ export const UnifiedMediaLibrary: React.FC = () => {
   
   // Filter drawer state
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
+  
+  // Variant expansion state
+  const [hideVariants, setHideVariants] = useState(true);
+  const [variantCounts, setVariantCounts] = useState<Map<string, number>>(new Map());
+  const [expandedMasters, setExpandedMasters] = useState<Set<string>>(new Set());
+  const [expandedVariants, setExpandedVariants] = useState<Map<string, MediaAsset[]>>(new Map());
+  const [loadingVariants, setLoadingVariants] = useState<Set<string>>(new Set());
   
   const pageSize = 20;
   const { user } = useUser();
@@ -236,6 +247,62 @@ export const UnifiedMediaLibrary: React.FC = () => {
 
     return () => clearTimeout(delayedSearch);
   }, [searchQuery, filters, sortOption, activeTab, currentPage]);
+
+  // Fetch variant counts on mount
+  useEffect(() => {
+    fetchVariantCounts().then(setVariantCounts);
+  }, []);
+
+  // Toggle hide variants - update filter
+  const toggleHideVariants = () => {
+    const newHideVariants = !hideVariants;
+    setHideVariants(newHideVariants);
+    setFilters(prev => ({
+      ...prev,
+      excludeAssetTypes: newHideVariants ? ['image_variant', 'grid_variant'] : undefined
+    }));
+  };
+
+  // Get variant count for an asset (checks both UUID and Salesforce ID)
+  const getVariantCount = (asset: MediaAsset): number => {
+    let count = variantCounts.get(asset.id) || 0;
+    if (asset.salesforceId) {
+      count = Math.max(count, variantCounts.get(asset.salesforceId) || 0);
+    }
+    return count;
+  };
+
+  // Toggle expand/collapse variants for a master asset
+  const toggleExpandVariants = async (asset: MediaAsset) => {
+    const masterId = asset.id;
+    
+    if (expandedMasters.has(masterId)) {
+      // Collapse
+      setExpandedMasters(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(masterId);
+        return newSet;
+      });
+    } else {
+      // Expand - fetch variants if not cached
+      if (!expandedVariants.has(masterId)) {
+        setLoadingVariants(prev => new Set(prev).add(masterId));
+        const variants = await fetchVariantsForMaster(masterId, asset.salesforceId);
+        setExpandedVariants(prev => new Map(prev).set(masterId, variants));
+        setLoadingVariants(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(masterId);
+          return newSet;
+        });
+      }
+      setExpandedMasters(prev => new Set(prev).add(masterId));
+    }
+  };
+
+  // Check if asset is a master type that can have variants
+  const isMasterType = (assetType?: string) => {
+    return ['master_image', 'generation_master', 'image'].includes(assetType || '');
+  };
 
   const loadLibraryData = async () => {
     try {
@@ -824,6 +891,21 @@ export const UnifiedMediaLibrary: React.FC = () => {
                   </Badge>
                 )}
               </Button>
+              
+              {/* Hide/Show Variants Toggle */}
+              <Button
+                variant={hideVariants ? "secondary" : "outline"}
+                onClick={toggleHideVariants}
+                className="w-full flex items-center justify-between gap-2"
+              >
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4" />
+                  {hideVariants ? "Show Variants" : "Hide Variants"}
+                </div>
+                {!hideVariants && (
+                  <Badge variant="secondary">Showing</Badge>
+                )}
+              </Button>
             </div>
 
           </div>
@@ -995,17 +1077,40 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     </div>
                   )}
                   
-                  <div className="absolute top-2 left-2 flex gap-1 flex-wrap">
-                    <Badge variant="secondary" className="text-xs">
-                      {asset.assetType === 'video' ? (
-                        <Video className="w-3 h-3 mr-1" />
-                      ) : asset.assetType === 'image' ? (
+                  <div className="absolute top-2 left-10 flex gap-1 flex-wrap">
+                    {/* Asset Type Badge - with distinct colors for different types */}
+                    {asset.assetType === 'image_variant' ? (
+                      <Badge className="text-xs bg-purple-600/90 text-white border-0">
+                        <Sparkles className="w-3 h-3 mr-1" />
+                        Variant
+                      </Badge>
+                    ) : asset.assetType === 'grid_variant' ? (
+                      <Badge className="text-xs bg-blue-600/90 text-white border-0">
+                        <Grid3x3 className="w-3 h-3 mr-1" />
+                        Grid
+                      </Badge>
+                    ) : asset.assetType === 'master_image' ? (
+                      <Badge className="text-xs bg-green-600/90 text-white border-0">
                         <Image className="w-3 h-3 mr-1" />
-                      ) : asset.assetType === 'audio' ? (
-                        <Music className="w-3 h-3 mr-1" />
-                      ) : null}
-                      {asset.assetType || asset.source.replace('_', ' ')}
-                    </Badge>
+                        Master
+                      </Badge>
+                    ) : asset.assetType === 'generation_master' ? (
+                      <Badge className="text-xs bg-amber-600/90 text-white border-0">
+                        <Sparkles className="w-3 h-3 mr-1" />
+                        AI Gen
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-xs">
+                        {asset.assetType === 'video' ? (
+                          <Video className="w-3 h-3 mr-1" />
+                        ) : asset.assetType === 'image' ? (
+                          <Image className="w-3 h-3 mr-1" />
+                        ) : asset.assetType === 'audio' ? (
+                          <Music className="w-3 h-3 mr-1" />
+                        ) : null}
+                        {asset.assetType || asset.source.replace('_', ' ')}
+                      </Badge>
+                    )}
                     {/* Content Origin Badge */}
                     {getContentOriginIcon(asset.source, asset.fileFormat) && (
                       <Badge variant="secondary" className="text-xs px-1.5">
@@ -1013,6 +1118,21 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       </Badge>
                     )}
                   </div>
+                  
+                  {/* Variant Count Badge - show on masters with variants */}
+                  {isMasterType(asset.assetType) && getVariantCount(asset) > 0 && (
+                    <Badge 
+                      variant="outline" 
+                      className="absolute bottom-2 left-2 bg-purple-500/90 text-white border-0 cursor-pointer hover:bg-purple-600"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleExpandVariants(asset);
+                      }}
+                    >
+                      <Layers className="w-3 h-3 mr-1" />
+                      {getVariantCount(asset)} variants
+                    </Badge>
+                  )}
                   
                   <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
                     <Badge className={getStatusColor(asset.status)}>
@@ -1122,8 +1242,81 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       </Button>
                     )}
                   </div>
+                  
+                  {/* Expand/Collapse Variants Button */}
+                  {isMasterType(asset.assetType) && getVariantCount(asset) > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full mt-2 text-muted-foreground hover:text-foreground"
+                      onClick={() => toggleExpandVariants(asset)}
+                      disabled={loadingVariants.has(asset.id)}
+                    >
+                      {loadingVariants.has(asset.id) ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
+                          Loading...
+                        </>
+                      ) : expandedMasters.has(asset.id) ? (
+                        <>
+                          <ChevronUp className="w-4 h-4 mr-1" />
+                          Hide {getVariantCount(asset)} variants
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="w-4 h-4 mr-1" />
+                          Show {getVariantCount(asset)} variants
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
+              
+              {/* Expanded Variants Panel */}
+              {expandedMasters.has(asset.id) && expandedVariants.get(asset.id) && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-2 p-3 bg-muted/30 rounded-lg border"
+                >
+                  <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                    <Layers className="w-3 h-3" />
+                    Variants of "{asset.title.slice(0, 30)}{asset.title.length > 30 ? '...' : ''}"
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {expandedVariants.get(asset.id)?.map(variant => (
+                      <Card 
+                        key={variant.id} 
+                        className="p-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => setSelectedAsset(variant)}
+                      >
+                        <div className="relative">
+                          <img 
+                            src={variant.thumbnailUrl || variant.fileUrl || '/placeholder.svg'} 
+                            alt={variant.title}
+                            className="w-full h-16 object-cover rounded"
+                          />
+                          <Badge 
+                            className={`absolute top-1 left-1 text-[10px] px-1 py-0 ${
+                              variant.assetType === 'image_variant' 
+                                ? 'bg-purple-600/90 text-white border-0' 
+                                : 'bg-blue-600/90 text-white border-0'
+                            }`}
+                          >
+                            {variant.assetType === 'image_variant' ? 'Social' : 'Grid'}
+                          </Badge>
+                        </div>
+                        <div className="mt-1 text-xs truncate">{variant.title}</div>
+                        {variant.resolution && (
+                          <div className="text-[10px] text-muted-foreground">{variant.resolution}</div>
+                        )}
+                      </Card>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
             </motion.div>
           ))}
         </div>
