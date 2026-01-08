@@ -12,7 +12,7 @@ import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Wand2, AlertCircle, CheckCircle2, Calendar, MapPin, Tag, ArrowLeft, Sparkles, Clock, Monitor, Video } from "lucide-react";
+import { Upload, Wand2, AlertCircle, CheckCircle2, Calendar, MapPin, Tag, ArrowLeft, Sparkles, Clock, Monitor, Video, X, FileVideo } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
@@ -56,6 +56,12 @@ const MediaUpload: React.FC = () => {
     tags: '',
     keywords: ''
   });
+  
+  // File upload state
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   
   // AI Generation form state with Salesforce fields
   const [genData, setGenData] = useState({
@@ -179,12 +185,158 @@ const MediaUpload: React.FC = () => {
     return null;
   }
 
-  const handleUploadSubmit = (e: React.FormEvent) => {
+  // File drag & drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    toast({
-      title: "Coming Soon",
-      description: "Upload functionality will be available soon!",
-    });
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
+
+  const handleFileSelect = (file: File) => {
+    const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-m4v'];
+    if (!validTypes.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload a video file (MP4, WebM, MOV, AVI, M4V)",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Max 500MB
+    if (file.size > 500 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Maximum file size is 500MB",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setSelectedFile(file);
+    // Auto-fill title from filename if empty
+    if (!uploadData.title) {
+      const fileName = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
+      setUploadData(prev => ({ ...prev, title: fileName }));
+    }
+  };
+
+  const handleBrowseClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
+
+  const clearSelectedFile = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedFile && !uploadData.url) {
+      toast({
+        title: "No video selected",
+        description: "Please select a video file or enter a URL",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!uploadData.title) {
+      toast({
+        title: "Title required",
+        description: "Please enter a title for the video",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    
+    try {
+      if (selectedFile) {
+        // Convert file to base64
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve, reject) => {
+          reader.onload = () => {
+            const result = reader.result as string;
+            const base64 = result.split(',')[1];
+            resolve(base64);
+          };
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(selectedFile);
+        const base64Data = await base64Promise;
+
+        // Upload to S3 via edge function
+        const { data, error } = await supabase.functions.invoke('upload-master-to-s3', {
+          body: {
+            fileName: selectedFile.name,
+            fileType: selectedFile.type,
+            fileSize: selectedFile.size,
+            imageData: base64Data,
+            title: uploadData.title,
+            description: uploadData.description,
+            tags: uploadData.tags.split(',').map(t => t.trim()).filter(Boolean),
+          },
+        });
+
+        if (error) throw error;
+        
+        toast({
+          title: "Upload successful!",
+          description: "Video has been uploaded and is being processed.",
+        });
+        
+        // Clear form
+        setSelectedFile(null);
+        setUploadData({ url: '', title: '', description: '', tags: '', keywords: '' });
+        
+        // Navigate to library
+        navigate('/admin/media/library');
+      } else {
+        // URL-based upload - placeholder for now
+        toast({
+          title: "Coming Soon",
+          description: "URL import functionality will be available soon!",
+        });
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "An error occurred during upload",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const [submissionCount, setSubmissionCount] = useState(0);
@@ -510,12 +662,60 @@ const MediaUpload: React.FC = () => {
                         />
                       </div>
 
-                      <div className="text-center py-8 border-2 border-dashed border-muted-foreground/20 rounded-lg">
-                        <Video className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                        <p className="text-muted-foreground mb-2">Or drag & drop video files</p>
-                        <Button variant="outline" type="button">
-                          Browse Files
-                        </Button>
+                      {/* Drag & Drop Zone */}
+                      <div
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        className={`text-center py-8 border-2 border-dashed rounded-lg transition-colors cursor-pointer ${
+                          isDragOver 
+                            ? 'border-primary bg-primary/10' 
+                            : selectedFile 
+                              ? 'border-primary/50 bg-primary/5' 
+                              : 'border-muted-foreground/20 hover:border-muted-foreground/40'
+                        }`}
+                        onClick={!selectedFile ? handleBrowseClick : undefined}
+                      >
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-m4v"
+                          onChange={handleFileInputChange}
+                          className="hidden"
+                        />
+                        
+                        {selectedFile ? (
+                          <div className="space-y-2">
+                            <FileVideo className="w-12 h-12 mx-auto text-primary" />
+                            <p className="text-foreground font-medium">{selectedFile.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                            </p>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                clearSelectedFile();
+                              }}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <X className="w-4 h-4 mr-1" />
+                              Remove
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <Video className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                            <p className="text-muted-foreground mb-2">
+                              {isDragOver ? 'Drop your video here' : 'Drag & drop video files'}
+                            </p>
+                            <Button variant="outline" type="button" onClick={handleBrowseClick}>
+                              Browse Files
+                            </Button>
+                          </>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -554,8 +754,15 @@ const MediaUpload: React.FC = () => {
                       </div>
                     </div>
 
-                    <Button type="submit" className="w-full">
-                      Upload & Process Video
+                    <Button type="submit" className="w-full" disabled={isUploading}>
+                      {isUploading ? (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        'Upload & Process Video'
+                      )}
                     </Button>
                   </form>
                 </CardContent>
