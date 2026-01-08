@@ -65,3 +65,6 @@ verify_jwt = false
 
 [functions.auto-tag-media-asset]
 verify_jwt = false
+
+[functions.analyze-video-preview]
+verify_jwt = false

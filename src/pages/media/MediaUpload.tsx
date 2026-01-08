@@ -64,6 +64,17 @@ const MediaUpload: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   
+  // AI Analysis state
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisComplete, setAnalysisComplete] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<{
+    tags: string[];
+    description: string;
+    confidence: number;
+    scene?: string;
+    mood?: string;
+  } | null>(null);
+  
   // AI Generation form state with Salesforce fields
   const [genData, setGenData] = useState({
     provider: 'wavespeed',
@@ -252,8 +263,100 @@ const MediaUpload: React.FC = () => {
 
   const clearSelectedFile = () => {
     setSelectedFile(null);
+    setAnalysisComplete(false);
+    setAiSuggestions(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  // Extract a frame from video for AI analysis
+  const extractVideoFrame = async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      video.preload = 'metadata';
+      video.muted = true;
+      video.playsInline = true;
+      
+      video.onloadeddata = () => {
+        // Seek to 1 second or 10% of duration, whichever is smaller
+        video.currentTime = Math.min(1, video.duration * 0.1);
+      };
+      
+      video.onseeked = () => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx?.drawImage(video, 0, 0);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        URL.revokeObjectURL(video.src);
+        resolve(dataUrl);
+      };
+      
+      video.onerror = () => {
+        URL.revokeObjectURL(video.src);
+        reject(new Error('Failed to load video'));
+      };
+      
+      video.src = URL.createObjectURL(file);
+    });
+  };
+
+  // AI Analysis handler
+  const handleAnalyzeVideo = async () => {
+    if (!selectedFile) return;
+    
+    setIsAnalyzing(true);
+    
+    try {
+      // Extract a frame from the video
+      const frameData = await extractVideoFrame(selectedFile);
+      
+      // Call the analyze-video-preview edge function
+      const { data, error } = await supabase.functions.invoke('analyze-video-preview', {
+        body: { 
+          videoData: frameData, 
+          fileName: selectedFile.name,
+          mediaType: 'video'
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        // Populate form fields with AI suggestions
+        setUploadData(prev => ({
+          ...prev,
+          tags: data.tags.join(', '),
+          description: data.description
+        }));
+        setAiSuggestions({
+          tags: data.tags,
+          description: data.description,
+          confidence: data.confidence,
+          scene: data.scene,
+          mood: data.mood
+        });
+        setAnalysisComplete(true);
+        
+        toast({
+          title: "Analysis Complete",
+          description: `AI analyzed your video with ${Math.round(data.confidence * 100)}% confidence`,
+        });
+      } else {
+        throw new Error(data?.error || 'Analysis failed');
+      }
+    } catch (error) {
+      console.error('AI analysis error:', error);
+      toast({
+        title: "Analysis Failed",
+        description: error instanceof Error ? error.message : "Failed to analyze video",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -753,9 +856,63 @@ const MediaUpload: React.FC = () => {
                         )}
                       </div>
 
+                      {/* AI Analysis Section */}
+                      {selectedFile && !analysisComplete && (
+                        <div className="flex items-center justify-center gap-4 py-4 px-6 border border-dashed border-muted-foreground/30 rounded-lg bg-muted/30">
+                          <Wand2 className="w-5 h-5 text-primary" />
+                          <span className="text-sm text-muted-foreground">
+                            Want AI to suggest tags and description?
+                          </span>
+                          <Button 
+                            type="button" 
+                            variant="secondary"
+                            onClick={handleAnalyzeVideo}
+                            disabled={isAnalyzing}
+                          >
+                            {isAnalyzing ? (
+                              <>
+                                <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                                Analyzing...
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="w-4 h-4 mr-2" />
+                                Analyze with AI
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* AI Analysis Complete Badge */}
+                      {analysisComplete && aiSuggestions && (
+                        <Alert className="bg-green-500/10 border-green-500/30">
+                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          <AlertDescription className="flex items-center gap-2 flex-wrap">
+                            <span>AI analysis complete</span>
+                            <Badge variant="secondary" className="bg-green-500/20">
+                              {Math.round(aiSuggestions.confidence * 100)}% confidence
+                            </Badge>
+                            {aiSuggestions.scene && (
+                              <Badge variant="outline" className="text-xs">
+                                Scene: {aiSuggestions.scene}
+                              </Badge>
+                            )}
+                            {aiSuggestions.mood && (
+                              <Badge variant="outline" className="text-xs">
+                                Mood: {aiSuggestions.mood}
+                              </Badge>
+                            )}
+                            <span className="text-muted-foreground text-sm">— Review and edit below</span>
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <Label htmlFor="title">Video Title</Label>
+                          <Label htmlFor="title" className="flex items-center gap-2">
+                            Video Title
+                          </Label>
                           <Input
                             id="title"
                             placeholder="Racing highlight reel..."
@@ -765,7 +922,10 @@ const MediaUpload: React.FC = () => {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="tags">Tags</Label>
+                          <Label htmlFor="tags" className="flex items-center gap-2">
+                            Tags
+                            {analysisComplete && <Badge variant="secondary" className="text-xs">AI suggested</Badge>}
+                          </Label>
                           <Input
                             id="tags"
                             placeholder="racing, motocross, highlights"
@@ -777,7 +937,10 @@ const MediaUpload: React.FC = () => {
                       </div>
 
                       <div>
-                        <Label htmlFor="description">Description</Label>
+                        <Label htmlFor="description" className="flex items-center gap-2">
+                          Description
+                          {analysisComplete && <Badge variant="secondary" className="text-xs">AI suggested</Badge>}
+                        </Label>
                         <Textarea
                           id="description"
                           placeholder="Describe the video content..."
