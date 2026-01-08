@@ -87,9 +87,11 @@ export interface SearchFilters {
   // New filter types
   contentOrigin?: ('youtube' | 'ai_generated' | 'uploaded' | 'audio')[];
   syncStatus?: 'all' | 'in_sync' | 'missing_sfdc' | 'missing_file';
-  // Salesforce metadata filters
-  location?: string;
-  mood?: string;
+  // Salesforce metadata filters (multi-select)
+  categories?: string[];
+  contentTypes?: string[];
+  locations?: string[];
+  moods?: string[];
 }
 
 export interface SortOption {
@@ -182,13 +184,25 @@ export async function fetchAllMediaAssets(
         .lte('created_at', filters.dateRange.end);
     }
 
-    // Filter by Salesforce metadata (location/mood stored in metadata.sfdcAnalysis)
-    if (filters?.location) {
-      query = query.eq('metadata->sfdcAnalysis->>location', filters.location);
+    // Filter by Salesforce metadata (multi-select, stored in metadata.sfdcAnalysis)
+    if (filters?.categories?.length) {
+      // Categories is an array in metadata, use OR for each selected category
+      const categoryFilters = filters.categories.map(cat => 
+        `metadata->sfdcAnalysis->categories.cs.["${cat}"]`
+      ).join(',');
+      query = query.or(categoryFilters);
     }
 
-    if (filters?.mood) {
-      query = query.eq('metadata->sfdcAnalysis->>mood', filters.mood);
+    if (filters?.contentTypes?.length) {
+      query = query.in('metadata->sfdcAnalysis->>contentType', filters.contentTypes);
+    }
+
+    if (filters?.locations?.length) {
+      query = query.in('metadata->sfdcAnalysis->>location', filters.locations);
+    }
+
+    if (filters?.moods?.length) {
+      query = query.in('metadata->sfdcAnalysis->>mood', filters.moods);
     }
 
     if (searchQuery) {
