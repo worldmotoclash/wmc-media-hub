@@ -50,6 +50,30 @@ export interface S3BucketConfig {
   scanFrequencyHours: number;
 }
 
+// Salesforce picklist values for Location (Scene)
+export const APPROVED_LOCATIONS = [
+  'Race Track – On Track', 'Race Track – Grid / Start', 'Race Track – Pit Lane',
+  'Race Track – Paddock / Garage', 'Race Track – Victory / Podium', 'Studio',
+  'Interview / Talking Head', 'Outdoor – Day', 'Outdoor – Night', 'Sunset / Golden Hour',
+  'Urban / City', 'Industrial / Warehouse', 'Crowd / Fan Experience',
+  'Festival / Event Atmosphere', 'Hospitality / VIP Experience', 'Lifestyle / Off-Track',
+  'Aerial / Drone', 'POV / Helmet Cam', 'Onboard / Vehicle Mounted',
+  'AI-Generated / Virtual', 'Mixed Reality / Composited', 'Abstract / Graphic',
+  'Unknown / Unclassified'
+] as const;
+
+// Salesforce picklist values for Mood
+export const APPROVED_MOODS = [
+  'Intense', 'High Energy', 'Aggressive', 'Adrenaline', 'Dramatic', 'Cinematic', 'Epic',
+  'Triumphant', 'Celebratory', 'Competitive', 'Focused', 'Tense', 'Gritty', 'Raw', 'Serious',
+  'Confident', 'Bold', 'Rebellious', 'Futuristic', 'Sleek', 'Premium', 'Inspirational',
+  'Emotional', 'Playful', 'Fun', 'Relaxed', 'Chill', 'Atmospheric', 'Mysterious', 'Dark',
+  'Moody', 'Bright', 'Uplifting', 'Heroic', 'Technical', 'Informative', 'Neutral'
+] as const;
+
+export type ApprovedLocation = typeof APPROVED_LOCATIONS[number];
+export type ApprovedMood = typeof APPROVED_MOODS[number];
+
 export interface SearchFilters {
   sources?: string[];
   status?: string[];
@@ -63,6 +87,9 @@ export interface SearchFilters {
   // New filter types
   contentOrigin?: ('youtube' | 'ai_generated' | 'uploaded' | 'audio')[];
   syncStatus?: 'all' | 'in_sync' | 'missing_sfdc' | 'missing_file';
+  // Salesforce metadata filters
+  location?: string;
+  mood?: string;
 }
 
 export interface SortOption {
@@ -153,6 +180,15 @@ export async function fetchAllMediaAssets(
       query = query
         .gte('created_at', filters.dateRange.start)
         .lte('created_at', filters.dateRange.end);
+    }
+
+    // Filter by Salesforce metadata (location/mood stored in metadata.sfdcAnalysis)
+    if (filters?.location) {
+      query = query.eq('metadata->sfdcAnalysis->>location', filters.location);
+    }
+
+    if (filters?.mood) {
+      query = query.eq('metadata->sfdcAnalysis->>mood', filters.mood);
     }
 
     if (searchQuery) {
