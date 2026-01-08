@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music, Info } from "lucide-react";
+import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music, Info, MapPin, Palette } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -22,7 +22,9 @@ import {
   MediaTag,
   S3BucketConfig,
   SearchFilters,
-  SortOption
+  SortOption,
+  APPROVED_LOCATIONS,
+  APPROVED_MOODS
 } from "@/services/unifiedMediaService";
 import { getMediaSourceStats, MediaSourceStats } from "@/services/mediaSourceStatsService";
 import { supabase } from "@/integrations/supabase/client";
@@ -819,6 +821,52 @@ export const UnifiedMediaLibrary: React.FC = () => {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Location Filter (Salesforce Scene) */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium mb-2 block flex items-center gap-1.5">
+                <MapPin className="w-4 h-4" /> Location / Scene
+              </label>
+              <Select
+                value={filters.location || 'all'}
+                onValueChange={(value) => handleFilterChange('location', value === 'all' ? undefined : value)}
+              >
+                <SelectTrigger className="w-full bg-background">
+                  <SelectValue placeholder="All Locations" />
+                </SelectTrigger>
+                <SelectContent className="bg-background max-h-64">
+                  <SelectItem value="all">All Locations</SelectItem>
+                  {APPROVED_LOCATIONS.map(location => (
+                    <SelectItem key={location} value={location}>
+                      {location}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Mood Filter (Salesforce AI Creativity Level) */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium mb-2 block flex items-center gap-1.5">
+                <Palette className="w-4 h-4" /> Mood / Tone
+              </label>
+              <Select
+                value={filters.mood || 'all'}
+                onValueChange={(value) => handleFilterChange('mood', value === 'all' ? undefined : value)}
+              >
+                <SelectTrigger className="w-full bg-background">
+                  <SelectValue placeholder="All Moods" />
+                </SelectTrigger>
+                <SelectContent className="bg-background max-h-64">
+                  <SelectItem value="all">All Moods</SelectItem>
+                  {APPROVED_MOODS.map(mood => (
+                    <SelectItem key={mood} value={mood}>
+                      {mood}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
           </div>
