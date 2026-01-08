@@ -1312,6 +1312,24 @@ export const UnifiedMediaLibrary: React.FC = () => {
                         {variant.resolution && (
                           <div className="text-[10px] text-muted-foreground">{variant.resolution}</div>
                         )}
+                        {/* View Master Link */}
+                        {(variant.metadata?.masterAssetId || asset.salesforceId) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full mt-1 h-6 text-[10px] text-muted-foreground hover:text-primary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const masterId = asset.salesforceId || variant.metadata?.masterAssetId;
+                              if (masterId) {
+                                window.open(`https://worldwidemediaconsortium.lightning.force.com/lightning/r/WMC_Master_Content__c/${masterId}/view`, '_blank');
+                              }
+                            }}
+                          >
+                            <ExternalLink className="w-3 h-3 mr-1" />
+                            View Master in SFDC
+                          </Button>
+                        )}
                       </Card>
                     ))}
                   </div>
