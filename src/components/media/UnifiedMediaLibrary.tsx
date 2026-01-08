@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music, Info, MapPin, Palette } from "lucide-react";
+import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music, Info, SlidersHorizontal } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -23,9 +23,8 @@ import {
   S3BucketConfig,
   SearchFilters,
   SortOption,
-  APPROVED_LOCATIONS,
-  APPROVED_MOODS
 } from "@/services/unifiedMediaService";
+import { MediaFilterDrawer } from "./MediaFilterDrawer";
 import { getMediaSourceStats, MediaSourceStats } from "@/services/mediaSourceStatsService";
 import { supabase } from "@/integrations/supabase/client";
 import { LibrarianWorkflowDialog } from "./LibrarianWorkflowDialog";
@@ -84,6 +83,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
   // Details drawer state
   const [detailsAsset, setDetailsAsset] = useState<MediaAsset | null>(null);
   const [showDetailsDrawer, setShowDetailsDrawer] = useState(false);
+  
+  // Filter drawer state
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   
   const pageSize = 20;
   const { user } = useUser();
@@ -314,6 +316,12 @@ export const UnifiedMediaLibrary: React.FC = () => {
       ...prev,
       [key]: value
     }));
+  };
+
+  // Handler for batch filter updates from the filter drawer
+  const handleBatchFilterChange = (newFilters: SearchFilters) => {
+    setCurrentPage(1);
+    setFilters(newFilters);
   };
 
   const clearFilters = () => {
@@ -792,81 +800,30 @@ export const UnifiedMediaLibrary: React.FC = () => {
               </div>
             </div>
 
-            {/* Tags Filter */}
+            {/* SFDC Filters Button */}
             <div className="space-y-3">
-              <label className="text-sm font-medium mb-2 block">Tags</label>
-              <div className="space-y-2 max-h-64 overflow-y-auto pb-2">
-                {tags.map(tag => (
-                  <div key={tag.id} className="min-h-9 flex items-center space-x-2">
-                    <Checkbox
-                      id={tag.id}
-                      checked={filters.tags?.includes(tag.id) || false}
-                      onCheckedChange={(checked) => {
-                        const currentTags = filters.tags || [];
-                        if (checked) {
-                          handleFilterChange('tags', [...currentTags, tag.id]);
-                        } else {
-                          handleFilterChange('tags', currentTags.filter(t => t !== tag.id));
-                        }
-                      }}
-                    />
-                    <label htmlFor={tag.id} className="text-sm">
-                      <Badge 
-                        className="text-sm font-normal" 
-                        style={{ backgroundColor: tag.color + '20', color: tag.color }}
-                      >
-                        {tag.name}
-                      </Badge>
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Location Filter (Salesforce Scene) */}
-            <div className="space-y-3">
-              <label className="text-sm font-medium mb-2 block flex items-center gap-1.5">
-                <MapPin className="w-4 h-4" /> Location / Scene
-              </label>
-              <Select
-                value={filters.location || 'all'}
-                onValueChange={(value) => handleFilterChange('location', value === 'all' ? undefined : value)}
+              <label className="text-sm font-medium mb-2 block">Salesforce Filters</label>
+              <Button
+                variant="outline"
+                onClick={() => setShowFilterDrawer(true)}
+                className="w-full flex items-center justify-between gap-2"
               >
-                <SelectTrigger className="w-full bg-background">
-                  <SelectValue placeholder="All Locations" />
-                </SelectTrigger>
-                <SelectContent className="bg-background max-h-64">
-                  <SelectItem value="all">All Locations</SelectItem>
-                  {APPROVED_LOCATIONS.map(location => (
-                    <SelectItem key={location} value={location}>
-                      {location}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Mood Filter (Salesforce AI Creativity Level) */}
-            <div className="space-y-3">
-              <label className="text-sm font-medium mb-2 block flex items-center gap-1.5">
-                <Palette className="w-4 h-4" /> Mood / Tone
-              </label>
-              <Select
-                value={filters.mood || 'all'}
-                onValueChange={(value) => handleFilterChange('mood', value === 'all' ? undefined : value)}
-              >
-                <SelectTrigger className="w-full bg-background">
-                  <SelectValue placeholder="All Moods" />
-                </SelectTrigger>
-                <SelectContent className="bg-background max-h-64">
-                  <SelectItem value="all">All Moods</SelectItem>
-                  {APPROVED_MOODS.map(mood => (
-                    <SelectItem key={mood} value={mood}>
-                      {mood}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal className="w-4 h-4" />
+                  SFDC Metadata
+                </div>
+                {((filters.categories?.length || 0) +
+                  (filters.contentTypes?.length || 0) +
+                  (filters.locations?.length || 0) +
+                  (filters.moods?.length || 0)) > 0 && (
+                  <Badge variant="secondary">
+                    {(filters.categories?.length || 0) +
+                      (filters.contentTypes?.length || 0) +
+                      (filters.locations?.length || 0) +
+                      (filters.moods?.length || 0)}
+                  </Badge>
+                )}
+              </Button>
             </div>
 
           </div>
@@ -1595,6 +1552,14 @@ export const UnifiedMediaLibrary: React.FC = () => {
           setShowDetailsDrawer(false);
           setSelectedAsset(asset);
         }}
+      />
+
+      {/* SFDC Filter Drawer */}
+      <MediaFilterDrawer
+        open={showFilterDrawer}
+        onOpenChange={setShowFilterDrawer}
+        filters={filters}
+        onFilterChange={handleBatchFilterChange}
       />
     </div>
     </div>
