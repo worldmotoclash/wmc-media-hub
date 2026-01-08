@@ -743,7 +743,10 @@ const MediaUpload: React.FC = () => {
                             <p className="text-muted-foreground mb-2">
                               {isDragOver ? 'Drop your video here' : 'Drag & drop video files up to 500MB'}
                             </p>
-                            <Button variant="outline" type="button" onClick={handleBrowseClick}>
+                            <Button variant="outline" type="button" onClick={(e) => {
+                              e.stopPropagation();
+                              handleBrowseClick();
+                            }}>
                               Browse Files
                             </Button>
                           </>
