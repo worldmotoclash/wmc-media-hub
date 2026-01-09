@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
+import { ContentCatalogForm } from "./ContentCatalogForm";
+import { ContentCatalogFields } from "@/constants/salesforceFields";
 
 interface MasterImageUploadDialogProps {
   open: boolean;
@@ -64,6 +66,7 @@ export function MasterImageUploadDialog({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [catalogFields, setCatalogFields] = useState<ContentCatalogFields | null>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -141,7 +144,7 @@ export function MasterImageUploadDialog({
       
       setUploadProgress("Uploading to Wasabi S3...");
       
-      // Call the upload-master-to-s3 edge function
+      // Call the upload-master-to-s3 edge function with catalog fields
       const { data, error } = await supabase.functions.invoke("upload-master-to-s3", {
         body: {
           imageBase64,
@@ -149,8 +152,21 @@ export function MasterImageUploadDialog({
           mimeType: selectedFile.type,
           width: dimensions.width,
           height: dimensions.height,
-          title: selectedFile.name.replace(/\.[^/.]+$/, ""),
-          creatorContactId: user?.id,  // Pass creator Contact ID
+          title: catalogFields?.naturalName || selectedFile.name.replace(/\.[^/.]+$/, ""),
+          creatorContactId: user?.id,
+          // Salesforce catalog fields
+          salesforceFields: catalogFields ? {
+            domain: catalogFields.domain,
+            eventCode: catalogFields.eventCode,
+            raceTrackCode: catalogFields.raceTrackCode,
+            contentClass: catalogFields.contentClass,
+            scene: catalogFields.scene,
+            contentType: catalogFields.contentType,
+            generationMethod: catalogFields.generationMethod,
+            aspectRatio: catalogFields.aspectRatio,
+            version: catalogFields.version,
+            eventDate: catalogFields.eventDate,
+          } : undefined,
         },
       });
 
@@ -196,6 +212,7 @@ export function MasterImageUploadDialog({
     setPreview(null);
     setIsDragging(false);
     setUploadProgress("");
+    setCatalogFields(null);
     onOpenChange(false);
   };
 
@@ -246,27 +263,41 @@ export function MasterImageUploadDialog({
               </p>
             </div>
           ) : (
-            <div className="relative">
-              <img
-                src={preview}
-                alt="Preview"
-                className="w-full aspect-video object-contain rounded-lg bg-muted"
-              />
-              <Button
-                variant="destructive"
-                size="icon"
-                className="absolute top-2 right-2"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  clearSelection();
+            <div className="space-y-4">
+              {/* Image Preview */}
+              <div className="relative">
+                <img
+                  src={preview}
+                  alt="Preview"
+                  className="w-full aspect-video object-contain rounded-lg bg-muted"
+                />
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-2 right-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    clearSelection();
+                  }}
+                  disabled={isUploading}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <p className="mt-2 text-sm text-muted-foreground truncate">
+                  {selectedFile?.name}
+                </p>
+              </div>
+
+              {/* Content Catalog Form */}
+              <ContentCatalogForm
+                context="image-upload"
+                compact
+                initialValues={{
+                  naturalName: selectedFile?.name.replace(/\.[^/.]+$/, "") || "",
                 }}
-                disabled={isUploading}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <p className="mt-2 text-sm text-muted-foreground truncate">
-                {selectedFile?.name}
-              </p>
+                autoDetectContentType="image"
+                onFieldChange={setCatalogFields}
+              />
             </div>
           )}
 
