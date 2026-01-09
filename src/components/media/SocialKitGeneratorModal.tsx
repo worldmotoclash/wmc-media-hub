@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -7,10 +7,13 @@ import { Label } from "@/components/ui/label";
 import { SOCIAL_VARIANTS, MAX_VARIANTS_PER_REQUEST } from "@/constants/socialVariants";
 import { generateSocialKit, processVariant, updateJobVariantStatus, VariantStatus } from "@/services/socialKitService";
 import { IMAGE_PROCESSING_MODELS, getAvailableImageProcessingModels } from "@/services/imageProcessingModels";
-import { ImagePlus, AlertCircle, Cpu, Sparkles } from "lucide-react";
+import { ImagePlus, AlertCircle, Cpu, Sparkles, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { PlatformVariantSelector } from "./PlatformVariantSelector";
 import { useUser } from "@/contexts/UserContext";
+import { ContentCatalogForm } from "./ContentCatalogForm";
+import { ContentCatalogFields } from "@/constants/salesforceFields";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface SocialKitGeneratorModalProps {
   open: boolean;
@@ -39,6 +42,8 @@ export function SocialKitGeneratorModal({
   const [isGenerating, setIsGenerating] = useState(false);
   const [variantStatuses, setVariantStatuses] = useState<Map<string, VariantStatus>>(new Map());
   const [progress, setProgress] = useState(0);
+  const [catalogFields, setCatalogFields] = useState<ContentCatalogFields | null>(null);
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
 
   const availableModels = getAvailableImageProcessingModels();
 
@@ -50,6 +55,8 @@ export function SocialKitGeneratorModal({
       setIsGenerating(false);
       setVariantStatuses(new Map());
       setProgress(0);
+      setCatalogFields(null);
+      setIsCatalogOpen(false);
     }
   }, [open]);
 
@@ -212,6 +219,33 @@ export function SocialKitGeneratorModal({
                 {IMAGE_PROCESSING_MODELS.find(m => m.id === selectedModel)?.description}
               </p>
             </div>
+          )}
+
+          {/* Content Catalog Fields (Collapsible) */}
+          {!isGenerating && (
+            <Collapsible open={isCatalogOpen} onOpenChange={setIsCatalogOpen}>
+              <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full py-2 border-t pt-3">
+                {isCatalogOpen ? (
+                  <ChevronDown className="w-4 h-4" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )}
+                <span>Salesforce Catalog Fields</span>
+                <span className="text-[10px] ml-auto text-muted-foreground">Optional</span>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-3">
+                <ContentCatalogForm
+                  context="social"
+                  compact
+                  hideAdvanced={false}
+                  initialValues={{
+                    naturalName: masterAsset.title || "",
+                  }}
+                  autoDetectContentType="image"
+                  onFieldChange={setCatalogFields}
+                />
+              </CollapsibleContent>
+            </Collapsible>
           )}
 
           {/* Progress bar during generation */}

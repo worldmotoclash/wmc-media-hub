@@ -12,6 +12,19 @@ const WMC_CONTENT_API = "https://api.realintelligence.com/api/wmc-content-master
 const W2X_ENGINE_URL = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
 const ORG_ID = "00D5e000000HEcP";
 
+interface SalesforceFields {
+  domain?: string;
+  eventCode?: string;
+  raceTrackCode?: string;
+  contentClass?: string;
+  scene?: string;
+  contentType?: string;
+  generationMethod?: string;
+  aspectRatio?: string;
+  version?: string;
+  eventDate?: string;
+}
+
 interface UploadMasterRequest {
   imageBase64: string;
   filename: string;
@@ -19,11 +32,12 @@ interface UploadMasterRequest {
   width: number;
   height: number;
   title?: string;
-  description?: string; // AI-suggested or manual description
-  tags?: string[]; // AI-suggested tags/categories
+  description?: string;
+  tags?: string[];
   creatorContactId?: string;
-  thumbnailBase64?: string; // Optional thumbnail for video uploads
-  duration?: number; // Video duration in seconds
+  thumbnailBase64?: string;
+  duration?: number;
+  salesforceFields?: SalesforceFields;
 }
 
 // Helper function to escape special regex characters
@@ -118,7 +132,7 @@ serve(async (req) => {
       dimensions: `${payload.width}x${payload.height}`,
     });
 
-    const { imageBase64, filename, mimeType, width, height, title, description, tags, creatorContactId, thumbnailBase64, duration } = payload;
+    const { imageBase64, filename, mimeType, width, height, title, description, tags, creatorContactId, thumbnailBase64, duration, salesforceFields } = payload;
 
     if (!imageBase64 || !filename || !width || !height) {
       return new Response(
@@ -301,6 +315,39 @@ serve(async (req) => {
       if (creatorContactId) {
         formData.append("lookup_ri1__Contact__c", creatorContactId);
         console.log(`Linking content to creator Contact: ${creatorContactId}`);
+      }
+
+      // === NEW SALESFORCE CATALOG FIELDS ===
+      if (salesforceFields) {
+        console.log("Adding Salesforce catalog fields:", salesforceFields);
+        
+        if (salesforceFields.domain) {
+          formData.append("string_Domain__c", salesforceFields.domain);
+        }
+        if (salesforceFields.eventCode) {
+          formData.append("string_Event_Code__c", salesforceFields.eventCode);
+        }
+        if (salesforceFields.raceTrackCode) {
+          formData.append("string_ri1__Race_Track_Code__c", salesforceFields.raceTrackCode);
+        }
+        if (salesforceFields.contentClass) {
+          formData.append("string_Content_Class__c", salesforceFields.contentClass);
+        }
+        if (salesforceFields.scene) {
+          formData.append("string_Scene__c", salesforceFields.scene);
+        }
+        if (salesforceFields.generationMethod) {
+          formData.append("string_Generation_Method__c", salesforceFields.generationMethod);
+        }
+        if (salesforceFields.aspectRatio) {
+          formData.append("string_ri1__Aspect_Ratio__c", salesforceFields.aspectRatio);
+        }
+        if (salesforceFields.version) {
+          formData.append("string_Version__c", salesforceFields.version);
+        }
+        if (salesforceFields.eventDate) {
+          formData.append("date_Event_Date__c", salesforceFields.eventDate);
+        }
       }
 
       console.log("=== SALESFORCE SYNC START ===");
