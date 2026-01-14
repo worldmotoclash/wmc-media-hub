@@ -11,11 +11,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { 
   Music, Video, Image, Play, Pause, Plus, X, Sparkles, 
-  Loader2, CheckCircle, AlertCircle, ExternalLink, Trash2
+  Loader2, CheckCircle, AlertCircle, ExternalLink, Trash2, FolderOpen, Link
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { supabase } from "@/integrations/supabase/client";
+import { ImagePickerDialog, SelectedImage } from "./ImagePickerDialog";
 
 interface AudioToVideoWorkflowProps {
   isOpen: boolean;
@@ -62,11 +63,28 @@ export const AudioToVideoWorkflow: React.FC<AudioToVideoWorkflowProps> = ({
     }))
   );
   const [newImageUrl, setNewImageUrl] = useState('');
+  const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   
   // Step 3: Generation
   const [isGenerating, setIsGenerating] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [duration, setDuration] = useState(8);
+
+  // Handle images selected from picker
+  const handleImagesSelected = (images: SelectedImage[]) => {
+    const newImages = images.map((img, idx) => ({
+      id: `img-${Date.now()}-${idx}`,
+      url: img.url,
+      title: img.title || `Image ${imagesToGenerate.length + idx + 1}`,
+      status: 'pending' as const,
+      progress: 0,
+    }));
+    setImagesToGenerate(prev => [...prev, ...newImages]);
+    toast({
+      title: `${images.length} image${images.length > 1 ? 's' : ''} added`,
+      description: "Starting images added to the queue.",
+    });
+  };
   
   // Handle audio extraction
   const handleExtractAudio = async () => {
@@ -482,30 +500,51 @@ export const AudioToVideoWorkflow: React.FC<AudioToVideoWorkflowProps> = ({
                   </div>
                 )}
 
-                {/* Add image input */}
-                <form
-                  className="flex gap-2"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleAddImage();
-                  }}
-                >
-                  <Input
-                    placeholder="Paste image URL (e.g., https://example.com/image.jpg)..."
-                    value={newImageUrl}
-                    onChange={(e) => setNewImageUrl(e.target.value)}
-                    inputMode="url"
-                    className="flex-1"
-                  />
+                {/* Add image controls */}
+                <div className="flex gap-2">
                   <Button
-                    type="submit"
-                    disabled={!newImageUrl.trim()}
+                    type="button"
+                    onClick={() => setIsImagePickerOpen(true)}
                     variant="outline"
+                    className="flex-1"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Image
+                    <FolderOpen className="w-4 h-4 mr-2" />
+                    Browse Library
                   </Button>
-                </form>
+                  
+                  <form
+                    className="flex-1 flex gap-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleAddImage();
+                    }}
+                  >
+                    <Input
+                      placeholder="...or paste URL"
+                      value={newImageUrl}
+                      onChange={(e) => setNewImageUrl(e.target.value)}
+                      inputMode="url"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="submit"
+                      disabled={!newImageUrl.trim()}
+                      variant="outline"
+                      size="icon"
+                    >
+                      <Link className="w-4 h-4" />
+                    </Button>
+                  </form>
+                </div>
+
+                {/* Image Picker Dialog */}
+                <ImagePickerDialog
+                  isOpen={isImagePickerOpen}
+                  onClose={() => setIsImagePickerOpen(false)}
+                  onImagesSelected={handleImagesSelected}
+                  maxImages={10}
+                  title="Select Starting Images"
+                />
               </div>
             </Card>
 
