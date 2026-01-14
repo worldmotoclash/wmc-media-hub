@@ -2,9 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Upload, Sparkles, Clock, Image, Video, Loader2 } from 'lucide-react';
+import { Upload, Sparkles, Clock, Image, Video, Loader2, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
+import ImagePreviewModal from './ImagePreviewModal';
+import VideoPreviewModal from './VideoPreviewModal';
+import { MediaAsset } from '@/services/unifiedMediaService';
+import { VideoContent } from '@/services/videoContentService';
 
 interface ActivityItem {
   id: string;
@@ -13,11 +17,15 @@ interface ActivityItem {
   status: string;
   timestamp: Date;
   assetType?: string;
+  fileUrl?: string;
+  thumbnailUrl?: string;
 }
 
 const RecentActivity: React.FC = () => {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedImage, setSelectedImage] = useState<MediaAsset | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<VideoContent | null>(null);
 
   useEffect(() => {
     fetchRecentActivity();
@@ -27,24 +35,24 @@ const RecentActivity: React.FC = () => {
     try {
       setLoading(true);
       
-      // Fetch recent media assets (uploads)
+      // Fetch recent media assets (uploads) with URLs
       const { data: mediaAssets } = await supabase
         .from('media_assets')
-        .select('id, title, status, created_at, asset_type, source')
+        .select('id, title, status, created_at, asset_type, source, file_url, thumbnail_url')
         .order('created_at', { ascending: false })
         .limit(10);
 
-      // Fetch recent image generations
+      // Fetch recent image generations with URLs
       const { data: imageGens } = await supabase
         .from('image_generations')
-        .select('id, prompt, status, created_at')
+        .select('id, prompt, status, created_at, image_url')
         .order('created_at', { ascending: false })
         .limit(5);
 
-      // Fetch recent video generations
+      // Fetch recent video generations with URLs
       const { data: videoGens } = await supabase
         .from('video_generations')
-        .select('id, generation_data, status, created_at')
+        .select('id, generation_data, status, created_at, video_url')
         .order('created_at', { ascending: false })
         .limit(5);
 
@@ -60,7 +68,9 @@ const RecentActivity: React.FC = () => {
             type: 'upload',
             status: asset.status || 'pending',
             timestamp: new Date(asset.created_at),
-            assetType: asset.asset_type || undefined
+            assetType: asset.asset_type || undefined,
+            fileUrl: asset.file_url || undefined,
+            thumbnailUrl: asset.thumbnail_url || undefined
           });
         });
       }
@@ -73,7 +83,9 @@ const RecentActivity: React.FC = () => {
             title: gen.prompt?.substring(0, 50) + (gen.prompt && gen.prompt.length > 50 ? '...' : '') || 'Image Generation',
             type: 'image_gen',
             status: gen.status,
-            timestamp: new Date(gen.created_at)
+            timestamp: new Date(gen.created_at),
+            fileUrl: gen.image_url || undefined,
+            thumbnailUrl: gen.image_url || undefined
           });
         });
       }
@@ -87,7 +99,8 @@ const RecentActivity: React.FC = () => {
             title: data?.prompt?.substring(0, 50) + ((data?.prompt?.length || 0) > 50 ? '...' : '') || 'Video Generation',
             type: 'video_gen',
             status: gen.status,
-            timestamp: new Date(gen.created_at)
+            timestamp: new Date(gen.created_at),
+            fileUrl: gen.video_url || undefined
           });
         });
       }
@@ -99,6 +112,66 @@ const RecentActivity: React.FC = () => {
       console.error('Error fetching recent activity:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleActivityClick = (activity: ActivityItem) => {
+    // Only open if we have a file URL
+    if (!activity.fileUrl) return;
+
+    if (activity.type === 'upload') {
+      if (activity.assetType === 'video') {
+        setSelectedVideo({
+          id: activity.id.replace('asset-', ''),
+          title: activity.title,
+          status: activity.status as any,
+          videoSrc: activity.fileUrl,
+          thumbnail: activity.thumbnailUrl || '',
+          duration: '',
+          uploadedAt: activity.timestamp.toISOString(),
+          views: 0,
+        });
+      } else {
+        setSelectedImage({
+          id: activity.id.replace('asset-', ''),
+          title: activity.title,
+          status: activity.status,
+          fileUrl: activity.fileUrl,
+          thumbnailUrl: activity.thumbnailUrl,
+          source: 'local_upload',
+          metadata: {},
+          createdAt: activity.timestamp.toISOString(),
+          updatedAt: activity.timestamp.toISOString(),
+          tags: [],
+          activities: [],
+        });
+      }
+    } else if (activity.type === 'image_gen') {
+      setSelectedImage({
+        id: activity.id.replace('img-', ''),
+        title: activity.title,
+        status: activity.status,
+        fileUrl: activity.fileUrl,
+        thumbnailUrl: activity.thumbnailUrl,
+        source: 'generated',
+        assetType: 'image',
+        metadata: {},
+        createdAt: activity.timestamp.toISOString(),
+        updatedAt: activity.timestamp.toISOString(),
+        tags: [],
+        activities: [],
+      });
+    } else if (activity.type === 'video_gen') {
+      setSelectedVideo({
+        id: activity.id.replace('vid-', ''),
+        title: activity.title,
+        status: 'Generated',
+        videoSrc: activity.fileUrl,
+        thumbnail: '',
+        duration: '',
+        uploadedAt: activity.timestamp.toISOString(),
+        views: 0,
+      });
     }
   };
 
@@ -215,20 +288,34 @@ const RecentActivity: React.FC = () => {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05, duration: 0.3 }}
-                    className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
+                    onClick={() => handleActivityClick(activity)}
+                    className={`flex items-center justify-between p-4 border border-border rounded-lg transition-colors group ${
+                      activity.fileUrl 
+                        ? 'hover:bg-muted/50 cursor-pointer' 
+                        : 'opacity-75'
+                    }`}
                   >
                     <div className="flex items-center gap-3">
                       {getTypeIcon(activity.type, activity.assetType)}
                       <div>
-                        <h4 className="font-medium text-foreground line-clamp-1">{activity.title}</h4>
+                        <h4 className={`font-medium text-foreground line-clamp-1 ${
+                          activity.fileUrl ? 'group-hover:text-primary transition-colors' : ''
+                        }`}>
+                          {activity.title}
+                        </h4>
                         <p className="text-sm text-muted-foreground">
                           {getTypeLabel(activity.type, activity.assetType)} • {formatDistanceToNow(activity.timestamp, { addSuffix: true })}
                         </p>
                       </div>
                     </div>
-                    <Badge variant="outline" className={getStatusColor(activity.status)}>
-                      {getStatusText(activity.status)}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={getStatusColor(activity.status)}>
+                        {getStatusText(activity.status)}
+                      </Badge>
+                      {activity.fileUrl && (
+                        <ExternalLink className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      )}
+                    </div>
                   </motion.div>
                 ))}
               </div>
@@ -236,6 +323,19 @@ const RecentActivity: React.FC = () => {
           </Card>
         </motion.div>
       </div>
+
+      {/* Preview Modals */}
+      <ImagePreviewModal
+        asset={selectedImage}
+        isOpen={!!selectedImage}
+        onClose={() => setSelectedImage(null)}
+      />
+
+      <VideoPreviewModal
+        video={selectedVideo}
+        isOpen={!!selectedVideo}
+        onClose={() => setSelectedVideo(null)}
+      />
     </section>
   );
 };
