@@ -468,14 +468,24 @@ export const AudioToVideoWorkflow: React.FC<AudioToVideoWorkflowProps> = ({
                 {/* Add image input */}
                 <div className="flex gap-2">
                   <Input
-                    placeholder="Paste image URL..."
+                    placeholder="Paste image URL (e.g., https://example.com/image.jpg)..."
                     value={newImageUrl}
                     onChange={(e) => setNewImageUrl(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddImage()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddImage();
+                      }
+                    }}
                     className="flex-1"
                   />
                   <Button
-                    onClick={handleAddImage}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleAddImage();
+                    }}
                     disabled={!newImageUrl.trim()}
                     variant="outline"
                   >
