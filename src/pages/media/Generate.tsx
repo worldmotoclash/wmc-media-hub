@@ -39,7 +39,8 @@ import {
   Palette,
   Camera,
   Pin,
-  RefreshCw
+  RefreshCw,
+  Music
 } from "lucide-react";
 import { STORYTELLING_PROMPTS } from "@/constants/storytellingPrompts";
 import { GRID_POSITIONS, GRID_TEMPLATES } from "@/constants/gridPositions";
@@ -48,6 +49,7 @@ import { SubjectReferenceDialog } from "@/components/media/SubjectReferenceDialo
 import { StyleLockPreview } from "@/components/media/StyleLockPreview";
 import { GridVariantsDisplay } from "@/components/media/GridVariantsDisplay";
 import { VideoExtendWorkflow } from "@/components/media/VideoExtendWorkflow";
+import { AudioToVideoWorkflow } from "@/components/media/AudioToVideoWorkflow";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -265,6 +267,14 @@ const PRESETS = [
     icon: RefreshCw,
     color: 'bg-indigo-500',
     settings: { duration: [10], resolution: '1080p', fps: 30, audio: true, aspectRatio: '16:9' }
+  },
+  {
+    id: 'audio-to-video',
+    name: 'Audio→Video',
+    description: 'Preserve audio',
+    icon: Music,
+    color: 'bg-cyan-500',
+    settings: { duration: [8], resolution: '720p', fps: 30, audio: true, aspectRatio: '16:9' }
   }
 ];
 
@@ -1525,8 +1535,16 @@ const Generate: React.FC = () => {
           </motion.div>
         )}
 
-        {/* Selected Model & Change Option - only for video (not for extend preset) */}
-        {outputType === 'video' && selectedPreset !== 'extend' && (
+        {/* Audio-to-Video Workflow - dedicated UI for audio-to-video preset */}
+        {outputType === 'video' && selectedPreset === 'audio-to-video' && (
+          <AudioToVideoWorkflow
+            isOpen={true}
+            onClose={() => setSelectedPreset('teaser')}
+          />
+        )}
+
+        {/* Selected Model & Change Option - only for video (not for extend or audio-to-video presets) */}
+        {outputType === 'video' && selectedPreset !== 'extend' && selectedPreset !== 'audio-to-video' && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1694,8 +1712,8 @@ const Generate: React.FC = () => {
           </motion.div>
         )}
 
-        {/* Form - Hidden when completed, no output type selected, or using extend preset (which has its own UI) */}
-        {outputType && selectedPreset !== 'extend' && (!currentGeneration || currentGeneration.status !== 'completed') && (!currentImageGeneration || currentImageGeneration.status !== 'completed') && (
+        {/* Form - Hidden when completed, no output type selected, or using extend/audio-to-video presets (which have their own UI) */}
+        {outputType && selectedPreset !== 'extend' && selectedPreset !== 'audio-to-video' && (!currentGeneration || currentGeneration.status !== 'completed') && (!currentImageGeneration || currentImageGeneration.status !== 'completed') && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
