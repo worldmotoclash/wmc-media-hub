@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Drawer,
   DrawerClose,
@@ -16,9 +16,10 @@ import { Progress } from "@/components/ui/progress";
 import { 
   X, Video, Image, Music, MapPin, Sparkles, Tag, Clock, 
   HardDrive, Calendar, ExternalLink, CheckCircle, AlertTriangle, 
-  FileText, Gauge, Link2, Eye
+  FileText, Gauge, Link2, Eye, Wand2
 } from "lucide-react";
 import { MediaAsset } from "@/services/unifiedMediaService";
+import { AudioToVideoWorkflow } from "./AudioToVideoWorkflow";
 
 interface MediaAssetDetailsDrawerProps {
   asset: MediaAsset | null;
@@ -42,10 +43,13 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   onOpenChange,
   onPreview,
 }) => {
+  const [audioToVideoOpen, setAudioToVideoOpen] = useState(false);
+
   if (!asset) return null;
 
   const sfdcAnalysis: SfdcAnalysis | undefined = asset.metadata?.sfdcAnalysis;
   const hasAiAnalysis = !!sfdcAnalysis;
+  const isVideoAsset = asset.assetType === 'video';
 
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return '–';
@@ -341,27 +345,48 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
         </ScrollArea>
 
         <DrawerFooter className="border-t">
-          <div className="flex gap-2">
-            {asset.fileUrl && (
+          <div className="flex flex-col gap-2">
+            {/* Audio-to-Video action for video assets */}
+            {isVideoAsset && asset.fileUrl && (
               <Button 
-                variant="outline" 
-                className="flex-1"
-                onClick={() => window.open(asset.fileUrl, '_blank')}
+                variant="secondary" 
+                className="w-full"
+                onClick={() => setAudioToVideoOpen(true)}
               >
-                <ExternalLink className="w-4 h-4 mr-2" />
-                Open File
+                <Wand2 className="w-4 h-4 mr-2" />
+                Create Video with This Audio
               </Button>
             )}
-            <Button 
-              className="flex-1"
-              onClick={() => onPreview?.(asset)}
-            >
-              <Eye className="w-4 h-4 mr-2" />
-              Preview
-            </Button>
+            
+            <div className="flex gap-2">
+              {asset.fileUrl && (
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => window.open(asset.fileUrl, '_blank')}
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Open File
+                </Button>
+              )}
+              <Button 
+                className="flex-1"
+                onClick={() => onPreview?.(asset)}
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                Preview
+              </Button>
+            </div>
           </div>
         </DrawerFooter>
       </DrawerContent>
+      
+      {/* Audio-to-Video Workflow Modal */}
+      <AudioToVideoWorkflow
+        isOpen={audioToVideoOpen}
+        onClose={() => setAudioToVideoOpen(false)}
+        preSelectedAudioSource={asset.fileUrl}
+      />
     </Drawer>
   );
 };
