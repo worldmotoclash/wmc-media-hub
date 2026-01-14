@@ -110,19 +110,36 @@ export const AudioToVideoWorkflow: React.FC<AudioToVideoWorkflowProps> = ({
 
   // Handle adding new image
   const handleAddImage = () => {
-    if (!newImageUrl.trim()) return;
-    
-    setImagesToGenerate(prev => [
+    const url = newImageUrl.trim();
+    if (!url) return;
+
+    // Basic guardrail so users get feedback instead of "nothing happens"
+    if (!/^https?:\/\//i.test(url)) {
+      toast({
+        title: "Invalid URL",
+        description: "Starting image must be a http(s) URL.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setImagesToGenerate((prev) => [
       ...prev,
       {
         id: `img-${Date.now()}`,
-        url: newImageUrl.trim(),
+        url,
         title: `Image ${prev.length + 1}`,
         status: 'pending',
         progress: 0,
-      }
+      },
     ]);
+
     setNewImageUrl('');
+
+    toast({
+      title: "Image added",
+      description: "Starting image added to the queue.",
+    });
   };
 
   // Handle removing an image
@@ -466,33 +483,29 @@ export const AudioToVideoWorkflow: React.FC<AudioToVideoWorkflowProps> = ({
                 )}
 
                 {/* Add image input */}
-                <div className="flex gap-2">
+                <form
+                  className="flex gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleAddImage();
+                  }}
+                >
                   <Input
                     placeholder="Paste image URL (e.g., https://example.com/image.jpg)..."
                     value={newImageUrl}
                     onChange={(e) => setNewImageUrl(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddImage();
-                      }
-                    }}
+                    inputMode="url"
                     className="flex-1"
                   />
                   <Button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleAddImage();
-                    }}
+                    type="submit"
                     disabled={!newImageUrl.trim()}
                     variant="outline"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Add Image
                   </Button>
-                </div>
+                </form>
               </div>
             </Card>
 
