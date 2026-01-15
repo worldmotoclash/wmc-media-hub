@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Sun, Moon, Settings, LogOut, User, ChevronDown, Scissors } from 'lucide-react';
+import { Sun, Moon, Settings, LogOut, User, ChevronDown, Scissors, Film, BarChart } from 'lucide-react';
 
 interface ProfileDropdownProps {
   onSignOut: () => void;
@@ -91,6 +91,19 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut, variant = 
           <div className="font-medium">{user.name}</div>
           <div className="text-muted-foreground">{user.email}</div>
         </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <Link to="/hub">
+            <Film className="mr-2 h-4 w-4" />
+            <span>Media Hub</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <Link to="/dashboard">
+            <BarChart className="mr-2 h-4 w-4" />
+            <span>Investor Dashboard</span>
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild className="cursor-pointer">
           <Link to="/admin/media/library">
