@@ -214,7 +214,9 @@ export async function fetchAllMediaAssets(
     }
 
     if (searchQuery) {
-      query = query.or(`title.ilike.%${searchQuery}%,s3_key.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
+      // Search across title, s3_key, description, and metadata (cast to text for full-text search)
+      // This enables searching tags, categories, AI analysis, and other metadata fields
+      query = query.or(`title.ilike.%${searchQuery}%,s3_key.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,metadata::text.ilike.%${searchQuery}%`);
     }
 
     const { data: dbAssets, error, count } = await query
