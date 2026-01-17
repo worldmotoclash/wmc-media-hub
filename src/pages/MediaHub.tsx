@@ -4,6 +4,7 @@ import { useUser } from '@/contexts/UserContext';
 import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
 import MediaHubHero from '@/components/media/MediaHubHero';
+import SearchBar from '@/components/media/SearchBar';
 import ActionCards from '@/components/media/ActionCards';
 import RecentActivity from '@/components/media/RecentActivity';
 import RecentUploads from '@/components/media/RecentUploads';
@@ -32,6 +33,7 @@ const MediaHub: React.FC = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <MediaHubHero />
+      <SearchBar />
       <ActionCards />
       <RecentActivity />
       <RecentUploads />
