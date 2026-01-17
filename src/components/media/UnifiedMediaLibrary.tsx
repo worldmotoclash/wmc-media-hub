@@ -12,7 +12,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useUser } from "@/contexts/UserContext";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   fetchAllMediaAssets,
   fetchMediaTags,
@@ -52,12 +52,15 @@ const isImageType = (assetType?: string) => {
 };
 
 export const UnifiedMediaLibrary: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialSearch = searchParams.get('search') || '';
+  
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [tags, setTags] = useState<MediaTag[]>([]);
   const [bucketConfigs, setBucketConfigs] = useState<S3BucketConfig[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isFiltering, setIsFiltering] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [selectedAsset, setSelectedAsset] = useState<MediaAsset | null>(null);
   const [showWorkflowDialog, setShowWorkflowDialog] = useState(false);
   const [workflowAsset, setWorkflowAsset] = useState<MediaAsset | null>(null);
@@ -352,9 +355,20 @@ export const UnifiedMediaLibrary: React.FC = () => {
       const { assets: assetsData, total } = await fetchAllMediaAssets(searchQuery, filters, pageSize, offset, sortOption);
       setAssets(assetsData);
       setTotalAssets(total);
+      
+      // Sync search query to URL
+      if (searchQuery) {
+        setSearchParams({ search: searchQuery }, { replace: true });
+      } else {
+        setSearchParams({}, { replace: true });
+      }
     } catch (error) {
       console.error('Error searching assets:', error);
-      toast.error('Failed to search media assets');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to search media assets';
+      toast.error(errorMessage);
+      // Still clear results so user knows search failed
+      setAssets([]);
+      setTotalAssets(0);
     } finally {
       setIsFiltering(false);
     }

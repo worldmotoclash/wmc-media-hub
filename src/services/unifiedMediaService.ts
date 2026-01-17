@@ -214,9 +214,22 @@ export async function fetchAllMediaAssets(
     }
 
     if (searchQuery) {
-      // Search across title, s3_key, description, and metadata (cast to text for full-text search)
-      // This enables searching tags, categories, AI analysis, and other metadata fields
-      query = query.or(`title.ilike.%${searchQuery}%,s3_key.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,metadata::text.ilike.%${searchQuery}%`);
+      // Search across title, s3_key, description, and specific metadata JSON paths
+      // PostgREST doesn't support ::text cast, so we use JSON path operators for metadata fields
+      const searchFields = [
+        `title.ilike.%${searchQuery}%`,
+        `s3_key.ilike.%${searchQuery}%`,
+        `description.ilike.%${searchQuery}%`,
+        `metadata->sfdcAnalysis->>description.ilike.%${searchQuery}%`,
+        `metadata->sfdcAnalysis->>location.ilike.%${searchQuery}%`,
+        `metadata->sfdcAnalysis->>mood.ilike.%${searchQuery}%`,
+        `metadata->sfdcAnalysis->>contentType.ilike.%${searchQuery}%`,
+        `metadata->aiAnalysis->>scene.ilike.%${searchQuery}%`,
+        `metadata->aiAnalysis->>mood.ilike.%${searchQuery}%`,
+        `metadata->aiAnalysis->>useCase.ilike.%${searchQuery}%`,
+        `metadata->aiAnalysis->>description.ilike.%${searchQuery}%`,
+      ];
+      query = query.or(searchFields.join(','));
     }
 
     const { data: dbAssets, error, count } = await query
@@ -225,8 +238,8 @@ export async function fetchAllMediaAssets(
 
     if (error) {
       console.error('Error fetching database assets:', error);
-      // Return empty array instead of throwing to allow page to still render
-      return { assets: [], total: 0 };
+      // Throw error so caller can handle it and show user feedback
+      throw new Error(`Search failed: ${error.message}`);
     }
 
     // Transform database results
