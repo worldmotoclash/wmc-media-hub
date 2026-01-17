@@ -218,7 +218,11 @@ serve(async (req) => {
           const assetData = {
             title,
             source: 's3_bucket' as const,
+            // Keep both fields in sync:
+            // - source_id is the canonical S3 object key used for de-duping
+            // - s3_key is the searchable/displayable path used across the app
             source_id: obj.Key,
+            s3_key: obj.Key,
             file_url: fileUrl,
             file_format: fileFormat,
             file_size: obj.Size ?? null,
