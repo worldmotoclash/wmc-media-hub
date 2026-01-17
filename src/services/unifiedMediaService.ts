@@ -214,7 +214,7 @@ export async function fetchAllMediaAssets(
     }
 
     if (searchQuery) {
-      query = query.or(`title.ilike.%${searchQuery}%,s3_key.ilike.%${searchQuery}%`);
+      query = query.or(`title.ilike.%${searchQuery}%,s3_key.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
     }
 
     const { data: dbAssets, error, count } = await query
