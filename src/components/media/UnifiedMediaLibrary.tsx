@@ -640,9 +640,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
                 </Button>
               </div>
 
-              {/* Results Summary */}
-              <div className="flex items-center justify-between text-sm text-muted-foreground border-t pt-3">
-                <span>
+              {/* Results Summary - prominent counter */}
+              <div className="flex items-center justify-between text-sm bg-muted/50 px-4 py-3 rounded-lg border mt-3">
+                <span className="font-medium">
                   {isFiltering ? (
                     <span className="flex items-center gap-2">
                       <RefreshCw className="w-4 h-4 animate-spin" />
@@ -650,20 +650,22 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     </span>
                   ) : searchQuery ? (
                     <span>
-                      Found <span className="font-medium text-foreground">{totalAssets}</span> result{totalAssets !== 1 ? 's' : ''} for "<span className="font-medium text-foreground">{searchQuery}</span>"
+                      Found <span className="text-primary font-bold text-base">{totalAssets}</span> result{totalAssets !== 1 ? 's' : ''} for "<span className="text-primary font-semibold">{searchQuery}</span>"
                       {searchScope !== 'all' && (
-                        <span className="ml-1">
-                          in {searchScope === 'title' ? 'titles' : searchScope === 'title_desc' ? 'titles & descriptions' : searchScope === 'filepath' ? 'file paths' : 'metadata'}
-                        </span>
+                        <Badge variant="secondary" className="ml-2">
+                          {searchScope === 'title' ? 'Title Only' : 
+                           searchScope === 'title_desc' ? 'Title + Description' : 
+                           searchScope === 'filepath' ? 'File Path' : 'Metadata'}
+                        </Badge>
                       )}
                     </span>
                   ) : (
-                    <span><span className="font-medium text-foreground">{totalAssets}</span> total assets</span>
+                    <span><span className="font-bold text-base text-primary">{totalAssets}</span> total assets</span>
                   )}
                 </span>
                 {searchQuery && totalAssets === 0 && !isFiltering && (
-                  <span className="text-yellow-600">
-                    No results found. Try adjusting your search or filters.
+                  <span className="text-destructive font-medium">
+                    No matches found - check spelling
                   </span>
                 )}
               </div>
