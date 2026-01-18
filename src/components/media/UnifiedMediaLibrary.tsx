@@ -67,6 +67,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [filters, setFilters] = useState<SearchFilters>({
     excludeAssetTypes: ['image_variant', 'grid_variant'] // Hide variants by default
   });
+  const [searchScope, setSearchScope] = useState<'all' | 'title' | 'title_desc' | 'filepath' | 'metadata'>('all');
   const [sortOption, setSortOption] = useState<SortOption>({ field: 'created_at', direction: 'desc' });
   const [isScanning, setIsScanning] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('library');
@@ -257,7 +258,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
     }, 300);
 
     return () => clearTimeout(delayedSearch);
-  }, [searchQuery, filters, sortOption, activeTab, currentPage]);
+  }, [searchQuery, filters, sortOption, activeTab, currentPage, searchScope]);
 
   // Fetch variant counts on mount
   useEffect(() => {
@@ -360,7 +361,8 @@ export const UnifiedMediaLibrary: React.FC = () => {
     try {
       setIsFiltering(true);
       const offset = (currentPage - 1) * pageSize;
-      const { assets: assetsData, total } = await fetchAllMediaAssets(searchQuery, filters, pageSize, offset, sortOption);
+      const filtersWithScope = { ...filters, searchScope };
+      const { assets: assetsData, total } = await fetchAllMediaAssets(searchQuery, filtersWithScope, pageSize, offset, sortOption);
       setAssets(assetsData);
       setTotalAssets(total);
       
@@ -560,6 +562,23 @@ export const UnifiedMediaLibrary: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-4 flex-wrap">
+                {/* Search Scope Dropdown */}
+                <Select
+                  value={searchScope}
+                  onValueChange={(value: 'all' | 'title' | 'title_desc' | 'filepath' | 'metadata') => setSearchScope(value)}
+                >
+                  <SelectTrigger className="w-[160px] bg-background">
+                    <SelectValue placeholder="All Fields" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border shadow-lg z-50">
+                    <SelectItem value="all">All Fields</SelectItem>
+                    <SelectItem value="title">Title Only</SelectItem>
+                    <SelectItem value="title_desc">Title + Description</SelectItem>
+                    <SelectItem value="filepath">File Path</SelectItem>
+                    <SelectItem value="metadata">Metadata Only</SelectItem>
+                  </SelectContent>
+                </Select>
+                
                 <div className="flex-1 min-w-[200px]">
                   <Input
                     placeholder="Search media..."
@@ -613,9 +632,40 @@ export const UnifiedMediaLibrary: React.FC = () => {
                   </Button>
                 </div>
 
-                <Button variant="outline" onClick={clearFilters}>
+                <Button variant="outline" onClick={() => {
+                  clearFilters();
+                  setSearchScope('all');
+                }}>
                   Clear Filters
                 </Button>
+              </div>
+
+              {/* Results Summary */}
+              <div className="flex items-center justify-between text-sm text-muted-foreground border-t pt-3">
+                <span>
+                  {isFiltering ? (
+                    <span className="flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Searching...
+                    </span>
+                  ) : searchQuery ? (
+                    <span>
+                      Found <span className="font-medium text-foreground">{totalAssets}</span> result{totalAssets !== 1 ? 's' : ''} for "<span className="font-medium text-foreground">{searchQuery}</span>"
+                      {searchScope !== 'all' && (
+                        <span className="ml-1">
+                          in {searchScope === 'title' ? 'titles' : searchScope === 'title_desc' ? 'titles & descriptions' : searchScope === 'filepath' ? 'file paths' : 'metadata'}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span><span className="font-medium text-foreground">{totalAssets}</span> total assets</span>
+                  )}
+                </span>
+                {searchQuery && totalAssets === 0 && !isFiltering && (
+                  <span className="text-yellow-600">
+                    No results found. Try adjusting your search or filters.
+                  </span>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

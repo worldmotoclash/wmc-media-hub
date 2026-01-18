@@ -93,6 +93,8 @@ export interface SearchFilters {
   contentTypes?: string[];
   locations?: string[];
   moods?: string[];
+  // Search scope - which fields to search
+  searchScope?: 'all' | 'title' | 'title_desc' | 'filepath' | 'metadata';
 }
 
 export interface SortOption {
@@ -214,22 +216,56 @@ export async function fetchAllMediaAssets(
     }
 
     if (searchQuery) {
-      // Search across title, s3_key, source_id, description, and specific metadata JSON paths
-      // PostgREST doesn't support ::text cast, so we use JSON path operators for metadata fields
-      const searchFields = [
-        `title.ilike.%${searchQuery}%`,
-        `s3_key.ilike.%${searchQuery}%`,
-        `source_id.ilike.%${searchQuery}%`,
-        `description.ilike.%${searchQuery}%`,
-        `metadata->sfdcAnalysis->>description.ilike.%${searchQuery}%`,
-        `metadata->sfdcAnalysis->>location.ilike.%${searchQuery}%`,
-        `metadata->sfdcAnalysis->>mood.ilike.%${searchQuery}%`,
-        `metadata->sfdcAnalysis->>contentType.ilike.%${searchQuery}%`,
-        `metadata->aiAnalysis->>scene.ilike.%${searchQuery}%`,
-        `metadata->aiAnalysis->>mood.ilike.%${searchQuery}%`,
-        `metadata->aiAnalysis->>useCase.ilike.%${searchQuery}%`,
-        `metadata->aiAnalysis->>description.ilike.%${searchQuery}%`,
-      ];
+      // Build search fields based on searchScope
+      let searchFields: string[];
+      
+      switch (filters?.searchScope) {
+        case 'title':
+          searchFields = [`title.ilike.%${searchQuery}%`];
+          break;
+        case 'title_desc':
+          searchFields = [
+            `title.ilike.%${searchQuery}%`,
+            `description.ilike.%${searchQuery}%`,
+            `metadata->sfdcAnalysis->>description.ilike.%${searchQuery}%`,
+            `metadata->aiAnalysis->>description.ilike.%${searchQuery}%`,
+          ];
+          break;
+        case 'filepath':
+          searchFields = [
+            `s3_key.ilike.%${searchQuery}%`,
+            `source_id.ilike.%${searchQuery}%`,
+          ];
+          break;
+        case 'metadata':
+          searchFields = [
+            `metadata->sfdcAnalysis->>description.ilike.%${searchQuery}%`,
+            `metadata->sfdcAnalysis->>location.ilike.%${searchQuery}%`,
+            `metadata->sfdcAnalysis->>mood.ilike.%${searchQuery}%`,
+            `metadata->sfdcAnalysis->>contentType.ilike.%${searchQuery}%`,
+            `metadata->aiAnalysis->>scene.ilike.%${searchQuery}%`,
+            `metadata->aiAnalysis->>mood.ilike.%${searchQuery}%`,
+            `metadata->aiAnalysis->>useCase.ilike.%${searchQuery}%`,
+            `metadata->aiAnalysis->>description.ilike.%${searchQuery}%`,
+          ];
+          break;
+        default: // 'all' - search across all fields
+          searchFields = [
+            `title.ilike.%${searchQuery}%`,
+            `s3_key.ilike.%${searchQuery}%`,
+            `source_id.ilike.%${searchQuery}%`,
+            `description.ilike.%${searchQuery}%`,
+            `metadata->sfdcAnalysis->>description.ilike.%${searchQuery}%`,
+            `metadata->sfdcAnalysis->>location.ilike.%${searchQuery}%`,
+            `metadata->sfdcAnalysis->>mood.ilike.%${searchQuery}%`,
+            `metadata->sfdcAnalysis->>contentType.ilike.%${searchQuery}%`,
+            `metadata->aiAnalysis->>scene.ilike.%${searchQuery}%`,
+            `metadata->aiAnalysis->>mood.ilike.%${searchQuery}%`,
+            `metadata->aiAnalysis->>useCase.ilike.%${searchQuery}%`,
+            `metadata->aiAnalysis->>description.ilike.%${searchQuery}%`,
+          ];
+      }
+      
       query = query.or(searchFields.join(','));
     }
 
