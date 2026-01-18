@@ -306,16 +306,31 @@ export async function fetchAllMediaAssets(
         // Apply filters with AND logic between categories
         salesforceAssets = transformedSalesforceAssets;
 
-        // Apply client-side search filtering to Salesforce assets (API doesn't support search param)
+        // Apply client-side search filtering to Salesforce assets - respecting searchScope
         if (searchQuery) {
           const searchLower = searchQuery.toLowerCase();
           salesforceAssets = salesforceAssets.filter(asset => {
-            const titleMatch = asset.title?.toLowerCase().includes(searchLower);
-            const descriptionMatch = asset.description?.toLowerCase().includes(searchLower);
-            const tagMatch = asset.tags?.some(tag => 
-              tag.name?.toLowerCase().includes(searchLower)
-            );
-            return titleMatch || descriptionMatch || tagMatch;
+            // Respect searchScope for Salesforce assets
+            switch (filters?.searchScope) {
+              case 'title':
+                return asset.title?.toLowerCase().includes(searchLower);
+              case 'title_desc':
+                return asset.title?.toLowerCase().includes(searchLower) ||
+                       asset.description?.toLowerCase().includes(searchLower);
+              case 'filepath':
+                // Salesforce assets don't have file paths - exclude all when searching by path
+                return false;
+              case 'metadata':
+                return asset.tags?.some(tag => 
+                  tag.name?.toLowerCase().includes(searchLower)
+                ) || asset.description?.toLowerCase().includes(searchLower);
+              default: // 'all'
+                return asset.title?.toLowerCase().includes(searchLower) ||
+                       asset.description?.toLowerCase().includes(searchLower) ||
+                       asset.tags?.some(tag => 
+                         tag.name?.toLowerCase().includes(searchLower)
+                       );
+            }
           });
         }
 
