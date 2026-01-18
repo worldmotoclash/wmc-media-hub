@@ -187,16 +187,21 @@ serve(async (req) => {
     }
 
     const runScan = async () => {
+      let totalMedia = 0;
+      let newMedia = 0;
+      let updatedMedia = 0;
+      let skippedMedia = 0;
+      let failedMedia = 0;
+
       try {
         console.log(`[SCAN] Starting for ${bucket.name} (${bucket.bucket_name}) @ ${bucket.endpoint_url}`);
         const objects = await listS3ObjectsPaginated(bucket);
-
-        let totalMedia = 0;
-        let newMedia = 0;
-        let updatedMedia = 0;
+        console.log(`[SCAN] Found ${objects.length} total objects in bucket`);
 
         for (const obj of objects) {
-          if (!isMediaFile(obj.Key)) continue;
+          if (!isMediaFile(obj.Key)) {
+            continue;
+          }
           totalMedia++;
 
           const title = extractTitleFromKey(obj.Key);
@@ -208,75 +213,85 @@ serve(async (req) => {
             ? `${bucket.cdn_base_url}/${encodeURI(obj.Key)}`
             : `${bucket.endpoint_url}/${bucket.bucket_name}/${encodeURI(obj.Key)}`;
 
-          const { data: existing } = await supabase
-            .from('media_assets')
-            .select('id')
-            .eq('source_id', obj.Key)
-            .eq('source', 's3_bucket')
-            .maybeSingle();
+          try {
+            const { data: existing } = await supabase
+              .from('media_assets')
+              .select('id')
+              .eq('source_id', obj.Key)
+              .eq('source', 's3_bucket')
+              .maybeSingle();
 
-          const assetData = {
-            title,
-            source: 's3_bucket' as const,
-            // Keep both fields in sync:
-            // - source_id is the canonical S3 object key used for de-duping
-            // - s3_key is the searchable/displayable path used across the app
-            source_id: obj.Key,
-            s3_key: obj.Key,
-            file_url: fileUrl,
-            file_format: fileFormat,
-            file_size: obj.Size ?? null,
-            asset_type: assetType,
-            status: 'pending',
-            metadata: {
-              bucket: bucket.bucket_name,
-              etag: obj.ETag,
-              last_modified: obj.LastModified,
-              endpoint: bucket.endpoint_url,
-              cdn_base_url: bucket.cdn_base_url || null,
-            },
-            updated_at: new Date().toISOString(),
-          };
-
-          let assetId: string | null = null;
-          let isNewAsset = false;
-
-          if (existing?.id) {
-            const { error } = await supabase.from('media_assets').update(assetData).eq('id', existing.id);
-            if (!error) {
-              updatedMedia++;
-              assetId = existing.id;
-            }
-            else console.error('[DB] Update error', error);
-          } else {
-            const { data: newAsset, error } = await supabase.from('media_assets').insert(assetData).select('id').single();
-            if (!error && newAsset) {
-              newMedia++;
-              assetId = newAsset.id;
-              isNewAsset = true;
-            }
-            else console.error('[DB] Insert error', error);
-          }
-
-          // Trigger auto-tagging for newly discovered assets (images only for now, to save API costs)
-          if (isNewAsset && assetId && assetType === 'image') {
-            const autoTagUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/auto-tag-media-asset`;
-            fetch(autoTagUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            const assetData = {
+              title,
+              source: 's3_bucket' as const,
+              // Keep both fields in sync:
+              // - source_id is the canonical S3 object key used for de-duping
+              // - s3_key is the searchable/displayable path used across the app
+              source_id: obj.Key,
+              s3_key: obj.Key,
+              file_url: fileUrl,
+              file_format: fileFormat,
+              file_size: obj.Size ?? null,
+              asset_type: assetType,
+              status: 'pending',
+              metadata: {
+                bucket: bucket.bucket_name,
+                etag: obj.ETag,
+                last_modified: obj.LastModified,
+                endpoint: bucket.endpoint_url,
+                cdn_base_url: bucket.cdn_base_url || null,
               },
-              body: JSON.stringify({
-                assetId,
-                mediaUrl: fileUrl,
-                mediaType: assetType,
-              }),
-            }).then(res => {
-              console.log(`[AutoTag] Queued for ${assetId}: ${res.status}`);
-            }).catch(err => {
-              console.error(`[AutoTag] Failed to queue ${assetId}:`, err);
-            });
+              updated_at: new Date().toISOString(),
+            };
+
+            let assetId: string | null = null;
+            let isNewAsset = false;
+
+            if (existing?.id) {
+              const { error } = await supabase.from('media_assets').update(assetData).eq('id', existing.id);
+              if (!error) {
+                updatedMedia++;
+                assetId = existing.id;
+              } else {
+                console.error(`[DB] Update error for ${obj.Key}:`, error.message);
+                failedMedia++;
+              }
+            } else {
+              const { data: newAsset, error } = await supabase.from('media_assets').insert(assetData).select('id').single();
+              if (!error && newAsset) {
+                newMedia++;
+                assetId = newAsset.id;
+                isNewAsset = true;
+                console.log(`[SCAN] Imported new asset: ${obj.Key}`);
+              } else {
+                console.error(`[DB] Insert error for ${obj.Key}:`, error?.message);
+                failedMedia++;
+              }
+            }
+
+            // Trigger auto-tagging for newly discovered assets (images only for now, to save API costs)
+            if (isNewAsset && assetId && assetType === 'image') {
+              const autoTagUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/auto-tag-media-asset`;
+              fetch(autoTagUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                },
+                body: JSON.stringify({
+                  assetId,
+                  mediaUrl: fileUrl,
+                  mediaType: assetType,
+                }),
+              }).then(res => {
+                console.log(`[AutoTag] Queued for ${assetId}: ${res.status}`);
+              }).catch(err => {
+                console.error(`[AutoTag] Failed to queue ${assetId}:`, err);
+              });
+            }
+          } catch (dbError: any) {
+            console.error(`[SCAN] Error processing ${obj.Key}:`, dbError?.message || dbError);
+            failedMedia++;
           }
         }
 
@@ -299,12 +314,16 @@ serve(async (req) => {
           totalMedia,
           newMedia,
           updatedMedia,
+          skippedMedia,
+          failedMedia,
           scannedAt: finishedAt,
         };
 
-        console.log('[SCAN] Complete', result);
+        console.log('[SCAN] Complete:', JSON.stringify(result));
       } catch (e: any) {
-        console.error('[SCAN] Background error', e?.message || e);
+        console.error('[SCAN] Background error:', e?.message || e);
+        // Log partial results even on error
+        console.log(`[SCAN] Partial results before error: totalMedia=${totalMedia}, new=${newMedia}, updated=${updatedMedia}, failed=${failedMedia}`);
       }
     };
 
