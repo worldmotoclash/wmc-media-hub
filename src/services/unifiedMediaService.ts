@@ -214,11 +214,12 @@ export async function fetchAllMediaAssets(
     }
 
     if (searchQuery) {
-      // Search across title, s3_key, description, and specific metadata JSON paths
+      // Search across title, s3_key, source_id, description, and specific metadata JSON paths
       // PostgREST doesn't support ::text cast, so we use JSON path operators for metadata fields
       const searchFields = [
         `title.ilike.%${searchQuery}%`,
         `s3_key.ilike.%${searchQuery}%`,
+        `source_id.ilike.%${searchQuery}%`,
         `description.ilike.%${searchQuery}%`,
         `metadata->sfdcAnalysis->>description.ilike.%${searchQuery}%`,
         `metadata->sfdcAnalysis->>location.ilike.%${searchQuery}%`,

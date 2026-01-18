@@ -109,10 +109,12 @@ export const UnifiedMediaLibrary: React.FC = () => {
   // Keep searchQuery in sync with the URL (?search=...)
   useEffect(() => {
     const urlSearch = searchParams.get('search') || '';
-    setSearchQuery(prev => (prev === urlSearch ? prev : urlSearch));
-    setCurrentPage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+    if (searchQuery !== urlSearch) {
+      setSearchQuery(urlSearch);
+      setCurrentPage(1);
+    }
+  }, [searchParams, searchQuery]);
+
   const toggleAssetSelection = (assetId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     setSelectedAssetIds(prev => {
