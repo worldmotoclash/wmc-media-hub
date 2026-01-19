@@ -319,7 +319,7 @@ const LoginFormComponent: React.FC = () => {
       />
       
       <div className="mt-8 text-center text-sm text-gray-600">
-        <p>Need access? <a href="/#contact" className="text-black font-medium hover:underline">Contact us</a> for account credentials.</p>
+        <p>Need access? <a href="mailto:media@worldmotoclash.com?subject=Media%20Hub%20Access%20Request" className="text-black font-medium hover:underline">Contact us</a> for account credentials.</p>
       </div>
       
       {/* Password Reset Dialog */}
