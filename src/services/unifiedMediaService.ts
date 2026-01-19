@@ -287,6 +287,13 @@ export async function fetchAllMediaAssets(
     
     // Check if we should include Salesforce content based on contentOrigin or sources filters
     const shouldFetchSalesforce = (() => {
+      // Skip Salesforce if filtering for database-only asset types (images are DB-only)
+      if (filters?.assetTypes?.length) {
+        const dbOnlyTypes = ['image', 'master_image', 'image_variant', 'grid_variant', 'generation_master'];
+        const hasOnlyDbTypes = filters.assetTypes.every(t => dbOnlyTypes.includes(t));
+        if (hasOnlyDbTypes) return false;
+      }
+      
       if (filters?.contentOrigin?.length) {
         // If contentOrigin filter is active, fetch if youtube or audio is selected
         return filters.contentOrigin.includes('youtube') || filters.contentOrigin.includes('audio');
@@ -387,21 +394,9 @@ export async function fetchAllMediaAssets(
 
         // Apply assetTypes filtering (AND with previous filters)
         if (filters?.assetTypes?.length) {
-          salesforceAssets = salesforceAssets.filter(asset => {
-            if (asset.assetType) {
-              // Check if asset type matches any selected filter
-              // 'image' filter should match 'image', 'master_image', 'image_variant', 'grid_variant'
-              // 'video' filter should match 'video'
-              return filters.assetTypes!.some(filterType => {
-                if (filterType === 'image' || filterType === 'master_image' || filterType === 'image_variant' || filterType === 'grid_variant') {
-                  return asset.assetType === 'image' || asset.assetType === 'grid_variant';
-                }
-                return asset.assetType === filterType;
-              });
-            }
-            // Exclude assets with unknown type when filter is active
-            return false;
-          });
+          salesforceAssets = salesforceAssets.filter(asset => 
+            asset.assetType && filters.assetTypes!.includes(asset.assetType)
+          );
         }
 
         // Apply excludeAssetTypes filtering (for hiding variants by default)
