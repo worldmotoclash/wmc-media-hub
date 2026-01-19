@@ -125,6 +125,125 @@ function getFileExtension(key: string): string {
   return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : '';
 }
 
+function getBaseName(key: string): string {
+  const fileName = key.split('/').pop() || key;
+  return fileName.replace(/\.[^.]+$/, '').toLowerCase();
+}
+
+function getFolderPath(key: string): string {
+  const parts = key.split('/');
+  parts.pop(); // Remove filename
+  return parts.join('/');
+}
+
+interface ImageLookupMap {
+  // Map of "folder/basename" -> full S3 key
+  byPath: Map<string, string>;
+  // Map of just "basename" -> array of full S3 keys (for cross-folder matching)
+  byName: Map<string, string[]>;
+}
+
+function buildImageLookupMap(objects: S3Object[]): ImageLookupMap {
+  const byPath = new Map<string, string>();
+  const byName = new Map<string, string[]>();
+  
+  for (const obj of objects) {
+    if (!isImageFile(obj.Key)) continue;
+    
+    const folder = getFolderPath(obj.Key);
+    const baseName = getBaseName(obj.Key);
+    
+    // Store by folder/basename for exact folder matching
+    const pathKey = folder ? `${folder}/${baseName}` : baseName;
+    byPath.set(pathKey.toLowerCase(), obj.Key);
+    
+    // Also store by just basename for cross-folder thumbnail matching
+    const existing = byName.get(baseName) || [];
+    existing.push(obj.Key);
+    byName.set(baseName, existing);
+  }
+  
+  return { byPath, byName };
+}
+
+function findThumbnailForVideo(videoKey: string, imageMap: ImageLookupMap, cdnBaseUrl: string | null, endpointUrl: string, bucketName: string): string | null {
+  const videoFolder = getFolderPath(videoKey);
+  const videoBaseName = getBaseName(videoKey);
+  
+  // Patterns to check (in order of priority):
+  // 1. Same folder, same base name (video.mp4 -> video.jpg)
+  // 2. Same folder with common suffixes (video.mp4 -> video_thumb.jpg)
+  // 3. Thumbnails subfolder (folder/video.mp4 -> folder/thumbnails/video.jpg)
+  // 4. THUMBNAILS subfolder uppercase (folder/video.mp4 -> folder/THUMBNAILS/video.jpg)
+  
+  const suffixVariants = ['', '_thumb', '_thumbnail', '-thumb', '-thumbnail'];
+  const imageExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+  
+  // Check same folder with various suffixes
+  for (const suffix of suffixVariants) {
+    const targetBaseName = `${videoBaseName}${suffix}`;
+    const pathKey = videoFolder ? `${videoFolder}/${targetBaseName}` : targetBaseName;
+    
+    const matchedKey = imageMap.byPath.get(pathKey.toLowerCase());
+    if (matchedKey) {
+      console.log(`[Thumbnail] Matched ${videoKey} -> ${matchedKey} (same folder)`);
+      return buildCdnUrl(matchedKey, cdnBaseUrl, endpointUrl, bucketName);
+    }
+  }
+  
+  // Check thumbnails subfolder (lowercase)
+  for (const suffix of suffixVariants) {
+    const targetBaseName = `${videoBaseName}${suffix}`;
+    const thumbnailsFolder = videoFolder ? `${videoFolder}/thumbnails` : 'thumbnails';
+    const pathKey = `${thumbnailsFolder}/${targetBaseName}`;
+    
+    const matchedKey = imageMap.byPath.get(pathKey.toLowerCase());
+    if (matchedKey) {
+      console.log(`[Thumbnail] Matched ${videoKey} -> ${matchedKey} (thumbnails subfolder)`);
+      return buildCdnUrl(matchedKey, cdnBaseUrl, endpointUrl, bucketName);
+    }
+  }
+  
+  // Check THUMBNAILS subfolder (uppercase - common pattern)
+  for (const suffix of suffixVariants) {
+    const targetBaseName = `${videoBaseName}${suffix}`;
+    const thumbnailsFolder = videoFolder ? `${videoFolder}/THUMBNAILS` : 'THUMBNAILS';
+    const pathKey = `${thumbnailsFolder}/${targetBaseName}`;
+    
+    const matchedKey = imageMap.byPath.get(pathKey.toLowerCase());
+    if (matchedKey) {
+      console.log(`[Thumbnail] Matched ${videoKey} -> ${matchedKey} (THUMBNAILS subfolder)`);
+      return buildCdnUrl(matchedKey, cdnBaseUrl, endpointUrl, bucketName);
+    }
+  }
+  
+  // Check parent-level thumbnails folder (videos/clip.mp4 -> thumbnails/clip.jpg)
+  if (videoFolder) {
+    const parentParts = videoFolder.split('/');
+    parentParts.pop();
+    const parentFolder = parentParts.join('/');
+    
+    for (const suffix of suffixVariants) {
+      const targetBaseName = `${videoBaseName}${suffix}`;
+      const thumbnailsPath = parentFolder ? `${parentFolder}/thumbnails/${targetBaseName}` : `thumbnails/${targetBaseName}`;
+      
+      const matchedKey = imageMap.byPath.get(thumbnailsPath.toLowerCase());
+      if (matchedKey) {
+        console.log(`[Thumbnail] Matched ${videoKey} -> ${matchedKey} (parent thumbnails folder)`);
+        return buildCdnUrl(matchedKey, cdnBaseUrl, endpointUrl, bucketName);
+      }
+    }
+  }
+  
+  return null;
+}
+
+function buildCdnUrl(key: string, cdnBaseUrl: string | null, endpointUrl: string, bucketName: string): string {
+  return cdnBaseUrl
+    ? `${cdnBaseUrl}/${encodeURI(key)}`
+    : `${endpointUrl}/${bucketName}/${encodeURI(key)}`;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -208,6 +327,10 @@ serve(async (req) => {
         }
         console.log(`[SCAN] ${s3KeysSet.size} media files in S3`);
 
+        // Build image lookup map for thumbnail matching
+        const imageMap = buildImageLookupMap(objects);
+        console.log(`[SCAN] Built image lookup map with ${imageMap.byPath.size} images for thumbnail matching`);
+
         // Fetch all existing media_assets for this bucket to detect orphans
         const { data: existingAssets, error: fetchError } = await supabase
           .from('media_assets')
@@ -286,6 +409,11 @@ serve(async (req) => {
               .eq('source', 's3_bucket')
               .maybeSingle();
 
+            // For videos, try to find a matching thumbnail image
+            const thumbnailUrl = assetType === 'video'
+              ? findThumbnailForVideo(obj.Key, imageMap, bucket.cdn_base_url, bucket.endpoint_url, bucket.bucket_name)
+              : null;
+
             const assetData = {
               title,
               source: 's3_bucket' as const,
@@ -299,6 +427,7 @@ serve(async (req) => {
               file_size: obj.Size ?? null,
               asset_type: assetType,
               status: 'pending',
+              thumbnail_url: thumbnailUrl,
               metadata: {
                 bucket: bucket.bucket_name,
                 bucket_config_id: bucketConfigId,
