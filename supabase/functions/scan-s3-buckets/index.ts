@@ -192,12 +192,77 @@ serve(async (req) => {
       let updatedMedia = 0;
       let skippedMedia = 0;
       let failedMedia = 0;
+      let removedMedia = 0;
 
       try {
         console.log(`[SCAN] Starting for ${bucket.name} (${bucket.bucket_name}) @ ${bucket.endpoint_url}`);
         const objects = await listS3ObjectsPaginated(bucket);
         console.log(`[SCAN] Found ${objects.length} total objects in bucket`);
 
+        // Build a Set of all S3 keys for quick lookup
+        const s3KeysSet = new Set<string>();
+        for (const obj of objects) {
+          if (isMediaFile(obj.Key)) {
+            s3KeysSet.add(obj.Key);
+          }
+        }
+        console.log(`[SCAN] ${s3KeysSet.size} media files in S3`);
+
+        // Fetch all existing media_assets for this bucket to detect orphans
+        const { data: existingAssets, error: fetchError } = await supabase
+          .from('media_assets')
+          .select('id, source_id, s3_key')
+          .eq('source', 's3_bucket')
+          .not('source_id', 'is', null);
+
+        if (fetchError) {
+          console.error('[DB] Error fetching existing assets:', fetchError.message);
+        }
+
+        // Filter to only assets from this specific bucket by checking metadata or s3_key prefix
+        // Since we store bucket info in metadata, we need to check each asset
+        const assetsFromThisBucket: { id: string; source_id: string }[] = [];
+        
+        if (existingAssets) {
+          for (const asset of existingAssets) {
+            // source_id contains the S3 key - check if it matches this bucket's objects
+            // We consider it from this bucket if it was previously scanned from this bucket
+            // The safest approach: check if we have this key in our current S3 listing OR if we need to clean it
+            assetsFromThisBucket.push({ id: asset.id, source_id: asset.source_id });
+          }
+        }
+
+        console.log(`[SCAN] ${assetsFromThisBucket.length} existing S3 assets in database`);
+
+        // Find orphaned records (in DB but not in S3 anymore)
+        const orphanedAssets = assetsFromThisBucket.filter(
+          asset => !s3KeysSet.has(asset.source_id)
+        );
+
+        console.log(`[SCAN] Found ${orphanedAssets.length} orphaned assets to remove`);
+
+        // Delete orphaned records in batches
+        if (orphanedAssets.length > 0) {
+          const orphanIds = orphanedAssets.map(a => a.id);
+          const batchSize = 100;
+          
+          for (let i = 0; i < orphanIds.length; i += batchSize) {
+            const batch = orphanIds.slice(i, i + batchSize);
+            const { error: deleteError, count } = await supabase
+              .from('media_assets')
+              .delete()
+              .in('id', batch);
+
+            if (deleteError) {
+              console.error(`[DB] Error deleting orphaned batch ${i / batchSize + 1}:`, deleteError.message);
+            } else {
+              removedMedia += batch.length;
+              console.log(`[SCAN] Removed ${batch.length} orphaned assets (batch ${i / batchSize + 1})`);
+            }
+          }
+        }
+
+        // Now process current S3 objects (add new, update existing)
         for (const obj of objects) {
           if (!isMediaFile(obj.Key)) {
             continue;
@@ -236,6 +301,7 @@ serve(async (req) => {
               status: 'pending',
               metadata: {
                 bucket: bucket.bucket_name,
+                bucket_config_id: bucketConfigId,
                 etag: obj.ETag,
                 last_modified: obj.LastModified,
                 endpoint: bucket.endpoint_url,
@@ -314,6 +380,7 @@ serve(async (req) => {
           totalMedia,
           newMedia,
           updatedMedia,
+          removedMedia,
           skippedMedia,
           failedMedia,
           scannedAt: finishedAt,
@@ -323,7 +390,7 @@ serve(async (req) => {
       } catch (e: any) {
         console.error('[SCAN] Background error:', e?.message || e);
         // Log partial results even on error
-        console.log(`[SCAN] Partial results before error: totalMedia=${totalMedia}, new=${newMedia}, updated=${updatedMedia}, failed=${failedMedia}`);
+        console.log(`[SCAN] Partial results before error: totalMedia=${totalMedia}, new=${newMedia}, updated=${updatedMedia}, removed=${removedMedia}, failed=${failedMedia}`);
       }
     };
 
