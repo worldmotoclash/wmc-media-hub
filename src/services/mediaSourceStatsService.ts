@@ -34,6 +34,7 @@ export interface AssetTypeStats {
   masters: number;
   variants: number;
   grids: number;
+  standardImages: number;
 }
 
 export interface StatusStats {
@@ -82,7 +83,7 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
     totalLibraryAssets: 0,
     salesforceApiAssets: 0,
     wasabiBreakdown: { videos: 0, images: 0, total: 0 },
-    assetTypes: { video: 0, allImages: 0, masters: 0, variants: 0, grids: 0 },
+    assetTypes: { video: 0, allImages: 0, masters: 0, variants: 0, grids: 0, standardImages: 0 },
     statusCounts: { pending: 0, approved: 0, rejected: 0 }
   };
 
@@ -313,15 +314,22 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
       .select('*', { count: 'exact', head: true })
       .eq('asset_type', 'generation_master');
 
+    // Count standard images (plain 'image' type - not masters, variants, or grids)
+    const { count: standardImageCount } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('asset_type', 'image');
+
     const variantsTotal = (imageVariantCount || 0) + (gridVariantCount || 0);
-    const allImagesTotal = (masterCount || 0) + variantsTotal + (generationMasterCount || 0);
+    const allImagesTotal = (masterCount || 0) + variantsTotal + (generationMasterCount || 0) + (standardImageCount || 0);
 
     stats.assetTypes = {
       video: videoCount || 0,
       allImages: allImagesTotal,
       masters: masterCount || 0,
       variants: variantsTotal,
-      grids: generationMasterCount || 0
+      grids: generationMasterCount || 0,
+      standardImages: standardImageCount || 0
     };
 
     // Get status counts
