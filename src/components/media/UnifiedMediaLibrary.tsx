@@ -712,7 +712,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                         t => !['image', 'master_image', 'image_variant', 'grid_variant', 'generation_master'].includes(t)
                       );
                       if (checked) {
-                        handleFilterChange('assetTypes', [...currentTypes, 'master_image', 'image_variant', 'grid_variant', 'generation_master']);
+                        handleFilterChange('assetTypes', [...currentTypes, 'image', 'master_image', 'image_variant', 'grid_variant', 'generation_master']);
                       } else {
                         handleFilterChange('assetTypes', currentTypes);
                       }
@@ -786,6 +786,26 @@ export const UnifiedMediaLibrary: React.FC = () => {
                   <label htmlFor="type-grid" className="text-sm text-muted-foreground flex items-center justify-between flex-1">
                     <span className="flex items-center gap-1"><LayoutGrid className="w-3 h-3" /> 3x3 Grids</span>
                     <span className="text-xs">{filterCounts?.assetTypes?.grids ?? '—'}</span>
+                  </label>
+                </div>
+                
+                {/* Standard images (sub-option) - plain 'image' type */}
+                <div className="min-h-8 flex items-center space-x-2 pl-6">
+                  <Checkbox
+                    id="type-standard-image"
+                    checked={filters.assetTypes?.includes('image') || false}
+                    onCheckedChange={(checked) => {
+                      const currentTypes = (filters.assetTypes || []).filter(t => t !== 'image');
+                      if (checked) {
+                        handleFilterChange('assetTypes', [...currentTypes, 'image']);
+                      } else {
+                        handleFilterChange('assetTypes', currentTypes);
+                      }
+                    }}
+                  />
+                  <label htmlFor="type-standard-image" className="text-sm text-muted-foreground flex items-center justify-between flex-1">
+                    <span>Standard</span>
+                    <span className="text-xs">{filterCounts?.assetTypes?.standardImages ?? '—'}</span>
                   </label>
                 </div>
               </div>
