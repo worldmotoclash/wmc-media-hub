@@ -127,7 +127,7 @@ export async function fetchAllMediaAssets(
           media_tags (*)
         ),
         content_review_activities (*)
-      `)
+      `, { count: 'exact' })
       .order(sortField, { ascending: sortAscending });
 
     // Apply contentOrigin filter (new architecture - takes precedence over sources)
