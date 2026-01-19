@@ -98,12 +98,6 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut, variant = 
             <span>Media Hub</span>
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild className="cursor-pointer">
-          <Link to="/dashboard">
-            <BarChart className="mr-2 h-4 w-4" />
-            <span>Investor Dashboard</span>
-          </Link>
-        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild className="cursor-pointer">
           <Link to="/admin/media/library">
