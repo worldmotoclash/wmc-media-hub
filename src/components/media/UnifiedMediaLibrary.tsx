@@ -107,14 +107,13 @@ export const UnifiedMediaLibrary: React.FC = () => {
   useSupabaseAuth(); // Ensure Supabase auth when user is logged in
   const navigate = useNavigate();
 
-  // Keep searchQuery in sync with the URL (?search=...)
+  // Keep searchQuery in sync with the URL (?search=...) - only react to external URL changes
   useEffect(() => {
     const urlSearch = searchParams.get('search') || '';
-    if (searchQuery !== urlSearch) {
-      setSearchQuery(urlSearch);
-      setCurrentPage(1);
-    }
-  }, [searchParams, searchQuery]);
+    setSearchQuery(urlSearch);
+    setCurrentPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]); // Removed searchQuery from deps to prevent circular updates during typing
 
   const toggleAssetSelection = (assetId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
