@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
+import { Eye, EyeOff } from 'lucide-react';
 import GoogleSignInButton from './GoogleSignInButton';
 
 interface LoginFormFieldsProps {
@@ -34,6 +35,8 @@ const LoginFormFields: React.FC<LoginFormFieldsProps> = ({
   onGoogleSignIn,
   isGoogleLoading = false
 }) => {
+  const [showPassword, setShowPassword] = useState(false);
+
   return (
     <form onSubmit={onSubmit} className="space-y-6">
       <div className="space-y-2">
@@ -66,14 +69,24 @@ const LoginFormFields: React.FC<LoginFormFieldsProps> = ({
             Forgot password?
           </button>
         </div>
-        <Input 
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="••••••••"
-          className={`w-full ${errors.password ? 'border-red-500' : ''}`}
-        />
+        <div className="relative">
+          <Input 
+            id="password"
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            className={`w-full pr-10 ${errors.password ? 'border-red-500' : ''}`}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            aria-label={showPassword ? "Hide password" : "Show password"}
+          >
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
         {errors.password && (
           <p className="text-sm text-red-500 mt-1">{errors.password}</p>
         )}
