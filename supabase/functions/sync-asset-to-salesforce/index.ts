@@ -10,6 +10,11 @@ const WMC_CONTENT_API = "https://api.realintelligence.com/api/wmc-content-master
 const W2X_ENGINE_URL = "https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php";
 const ORG_ID = "00D5e000000HEcP";
 
+// Governance constants - HARD RULES
+// Sync establishes existence — not trust. Trust is established only after Librarian review.
+const SYNC_APPROVAL_STATUS = "Pending";
+const SYNC_SYSTEM_FLAG = "CREATED_BY_SYNC";
+
 interface SyncRequest {
   assetId?: string;
   assetIds?: string[];
@@ -105,6 +110,12 @@ async function createSalesforceRecord(
     formData.append("string_ri1__Content_Type__c", contentType);
     formData.append("string_ri1__URL__c", cdnUrl);
     
+    // GOVERNANCE: Sync-created records are ALWAYS Pending (Librarian approval required)
+    formData.append("string_ri1__Content_Approved__c", SYNC_APPROVAL_STATUS);
+    
+    // GOVERNANCE: Flag records created by automated sync for audit trails
+    formData.append("string_ri1__Content_System_Flags__c", SYNC_SYSTEM_FLAG);
+    
     // AI Generation Fields
     if (metadata?.prompt) {
       formData.append("string_ri1__AI_Prompt__c", metadata.prompt.substring(0, 32768));
@@ -173,6 +184,9 @@ async function createSalesforceRecord(
       hasCreativity: typeof metadata?.creativityLevel === 'number',
       hasModelVendor: !!metadata?.modelVendor,
       hasModelUsed: !!metadata?.modelUsed,
+      // Governance fields (always set)
+      approvalStatus: SYNC_APPROVAL_STATUS,
+      systemFlags: SYNC_SYSTEM_FLAG,
     });
 
     const response = await fetch(W2X_ENGINE_URL, {
@@ -396,6 +410,8 @@ serve(async (req) => {
               ...asset.metadata,
               sfdcSyncStatus: 'success',
               sfdcSyncedAt: new Date().toISOString(),
+              sfdcApprovalStatus: SYNC_APPROVAL_STATUS,
+              sfdcSystemFlags: SYNC_SYSTEM_FLAG,
             }
           })
           .eq("id", asset.id);
