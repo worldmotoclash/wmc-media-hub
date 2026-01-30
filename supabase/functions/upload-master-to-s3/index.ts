@@ -229,7 +229,7 @@ serve(async (req) => {
 
     const imageTitle = title || filename.replace(/\.[^/.]+$/, "");
     
-    // Initial metadata with sync status
+    // Initial metadata with sync status (also store user-provided tags for backup)
     const initialMetadata = {
       width,
       height,
@@ -242,6 +242,7 @@ serve(async (req) => {
       duration: isVideo ? duration : undefined,
       sfdcSyncStatus: 'pending' as const,
       creatorContactId,
+      userProvidedTags: tags || [], // Store for debugging/backup
     };
 
     const { data: assetData, error: assetError } = await supabase
@@ -272,6 +273,57 @@ serve(async (req) => {
     }
 
     console.log("Created media_assets record:", assetData.id);
+
+    // === SAVE USER-PROVIDED TAGS TO DATABASE ===
+    if (tags && tags.length > 0) {
+      console.log("Saving user-provided tags to database:", tags);
+      
+      for (const tagName of tags) {
+        try {
+          // Find existing tag (case-insensitive)
+          const { data: existingTag } = await supabase
+            .from('media_tags')
+            .select('id')
+            .ilike('name', tagName)
+            .maybeSingle();
+          
+          let tagId: string;
+          
+          if (existingTag) {
+            tagId = existingTag.id;
+          } else {
+            // Create new tag with default color
+            const { data: newTag, error: tagError } = await supabase
+              .from('media_tags')
+              .insert({ name: tagName, color: '#6366f1' })
+              .select('id')
+              .single();
+            
+            if (tagError) {
+              console.warn(`Failed to create tag "${tagName}":`, tagError);
+              continue;
+            }
+            tagId = newTag.id;
+            console.log(`Created new tag: ${tagName} (${tagId})`);
+          }
+          
+          // Create junction record (upsert to avoid duplicates)
+          const { error: linkError } = await supabase
+            .from('media_asset_tags')
+            .upsert({
+              media_asset_id: assetData.id,
+              tag_id: tagId
+            }, { onConflict: 'media_asset_id,tag_id' });
+          
+          if (linkError) {
+            console.warn(`Failed to link tag "${tagName}" to asset:`, linkError);
+          }
+        } catch (tagErr) {
+          console.warn(`Error processing tag "${tagName}":`, tagErr);
+        }
+      }
+      console.log(`Saved ${tags.length} tags to database for asset ${assetData.id}`);
+    }
 
     // === SALESFORCE SYNC ===
     let salesforceId: string | null = null;
@@ -438,31 +490,35 @@ serve(async (req) => {
     }
 
     // === AUTO-TAGGING ===
-    // Trigger auto-tagging in the background (don't wait for it)
-    console.log("Triggering auto-tagging for asset:", assetData.id);
-    const autoTagUrl = `${supabaseUrl}/functions/v1/auto-tag-media-asset`;
-    
-    EdgeRuntime.waitUntil(
-      fetch(autoTagUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseKey}`,
-        },
-        body: JSON.stringify({
-          assetId: assetData.id,
-          mediaUrl: cdnUrl,
-          mediaType: isVideo ? 'video' : 'image',
-        }),
-      }).then(res => {
-        console.log(`Auto-tagging response status: ${res.status}`);
-        return res.json();
-      }).then(result => {
-        console.log("Auto-tagging result:", result);
-      }).catch(err => {
-        console.error("Auto-tagging error:", err);
-      })
-    );
+    // Only trigger auto-tagging if no user-provided tags exist
+    if (!tags || tags.length === 0) {
+      console.log("No user-provided tags, triggering auto-tagging for asset:", assetData.id);
+      const autoTagUrl = `${supabaseUrl}/functions/v1/auto-tag-media-asset`;
+      
+      EdgeRuntime.waitUntil(
+        fetch(autoTagUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseKey}`,
+          },
+          body: JSON.stringify({
+            assetId: assetData.id,
+            mediaUrl: cdnUrl,
+            mediaType: isVideo ? 'video' : 'image',
+          }),
+        }).then(res => {
+          console.log(`Auto-tagging response status: ${res.status}`);
+          return res.json();
+        }).then(result => {
+          console.log("Auto-tagging result:", result);
+        }).catch(err => {
+          console.error("Auto-tagging error:", err);
+        })
+      );
+    } else {
+      console.log(`Skipping auto-tagging - user provided ${tags.length} tags`);
+    }
 
     return new Response(
       JSON.stringify({
