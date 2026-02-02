@@ -50,26 +50,7 @@ const SceneDetectionPage = () => {
   const [clipRange, setClipRange] = useState<[number, number]>([0, 0]);
   const [isExportingClip, setIsExportingClip] = useState(false);
 
-  // Initialize FFmpeg on component mount
-  useEffect(() => {
-    const initFFmpeg = async () => {
-      try {
-        await clientSideSceneDetection.initialize((progress) => {
-          if (progress.phase === 'loading') {
-            setProgress(progress.progress);
-            setProcessingPhase(progress.message);
-          }
-        });
-        setFfmpegInitialized(true);
-        setProcessingPhase('');
-      } catch (error) {
-        console.error('Failed to initialize FFmpeg:', error);
-        toast.error('Failed to initialize video processing. Please refresh the page.');
-      }
-    };
-
-    initFFmpeg();
-  }, []);
+  // FFmpeg is now lazy-loaded when user clicks "Detect Scenes"
 
   // Reset clip range when results change
   useEffect(() => {
@@ -84,17 +65,21 @@ const SceneDetectionPage = () => {
       return;
     }
 
-    if (!ffmpegInitialized) {
-      toast.error("Video processing not ready. Please wait...");
-      return;
-    }
-
     setIsProcessing(true);
     setProgress(0);
     setProcessingPhase('');
     setResults(null);
 
     try {
+      // Initialize FFmpeg on first use (lazy loading)
+      if (!ffmpegInitialized) {
+        setProcessingPhase('Loading video processor...');
+        await clientSideSceneDetection.initialize((progress) => {
+          setProgress(progress.progress);
+          setProcessingPhase(progress.message);
+        });
+        setFfmpegInitialized(true);
+      }
       let jobId: string;
       let videoFile: File;
       
@@ -391,18 +376,13 @@ const SceneDetectionPage = () => {
 
             <Button 
               onClick={handleDetectScenes} 
-              disabled={!selectedVideo || isProcessing || !ffmpegInitialized}
+              disabled={!selectedVideo || isProcessing}
               className="w-full"
             >
               {isProcessing ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Processing...
-                </>
-              ) : !ffmpegInitialized ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Loading...
                 </>
               ) : (
                 <>
@@ -412,11 +392,11 @@ const SceneDetectionPage = () => {
               )}
             </Button>
             
-            {(isProcessing || !ffmpegInitialized) && (
+            {isProcessing && (
               <div className="space-y-2">
                 <Progress value={progress} className="w-full" />
                 <p className="text-sm text-muted-foreground text-center">
-                  {processingPhase || (!ffmpegInitialized ? 'Loading video processor...' : 'Processing...')} {progress > 0 && `${progress.toFixed(0)}%`}
+                  {processingPhase || 'Processing...'} {progress > 0 && `${progress.toFixed(0)}%`}
                 </p>
               </div>
             )}
