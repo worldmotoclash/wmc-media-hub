@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Play, Download, Clock, Film, TrendingUp, Loader2 } from "lucide-react";
+import { Upload, Play, Download, Clock, Film, TrendingUp, Loader2, Scissors } from "lucide-react";
 import { toast } from "sonner";
 import VideoSelector from "@/components/media/VideoSelector";
 import { 
@@ -31,7 +31,7 @@ interface SceneDetection {
   thumbnail?: string;
 }
 
-const SceneDetection = () => {
+const SceneDetectionPage = () => {
   const [selectedVideo, setSelectedVideo] = useState<{
     type: 'file' | 'asset' | 'url';
     file?: File;
@@ -45,6 +45,10 @@ const SceneDetection = () => {
   const [threshold, setThreshold] = useState([30]);
   const [detectionHistory, setDetectionHistory] = useState<VideoSceneDetectionRecord[]>([]);
   const [ffmpegInitialized, setFfmpegInitialized] = useState(false);
+  
+  // Clip extraction state
+  const [clipRange, setClipRange] = useState<[number, number]>([0, 0]);
+  const [isExportingClip, setIsExportingClip] = useState(false);
 
   // Initialize FFmpeg on component mount
   useEffect(() => {
@@ -66,6 +70,13 @@ const SceneDetection = () => {
 
     initFFmpeg();
   }, []);
+
+  // Reset clip range when results change
+  useEffect(() => {
+    if (results) {
+      setClipRange([0, results.videoDuration]);
+    }
+  }, [results]);
 
   const handleDetectScenes = async () => {
     if (!selectedVideo) {
@@ -153,7 +164,7 @@ const SceneDetection = () => {
       
     } catch (error) {
       console.error('Scene detection error:', error);
-      toast.error(error.message || 'Scene detection failed');
+      toast.error((error as Error).message || 'Scene detection failed');
     } finally {
       setIsProcessing(false);
       setProgress(0);
@@ -206,6 +217,37 @@ const SceneDetection = () => {
     }
   }, []);
 
+  const handleExportClip = async () => {
+    if (!selectedVideo || clipRange[1] <= clipRange[0]) return;
+    
+    setIsExportingClip(true);
+    try {
+      const clip = await clientSideSceneDetection.extractClip({
+        startTime: clipRange[0],
+        endTime: clipRange[1],
+      }, (progress) => {
+        setProcessingPhase(progress.message);
+      });
+      
+      // Trigger download
+      const url = URL.createObjectURL(clip.blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = clip.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success(`Clip exported: ${clip.filename} (${(clip.size / 1024 / 1024).toFixed(1)} MB)`);
+    } catch (error) {
+      toast.error((error as Error).message || 'Failed to export clip');
+    } finally {
+      setIsExportingClip(false);
+      setProcessingPhase('');
+    }
+  };
+
   const exportResults = () => {
     if (!results) return;
 
@@ -237,6 +279,14 @@ const SceneDetection = () => {
       return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
     }
     return `${minutes}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+  };
+
+  const handleSetInPoint = (timestamp: number) => {
+    setClipRange([timestamp, clipRange[1] || (results?.videoDuration ?? 0)]);
+  };
+
+  const handleSetOutPoint = (timestamp: number) => {
+    setClipRange([clipRange[0], timestamp]);
   };
 
   return (
@@ -451,15 +501,19 @@ const SceneDetection = () => {
             </div>
 
             <div className="space-y-2 max-h-96 overflow-y-auto">
-              <div className="grid grid-cols-5 gap-4 p-3 bg-muted rounded-lg font-semibold">
+              <div className="grid grid-cols-6 gap-4 p-3 bg-muted rounded-lg font-semibold">
                 <span>Thumbnail</span>
                 <span>Scene</span>
                 <span>Time</span>
                 <span>Frame</span>
                 <span>Confidence</span>
+                <span>Actions</span>
               </div>
               {results.scenes.map((scene, index) => (
-                <div key={index} className="grid grid-cols-5 gap-4 p-3 border rounded-lg hover:bg-muted/50 items-center">
+                <div 
+                  key={index} 
+                  className="grid grid-cols-6 gap-4 p-3 border rounded-lg hover:bg-muted/50 items-center"
+                >
                   <div className="w-16 h-12 bg-muted rounded border overflow-hidden">
                     {scene.thumbnail ? (
                       <img 
@@ -483,11 +537,103 @@ const SceneDetection = () => {
                         style={{ width: `${scene.confidence}%` }}
                       />
                     </div>
-                    <span className="text-sm font-mono min-w-[3rem]">{scene.confidence.toFixed(2)}</span>
+                    <span className="text-sm font-mono min-w-[3rem]">{scene.confidence.toFixed(0)}%</span>
                   </span>
+                  <div className="flex gap-1">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => handleSetInPoint(scene.timestamp)}
+                      title="Set as clip start"
+                    >
+                      In
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => handleSetOutPoint(scene.timestamp)}
+                      title="Set as clip end"
+                    >
+                      Out
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Clip Extraction */}
+      {results && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Scissors className="w-5 h-5" />
+              Extract Clip
+            </CardTitle>
+            <CardDescription>
+              Select a time range to extract a clip from the video
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Time Range: {formatTime(clipRange[0])} - {formatTime(clipRange[1])}</Label>
+              <Slider
+                min={0}
+                max={results.videoDuration}
+                step={0.1}
+                value={clipRange}
+                onValueChange={(values) => setClipRange([values[0], values[1]])}
+                className="mt-2"
+              />
+              <p className="text-sm text-muted-foreground">
+                Clip duration: {formatTime(Math.max(0, clipRange[1] - clipRange[0]))}
+              </p>
+            </div>
+            
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <Label>Start Time (seconds)</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  min={0}
+                  max={results.videoDuration}
+                  value={clipRange[0].toFixed(1)}
+                  onChange={(e) => setClipRange([parseFloat(e.target.value) || 0, clipRange[1]])}
+                />
+              </div>
+              <div className="flex-1">
+                <Label>End Time (seconds)</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  min={0}
+                  max={results.videoDuration}
+                  value={clipRange[1].toFixed(1)}
+                  onChange={(e) => setClipRange([clipRange[0], parseFloat(e.target.value) || 0])}
+                />
+              </div>
+            </div>
+            
+            <Button 
+              onClick={handleExportClip}
+              disabled={isExportingClip || clipRange[1] <= clipRange[0] || !selectedVideo}
+              className="w-full"
+            >
+              {isExportingClip ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {processingPhase || 'Exporting...'}
+                </>
+              ) : (
+                <>
+                  <Scissors className="w-4 h-4 mr-2" />
+                  Export Clip ({formatTime(Math.max(0, clipRange[1] - clipRange[0]))})
+                </>
+              )}
+            </Button>
           </CardContent>
         </Card>
       )}
@@ -495,4 +641,4 @@ const SceneDetection = () => {
   );
 };
 
-export default SceneDetection;
+export default SceneDetectionPage;
