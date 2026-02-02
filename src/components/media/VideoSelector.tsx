@@ -16,11 +16,20 @@ export default function VideoSelector({ onVideoSelect, selectedVideo }: VideoSel
   const [videos, setVideos] = useState<MediaAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [total, setTotal] = useState(0);
+
+  // Debounce search query to avoid triggering on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   useEffect(() => {
     loadVideos();
-  }, [searchQuery]);
+  }, [debouncedQuery]);
 
   const loadVideos = async () => {
     setLoading(true);
@@ -32,7 +41,7 @@ export default function VideoSelector({ onVideoSelect, selectedVideo }: VideoSel
       };
 
       const { assets, total: totalCount } = await fetchAllMediaAssets(
-        searchQuery,
+        debouncedQuery,
         filters,
         50, // Show more videos for selection
         0
