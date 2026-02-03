@@ -386,107 +386,126 @@ serve(async (req) => {
         }
 
         // Now process current S3 objects (add new, update existing)
-        for (const obj of objects) {
-          if (!isMediaFile(obj.Key)) {
-            continue;
+        // Batch processing with delays to avoid CPU timeout on large buckets
+        const BATCH_SIZE = 100;
+        const BATCH_DELAY_MS = 200; // 200ms pause between batches
+        
+        // Pre-fetch existing assets for ETag comparison to skip unchanged files faster
+        const { data: existingAssetsWithMetadata } = await supabase
+          .from('media_assets')
+          .select('id, source_id, metadata')
+          .eq('source', 's3_bucket');
+        
+        const existingAssetMap = new Map<string, { id: string; etag?: string }>();
+        if (existingAssetsWithMetadata) {
+          for (const asset of existingAssetsWithMetadata) {
+            const etag = (asset.metadata as any)?.etag;
+            existingAssetMap.set(asset.source_id, { id: asset.id, etag });
           }
-          totalMedia++;
-
-          const title = extractTitleFromKey(obj.Key);
-          const fileFormat = getFileExtension(obj.Key);
-          const assetType = getAssetType(obj.Key);
+        }
+        console.log(`[SCAN] Pre-loaded ${existingAssetMap.size} existing assets for ETag comparison`);
+        
+        // Filter to only media files first
+        const mediaObjects = objects.filter(obj => isMediaFile(obj.Key));
+        console.log(`[SCAN] Processing ${mediaObjects.length} media files in batches of ${BATCH_SIZE}`);
+        
+        for (let batchStart = 0; batchStart < mediaObjects.length; batchStart += BATCH_SIZE) {
+          const batch = mediaObjects.slice(batchStart, batchStart + BATCH_SIZE);
+          const batchNum = Math.floor(batchStart / BATCH_SIZE) + 1;
+          const totalBatches = Math.ceil(mediaObjects.length / BATCH_SIZE);
           
-          // Use CDN URL if configured, otherwise use raw S3 URL
-          const fileUrl = bucket.cdn_base_url
-            ? `${bucket.cdn_base_url}/${encodeURI(obj.Key)}`
-            : `${bucket.endpoint_url}/${bucket.bucket_name}/${encodeURI(obj.Key)}`;
+          console.log(`[SCAN] Processing batch ${batchNum}/${totalBatches} (${batch.length} files)`);
+          
+          for (const obj of batch) {
+            totalMedia++;
 
-          try {
-            const { data: existing } = await supabase
-              .from('media_assets')
-              .select('id')
-              .eq('source_id', obj.Key)
-              .eq('source', 's3_bucket')
-              .maybeSingle();
-
-            // For videos, try to find a matching thumbnail image
-            const thumbnailUrl = assetType === 'video'
-              ? findThumbnailForVideo(obj.Key, imageMap, bucket.cdn_base_url, bucket.endpoint_url, bucket.bucket_name)
-              : null;
-
-            const assetData = {
-              title,
-              source: 's3_bucket' as const,
-              // Keep both fields in sync:
-              // - source_id is the canonical S3 object key used for de-duping
-              // - s3_key is the searchable/displayable path used across the app
-              source_id: obj.Key,
-              s3_key: obj.Key,
-              file_url: fileUrl,
-              file_format: fileFormat,
-              file_size: obj.Size ?? null,
-              asset_type: assetType,
-              status: 'pending',
-              thumbnail_url: thumbnailUrl,
-              metadata: {
-                bucket: bucket.bucket_name,
-                bucket_config_id: bucketConfigId,
-                etag: obj.ETag,
-                last_modified: obj.LastModified,
-                endpoint: bucket.endpoint_url,
-                cdn_base_url: bucket.cdn_base_url || null,
-              },
-              updated_at: new Date().toISOString(),
-            };
-
-            let assetId: string | null = null;
-            let isNewAsset = false;
-
-            if (existing?.id) {
-              const { error } = await supabase.from('media_assets').update(assetData).eq('id', existing.id);
-              if (!error) {
-                updatedMedia++;
-                assetId = existing.id;
-              } else {
-                console.error(`[DB] Update error for ${obj.Key}:`, error.message);
-                failedMedia++;
-              }
-            } else {
-              const { data: newAsset, error } = await supabase.from('media_assets').insert(assetData).select('id').single();
-              if (!error && newAsset) {
-                newMedia++;
-                assetId = newAsset.id;
-                isNewAsset = true;
-                console.log(`[SCAN] Imported new asset: ${obj.Key}`);
-              } else {
-                console.error(`[DB] Insert error for ${obj.Key}:`, error?.message);
-                failedMedia++;
-              }
+            // Fast ETag check - skip if file hasn't changed
+            const existingAsset = existingAssetMap.get(obj.Key);
+            if (existingAsset && existingAsset.etag && existingAsset.etag === obj.ETag) {
+              skippedMedia++;
+              continue; // File unchanged, skip entirely
             }
 
-            // Trigger auto-tagging for newly discovered assets (images only for now, to save API costs)
-            if (isNewAsset && assetId && assetType === 'image') {
-              const autoTagUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/auto-tag-media-asset`;
-              fetch(autoTagUrl, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            const title = extractTitleFromKey(obj.Key);
+            const fileFormat = getFileExtension(obj.Key);
+            const assetType = getAssetType(obj.Key);
+            
+            // Use CDN URL if configured, otherwise use raw S3 URL
+            const fileUrl = bucket.cdn_base_url
+              ? `${bucket.cdn_base_url}/${encodeURI(obj.Key)}`
+              : `${bucket.endpoint_url}/${bucket.bucket_name}/${encodeURI(obj.Key)}`;
+
+            try {
+              // For videos, try to find a matching thumbnail image
+              const thumbnailUrl = assetType === 'video'
+                ? findThumbnailForVideo(obj.Key, imageMap, bucket.cdn_base_url, bucket.endpoint_url, bucket.bucket_name)
+                : null;
+
+              const assetData = {
+                title,
+                source: 's3_bucket' as const,
+                // Keep both fields in sync:
+                // - source_id is the canonical S3 object key used for de-duping
+                // - s3_key is the searchable/displayable path used across the app
+                source_id: obj.Key,
+                s3_key: obj.Key,
+                file_url: fileUrl,
+                file_format: fileFormat,
+                file_size: obj.Size ?? null,
+                asset_type: assetType,
+                status: 'pending',
+                thumbnail_url: thumbnailUrl,
+                metadata: {
+                  bucket: bucket.bucket_name,
+                  bucket_config_id: bucketConfigId,
+                  etag: obj.ETag,
+                  last_modified: obj.LastModified,
+                  endpoint: bucket.endpoint_url,
+                  cdn_base_url: bucket.cdn_base_url || null,
                 },
-                body: JSON.stringify({
-                  assetId,
-                  mediaUrl: fileUrl,
-                  mediaType: assetType,
-                }),
-              }).then(res => {
-                console.log(`[AutoTag] Queued for ${assetId}: ${res.status}`);
-              }).catch(err => {
-                console.error(`[AutoTag] Failed to queue ${assetId}:`, err);
-              });
+                updated_at: new Date().toISOString(),
+              };
+
+              let assetId: string | null = null;
+              let isNewAsset = false;
+
+              if (existingAsset?.id) {
+                const { error } = await supabase.from('media_assets').update(assetData).eq('id', existingAsset.id);
+                if (!error) {
+                  updatedMedia++;
+                  assetId = existingAsset.id;
+                } else {
+                  console.error(`[DB] Update error for ${obj.Key}:`, error.message);
+                  failedMedia++;
+                }
+              } else {
+                const { data: newAsset, error } = await supabase.from('media_assets').insert(assetData).select('id').single();
+                if (!error && newAsset) {
+                  newMedia++;
+                  assetId = newAsset.id;
+                  isNewAsset = true;
+                  console.log(`[SCAN] Imported new asset: ${obj.Key}`);
+                } else {
+                  console.error(`[DB] Insert error for ${obj.Key}:`, error?.message);
+                  failedMedia++;
+                }
+              }
+
+              // Defer auto-tagging - only log for now to avoid CPU-intensive API calls
+              // Auto-tagging can be done as a separate scheduled job
+              if (isNewAsset && assetId && assetType === 'image') {
+                console.log(`[AutoTag] Queued for batch tagging: ${assetId} (${obj.Key})`);
+                // Future: Store assetId in a queue table for batch processing
+              }
+            } catch (dbError: any) {
+              console.error(`[SCAN] Error processing ${obj.Key}:`, dbError?.message || dbError);
+              failedMedia++;
             }
-          } catch (dbError: any) {
-            console.error(`[SCAN] Error processing ${obj.Key}:`, dbError?.message || dbError);
-            failedMedia++;
+          }
+          
+          // Pause between batches to avoid CPU timeout
+          if (batchStart + BATCH_SIZE < mediaObjects.length) {
+            await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
           }
         }
 

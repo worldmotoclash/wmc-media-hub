@@ -301,6 +301,19 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 
+  const getNextSyncTime = (lastScanned: string | null, frequencyHours: number) => {
+    if (!lastScanned) return 'Pending first scan...';
+    const next = new Date(lastScanned);
+    next.setHours(next.getHours() + frequencyHours);
+    
+    // If next sync is in the past, it's due now
+    if (next < new Date()) {
+      return 'Due now';
+    }
+    
+    return next.toLocaleDateString() + ' ' + next.toLocaleTimeString();
+  };
+
   if (loading) {
     return <div>Loading S3 configurations...</div>;
   }
@@ -358,22 +371,28 @@ export const S3BucketConfigManager: React.FC<S3BucketConfigManagerProps> = ({ on
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
-                      Scans every {config.scan_frequency_hours}h
+                  <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        Scans every {config.scan_frequency_hours}h
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>Last scan: {formatLastScanned(config.last_scanned_at)}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2"
+                          onClick={() => handleScan(config.id)}
+                          disabled={scanningIds.has(config.id) || testingIds.has(config.id)}
+                        >
+                          <RefreshCw className={`w-3 h-3 ${scanningIds.has(config.id) ? 'animate-spin' : ''}`} />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span>Last scan: {formatLastScanned(config.last_scanned_at)}</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 px-2"
-                        onClick={() => handleScan(config.id)}
-                        disabled={scanningIds.has(config.id) || testingIds.has(config.id)}
-                      >
-                        <RefreshCw className={`w-3 h-3 ${scanningIds.has(config.id) ? 'animate-spin' : ''}`} />
-                      </Button>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground/70">
+                      <Clock className="w-3 h-3" />
+                      <span>Next sync: {getNextSyncTime(config.last_scanned_at, config.scan_frequency_hours)}</span>
                     </div>
                   </div>
                   
