@@ -584,6 +584,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full"
+                    autoComplete="off"
                   />
                 </div>
                 
