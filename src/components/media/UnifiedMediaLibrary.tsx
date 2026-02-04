@@ -1472,7 +1472,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     onCheckedChange={toggleSelectAll}
                   />
                 </TableHead>
-                <TableHead className="w-16">Preview</TableHead>
+                
                 <TableHead 
                   className="cursor-pointer hover:bg-muted/50 select-none"
                   onClick={() => setSortOption(prev => ({ 
@@ -1575,63 +1575,8 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    <div className="relative w-12 h-12 rounded overflow-hidden bg-muted flex items-center justify-center">
-                      {asset.thumbnailUrl ? (
-                        <>
-                          {/* Show image or placeholder fallback for images */}
-                          {!(brokenThumbnails.has(asset.id) && asset.assetType === 'video') && (
-                            <img
-                              src={brokenThumbnails.has(asset.id) && isImageType(asset.assetType) ? '/placeholder.svg' : asset.thumbnailUrl}
-                              alt={asset.title}
-                              className="w-full h-full object-cover"
-                              onError={() => {
-                                if (!brokenThumbnails.has(asset.id)) {
-                                  setBrokenThumbnails(prev => new Set(prev).add(asset.id));
-                                }
-                              }}
-                            />
-                          )}
-                          {/* Video play button overlay */}
-                          {asset.assetType === 'video' && !brokenThumbnails.has(asset.id) && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                              <div className="w-6 h-6 rounded-full bg-white/95 flex items-center justify-center">
-                                <Play className="w-3 h-3 text-gray-900 ml-0.5" fill="currentColor" />
-                              </div>
-                            </div>
-                          )}
-                          {/* Video icon fallback when thumbnail is broken */}
-                          {asset.assetType === 'video' && brokenThumbnails.has(asset.id) && (
-                            <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center relative">
-                              <Video className="w-5 h-5 text-slate-500" />
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-6 h-6 rounded-full bg-white/95 flex items-center justify-center">
-                                  <Play className="w-3 h-3 text-gray-900 ml-0.5" fill="currentColor" />
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        asset.assetType === 'video' ? (
-                          <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center relative">
-                            <Video className="w-5 h-5 text-slate-500" />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="w-6 h-6 rounded-full bg-white/95 flex items-center justify-center">
-                                <Play className="w-3 h-3 text-gray-900 ml-0.5" fill="currentColor" />
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="w-full h-full bg-muted flex items-center justify-center">
-                            <Image className="w-5 h-5 text-muted-foreground" />
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
                     <div>
-                      <p className="font-medium text-sm line-clamp-1">{asset.title}</p>
+                      <p className="font-medium text-sm">{asset.title}</p>
                       {asset.description && (
                         <p className="text-xs text-muted-foreground line-clamp-1">{asset.description}</p>
                       )}
