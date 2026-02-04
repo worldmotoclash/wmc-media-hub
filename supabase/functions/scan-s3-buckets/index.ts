@@ -106,12 +106,18 @@ function isImageFile(key: string): boolean {
   return /\.(jpg|jpeg|png|webp|gif|bmp|tiff|tif|svg|heic|heif)$/i.test(key);
 }
 
-function isMediaFile(key: string): boolean {
-  return isVideoFile(key) || isImageFile(key);
+function isAudioFile(key: string): boolean {
+  return /\.(mp3|wav|aac|flac|ogg|m4a|wma|aiff|alac|ape)$/i.test(key);
 }
 
-function getAssetType(key: string): 'video' | 'image' {
-  return isVideoFile(key) ? 'video' : 'image';
+function isMediaFile(key: string): boolean {
+  return isVideoFile(key) || isImageFile(key) || isAudioFile(key);
+}
+
+function getAssetType(key: string): 'video' | 'image' | 'audio' {
+  if (isVideoFile(key)) return 'video';
+  if (isAudioFile(key)) return 'audio';
+  return 'image';
 }
 
 function extractTitleFromKey(key: string): string {
