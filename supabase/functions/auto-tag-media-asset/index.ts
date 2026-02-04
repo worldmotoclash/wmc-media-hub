@@ -11,7 +11,9 @@ const corsHeaders = {
 
 const APPROVED_CATEGORIES = [
   'Promotional', 'Fan Reactions', 'Racer Backstories', 
-  'Website Swiper AI Video', 'News', 'Education & Training', 'Motorworks', 'Unclassified'
+  'Website Swiper AI Video', 'News', 'Education & Training', 'Motorworks', 'Unclassified',
+  // Audio-specific categories
+  'Podcast', 'Interview Audio', 'Race Commentary', 'Sound Effects', 'Music Track'
 ];
 
 const APPROVED_CONTENT_TYPES = [
@@ -43,8 +45,9 @@ const APPROVED_MOODS = [
 interface AutoTagRequest {
   assetId: string;
   mediaUrl: string;
-  mediaType: 'image' | 'video';
+  mediaType: 'image' | 'video' | 'audio';
   skipSalesforce?: boolean;
+  isPodcast?: boolean;
 }
 
 interface SalesforceAnalysisResult {
@@ -120,10 +123,16 @@ If confidence < 80:
 
 async function performSalesforceAnalysis(
   mediaUrl: string, 
-  mediaType: 'image' | 'video',
-  apiKey: string
+  mediaType: 'image' | 'video' | 'audio',
+  apiKey: string,
+  isPodcast?: boolean
 ): Promise<SalesforceAnalysisResult> {
   console.log(`[AI] Performing Salesforce-mapped analysis for ${mediaType}: ${mediaUrl}`);
+  
+  // For audio files, use filename-based text analysis (no visual data)
+  if (mediaType === 'audio') {
+    return performAudioAnalysis(mediaUrl, apiKey, isPodcast);
+  }
   
   const userPrompt = `Analyze this ${mediaType} and classify it for Salesforce Content records.
 
@@ -229,6 +238,146 @@ Return the classification using the analyze_media_for_salesforce function.`;
   };
 }
 
+// ========== AUDIO ANALYSIS FUNCTION ==========
+
+async function performAudioAnalysis(
+  mediaUrl: string,
+  apiKey: string,
+  isPodcast?: boolean
+): Promise<SalesforceAnalysisResult> {
+  // Extract filename from URL for analysis
+  const urlParts = mediaUrl.split('/');
+  const filename = urlParts[urlParts.length - 1] || 'audio_file';
+  
+  console.log(`[AI] Performing audio classification based on filename: ${filename}, isPodcast: ${isPodcast}`);
+  
+  const audioCategories = isPodcast 
+    ? ['Podcast'] 
+    : APPROVED_CATEGORIES.filter(c => ['Podcast', 'Interview Audio', 'Race Commentary', 'Sound Effects', 'Music Track', 'News', 'Education & Training'].includes(c));
+  
+  const userPrompt = `Classify this audio file for a motorsports media library (World Moto Clash).
+
+Filename: "${filename}"
+${isPodcast ? 'Note: This has been marked as a PODCAST episode by the uploader.' : ''}
+
+Based on the filename, determine:
+1. A brief description (1-2 sentences) of what this audio likely contains
+2. The most appropriate category from: ${audioCategories.join(', ')}
+3. Content type (Interview, Behind the Scenes, Announcement, Highlight, Educational)
+4. Mood/tone (Informative, Inspirational, Intense, Relaxed, etc.)
+
+Return the classification using the analyze_media_for_salesforce function.`;
+
+  const tools = [{
+    type: 'function',
+    function: {
+      name: 'analyze_media_for_salesforce',
+      description: 'Classify audio content for Salesforce ri1__Content__c records',
+      parameters: {
+        type: 'object',
+        properties: {
+          description: { 
+            type: 'string', 
+            description: 'Brief description of the audio content based on filename' 
+          },
+          categories: { 
+            type: 'array', 
+            items: { type: 'string', enum: APPROVED_CATEGORIES },
+            maxItems: 3,
+            description: 'Select 1-3 categories. Use Podcast if marked as podcast.'
+          },
+          contentType: { 
+            type: 'string', 
+            enum: APPROVED_CONTENT_TYPES,
+            description: 'Single content type. Default to Interview for podcasts.'
+          },
+          location: { 
+            type: 'string', 
+            enum: APPROVED_LOCATIONS,
+            description: 'For audio, usually Interview / Talking Head or Studio'
+          },
+          mood: { 
+            type: 'string', 
+            enum: APPROVED_MOODS,
+            description: 'Single primary mood/tone'
+          },
+          confidence: { 
+            type: 'integer', 
+            minimum: 0, 
+            maximum: 100,
+            description: 'Lower confidence (40-70) for audio since we only have filename'
+          }
+        },
+        required: ['description', 'categories', 'contentType', 'location', 'mood', 'confidence']
+      }
+    }
+  }];
+
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: KNEWTV_SYSTEM_PROMPT },
+        { role: 'user', content: userPrompt }
+      ],
+      tools,
+      tool_choice: { type: 'function', function: { name: 'analyze_media_for_salesforce' } }
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[AI] Gateway error for audio:', response.status, errorText);
+    // Return default audio classification
+    return {
+      description: isPodcast ? 'Podcast episode from World Moto Clash.' : 'Audio content from World Moto Clash.',
+      categories: isPodcast ? ['Podcast'] : ['Unclassified'],
+      contentType: isPodcast ? 'Interview' : 'Promotional',
+      location: 'Interview / Talking Head',
+      mood: 'Informative',
+      confidence: 50,
+    };
+  }
+
+  const data = await response.json();
+  const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+  
+  if (!toolCall || toolCall.function.name !== 'analyze_media_for_salesforce') {
+    console.warn('[AI] No valid tool call for audio, using defaults');
+    return {
+      description: isPodcast ? 'Podcast episode from World Moto Clash.' : 'Audio content from World Moto Clash.',
+      categories: isPodcast ? ['Podcast'] : ['Unclassified'],
+      contentType: isPodcast ? 'Interview' : 'Promotional',
+      location: 'Interview / Talking Head',
+      mood: 'Informative',
+      confidence: 50,
+    };
+  }
+
+  const result = JSON.parse(toolCall.function.arguments);
+  console.log('[AI] Audio analysis result:', result);
+
+  // Ensure podcast category if flagged
+  let categories = result.categories || [];
+  if (isPodcast && !categories.includes('Podcast')) {
+    categories = ['Podcast', ...categories.filter((c: string) => c !== 'Podcast')].slice(0, 3);
+  }
+
+  return {
+    description: result.description || (isPodcast ? 'Podcast episode.' : 'Audio content.'),
+    categories: categories.length > 0 ? categories : (isPodcast ? ['Podcast'] : ['Unclassified']),
+    contentType: result.contentType || (isPodcast ? 'Interview' : 'Promotional'),
+    location: result.location || 'Interview / Talking Head',
+    mood: result.mood || 'Informative',
+    confidence: result.confidence || 50,
+  };
+}
+
 // ========== TAG HELPERS ==========
 
 async function findOrCreateTag(
@@ -320,7 +469,7 @@ serve(async (req) => {
   const startTime = Date.now();
 
   try {
-    const { assetId, mediaUrl, mediaType, skipSalesforce } = await req.json() as AutoTagRequest;
+    const { assetId, mediaUrl, mediaType, skipSalesforce, isPodcast } = await req.json() as AutoTagRequest;
 
     if (!assetId || !mediaUrl || !mediaType) {
       return new Response(
@@ -332,6 +481,7 @@ serve(async (req) => {
     console.log(`=== Auto-tagging asset ${assetId} (KnewTV Contract) ===`);
     console.log(`Media URL: ${mediaUrl}`);
     console.log(`Media Type: ${mediaType}`);
+    console.log(`Is Podcast: ${isPodcast}`);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -344,7 +494,7 @@ serve(async (req) => {
 
     // Step 1: Perform Salesforce-mapped AI analysis
     console.log('[Step 1] Performing Salesforce-mapped AI analysis...');
-    const analysis = await performSalesforceAnalysis(mediaUrl, mediaType, LOVABLE_API_KEY);
+    const analysis = await performSalesforceAnalysis(mediaUrl, mediaType, LOVABLE_API_KEY, isPodcast);
 
     // Step 2: Extract tag names from analysis
     console.log('[Step 2] Extracting tags from analysis...');

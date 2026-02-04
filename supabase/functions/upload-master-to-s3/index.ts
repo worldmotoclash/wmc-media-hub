@@ -38,6 +38,7 @@ interface UploadMasterRequest {
   thumbnailBase64?: string;
   duration?: number;
   salesforceFields?: SalesforceFields;
+  isPodcast?: boolean; // Flag for audio podcast classification
 }
 
 // Helper function to escape special regex characters
@@ -132,21 +133,23 @@ serve(async (req) => {
       dimensions: `${payload.width}x${payload.height}`,
     });
 
-    const { imageBase64, filename, mimeType, width, height, title, description, tags, creatorContactId, thumbnailBase64, duration, salesforceFields } = payload;
+    const { imageBase64, filename, mimeType, width, height, title, description, tags, creatorContactId, thumbnailBase64, duration, salesforceFields, isPodcast } = payload;
 
-    if (!imageBase64 || !filename || !width || !height) {
+    if (!imageBase64 || !filename) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: imageBase64, filename, width, height" }),
+        JSON.stringify({ error: "Missing required fields: imageBase64, filename" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Detect if this is a video or image based on mimeType
+    // Detect if this is a video, audio, or image based on mimeType
     const isVideo = mimeType?.startsWith('video/');
-    const fileExtension = filename.split('.').pop()?.toLowerCase() || (isVideo ? 'mp4' : 'jpg');
-    const assetType = isVideo ? 'video' : 'master_image';
+    const isAudio = mimeType?.startsWith('audio/');
+    const isImage = !isVideo && !isAudio;
+    const fileExtension = filename.split('.').pop()?.toLowerCase() || (isVideo ? 'mp4' : isAudio ? 'mp3' : 'jpg');
+    const assetType = isVideo ? 'video' : isAudio ? 'audio' : 'master_image';
 
-    console.log(`Detected media type: ${assetType}, extension: ${fileExtension}, isVideo: ${isVideo}, duration: ${duration}`);
+    console.log(`Detected media type: ${assetType}, extension: ${fileExtension}, isVideo: ${isVideo}, isAudio: ${isAudio}, duration: ${duration}, isPodcast: ${isPodcast}`);
 
     const s3Config = getS3Config();
     
@@ -166,11 +169,11 @@ serve(async (req) => {
     });
 
     const masterId = crypto.randomUUID();
-    // Use different S3 path for videos vs images
-    const s3BasePath = isVideo ? S3_PATHS.VIDEO_MASTERS : S3_PATHS.SOCIAL_MEDIA_MASTERS;
+    // Use different S3 path for videos, audio, vs images
+    const s3BasePath = isVideo ? S3_PATHS.VIDEO_MASTERS : isAudio ? S3_PATHS.AUDIO_MASTERS : S3_PATHS.SOCIAL_MEDIA_MASTERS;
     const s3Key = `${s3BasePath}/${masterId}/master.${fileExtension}`;
 
-    // Upload thumbnail for videos if provided
+    // Upload thumbnail for videos if provided (audio doesn't need thumbnails)
     let thumbnailUrl: string | null = null;
     if (isVideo && thumbnailBase64) {
       const thumbKey = `${s3BasePath}/${masterId}/thumbnail.jpg`;
@@ -231,15 +234,17 @@ serve(async (req) => {
     
     // Initial metadata with sync status (also store user-provided tags for backup)
     const initialMetadata = {
-      width,
-      height,
+      width: width || 0,
+      height: height || 0,
       originalFilename: filename,
       mimeType,
       masterId,
       uploadedAt: new Date().toISOString(),
-      isMasterImage: !isVideo,
+      isMasterImage: isImage,
       isVideo,
-      duration: isVideo ? duration : undefined,
+      isAudio,
+      isPodcast: isAudio ? isPodcast : undefined,
+      duration: (isVideo || isAudio) ? duration : undefined,
       sfdcSyncStatus: 'pending' as const,
       creatorContactId,
       userProvidedTags: tags || [], // Store for debugging/backup
@@ -251,13 +256,13 @@ serve(async (req) => {
         title: imageTitle,
         description: description || null, // Store AI-suggested or manual description
         file_url: cdnUrl,
-        thumbnail_url: thumbnailUrl || cdnUrl, // Use separate thumbnail for videos
+        thumbnail_url: thumbnailUrl || (isAudio ? null : cdnUrl), // Audio has no thumbnail
         source: "local_upload",
         status: "ready",
         file_format: fileExtension,
         asset_type: assetType,
         s3_key: s3Key,
-        duration: isVideo ? duration : null, // Store duration for videos
+        duration: (isVideo || isAudio) ? duration : null, // Store duration for videos and audio
         file_size: fileData.length, // Store file size in bytes
         metadata: initialMetadata,
       })
@@ -350,8 +355,8 @@ serve(async (req) => {
         formData.append("string_ri1__Categories__c", tags.join(";"));
       }
       
-      // Add duration for videos (in seconds)
-      if (isVideo && duration) {
+      // Add duration for videos and audio (in seconds)
+      if ((isVideo || isAudio) && duration) {
         formData.append("number_ri1__Length_in_Seconds__c", Math.round(duration).toString());
       }
       
@@ -502,11 +507,12 @@ serve(async (req) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${supabaseKey}`,
           },
-          body: JSON.stringify({
-            assetId: assetData.id,
-            mediaUrl: cdnUrl,
-            mediaType: isVideo ? 'video' : 'image',
-          }),
+        body: JSON.stringify({
+          assetId: assetData.id,
+          mediaUrl: cdnUrl,
+          mediaType: isVideo ? 'video' : isAudio ? 'audio' : 'image',
+          isPodcast: isAudio ? isPodcast : undefined,
+        }),
         }).then(res => {
           console.log(`Auto-tagging response status: ${res.status}`);
           return res.json();

@@ -12,7 +12,8 @@ import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Wand2, AlertCircle, CheckCircle2, Calendar, MapPin, Tag, ArrowLeft, Sparkles, Clock, Monitor, Video, X, FileVideo } from "lucide-react";
+import { Upload, Wand2, AlertCircle, CheckCircle2, Calendar, MapPin, Tag, ArrowLeft, Sparkles, Clock, Monitor, Video, X, FileVideo, Image as ImageIcon, Music, Mic } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
@@ -62,6 +63,8 @@ const MediaUpload: React.FC = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [isPodcast, setIsPodcast] = useState(false);
+  const [submissionCount, setSubmissionCount] = useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   
   // AI Analysis state
@@ -197,6 +200,10 @@ const MediaUpload: React.FC = () => {
     return null;
   }
 
+  if (!user) {
+    return null;
+  }
+
   // File drag & drop handlers
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -221,28 +228,96 @@ const MediaUpload: React.FC = () => {
     }
   };
 
+  // Helper functions to detect file type
+  const getFileType = (file: File): 'video' | 'image' | 'audio' => {
+    if (file.type.startsWith('video/')) return 'video';
+    if (file.type.startsWith('audio/')) return 'audio';
+    return 'image';
+  };
+
+  const isAudioFile = (file: File | null): boolean => {
+    return file?.type.startsWith('audio/') || false;
+  };
+
+  const isImageFile = (file: File | null): boolean => {
+    return file?.type.startsWith('image/') || false;
+  };
+
+  const isVideoFile = (file: File | null): boolean => {
+    return file?.type.startsWith('video/') || false;
+  };
+
+  // Extract audio duration
+  const extractAudioDuration = (file: File): Promise<number> => {
+    return new Promise((resolve) => {
+      const audio = new Audio();
+      audio.preload = 'metadata';
+      audio.onloadedmetadata = () => {
+        URL.revokeObjectURL(audio.src);
+        resolve(audio.duration);
+      };
+      audio.onerror = () => resolve(0);
+      audio.src = URL.createObjectURL(file);
+    });
+  };
+
+  // Convert file to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleFileSelect = (file: File) => {
-    const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-m4v'];
-    if (!validTypes.includes(file.type)) {
+    const validTypes = [
+      // Video
+      'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-m4v',
+      // Image
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+      // Audio
+      'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-m4a', 'audio/aac', 
+      'audio/flac', 'audio/ogg', 'audio/mp4'
+    ];
+    
+    // Check if file type is valid (allow both exact match and wildcard)
+    const isValidType = validTypes.includes(file.type) || 
+      file.type.startsWith('video/') || 
+      file.type.startsWith('image/') || 
+      file.type.startsWith('audio/');
+    
+    if (!isValidType) {
       toast({
         title: "Invalid file type",
-        description: "Please upload a video file (MP4, WebM, MOV, AVI, M4V)",
+        description: "Please upload a video, image, or audio file",
         variant: "destructive",
       });
       return;
     }
     
-    // Max 500MB
-    if (file.size > 500 * 1024 * 1024) {
+    // Max 500MB for video, 100MB for audio, 50MB for images
+    const maxSize = file.type.startsWith('video/') ? 500 * 1024 * 1024 : 
+                    file.type.startsWith('audio/') ? 100 * 1024 * 1024 : 
+                    50 * 1024 * 1024;
+    const maxSizeLabel = file.type.startsWith('video/') ? '500MB' : 
+                         file.type.startsWith('audio/') ? '100MB' : '50MB';
+    
+    if (file.size > maxSize) {
       toast({
         title: "File too large",
-        description: "Maximum file size is 500MB",
+        description: `Maximum file size is ${maxSizeLabel}`,
         variant: "destructive",
       });
       return;
     }
     
     setSelectedFile(file);
+    setIsPodcast(false); // Reset podcast toggle
     // Auto-fill title from filename if empty
     if (!uploadData.title) {
       const fileName = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
@@ -304,36 +379,52 @@ const MediaUpload: React.FC = () => {
     });
   };
 
-  // AI Analysis handler
-  const handleAnalyzeVideo = async () => {
+  // AI Analysis handler - supports video, image, and audio
+  const handleAnalyzeMedia = async () => {
     if (!selectedFile) return;
     
     setIsAnalyzing(true);
     
     try {
-      // Extract a frame from the video
-      const frameData = await extractVideoFrame(selectedFile);
+      const fileType = getFileType(selectedFile);
+      let mediaData: string | null = null;
+      
+      if (fileType === 'video') {
+        // Extract a frame from the video
+        mediaData = await extractVideoFrame(selectedFile);
+      } else if (fileType === 'image') {
+        // Convert image directly to base64
+        mediaData = await fileToBase64(selectedFile);
+      }
+      // For audio, we don't send visual data - just filename
       
       // Call the analyze-video-preview edge function
       const { data, error } = await supabase.functions.invoke('analyze-video-preview', {
         body: { 
-          videoData: frameData, 
+          videoData: mediaData, // null for audio
           fileName: selectedFile.name,
-          mediaType: 'video'
+          mediaType: fileType,
+          isPodcast: fileType === 'audio' ? isPodcast : undefined
         }
       });
       
       if (error) throw error;
       
       if (data?.success) {
+        // For audio with podcast flag, add Podcast tag
+        let tags = data.tags || [];
+        if (fileType === 'audio' && isPodcast && !tags.includes('Podcast')) {
+          tags = ['Podcast', ...tags];
+        }
+        
         // Populate form fields with AI suggestions
         setUploadData(prev => ({
           ...prev,
-          tags: data.tags.join(', '),
+          tags: tags.join(', '),
           description: data.description
         }));
         setAiSuggestions({
-          tags: data.tags,
+          tags: tags,
           description: data.description,
           confidence: data.confidence,
           scene: data.scene,
@@ -341,9 +432,10 @@ const MediaUpload: React.FC = () => {
         });
         setAnalysisComplete(true);
         
+        const mediaLabel = fileType === 'video' ? 'video' : fileType === 'audio' ? 'audio' : 'image';
         toast({
           title: "Analysis Complete",
-          description: `AI analyzed your video with ${Math.round(data.confidence * 100)}% confidence`,
+          description: `AI analyzed your ${mediaLabel} with ${Math.round(data.confidence * 100)}% confidence`,
         });
       } else {
         throw new Error(data?.error || 'Analysis failed');
@@ -352,7 +444,7 @@ const MediaUpload: React.FC = () => {
       console.error('AI analysis error:', error);
       toast({
         title: "Analysis Failed",
-        description: error instanceof Error ? error.message : "Failed to analyze video",
+        description: error instanceof Error ? error.message : "Failed to analyze media",
         variant: "destructive",
       });
     } finally {
@@ -360,13 +452,16 @@ const MediaUpload: React.FC = () => {
     }
   };
 
+  // Keep old function name for backwards compatibility
+  const handleAnalyzeVideo = handleAnalyzeMedia;
+
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!selectedFile && !uploadData.url) {
       toast({
-        title: "No video selected",
-        description: "Please select a video file or enter a URL",
+        title: "No media selected",
+        description: "Please select a file or enter a URL",
         variant: "destructive",
       });
       return;
@@ -375,7 +470,7 @@ const MediaUpload: React.FC = () => {
     if (!uploadData.title) {
       toast({
         title: "Title required",
-        description: "Please enter a title for the video",
+        description: "Please enter a title for the media",
         variant: "destructive",
       });
       return;
@@ -386,15 +481,18 @@ const MediaUpload: React.FC = () => {
     
     try {
       if (selectedFile) {
-        const isVideo = selectedFile.type.startsWith('video/');
+        const fileType = getFileType(selectedFile);
+        const isVideo = fileType === 'video';
+        const isAudio = fileType === 'audio';
+        const isImage = fileType === 'image';
         
         // Stage 1: Extract dimensions and thumbnail (0-25%)
         setUploadProgress(5);
         
-        // Extract video/image dimensions, thumbnail, and duration
+        // Extract media-specific metadata
         let dimensions = { width: 1920, height: 1080 };
         let thumbnailBase64: string | null = null;
-        let videoDuration: number = 0;
+        let mediaDuration: number = 0;
         
         if (isVideo) {
           // Extract dimensions, duration, and thumbnail from video
@@ -438,8 +536,30 @@ const MediaUpload: React.FC = () => {
           
           dimensions = { width: videoData.width, height: videoData.height };
           thumbnailBase64 = videoData.thumbnail;
-          videoDuration = videoData.duration;
-          console.log('Extracted video dimensions:', dimensions, 'duration:', videoDuration, 'thumbnail:', thumbnailBase64 ? 'yes' : 'no');
+          mediaDuration = videoData.duration;
+          console.log('Extracted video dimensions:', dimensions, 'duration:', mediaDuration, 'thumbnail:', thumbnailBase64 ? 'yes' : 'no');
+        } else if (isAudio) {
+          // Extract audio duration
+          mediaDuration = await extractAudioDuration(selectedFile);
+          console.log('Extracted audio duration:', mediaDuration);
+          // Audio has no visual dimensions
+          dimensions = { width: 0, height: 0 };
+        } else if (isImage) {
+          // Extract image dimensions
+          const imgData = await new Promise<{ width: number; height: number }>((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              URL.revokeObjectURL(img.src);
+              resolve({ width: img.naturalWidth, height: img.naturalHeight });
+            };
+            img.onerror = () => {
+              URL.revokeObjectURL(img.src);
+              resolve({ width: 1920, height: 1080 });
+            };
+            img.src = URL.createObjectURL(selectedFile);
+          });
+          dimensions = imgData;
+          console.log('Extracted image dimensions:', dimensions);
         }
         
         setUploadProgress(15);
@@ -477,6 +597,12 @@ const MediaUpload: React.FC = () => {
           });
         }, 500);
 
+        // Prepare tags - add Podcast tag for audio if flagged
+        let finalTags = uploadData.tags.split(',').map(t => t.trim()).filter(Boolean);
+        if (isAudio && isPodcast && !finalTags.includes('Podcast')) {
+          finalTags = ['Podcast', ...finalTags];
+        }
+
         const { data, error } = await supabase.functions.invoke('upload-master-to-s3', {
           body: {
             imageBase64: base64Data,
@@ -486,9 +612,10 @@ const MediaUpload: React.FC = () => {
             height: dimensions.height,
             title: uploadData.title,
             description: uploadData.description,
-            tags: uploadData.tags.split(',').map(t => t.trim()).filter(Boolean),
+            tags: finalTags,
             thumbnailBase64: thumbnailBase64, // Include thumbnail for videos
-            duration: isVideo ? videoDuration : undefined, // Include duration for videos
+            duration: (isVideo || isAudio) ? mediaDuration : undefined, // Include duration for videos and audio
+            isPodcast: isAudio ? isPodcast : undefined, // Pass podcast flag for audio
           },
         });
         
@@ -499,9 +626,10 @@ const MediaUpload: React.FC = () => {
         // Stage 3: Complete (100%)
         setUploadProgress(100);
         
+        const mediaLabel = isVideo ? 'Video' : isAudio ? 'Audio' : 'Image';
         toast({
           title: "Upload successful!",
-          description: "Video has been uploaded and is being processed.",
+          description: `${mediaLabel} has been uploaded and is being processed.`,
         });
         
         // Brief delay to show 100%
@@ -532,8 +660,6 @@ const MediaUpload: React.FC = () => {
       setIsUploading(false);
     }
   };
-
-  const [submissionCount, setSubmissionCount] = useState(0);
 
   const handleGenerateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -777,10 +903,10 @@ const MediaUpload: React.FC = () => {
     }));
   };
 
-  const pageTitle = isGenerateMode ? 'Generate AI Image / Video' : 'Upload Video';
+  const pageTitle = isGenerateMode ? 'Generate AI Image / Video' : 'Upload Media';
   const pageDescription = isGenerateMode 
     ? 'Create racing content with AI-powered image and video generation'
-    : 'Add videos from files or URLs to the WMC library';
+    : 'Add videos, images, or audio files to the WMC library';
 
   return (
     <div className="min-h-screen bg-background">
@@ -821,7 +947,7 @@ const MediaUpload: React.FC = () => {
                 onClick={() => navigate('/admin/media/upload')}
               >
                 <Upload className="w-4 h-4" />
-                Upload Video
+                Upload Media
               </TabsTrigger>
               <TabsTrigger 
                 value="generate" 
@@ -836,10 +962,13 @@ const MediaUpload: React.FC = () => {
             <TabsContent value="upload" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2">
                     <Upload className="w-5 h-5 text-primary" />
-                    Upload Video Content
+                    Upload Media Content
                   </CardTitle>
+                  <CardDescription>
+                    Upload videos, images, or audio files to the media library
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleUploadSubmit} className="space-y-6">
@@ -873,18 +1002,38 @@ const MediaUpload: React.FC = () => {
                         <input
                           ref={fileInputRef}
                           type="file"
-                          accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-m4v"
+                          accept="video/*,image/*,audio/*"
                           onChange={handleFileInputChange}
                           className="hidden"
                         />
                         
                         {selectedFile ? (
                           <div className="space-y-2">
-                            <FileVideo className="w-12 h-12 mx-auto text-primary" />
+                            {/* Dynamic icon based on file type */}
+                            {isVideoFile(selectedFile) && <FileVideo className="w-12 h-12 mx-auto text-primary" />}
+                            {isImageFile(selectedFile) && <ImageIcon className="w-12 h-12 mx-auto text-primary" />}
+                            {isAudioFile(selectedFile) && <Music className="w-12 h-12 mx-auto text-primary" />}
+                            
                             <p className="text-foreground font-medium">{selectedFile.name}</p>
                             <p className="text-sm text-muted-foreground">
                               {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
                             </p>
+                            
+                            {/* Podcast toggle for audio files */}
+                            {isAudioFile(selectedFile) && (
+                              <div className="flex items-center justify-center gap-3 pt-2">
+                                <Switch 
+                                  checked={isPodcast} 
+                                  onCheckedChange={setIsPodcast} 
+                                  id="podcast-toggle"
+                                />
+                                <Label htmlFor="podcast-toggle" className="flex items-center gap-2 cursor-pointer">
+                                  <Mic className="w-4 h-4" />
+                                  This is a podcast episode
+                                </Label>
+                              </div>
+                            )}
+                            
                             <Button 
                               variant="ghost" 
                               size="sm" 
@@ -901,9 +1050,12 @@ const MediaUpload: React.FC = () => {
                           </div>
                         ) : (
                           <>
-                            <Video className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                            <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                             <p className="text-muted-foreground mb-2">
-                              {isDragOver ? 'Drop your video here' : 'Drag & drop video files up to 500MB'}
+                              {isDragOver ? 'Drop your file here' : 'Drag & drop video, image, or audio files'}
+                            </p>
+                            <p className="text-xs text-muted-foreground mb-3">
+                              Video up to 500MB • Audio up to 100MB • Images up to 50MB
                             </p>
                             <Button variant="outline" type="button" onClick={(e) => {
                               e.stopPropagation();
