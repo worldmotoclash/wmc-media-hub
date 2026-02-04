@@ -1,60 +1,67 @@
 
-# Fix: Show Actual Upload Date Instead of Database Creation Date
+
+# UI Improvement: Remove Redundant Preview Column & Show Full Titles
 
 ## The Problem
-The "Created" column in the media library list view shows the same date (2/4/2026) for all assets because it displays when the database record was created during S3 scanning, not when the file was actually uploaded.
+Looking at the screenshot, there are two issues with the list view:
+1. **Redundant Preview Column**: The thumbnail in the Preview column duplicates functionality - the Eye icon in Actions already opens a preview
+2. **Truncated Titles**: Titles like "WMC VIP..." are cut off due to the `line-clamp-1` CSS class, making it hard to identify assets
 
 ## The Solution
-Use the `metadata.last_modified` field (the actual S3 file date) instead of `created_at`. This field contains the real upload/modification date of the file (e.g., `2025-10-01T20:13:40.000Z`).
+Remove the Preview column entirely and allow titles to display in full. This will:
+- Clean up the table by removing redundancy
+- Give more horizontal space to the Title column
+- Show complete asset names for easy identification
 
 ## Changes Required
 
 ### File: `src/components/media/UnifiedMediaLibrary.tsx`
 
-**1. Update Column Header (line ~1544-1556)**
-Change "Created" to "Uploaded" for clarity:
+**1. Remove Preview Column Header (line 1475)**
+Delete this line:
 ```typescript
-<TableHead>
-  <div className="flex items-center gap-1">
-    Uploaded  // Changed from "Created"
-    ...
-  </div>
-</TableHead>
+// DELETE: <TableHead className="w-16">Preview</TableHead>
 ```
 
-**2. Update List View Date Display (line ~1663-1664)**
-Use `metadata.last_modified` with fallback to `createdAt`:
+**2. Remove Preview Column Cell (lines 1577-1631)**
+Delete the entire thumbnail TableCell block that renders the preview thumbnail.
+
+**3. Update Title Display (lines 1632-1638)**
+Remove the `line-clamp-1` truncation to show full titles:
 ```typescript
-<TableCell className="text-sm text-muted-foreground">
-  {(() => {
-    // Prefer last_modified from S3 metadata (actual file date)
-    const dateStr = asset.metadata?.last_modified || asset.createdAt;
-    return !isNaN(Date.parse(dateStr)) 
-      ? new Date(dateStr).toLocaleDateString() 
-      : 'Unknown';
-  })()}
+<TableCell>
+  <div>
+    <p className="font-medium text-sm">{asset.title}</p>  // No line-clamp
+    {asset.description && (
+      <p className="text-xs text-muted-foreground line-clamp-1">{asset.description}</p>
+    )}
+  </div>
 </TableCell>
 ```
+*Note: Keep description truncated since it's supplementary info*
 
-**3. Update Grid View Date Display (line ~1314)**
-Apply the same logic for consistency in grid view:
-```typescript
-<span>
-  Uploaded: {(() => {
-    const dateStr = asset.metadata?.last_modified || asset.createdAt;
-    return !isNaN(Date.parse(dateStr)) 
-      ? new Date(dateStr).toLocaleDateString() 
-      : 'Unknown';
-  })()}
-</span>
+## Visual Result
+
+### Before
+```text
+| ☐ | Preview | Title      | Type  | Source    | Status  | Size   | Duration | Uploaded   | Actions |
+| ☐ | [img]   | WMC VIP... | image | S3 Bucket | pending | 1.9 MB | –        | 9/26/2025  | 👁 ℹ ➜ 🔗 |
 ```
 
-## Expected Result
-- Audio files will show their actual S3 last_modified dates (e.g., `10/1/2025`)
-- Files without metadata.last_modified will fall back to the database created_at
-- Column header says "Uploaded" which better reflects what the date means
+### After
+```text
+| ☐ | Title                           | Type  | Source    | Status  | Size   | Duration | Uploaded   | Actions |
+| ☐ | WMC VIP Experience Package      | image | S3 Bucket | pending | 1.9 MB | –        | 9/26/2025  | 👁 ℹ ➜ 🔗 |
+```
+
+## Benefits
+- **Cleaner layout**: Removes visual clutter from redundant thumbnails
+- **Full visibility**: Users can see complete asset names without hovering
+- **Better UX**: Preview action is still available via the Eye icon
+- **More space**: Title column can expand naturally
 
 ## Technical Notes
-- The `metadata.last_modified` is populated by the S3 scanning function from AWS/Wasabi's file metadata
-- This approach requires no database changes - just display logic
-- Both grid and list views will be updated for consistency
+- The Eye icon (👁) in Actions already calls `setSelectedAsset(asset)` which opens the preview modal
+- The Type column already shows an icon indicating the asset type (video/image/audio)
+- Description stays truncated to prevent rows from becoming too tall
+
