@@ -26,8 +26,11 @@ import {
   Calendar,
   User,
   Database,
-  Plus
+  Plus,
+  Mic
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   MediaAsset,
@@ -58,6 +61,7 @@ export const LibrarianWorkflowDialog: React.FC<LibrarianWorkflowDialogProps> = (
   const [assetTitle, setAssetTitle] = useState(asset.title);
   const [assetDescription, setAssetDescription] = useState(asset.description || '');
   const [assetStatus, setAssetStatus] = useState(asset.status);
+  const [isPodcast, setIsPodcast] = useState(asset.metadata?.isPodcast === true);
   const [sfdcData, setSfdcData] = useState({
     playlistId: '',
     category: '',
@@ -66,11 +70,17 @@ export const LibrarianWorkflowDialog: React.FC<LibrarianWorkflowDialogProps> = (
   });
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('review');
+  
+  const isAudioAsset = asset.assetType === 'audio' || 
+    ['mp3', 'wav', 'aac', 'm4a', 'flac', 'ogg', 'wma'].some(ext => 
+      asset.fileFormat?.toLowerCase()?.includes(ext)
+    );
 
   useEffect(() => {
     if (isOpen) {
       loadTags();
       setSelectedTags(asset.tags.map(tag => tag.id));
+      setIsPodcast(asset.metadata?.isPodcast === true);
     }
   }, [isOpen, asset]);
 
@@ -110,6 +120,28 @@ export const LibrarianWorkflowDialog: React.FC<LibrarianWorkflowDialogProps> = (
         ? prev.filter(id => id !== tagId)
         : [...prev, tagId]
     );
+  };
+
+  const handlePodcastToggle = async (checked: boolean) => {
+    setIsPodcast(checked);
+    try {
+      const updatedMetadata = {
+        ...(asset.metadata || {}),
+        isPodcast: checked
+      };
+      
+      const { error } = await supabase
+        .from('media_assets')
+        .update({ metadata: updatedMetadata })
+        .eq('id', asset.id);
+        
+      if (error) throw error;
+      toast.success(checked ? 'Marked as podcast' : 'Podcast classification removed');
+    } catch (error) {
+      console.error('Error updating podcast classification:', error);
+      toast.error('Failed to update podcast classification');
+      setIsPodcast(!checked); // Revert on error
+    }
   };
 
   const handleSaveChanges = async () => {
@@ -268,6 +300,33 @@ export const LibrarianWorkflowDialog: React.FC<LibrarianWorkflowDialogProps> = (
                 </div>
               </CardContent>
             </Card>
+
+            {/* Podcast Classification - Only for audio assets */}
+            {isAudioAsset && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Mic className="w-5 h-5 text-primary" />
+                    Audio Classification
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="podcast-toggle">Podcast Content</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Mark this audio as a podcast episode or interview
+                      </p>
+                    </div>
+                    <Switch
+                      id="podcast-toggle"
+                      checked={isPodcast}
+                      onCheckedChange={handlePodcastToggle}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Tags Management */}
             <Card>
