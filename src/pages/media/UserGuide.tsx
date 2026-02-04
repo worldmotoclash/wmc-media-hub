@@ -59,7 +59,9 @@ import {
   UserCheck,
   UserCog,
   UserCircle,
-  Crown
+  Crown,
+  Music,
+  Mic
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -89,6 +91,7 @@ const tocItems = [
   // Editor
   { id: 'for-editors', title: 'For Editors', isCategory: true, role: 'editor' as const },
   { id: 'ai-generation', title: 'AI Content Generation' },
+  { id: 'media-upload', title: 'Upload Media' },
   { id: 'style-lock', title: 'Style Lock Feature' },
   { id: 'grid-templates', title: '3x3 Grid Templates' },
   { id: 'social-kit', title: 'Social Kit' },
@@ -125,7 +128,7 @@ const UserGuide: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-foreground">WMC Media Hub User Guide</h1>
-                <p className="text-xs text-muted-foreground">Role-Based Documentation • Last updated: December 2024</p>
+                <p className="text-xs text-muted-foreground">Role-Based Documentation • Last updated: January 2025</p>
               </div>
             </div>
           </div>
@@ -712,6 +715,80 @@ const UserGuide: React.FC = () => {
                 </GuideTip>
               </GuideSection>
 
+              {/* Unified Media Upload */}
+              <GuideSection id="media-upload" title="Upload Media" icon={Upload} role="editor">
+                <p className="text-muted-foreground mb-6">
+                  Upload video, images, and audio files through a single unified interface. 
+                  AI-powered analysis provides automatic tagging and metadata suggestions for all media types.
+                </p>
+
+                <GuideSubSection title="Supported File Types">
+                  <GuideTable
+                    headers={['Media Type', 'Formats', 'Max Size', 'AI Analysis']}
+                    rows={[
+                      ['Video', 'MP4, WebM, MOV, AVI, M4V', '500MB', 'Frame extraction → Visual AI'],
+                      ['Image', 'JPEG, PNG, WebP, GIF', '50MB', 'Direct visual AI analysis'],
+                      ['Audio', 'MP3, M4A, WAV, AAC, FLAC, OGG', '100MB', 'Filename-based classification'],
+                    ]}
+                  />
+                </GuideSubSection>
+
+                <GuideSubSection title="Upload Workflow">
+                  <GuideStep number={1} title="Select or Drop File">
+                    Drag and drop a file into the upload zone, or click to browse. The interface automatically 
+                    detects the media type and shows appropriate options.
+                  </GuideStep>
+                  <GuideStep number={2} title="AI Analysis (Recommended)">
+                    Click "Analyze with AI" to get automatic suggestions:
+                    <ul className="list-disc list-inside mt-2 text-sm">
+                      <li><strong>Video:</strong> Extracts a representative frame for visual analysis</li>
+                      <li><strong>Images:</strong> Analyzes the image directly for content, scene, and mood</li>
+                      <li><strong>Audio:</strong> Classifies based on filename and metadata patterns</li>
+                    </ul>
+                  </GuideStep>
+                  <GuideStep number={3} title="Review & Edit Metadata">
+                    Review AI suggestions for title, description, and tags. Edit as needed.
+                  </GuideStep>
+                  <GuideStep number={4} title="Upload to Library">
+                    Click "Upload" to save the file to S3 and create the media asset record.
+                  </GuideStep>
+                </GuideSubSection>
+
+                <GuideSubSection title="Podcast Classification">
+                  <p className="text-muted-foreground mb-4">
+                    When uploading audio files, you can classify content as a podcast episode:
+                  </p>
+                  <div className="p-4 rounded-lg border border-primary/30 bg-primary/5 mb-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Mic className="w-5 h-5 text-primary" />
+                      <span className="font-semibold">Podcast Toggle</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Enable "This is a podcast episode" to automatically tag the audio with 
+                      podcast-specific metadata. This helps organize podcast content separately 
+                      from other audio files like sound effects or music tracks.
+                    </p>
+                  </div>
+                  <GuideTip type="tip">
+                    Podcast classification improves AI tagging accuracy by focusing on interview, 
+                    commentary, and episode-related categories.
+                  </GuideTip>
+                </GuideSubSection>
+
+                <GuideSubSection title="Audio Duration Extraction">
+                  <p className="text-muted-foreground mb-4">
+                    For both video and audio files, the system automatically extracts duration 
+                    metadata before upload. This information is stored alongside the asset and 
+                    synced to Salesforce.
+                  </p>
+                </GuideSubSection>
+
+                <GuideTip type="note">
+                  Uploaded content is automatically synced to Salesforce after successful upload. 
+                  Check the asset details for sync status.
+                </GuideTip>
+              </GuideSection>
+
               {/* Asset Management */}
               <GuideSection id="asset-management" title="Asset Management" icon={FolderOpen} role="editor">
                 <p className="text-muted-foreground mb-6">
@@ -722,7 +799,7 @@ const UserGuide: React.FC = () => {
                   <GuideTable
                     headers={['Action', 'Description', 'How To']}
                     rows={[
-                      ['Upload Content', 'Add new images and videos', 'Click Upload or drag-and-drop'],
+                      ['Upload Content', 'Add video, images, or audio', 'Click Upload or drag-and-drop'],
                       ['Edit Metadata', 'Update title, description', 'Click edit icon on asset'],
                       ['Manage Tags', 'Add or remove tags', 'In edit mode or quick-tag button'],
                       ['Bulk Actions', 'Apply actions to multiple assets', 'Select multiple, use toolbar'],
@@ -991,6 +1068,25 @@ const UserGuide: React.FC = () => {
                   />
                 </GuideSubSection>
 
+                <GuideSubSection title="Supported Media Files for Scanning">
+                  <p className="text-muted-foreground mb-4">
+                    When scanning S3 buckets, the system automatically indexes the following file types:
+                  </p>
+                  <GuideTable
+                    headers={['Media Type', 'Extensions']}
+                    rows={[
+                      ['Video', 'mp4, m4v, mov, avi, webm, mkv, wmv, flv'],
+                      ['Image', 'jpg, jpeg, png, gif, webp, bmp, tiff, svg, avif'],
+                      ['Audio', 'mp3, wav, aac, flac, ogg, m4a, wma, aiff, alac, ape'],
+                    ]}
+                  />
+                  <GuideTip type="note">
+                    <Music className="w-4 h-4 inline mr-1" />
+                    Audio file support was added in Version 4.0. Rescan existing buckets to index 
+                    previously-uploaded audio files like podcasts and interviews.
+                  </GuideTip>
+                </GuideSubSection>
+
                 <GuideTip type="warning">
                   S3 credentials are stored encrypted. Never share credentials or include in code.
                 </GuideTip>
@@ -1096,7 +1192,7 @@ const UserGuide: React.FC = () => {
                   </Button>
                 </div>
                 <p className="mt-8 text-xs text-muted-foreground">
-                  Last updated: December 2024 • Version 3.0 (Role-Based)
+                  Last updated: January 2025 • Version 4.0 (Role-Based with Unified Media Upload)
                 </p>
               </div>
             </motion.div>
