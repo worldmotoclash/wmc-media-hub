@@ -20,6 +20,7 @@ export interface ContentOriginStats {
   aiGenerated: number;
   uploaded: number;
   audio: number;
+  podcasts: number;
 }
 
 export interface WasabiMediaBreakdown {
@@ -78,7 +79,7 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
     generatedVideos: { source: 'Generated Videos', count: 0, status: 'healthy' },
     totalCount: 0,
     syncHealth: { inSync: 0, missingSfdc: 0, missingFile: 0, total: 0 },
-    contentOrigin: { youtube: 0, aiGenerated: 0, uploaded: 0, audio: 0 },
+    contentOrigin: { youtube: 0, aiGenerated: 0, uploaded: 0, audio: 0, podcasts: 0 },
     salesforceApiStatus: { isConnected: false, lastChecked: new Date().toISOString() },
     totalLibraryAssets: 0,
     salesforceApiAssets: 0,
@@ -248,6 +249,15 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
     stats.contentOrigin.aiGenerated = aiGeneratedCount || 0;
     stats.contentOrigin.uploaded = uploadedCount || 0;
     stats.contentOrigin.audio += (audioCount || 0);
+
+    // Podcasts: audio assets with metadata.isPodcast = true
+    const { count: podcastCount } = await supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('asset_type', 'audio')
+      .eq('metadata->>isPodcast', 'true');
+
+    stats.contentOrigin.podcasts = podcastCount || 0;
 
     // Get Wasabi (S3) breakdown by media type
     const { count: wasabiVideos } = await supabase

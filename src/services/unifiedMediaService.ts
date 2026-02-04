@@ -86,7 +86,7 @@ export interface SearchFilters {
   };
   fileFormats?: string[];
   // New filter types
-  contentOrigin?: ('youtube' | 'ai_generated' | 'uploaded' | 'audio')[];
+  contentOrigin?: ('youtube' | 'ai_generated' | 'uploaded' | 'audio' | 'podcast')[];
   syncStatus?: 'all' | 'in_sync' | 'missing_sfdc' | 'missing_file';
   // Salesforce metadata filters (multi-select)
   categories?: string[];
@@ -134,6 +134,7 @@ export async function fetchAllMediaAssets(
     if (filters?.contentOrigin?.length) {
       const sourcesToInclude: string[] = [];
       const needsAudioFilter = filters.contentOrigin.includes('audio');
+      const needsPodcastFilter = filters.contentOrigin.includes('podcast');
       
       if (filters.contentOrigin.includes('youtube')) {
         sourcesToInclude.push('youtube');
@@ -145,8 +146,12 @@ export async function fetchAllMediaAssets(
         sourcesToInclude.push('local_upload', 's3_bucket');
       }
       
-      // Build combined filter for sources and audio
-      if (sourcesToInclude.length > 0 && needsAudioFilter) {
+      // Handle podcast filter - podcasts are audio with isPodcast=true in metadata
+      if (needsPodcastFilter) {
+        // Filter specifically for podcasts
+        query = query.eq('asset_type', 'audio').eq('metadata->>isPodcast', 'true');
+      } else if (sourcesToInclude.length > 0 && needsAudioFilter) {
+        // Build combined filter for sources and audio
         // Combine source filter OR audio file_format filter
         const sourceFilter = `source.in.(${sourcesToInclude.join(',')})`;
         const audioFilter = 'file_format.ilike.%mp3%,file_format.ilike.%wav%,file_format.ilike.%aac%,file_format.ilike.%m4a%,file_format.ilike.%flac%';
