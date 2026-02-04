@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Drawer,
   DrawerClose,
@@ -13,19 +13,24 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { 
   X, Video, Image, Music, MapPin, Sparkles, Tag, Clock, 
   HardDrive, Calendar, ExternalLink, CheckCircle, AlertTriangle, 
-  FileText, Gauge, Link2, Eye, Wand2
+  FileText, Gauge, Link2, Eye, Wand2, Mic
 } from "lucide-react";
 import { MediaAsset } from "@/services/unifiedMediaService";
 import { AudioToVideoWorkflow } from "./AudioToVideoWorkflow";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface MediaAssetDetailsDrawerProps {
   asset: MediaAsset | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPreview?: (asset: MediaAsset) => void;
+  onAssetUpdated?: () => void;
 }
 
 interface SfdcAnalysis {
@@ -42,14 +47,53 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   open,
   onOpenChange,
   onPreview,
+  onAssetUpdated,
 }) => {
   const [audioToVideoOpen, setAudioToVideoOpen] = useState(false);
+  const [isPodcast, setIsPodcast] = useState(false);
+  const [isSavingPodcast, setIsSavingPodcast] = useState(false);
+
+  // Sync isPodcast state when asset changes
+  useEffect(() => {
+    if (asset) {
+      setIsPodcast(asset.metadata?.isPodcast === true);
+    }
+  }, [asset]);
 
   if (!asset) return null;
 
+  const isAudioAsset = asset.assetType === 'audio';
   const sfdcAnalysis: SfdcAnalysis | undefined = asset.metadata?.sfdcAnalysis;
   const hasAiAnalysis = !!sfdcAnalysis;
   const isVideoAsset = asset.assetType === 'video';
+
+  const handlePodcastToggle = async (checked: boolean) => {
+    setIsPodcast(checked);
+    setIsSavingPodcast(true);
+    
+    try {
+      const updatedMetadata = {
+        ...asset.metadata,
+        isPodcast: checked,
+      };
+      
+      const { error } = await supabase
+        .from('media_assets')
+        .update({ metadata: updatedMetadata })
+        .eq('id', asset.id);
+      
+      if (error) throw error;
+      
+      toast.success(checked ? 'Marked as podcast' : 'Removed podcast classification');
+      onAssetUpdated?.();
+    } catch (error) {
+      console.error('Failed to update podcast status:', error);
+      toast.error('Failed to update podcast status');
+      setIsPodcast(!checked); // Revert on error
+    } finally {
+      setIsSavingPodcast(false);
+    }
+  };
 
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return '–';
@@ -325,6 +369,36 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
             </div>
 
             <Separator />
+
+            {/* Podcast Classification - only for audio assets */}
+            {isAudioAsset && (
+              <>
+                <div>
+                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <Mic className="w-4 h-4 text-pink-500" />
+                    Audio Classification
+                  </h4>
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="podcast-toggle" className="text-sm font-medium cursor-pointer">
+                        Podcast Episode
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Mark this audio as a podcast episode
+                      </p>
+                    </div>
+                    <Switch
+                      id="podcast-toggle"
+                      checked={isPodcast}
+                      onCheckedChange={handlePodcastToggle}
+                      disabled={isSavingPodcast}
+                    />
+                  </div>
+                </div>
+
+                <Separator />
+              </>
+            )}
 
             {/* Sync Status */}
             <div>

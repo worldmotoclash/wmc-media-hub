@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music, Info, SlidersHorizontal, ChevronDown, ChevronUp, Layers, Grid3x3 } from "lucide-react";
+import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music, Info, SlidersHorizontal, ChevronDown, ChevronUp, Layers, Grid3x3, Mic } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -894,6 +894,26 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     <span className="text-muted-foreground text-xs">{filterCounts?.contentOrigin?.audio ?? '—'}</span>
                   </label>
                 </div>
+                
+                {/* Podcasts */}
+                <div className="min-h-8 flex items-center space-x-2">
+                  <Checkbox
+                    id="origin-podcast"
+                    checked={filters.contentOrigin?.includes('podcast') || false}
+                    onCheckedChange={(checked) => {
+                      const current = filters.contentOrigin || [];
+                      if (checked) {
+                        handleFilterChange('contentOrigin', [...current, 'podcast']);
+                      } else {
+                        handleFilterChange('contentOrigin', current.filter(o => o !== 'podcast'));
+                      }
+                    }}
+                  />
+                  <label htmlFor="origin-podcast" className="text-sm flex items-center justify-between flex-1">
+                    <span className="flex items-center gap-1.5"><Mic className="w-4 h-4 text-pink-500" /> Podcasts</span>
+                    <span className="text-muted-foreground text-xs">{filterCounts?.contentOrigin?.podcasts ?? '—'}</span>
+                  </label>
+                </div>
               </div>
               
               {/* Sync Status Filter */}
@@ -1192,6 +1212,11 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       <Badge className="text-xs bg-amber-600/90 text-white border-0">
                         <Sparkles className="w-3 h-3 mr-1" />
                         AI Gen
+                      </Badge>
+                    ) : asset.assetType === 'audio' && asset.metadata?.isPodcast ? (
+                      <Badge className="text-xs bg-pink-600/90 text-white border-0">
+                        <Mic className="w-3 h-3 mr-1" />
+                        Podcast
                       </Badge>
                     ) : (
                       <Badge variant="secondary" className="text-xs">
@@ -1856,6 +1881,10 @@ export const UnifiedMediaLibrary: React.FC = () => {
         onPreview={(asset) => {
           setShowDetailsDrawer(false);
           setSelectedAsset(asset);
+        }}
+        onAssetUpdated={() => {
+          loadAssets();
+          loadFilterCounts();
         }}
       />
 
