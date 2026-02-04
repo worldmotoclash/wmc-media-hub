@@ -1311,7 +1311,10 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       )}
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>Created: {!isNaN(Date.parse(asset.createdAt)) ? new Date(asset.createdAt).toLocaleDateString() : 'Unknown'}</span>
+                      <span>Uploaded: {(() => {
+                        const dateStr = asset.metadata?.last_modified || asset.createdAt;
+                        return !isNaN(Date.parse(dateStr)) ? new Date(dateStr).toLocaleDateString() : 'Unknown';
+                      })()}</span>
                       {asset.syncStatus && getSyncStatusBadge(asset.syncStatus)}
                     </div>
                   </div>
@@ -1549,7 +1552,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                   }))}
                 >
                   <div className="flex items-center gap-1">
-                    Created
+                    Uploaded
                     {sortOption.field === 'created_at' && (
                       <ArrowUpDown className={`w-3 h-3 ${sortOption.direction === 'desc' ? 'rotate-180' : ''}`} />
                     )}
@@ -1661,7 +1664,10 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     {asset.duration ? formatDuration(asset.duration) : '–'}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {!isNaN(Date.parse(asset.createdAt)) ? new Date(asset.createdAt).toLocaleDateString() : 'Unknown'}
+                    {(() => {
+                      const dateStr = asset.metadata?.last_modified || asset.createdAt;
+                      return !isNaN(Date.parse(dateStr)) ? new Date(dateStr).toLocaleDateString() : 'Unknown';
+                    })()}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-1 justify-end">
