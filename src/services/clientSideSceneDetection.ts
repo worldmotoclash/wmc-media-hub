@@ -96,7 +96,7 @@ class ClientSideSceneDetectionService {
     onProgress?.({ phase: 'extracting', progress: 60, message: 'Extracting thumbnails...' });
     
     // Extract thumbnails for each scene
-    const scenesWithThumbnails = await this.extractThumbnails(scenes, metadata.fps);
+    const scenesWithThumbnails = await this.extractThumbnails(scenes, metadata.fps, onProgress);
     
     onProgress?.({ phase: 'complete', progress: 100, message: `Found ${scenes.length} scenes` });
     
@@ -230,14 +230,27 @@ class ClientSideSceneDetectionService {
     return scenes;
   }
 
-  private async extractThumbnails(scenes: SceneDetection[], fps: number): Promise<SceneDetection[]> {
+  private async extractThumbnails(
+    scenes: SceneDetection[], 
+    fps: number,
+    onProgress?: (progress: ProcessingProgress) => void
+  ): Promise<SceneDetection[]> {
     if (!this.ffmpeg) throw new Error('FFmpeg not initialized');
     
     const scenesWithThumbnails: SceneDetection[] = [];
+    const totalScenes = scenes.length;
     
     for (let i = 0; i < scenes.length; i++) {
       const scene = scenes[i];
       const outputFile = `thumb_${i}.jpg`;
+      
+      // Report progress for each thumbnail (60% to 95% range)
+      const thumbnailProgress = 60 + Math.floor((i / totalScenes) * 35);
+      onProgress?.({ 
+        phase: 'extracting', 
+        progress: thumbnailProgress, 
+        message: `Extracting thumbnail ${i + 1}/${totalScenes}...` 
+      });
       
       try {
         // Extract frame at scene timestamp
@@ -254,12 +267,8 @@ class ClientSideSceneDetectionService {
         const data = await this.ffmpeg.readFile(outputFile);
         const uint8Array = data as Uint8Array;
         
-        // Convert to base64
-        let binary = '';
-        for (let j = 0; j < uint8Array.byteLength; j++) {
-          binary += String.fromCharCode(uint8Array[j]);
-        }
-        const base64 = btoa(binary);
+        // Convert to base64 using chunks for better performance
+        const base64 = this.uint8ArrayToBase64(uint8Array);
         const thumbnail = `data:image/jpeg;base64,${base64}`;
         
         scenesWithThumbnails.push({
@@ -277,6 +286,19 @@ class ClientSideSceneDetectionService {
     }
     
     return scenesWithThumbnails;
+  }
+
+  private uint8ArrayToBase64(uint8Array: Uint8Array): string {
+    // Process in chunks to avoid call stack issues and improve performance
+    const CHUNK_SIZE = 0x8000; // 32KB chunks
+    const chunks: string[] = [];
+    
+    for (let i = 0; i < uint8Array.length; i += CHUNK_SIZE) {
+      const chunk = uint8Array.subarray(i, Math.min(i + CHUNK_SIZE, uint8Array.length));
+      chunks.push(String.fromCharCode.apply(null, Array.from(chunk)));
+    }
+    
+    return btoa(chunks.join(''));
   }
 
   async extractClip(
