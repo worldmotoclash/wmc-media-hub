@@ -1,67 +1,174 @@
 
+# Fix: Scene Detection Stalling During Video Download
 
-# UI Improvement: Remove Redundant Preview Column & Show Full Titles
+## Problem Analysis
+The scene detection stalls at **"Downloading video... 20%"** because:
 
-## The Problem
-Looking at the screenshot, there are two issues with the list view:
-1. **Redundant Preview Column**: The thumbnail in the Preview column duplicates functionality - the Eye icon in Actions already opens a preview
-2. **Truncated Titles**: Titles like "WMC VIP..." are cut off due to the `line-clamp-1` CSS class, making it hard to identify assets
+1. **No download progress tracking**: The `fetch(asset.fileUrl)` provides no progress updates - users see a frozen progress bar
+2. **No timeout**: If the S3/Wasabi server is slow or CORS is misconfigured, the fetch hangs forever
+3. **No cancel option**: Users can't abort a stuck download
+4. **The 20% is misleading**: It's leftover from the previous "Extracting video metadata" phase, not actual download progress
 
-## The Solution
-Remove the Preview column entirely and allow titles to display in full. This will:
-- Clean up the table by removing redundancy
-- Give more horizontal space to the Title column
-- Show complete asset names for easy identification
+## Solution Overview
+Add proper download progress tracking using `fetch` with `ReadableStream`, implement a timeout, and add a cancel button.
 
-## Changes Required
+## Technical Changes
 
-### File: `src/components/media/UnifiedMediaLibrary.tsx`
+### File 1: `src/pages/media/SceneDetection.tsx`
 
-**1. Remove Preview Column Header (line 1475)**
-Delete this line:
+**1. Add cancel state and abort controller (around line 50)**
 ```typescript
-// DELETE: <TableHead className="w-16">Preview</TableHead>
+const [abortController, setAbortController] = useState<AbortController | null>(null);
+
+const handleCancelProcessing = () => {
+  if (abortController) {
+    abortController.abort();
+    setAbortController(null);
+  }
+  setIsProcessing(false);
+  setProgress(0);
+  setProcessingPhase('');
+  toast.info('Scene detection cancelled');
+};
 ```
 
-**2. Remove Preview Column Cell (lines 1577-1631)**
-Delete the entire thumbnail TableCell block that renders the preview thumbnail.
-
-**3. Update Title Display (lines 1632-1638)**
-Remove the `line-clamp-1` truncation to show full titles:
+**2. Add download progress helper function**
 ```typescript
-<TableCell>
-  <div>
-    <p className="font-medium text-sm">{asset.title}</p>  // No line-clamp
-    {asset.description && (
-      <p className="text-xs text-muted-foreground line-clamp-1">{asset.description}</p>
+const downloadWithProgress = async (
+  url: string, 
+  onProgress: (percent: number) => void,
+  signal: AbortSignal
+): Promise<Blob> => {
+  const response = await fetch(url, { signal });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to download video: ${response.statusText}`);
+  }
+  
+  const contentLength = response.headers.get('content-length');
+  const total = contentLength ? parseInt(contentLength, 10) : 0;
+  
+  if (!total || !response.body) {
+    // Fallback: no progress tracking possible
+    return response.blob();
+  }
+  
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    
+    chunks.push(value);
+    received += value.length;
+    onProgress(Math.round((received / total) * 100));
+  }
+  
+  return new Blob(chunks);
+};
+```
+
+**3. Update handleDetectScenes to use abort controller and progress**
+Replace the asset download section:
+```typescript
+// Create abort controller for cancellation
+const controller = new AbortController();
+setAbortController(controller);
+
+// Download the video file from the asset URL with progress
+setProcessingPhase('Downloading video...');
+setProgress(0);
+
+const blob = await downloadWithProgress(
+  asset.fileUrl,
+  (percent) => {
+    setProgress(percent * 0.2); // 0-20% for download phase
+    setProcessingPhase(`Downloading video... ${percent}%`);
+  },
+  controller.signal
+);
+
+videoFile = new File([blob], asset.title || 'video.mp4', { type: blob.type });
+```
+
+**4. Add timeout wrapper with 2-minute limit**
+```typescript
+const downloadWithTimeout = async (url: string, signal: AbortSignal, timeoutMs: number = 120000) => {
+  const timeoutId = setTimeout(() => signal.abort(), timeoutMs);
+  try {
+    return await downloadWithProgress(url, onProgress, signal);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+```
+
+**5. Add Cancel button to UI (around line 377-393)**
+Replace the button section:
+```typescript
+<div className="flex gap-2">
+  <Button 
+    onClick={handleDetectScenes} 
+    disabled={!selectedVideo || isProcessing}
+    className="flex-1"
+  >
+    {isProcessing ? (
+      <>
+        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+        Processing...
+      </>
+    ) : (
+      <>
+        <Play className="w-4 h-4 mr-2" />
+        Detect Scenes
+      </>
     )}
-  </div>
-</TableCell>
-```
-*Note: Keep description truncated since it's supplementary info*
-
-## Visual Result
-
-### Before
-```text
-| ☐ | Preview | Title      | Type  | Source    | Status  | Size   | Duration | Uploaded   | Actions |
-| ☐ | [img]   | WMC VIP... | image | S3 Bucket | pending | 1.9 MB | –        | 9/26/2025  | 👁 ℹ ➜ 🔗 |
-```
-
-### After
-```text
-| ☐ | Title                           | Type  | Source    | Status  | Size   | Duration | Uploaded   | Actions |
-| ☐ | WMC VIP Experience Package      | image | S3 Bucket | pending | 1.9 MB | –        | 9/26/2025  | 👁 ℹ ➜ 🔗 |
+  </Button>
+  
+  {isProcessing && (
+    <Button 
+      onClick={handleCancelProcessing}
+      variant="destructive"
+    >
+      Cancel
+    </Button>
+  )}
+</div>
 ```
 
-## Benefits
-- **Cleaner layout**: Removes visual clutter from redundant thumbnails
-- **Full visibility**: Users can see complete asset names without hovering
-- **Better UX**: Preview action is still available via the Eye icon
-- **More space**: Title column can expand naturally
+**6. Handle abort errors gracefully**
+In the catch block:
+```typescript
+} catch (error) {
+  if ((error as Error).name === 'AbortError') {
+    console.log('Scene detection was cancelled');
+    return; // Don't show error toast for user-initiated cancel
+  }
+  console.error('Scene detection error:', error);
+  toast.error((error as Error).message || 'Scene detection failed');
+}
+```
 
-## Technical Notes
-- The Eye icon (👁) in Actions already calls `setSelectedAsset(asset)` which opens the preview modal
-- The Type column already shows an icon indicating the asset type (video/image/audio)
-- Description stays truncated to prevent rows from becoming too tall
+## Progress Phases After Fix
 
+| Phase | Progress | Message |
+|-------|----------|---------|
+| FFmpeg loading | 0-100% | "Loading video processor..." |
+| Video download | 0-20% | "Downloading video... 45%" |
+| Write to FFmpeg | 20% | "Writing video file..." |
+| Metadata extraction | 20-40% | "Extracting video metadata..." |
+| Scene analysis | 40-60% | "Analyzing scene changes..." |
+| Thumbnail extraction | 60-95% | "Extracting thumbnail 3/12..." |
+| Complete | 100% | "Found 12 scenes" |
+
+## Expected Result
+- Users see real-time download progress (e.g., "Downloading video... 67%")
+- A Cancel button appears during processing
+- If download takes >2 minutes, it auto-cancels with an error message
+- Users can manually cancel at any time
+- CORS/network errors surface immediately instead of hanging
+
+## Alternative Approach (If CORS Blocks Progress)
+Some S3 buckets don't expose `Content-Length` headers due to CORS. In that case, we'll show an indeterminate progress message like "Downloading video (size unknown)..." with a pulsing animation instead of a percentage.
