@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Play, Download, Clock, Film, TrendingUp, Loader2, Scissors } from "lucide-react";
+import { Upload, Play, Download, Clock, Film, TrendingUp, Loader2, Scissors, X } from "lucide-react";
 import { toast } from "sonner";
 import VideoSelector from "@/components/media/VideoSelector";
 import { 
@@ -49,6 +49,9 @@ const SceneDetectionPage = () => {
   // Clip extraction state
   const [clipRange, setClipRange] = useState<[number, number]>([0, 0]);
   const [isExportingClip, setIsExportingClip] = useState(false);
+  
+  // Abort controller for cancellation
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
 
   // FFmpeg is now lazy-loaded when user clicks "Detect Scenes"
 
@@ -58,6 +61,55 @@ const SceneDetectionPage = () => {
       setClipRange([0, results.videoDuration]);
     }
   }, [results]);
+
+  // Download with progress tracking
+  const downloadWithProgress = async (
+    url: string,
+    onProgress: (percent: number) => void,
+    signal: AbortSignal
+  ): Promise<Blob> => {
+    const response = await fetch(url, { signal });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to download video: ${response.statusText}`);
+    }
+    
+    const contentLength = response.headers.get('content-length');
+    const total = contentLength ? parseInt(contentLength, 10) : 0;
+    
+    if (!total || !response.body) {
+      // Fallback: no progress tracking possible (CORS may block Content-Length)
+      onProgress(-1); // Signal indeterminate progress
+      return response.blob();
+    }
+    
+    const reader = response.body.getReader();
+    const chunks: BlobPart[] = [];
+    let received = 0;
+    
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      
+      chunks.push(value.slice().buffer);
+      received += value.length;
+      onProgress(Math.round((received / total) * 100));
+    }
+    
+    return new Blob(chunks);
+  };
+
+  // Handle cancellation
+  const handleCancelProcessing = () => {
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+    }
+    setIsProcessing(false);
+    setProgress(0);
+    setProcessingPhase('');
+    toast.info('Scene detection cancelled');
+  };
 
   const handleDetectScenes = async () => {
     if (!selectedVideo) {
@@ -69,6 +121,16 @@ const SceneDetectionPage = () => {
     setProgress(0);
     setProcessingPhase('');
     setResults(null);
+
+    // Create abort controller for cancellation
+    const controller = new AbortController();
+    setAbortController(controller);
+    
+    // Set up 2-minute timeout
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+      toast.error('Download timed out after 2 minutes');
+    }, 120000);
 
     try {
       // Initialize FFmpeg on first use (lazy loading)
@@ -95,28 +157,47 @@ const SceneDetectionPage = () => {
           throw new Error('Media asset does not have a download URL');
         }
         
-        // Download the video file from the asset URL
-        setProcessingPhase('Downloading video...');
-        const response = await fetch(asset.fileUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to download video: ${response.statusText}`);
-        }
+        // Download the video file from the asset URL with progress
+        setProcessingPhase('Downloading video... 0%');
+        setProgress(0);
         
-        const blob = await response.blob();
+        const blob = await downloadWithProgress(
+          asset.fileUrl,
+          (percent) => {
+            if (percent === -1) {
+              // Indeterminate progress (Content-Length not available)
+              setProcessingPhase('Downloading video (size unknown)...');
+            } else {
+              setProgress(percent * 0.2); // 0-20% for download phase
+              setProcessingPhase(`Downloading video... ${percent}%`);
+            }
+          },
+          controller.signal
+        );
+        
         videoFile = new File([blob], asset.title || 'video.mp4', { type: blob.type });
         
         jobId = await createSceneDetectionJob(asset.id, threshold[0]);
         console.log('Media asset scene detection job created:', jobId);
         
       } else if (selectedVideo.type === 'url' && selectedVideo.url) {
-        // Download the video file from the URL
-        setProcessingPhase('Downloading video from URL...');
-        const response = await fetch(selectedVideo.url);
-        if (!response.ok) {
-          throw new Error(`Failed to download video: ${response.statusText}`);
-        }
+        // Download the video file from the URL with progress
+        setProcessingPhase('Downloading video... 0%');
+        setProgress(0);
         
-        const blob = await response.blob();
+        const blob = await downloadWithProgress(
+          selectedVideo.url,
+          (percent) => {
+            if (percent === -1) {
+              setProcessingPhase('Downloading video (size unknown)...');
+            } else {
+              setProgress(percent * 0.2);
+              setProcessingPhase(`Downloading video... ${percent}%`);
+            }
+          },
+          controller.signal
+        );
+        
         const filename = selectedVideo.url.split('/').pop() || 'video_from_url';
         videoFile = new File([blob], filename, { type: blob.type });
         
@@ -126,12 +207,17 @@ const SceneDetectionPage = () => {
         throw new Error('Invalid video selection');
       }
       
+      // Clear the timeout since download completed
+      clearTimeout(timeoutId);
+      
       // Process scene detection client-side
       const result = await clientSideSceneDetection.detectScenes(
         videoFile,
         threshold[0],
         (progressUpdate: ProcessingProgress) => {
-          setProgress(progressUpdate.progress);
+          // Map 0-100 from detector to 20-100 overall (since download took 0-20)
+          const mappedProgress = 20 + (progressUpdate.progress * 0.8);
+          setProgress(mappedProgress);
           setProcessingPhase(progressUpdate.message);
         }
       );
@@ -148,12 +234,22 @@ const SceneDetectionPage = () => {
       }
       
     } catch (error) {
+      // Clear timeout on error
+      clearTimeout(timeoutId);
+      
+      // Handle user-initiated cancellation gracefully
+      if ((error as Error).name === 'AbortError') {
+        console.log('Scene detection was cancelled');
+        return; // Don't show error toast for user-initiated cancel
+      }
+      
       console.error('Scene detection error:', error);
       toast.error((error as Error).message || 'Scene detection failed');
     } finally {
       setIsProcessing(false);
       setProgress(0);
       setProcessingPhase('');
+      setAbortController(null);
       
       // Clean up FFmpeg temporary files
       await clientSideSceneDetection.cleanup();
@@ -374,23 +470,35 @@ const SceneDetectionPage = () => {
               </p>
             </div>
 
-            <Button 
-              onClick={handleDetectScenes} 
-              disabled={!selectedVideo || isProcessing}
-              className="w-full"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4 mr-2" />
-                  Detect Scenes
-                </>
+            <div className="flex gap-2">
+              <Button 
+                onClick={handleDetectScenes} 
+                disabled={!selectedVideo || isProcessing}
+                className="flex-1"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    Detect Scenes
+                  </>
+                )}
+              </Button>
+              
+              {isProcessing && (
+                <Button 
+                  onClick={handleCancelProcessing}
+                  variant="destructive"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Cancel
+                </Button>
               )}
-            </Button>
+            </div>
             
             {isProcessing && (
               <div className="space-y-2">
