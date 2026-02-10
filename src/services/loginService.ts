@@ -173,7 +173,7 @@ export const fetchMemberByEmail = async (email: string) => {
       mobile: memberElement.getElementsByTagName('mobile')[0]?.textContent || '',
       mailingstreet: memberElement.getElementsByTagName('mailingstreet')[0]?.textContent || '',
       ipaddress: memberElement.getElementsByTagName('ipaddress')[0]?.textContent || '',
-      mediahubaccess: memberElement.getElementsByTagName('mediahubaccess')[0]?.textContent || 'Viewer'
+      mediahubaccess: memberElement.getElementsByTagName('mediahubaccess')[0]?.textContent || ''
     };
   } else {
     // Assume JSON response - parse first member if it's an array
@@ -446,11 +446,19 @@ export const authenticateUser = async (email: string, password: string, isGoogle
           console.log('No stored IP address for this user - skipping IP validation');
         }
         
+        // Check if user has Media Hub access permission
+        const rawAccess = investor.mediahubaccess?.trim() || '';
+        if (!rawAccess || !['Admin', 'Editor', 'Viewer'].includes(rawAccess)) {
+          // Track the denied access attempt
+          await trackLogin(investor.id, "Access Denied - No Media Hub Permission");
+          throw new Error('NO_MEDIA_HUB_ACCESS');
+        }
+        
         // Set ndaSigned based on investor status
         const isQualifiedOrSecured = investor.status === "Qualified Investor" || investor.status === "Secured Investor";
         
-        // Determine media hub access level with fallback
-        const mediaHubAccess = investor.mediahubaccess as 'Admin' | 'Editor' | 'Viewer' || 'Viewer';
+        // Determine media hub access level
+        const mediaHubAccess = rawAccess as 'Admin' | 'Editor' | 'Viewer';
         
         // Return user data
         const userData: User = {
@@ -502,7 +510,11 @@ export const authenticateUser = async (email: string, password: string, isGoogle
       toast.error('Email not found. Please check your credentials.');
       return null;
     }
-  } catch (error) {
+  } catch (error: any) {
+    // Re-throw specific errors so they can be handled by the caller
+    if (error?.message === 'IP_VERIFICATION_REQUIRED' || error?.message === 'NO_MEDIA_HUB_ACCESS') {
+      throw error;
+    }
     console.error('Login error:', error);
     toast.error('An error occurred during login. Please try again.');
     return null;
