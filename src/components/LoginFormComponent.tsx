@@ -8,6 +8,8 @@ import { validateLoginForm } from '@/utils/loginValidation';
 import LoginFormFields from './LoginForm/LoginFormFields';
 import { authenticateUser, getCurrentIpAddress, getIPLocation } from '@/services/loginService';
 import { authenticateWithGoogle } from '@/services/googleAuthService';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 const LoginFormComponent: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -20,6 +22,7 @@ const LoginFormComponent: React.FC = () => {
   const [ipVerificationSent, setIpVerificationSent] = useState(false);
   const [locationInfo, setLocationInfo] = useState<{country: string; city: string} | null>(null);
   const [autoLoginProcessed, setAutoLoginProcessed] = useState(false);
+  const [accessDeniedOpen, setAccessDeniedOpen] = useState(false);
   
   const navigate = useNavigate();
   const { user, setUser } = useUser();
@@ -139,8 +142,9 @@ const LoginFormComponent: React.FC = () => {
     } catch (error: any) {
       console.error('=== AUTO-LOGIN ERROR ===', error);
       
-      // Handle IP verification required error specifically
-      if (error.message === 'IP_VERIFICATION_REQUIRED') {
+      if (error.message === 'NO_MEDIA_HUB_ACCESS') {
+        setAccessDeniedOpen(true);
+      } else if (error.message === 'IP_VERIFICATION_REQUIRED') {
         try {
           console.log('Getting IP for verification message...');
           const ip = await getCurrentIpAddress();
@@ -209,8 +213,9 @@ const LoginFormComponent: React.FC = () => {
     } catch (error: any) {
       console.error('Login error:', error);
       
-      // Handle IP verification required error specifically
-      if (error.message === 'IP_VERIFICATION_REQUIRED') {
+      if (error.message === 'NO_MEDIA_HUB_ACCESS') {
+        setAccessDeniedOpen(true);
+      } else if (error.message === 'IP_VERIFICATION_REQUIRED') {
         try {
           const ip = await getCurrentIpAddress();
           const location = await getIPLocation(ip);
@@ -327,6 +332,25 @@ const LoginFormComponent: React.FC = () => {
         open={forgotPasswordOpen} 
         onOpenChange={setForgotPasswordOpen} 
       />
+
+      {/* Access Denied Dialog */}
+      <Dialog open={accessDeniedOpen} onOpenChange={setAccessDeniedOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Access Not Authorized</DialogTitle>
+            <DialogDescription className="pt-2">
+              Your credentials were verified successfully, but your account does not currently 
+              have Media Hub access permissions. Please contact us to request access.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setAccessDeniedOpen(false)}>Close</Button>
+            <a href="mailto:media@worldmotoclash.com?subject=Media%20Hub%20Access%20Request">
+              <Button>Request Access</Button>
+            </a>
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 };
