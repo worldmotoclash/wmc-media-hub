@@ -7,8 +7,8 @@ import { Link } from 'react-router-dom';
 const ActionCards: React.FC = () => {
   const actions = [
     {
-      title: 'Upload Video',
-      description: 'Add videos from files or URLs to the WMC library',
+      title: 'Upload Media',
+      description: 'Add videos, images, or audio from files or URLs to the WMC library',
       icon: Upload,
       href: '/admin/media/upload',
       color: 'from-science-blue/20 to-science-blue/10',
