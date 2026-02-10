@@ -531,7 +531,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
       <MediaNavigation />
       <div className="container mx-auto px-6 py-8 space-y-6">
         {/* Media Source Dashboard */}
-        <MediaSourceDashboard />
+        {user?.mediaHubAccess === 'Admin' && <MediaSourceDashboard />}
       
       {/* Header */}
       <div className="flex justify-between items-start">
@@ -547,7 +547,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
       <Tabs value={activeTab} className="space-y-6" onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="library">Media Library</TabsTrigger>
-          <TabsTrigger value="s3-config">S3 Configuration</TabsTrigger>
+          {user?.mediaHubAccess === 'Admin' && <TabsTrigger value="s3-config">S3 Configuration</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="library" className="space-y-6">
@@ -1747,9 +1747,11 @@ export const UnifiedMediaLibrary: React.FC = () => {
       )}
         </TabsContent>
 
-        <TabsContent value="s3-config" className="space-y-6">
-          <S3BucketConfigManager onConfigChange={() => loadS3ConfigData()} />
-        </TabsContent>
+        {user?.mediaHubAccess === 'Admin' && (
+          <TabsContent value="s3-config" className="space-y-6">
+            <S3BucketConfigManager onConfigChange={() => loadS3ConfigData()} />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Modals - Use appropriate modal based on asset type */}
