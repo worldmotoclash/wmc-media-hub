@@ -1,11 +1,28 @@
 
-# Rename "Upload Video" to "Upload Media"
 
-## Change
-Update the action card title and description in `src/components/media/ActionCards.tsx`:
+# Hide S3 Configuration and MediaSourceDashboard for Non-Admin Users
 
-- **Title**: "Upload Video" → "Upload Media"
-- **Description**: "Add videos from files or URLs to the WMC library" → "Add videos, images, or audio from files or URLs to the WMC library"
+## Summary
+Restrict the S3 Configuration tab and the Sync Health / MediaSourceDashboard panel to only be visible when the logged-in user has `mediaHubAccess === 'Admin'`. Editors and Viewers will not see these sections.
 
-## File
-`src/components/media/ActionCards.tsx` — update the first item in the `actions` array (lines 10-11).
+## Changes
+
+### File: `src/components/media/UnifiedMediaLibrary.tsx`
+
+Two changes using the existing `user` variable (already available via `useUser()`):
+
+1. **MediaSourceDashboard** (around line 534): Wrap in an admin check so it only renders for Admins.
+
+2. **S3 Configuration tab trigger** (around line 550): Conditionally render the "S3 Configuration" tab trigger only for Admins.
+
+3. **S3 Configuration tab content** (around line 1750): Conditionally render the tab content only for Admins.
+
+### Technical Detail
+All three locations will use the pattern:
+```tsx
+{user?.mediaHubAccess === 'Admin' && (
+  <Component />
+)}
+```
+
+No new files, dependencies, or backend changes required.
