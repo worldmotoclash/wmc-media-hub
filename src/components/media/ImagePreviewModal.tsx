@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { MediaAsset } from '@/services/unifiedMediaService';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useEditableAssetFields } from '@/hooks/useEditableAssetFields';
+import EditableDescriptionTags from './EditableDescriptionTags';
 
 interface ImagePreviewModalProps {
   asset: MediaAsset | null;
@@ -16,6 +18,13 @@ interface ImagePreviewModalProps {
 
 const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({ asset, isOpen, onClose, onAssetUpdated }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const editableFields = useEditableAssetFields({
+    assetId: asset?.id,
+    initialDescription: asset?.description,
+    initialTags: asset?.tags || [],
+    onAssetUpdated,
+  });
 
   if (!asset) return null;
 
@@ -53,6 +62,7 @@ const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({ asset, isOpen, on
         toast.success('AI analysis complete!', {
           description: `Applied ${data.tagCount} tags: ${data.tagsApplied?.slice(0, 3).join(', ')}${data.tagCount > 3 ? '...' : ''}`
         });
+        await editableFields.refreshFromDB();
         onAssetUpdated?.();
       } else {
         toast.error(data?.error || 'Analysis failed');
@@ -218,31 +228,22 @@ const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({ asset, isOpen, on
               )}
             </div>
 
-            {/* Description */}
-            {asset.description && (
-              <div>
-                <h4 className="font-semibold text-foreground mb-2">Description</h4>
-                <p className="text-muted-foreground text-sm">{asset.description}</p>
-              </div>
-            )}
-
-            {/* Tags */}
-            {asset.tags && asset.tags.length > 0 && (
-              <div>
-                <h4 className="font-semibold text-foreground mb-2">Tags</h4>
-                <div className="flex flex-wrap gap-2">
-                  {asset.tags.map((tag) => (
-                    <Badge 
-                      key={tag.id} 
-                      variant="outline" 
-                      style={{ borderColor: tag.color + '40', color: tag.color }}
-                    >
-                      {tag.name}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Editable Description & Tags */}
+            <EditableDescriptionTags
+              localDescription={editableFields.localDescription}
+              setLocalDescription={editableFields.setLocalDescription}
+              localTags={editableFields.localTags}
+              isEditing={editableFields.isEditing}
+              isSaving={editableFields.isSaving}
+              newTagInput={editableFields.newTagInput}
+              setNewTagInput={editableFields.setNewTagInput}
+              canEdit={editableFields.canEdit}
+              onStartEditing={editableFields.startEditing}
+              onCancelEditing={editableFields.cancelEditing}
+              onRemoveTag={editableFields.removeTag}
+              onAddTag={editableFields.addTag}
+              onSave={editableFields.handleSave}
+            />
 
             {/* AI Analysis Info */}
             {asset.metadata?.aiAnalysis && (

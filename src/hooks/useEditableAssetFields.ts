@@ -1,0 +1,179 @@
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { MediaTag } from '@/services/unifiedMediaService';
+
+interface UseEditableAssetFieldsOptions {
+  assetId: string | undefined;
+  initialDescription?: string;
+  initialTags: MediaTag[];
+  onAssetUpdated?: () => void;
+}
+
+export const useEditableAssetFields = ({
+  assetId,
+  initialDescription,
+  initialTags,
+  onAssetUpdated,
+}: UseEditableAssetFieldsOptions) => {
+  const [localDescription, setLocalDescription] = useState(initialDescription || '');
+  const [localTags, setLocalTags] = useState<MediaTag[]>(initialTags);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [newTagInput, setNewTagInput] = useState('');
+
+  // Sync from props when asset changes
+  useEffect(() => {
+    setLocalDescription(initialDescription || '');
+    setLocalTags(initialTags);
+  }, [initialDescription, initialTags]);
+
+  const isValidUUID = (id?: string) =>
+    !!id?.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+
+  const canEdit = isValidUUID(assetId);
+
+  const startEditing = () => setIsEditing(true);
+
+  const cancelEditing = () => {
+    setLocalDescription(initialDescription || '');
+    setLocalTags(initialTags);
+    setNewTagInput('');
+    setIsEditing(false);
+  };
+
+  const removeTag = (tagId: string) => {
+    setLocalTags((prev) => prev.filter((t) => t.id !== tagId));
+  };
+
+  const addTag = async () => {
+    const name = newTagInput.trim().toLowerCase();
+    if (!name) return;
+
+    // Check if already in local list
+    if (localTags.some((t) => t.name.toLowerCase() === name)) {
+      toast.info('Tag already added');
+      setNewTagInput('');
+      return;
+    }
+
+    // Find or create in DB
+    let tag: MediaTag | null = null;
+
+    const { data: existing } = await supabase
+      .from('media_tags')
+      .select('*')
+      .ilike('name', name)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      tag = { id: existing[0].id, name: existing[0].name, description: existing[0].description || '', color: existing[0].color || '#6366f1' };
+    } else {
+      const { data: created, error } = await supabase
+        .from('media_tags')
+        .insert({ name })
+        .select()
+        .single();
+
+      if (error || !created) {
+        toast.error('Failed to create tag');
+        return;
+      }
+      tag = { id: created.id, name: created.name, description: created.description || '', color: created.color || '#6366f1' };
+    }
+
+    setLocalTags((prev) => [...prev, tag!]);
+    setNewTagInput('');
+  };
+
+  const handleSave = async () => {
+    if (!assetId || !canEdit) return;
+    setIsSaving(true);
+
+    try {
+      // Update description
+      const { error: descError } = await supabase
+        .from('media_assets')
+        .update({ description: localDescription })
+        .eq('id', assetId);
+
+      if (descError) throw descError;
+
+      // Determine tag changes
+      const originalIds = new Set(initialTags.map((t) => t.id));
+      const currentIds = new Set(localTags.map((t) => t.id));
+
+      const toAdd = localTags.filter((t) => !originalIds.has(t.id));
+      const toRemove = initialTags.filter((t) => !currentIds.has(t.id));
+
+      // Remove tags
+      for (const tag of toRemove) {
+        await supabase
+          .from('media_asset_tags')
+          .delete()
+          .eq('media_asset_id', assetId)
+          .eq('tag_id', tag.id);
+      }
+
+      // Add tags
+      for (const tag of toAdd) {
+        await supabase
+          .from('media_asset_tags')
+          .insert({ media_asset_id: assetId, tag_id: tag.id });
+      }
+
+      toast.success('Changes saved');
+      setIsEditing(false);
+      onAssetUpdated?.();
+    } catch (err: any) {
+      console.error('Save error:', err);
+      toast.error('Failed to save changes', { description: err.message });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const refreshFromDB = useCallback(async () => {
+    if (!assetId || !isValidUUID(assetId)) return;
+
+    const { data: asset } = await supabase
+      .from('media_assets')
+      .select('description')
+      .eq('id', assetId)
+      .single();
+
+    const { data: tagRows } = await supabase
+      .from('media_asset_tags')
+      .select('tag_id, media_tags(id, name, description, color)')
+      .eq('media_asset_id', assetId);
+
+    if (asset) {
+      setLocalDescription(asset.description || '');
+    }
+
+    if (tagRows) {
+      const tags: MediaTag[] = tagRows
+        .map((row: any) => row.media_tags)
+        .filter(Boolean)
+        .map((t: any) => ({ id: t.id, name: t.name, description: t.description || '', color: t.color || '#6366f1' }));
+      setLocalTags(tags);
+    }
+  }, [assetId]);
+
+  return {
+    localDescription,
+    setLocalDescription,
+    localTags,
+    isEditing,
+    isSaving,
+    newTagInput,
+    setNewTagInput,
+    canEdit,
+    startEditing,
+    cancelEditing,
+    removeTag,
+    addTag,
+    handleSave,
+    refreshFromDB,
+  };
+};
