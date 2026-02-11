@@ -305,7 +305,7 @@ serve(async (req) => {
         file_format: fileExtension,
         asset_type: assetType,
         s3_key: s3Key,
-        duration: (isVideo || isAudio) ? duration : null, // Store duration for videos and audio
+        duration: (isVideo || isAudio) ? Math.round(duration || 0) : null, // Store duration for videos and audio (integer)
         file_size: isFinalizePath ? (preuploadedFileSize || 0) : (fileData?.length || 0), // Store file size in bytes
         metadata: initialMetadata,
       })
