@@ -6,7 +6,9 @@ import { Clock, Eye, Calendar, Image, Loader2, Sparkles } from 'lucide-react';
 import { VideoContent } from '@/services/videoContentService';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-
+import { useEditableAssetFields } from '@/hooks/useEditableAssetFields';
+import EditableDescriptionTags from './EditableDescriptionTags';
+import { MediaTag } from '@/services/unifiedMediaService';
 interface VideoPreviewModalProps {
   video: VideoContent | null;
   isOpen: boolean;
@@ -19,6 +21,21 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, on
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Convert string tags to MediaTag objects for the shared hook
+  const initialTags: MediaTag[] = (video?.tags || []).map((name, i) => ({
+    id: `string-tag-${i}-${name}`,
+    name,
+    description: '',
+    color: '#6366f1',
+  }));
+
+  const editableFields = useEditableAssetFields({
+    assetId: video?.id,
+    initialDescription: video?.description,
+    initialTags,
+    onAssetUpdated: onVideoUpdated,
+  });
 
   if (!video) return null;
 
@@ -170,6 +187,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, on
         toast.success('AI analysis complete!', {
           description: `Applied ${data.tagCount} tags: ${data.tagsApplied?.slice(0, 3).join(', ')}${data.tagCount > 3 ? '...' : ''}`
         });
+        await editableFields.refreshFromDB();
         onVideoUpdated?.();
       } else {
         toast.error(data?.error || 'Analysis failed');
@@ -343,26 +361,23 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, on
               </div>
             )}
 
-            {/* Additional video metadata */}
-            {video.description && (
-              <div>
-                <h4 className="font-semibold text-foreground mb-2">Description</h4>
-                <p className="text-muted-foreground text-sm">{video.description}</p>
-              </div>
-            )}
 
-            {video.tags && video.tags.length > 0 && (
-              <div>
-                <h4 className="font-semibold text-foreground mb-2">Tags</h4>
-                <div className="flex flex-wrap gap-2">
-                  {video.tags.map((tag, index) => (
-                    <Badge key={index} variant="secondary" className="text-xs">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Editable Description & Tags */}
+            <EditableDescriptionTags
+              localDescription={editableFields.localDescription}
+              setLocalDescription={editableFields.setLocalDescription}
+              localTags={editableFields.localTags}
+              isEditing={editableFields.isEditing}
+              isSaving={editableFields.isSaving}
+              newTagInput={editableFields.newTagInput}
+              setNewTagInput={editableFields.setNewTagInput}
+              canEdit={editableFields.canEdit}
+              onStartEditing={editableFields.startEditing}
+              onCancelEditing={editableFields.cancelEditing}
+              onRemoveTag={editableFields.removeTag}
+              onAddTag={editableFields.addTag}
+              onSave={editableFields.handleSave}
+            />
 
             {/* Salesforce ID info */}
             <div className="text-xs text-muted-foreground border-t pt-4">
