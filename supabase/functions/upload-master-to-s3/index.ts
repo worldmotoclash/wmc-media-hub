@@ -133,11 +133,16 @@ serve(async (req) => {
       dimensions: `${payload.width}x${payload.height}`,
     });
 
-    const { imageBase64, filename, mimeType, width, height, title, description, tags, creatorContactId, thumbnailBase64, duration, salesforceFields, isPodcast } = payload;
+    const { imageBase64, filename, mimeType, width, height, title, description, tags, creatorContactId, thumbnailBase64, duration, salesforceFields, isPodcast, s3Key: preuploadedS3Key, cdnUrl: preuploadedCdnUrl, masterId: preuploadedMasterId, fileSize: preuploadedFileSize } = payload as UploadMasterRequest & { s3Key?: string; cdnUrl?: string; masterId?: string; fileSize?: number };
 
-    if (!imageBase64 || !filename) {
+    // Support two modes:
+    // 1. Traditional: imageBase64 + filename (file sent through edge function)
+    // 2. Finalize: s3Key + cdnUrl + masterId (file already uploaded directly to S3 via presigned URL)
+    const isFinalizePath = !imageBase64 && preuploadedS3Key;
+
+    if (!isFinalizePath && (!imageBase64 || !filename)) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: imageBase64, filename" }),
+        JSON.stringify({ error: "Missing required fields: either imageBase64+filename or s3Key+cdnUrl+masterId" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -151,80 +156,118 @@ serve(async (req) => {
 
     console.log(`Detected media type: ${assetType}, extension: ${fileExtension}, isVideo: ${isVideo}, isAudio: ${isAudio}, duration: ${duration}, isPodcast: ${isPodcast}`);
 
-    const s3Config = getS3Config();
-    
-    if (!s3Config.accessKeyId || !s3Config.secretAccessKey) {
-      console.error("Missing Wasabi credentials");
-      return new Response(
-        JSON.stringify({ error: "S3 credentials not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const aws = new AwsClient({
-      accessKeyId: s3Config.accessKeyId,
-      secretAccessKey: s3Config.secretAccessKey,
-      region: s3Config.region,
-      service: "s3",
-    });
-
-    const masterId = crypto.randomUUID();
-    // Use different S3 path for videos, audio, vs images
-    const s3BasePath = isVideo ? S3_PATHS.VIDEO_MASTERS : isAudio ? S3_PATHS.AUDIO_MASTERS : S3_PATHS.SOCIAL_MEDIA_MASTERS;
-    const s3Key = `${s3BasePath}/${masterId}/master.${fileExtension}`;
-
-    // Upload thumbnail for videos if provided (audio doesn't need thumbnails)
+    let s3Key: string;
+    let cdnUrl: string;
+    let masterId: string;
+    let fileData: Uint8Array | null = null;
     let thumbnailUrl: string | null = null;
-    if (isVideo && thumbnailBase64) {
-      const thumbKey = `${s3BasePath}/${masterId}/thumbnail.jpg`;
-      const thumbData = Uint8Array.from(atob(thumbnailBase64), c => c.charCodeAt(0));
-      const thumbUploadUrl = `${s3Config.endpoint}/${s3Config.bucketName}/${thumbKey}`;
+
+    if (isFinalizePath) {
+      // === FINALIZE PATH: File already uploaded to S3 via presigned URL ===
+      s3Key = preuploadedS3Key!;
+      cdnUrl = preuploadedCdnUrl!;
+      masterId = preuploadedMasterId!;
+      console.log("Finalize path: file already in S3 at", s3Key);
+
+      // Upload thumbnail if provided (thumbnails are small enough for edge function)
+      const s3Config = getS3Config();
+      if (isVideo && thumbnailBase64 && s3Config.accessKeyId && s3Config.secretAccessKey) {
+        const aws = new AwsClient({
+          accessKeyId: s3Config.accessKeyId,
+          secretAccessKey: s3Config.secretAccessKey,
+          region: s3Config.region,
+          service: "s3",
+        });
+        const s3BasePath = isVideo ? S3_PATHS.VIDEO_MASTERS : isAudio ? S3_PATHS.AUDIO_MASTERS : S3_PATHS.SOCIAL_MEDIA_MASTERS;
+        const thumbKey = `${s3BasePath}/${masterId}/thumbnail.jpg`;
+        const thumbData = Uint8Array.from(atob(thumbnailBase64), c => c.charCodeAt(0));
+        const thumbUploadUrl = `${s3Config.endpoint}/${s3Config.bucketName}/${thumbKey}`;
+        
+        const thumbResponse = await aws.fetch(thumbUploadUrl, {
+          method: "PUT",
+          body: thumbData,
+          headers: { "Content-Type": "image/jpeg", "Content-Length": thumbData.length.toString() },
+        });
+        
+        if (thumbResponse.ok) {
+          thumbnailUrl = getCdnUrl(thumbKey);
+          console.log("Thumbnail uploaded successfully:", thumbnailUrl);
+        }
+      }
+    } else {
+      // === TRADITIONAL PATH: File sent as base64 through edge function ===
+      const s3Config = getS3Config();
       
-      console.log("Uploading video thumbnail to S3:", thumbUploadUrl);
-      
-      const thumbResponse = await aws.fetch(thumbUploadUrl, {
+      if (!s3Config.accessKeyId || !s3Config.secretAccessKey) {
+        console.error("Missing Wasabi credentials");
+        return new Response(
+          JSON.stringify({ error: "S3 credentials not configured" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const aws = new AwsClient({
+        accessKeyId: s3Config.accessKeyId,
+        secretAccessKey: s3Config.secretAccessKey,
+        region: s3Config.region,
+        service: "s3",
+      });
+
+      masterId = crypto.randomUUID();
+      const s3BasePath = isVideo ? S3_PATHS.VIDEO_MASTERS : isAudio ? S3_PATHS.AUDIO_MASTERS : S3_PATHS.SOCIAL_MEDIA_MASTERS;
+      s3Key = `${s3BasePath}/${masterId}/master.${fileExtension}`;
+
+      // Upload thumbnail for videos if provided
+      if (isVideo && thumbnailBase64) {
+        const thumbKey = `${s3BasePath}/${masterId}/thumbnail.jpg`;
+        const thumbData = Uint8Array.from(atob(thumbnailBase64), c => c.charCodeAt(0));
+        const thumbUploadUrl = `${s3Config.endpoint}/${s3Config.bucketName}/${thumbKey}`;
+        
+        console.log("Uploading video thumbnail to S3:", thumbUploadUrl);
+        
+        const thumbResponse = await aws.fetch(thumbUploadUrl, {
+          method: "PUT",
+          body: thumbData,
+          headers: {
+            "Content-Type": "image/jpeg",
+            "Content-Length": thumbData.length.toString(),
+          },
+        });
+        
+        if (thumbResponse.ok) {
+          thumbnailUrl = getCdnUrl(thumbKey);
+          console.log("Thumbnail uploaded successfully:", thumbnailUrl);
+        } else {
+          console.warn("Thumbnail upload failed, will use video URL as fallback");
+        }
+      }
+
+      fileData = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
+
+      const uploadUrl = `${s3Config.endpoint}/${s3Config.bucketName}/${s3Key}`;
+      console.log("Uploading to S3:", uploadUrl);
+
+      const uploadResponse = await aws.fetch(uploadUrl, {
         method: "PUT",
-        body: thumbData,
+        body: fileData,
         headers: {
-          "Content-Type": "image/jpeg",
-          "Content-Length": thumbData.length.toString(),
+          "Content-Type": mimeType || "image/jpeg",
+          "Content-Length": fileData.length.toString(),
         },
       });
-      
-      if (thumbResponse.ok) {
-        thumbnailUrl = getCdnUrl(thumbKey);
-        console.log("Thumbnail uploaded successfully:", thumbnailUrl);
-      } else {
-        console.warn("Thumbnail upload failed, will use video URL as fallback");
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error("S3 upload failed:", errorText);
+        return new Response(
+          JSON.stringify({ error: "Failed to upload to S3", details: errorText }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
+
+      cdnUrl = getCdnUrl(s3Key);
+      console.log("S3 upload successful, CDN URL:", cdnUrl);
     }
-
-    const fileData = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
-
-    const uploadUrl = `${s3Config.endpoint}/${s3Config.bucketName}/${s3Key}`;
-
-    console.log("Uploading to S3:", uploadUrl);
-
-    const uploadResponse = await aws.fetch(uploadUrl, {
-      method: "PUT",
-      body: fileData,
-      headers: {
-        "Content-Type": mimeType || "image/jpeg",
-        "Content-Length": fileData.length.toString(),
-      },
-    });
-
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      console.error("S3 upload failed:", errorText);
-      return new Response(
-        JSON.stringify({ error: "Failed to upload to S3", details: errorText }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const cdnUrl = getCdnUrl(s3Key);
-    console.log("S3 upload successful, CDN URL:", cdnUrl);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -263,7 +306,7 @@ serve(async (req) => {
         asset_type: assetType,
         s3_key: s3Key,
         duration: (isVideo || isAudio) ? duration : null, // Store duration for videos and audio
-        file_size: fileData.length, // Store file size in bytes
+        file_size: isFinalizePath ? (preuploadedFileSize || 0) : (fileData?.length || 0), // Store file size in bytes
         metadata: initialMetadata,
       })
       .select()
@@ -361,7 +404,7 @@ serve(async (req) => {
       }
       
       // Add file size in bytes
-      formData.append("number_ri1__File_Size__c", fileData.length.toString());
+      formData.append("number_ri1__File_Size__c", (isFinalizePath ? (preuploadedFileSize || 0) : (fileData?.length || 0)).toString());
       
       // Add thumbnail URL for videos
       if (thumbnailUrl) {

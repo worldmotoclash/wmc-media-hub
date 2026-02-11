@@ -63,7 +63,9 @@ const MediaUpload: React.FC = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadPhase, setUploadPhase] = useState('');
   const [isPodcast, setIsPodcast] = useState(false);
+  const [bumperSkipSeconds, setBumperSkipSeconds] = useState(0);
   const [submissionCount, setSubmissionCount] = useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   
@@ -340,13 +342,14 @@ const MediaUpload: React.FC = () => {
     setSelectedFile(null);
     setAnalysisComplete(false);
     setAiSuggestions(null);
+    setBumperSkipSeconds(0);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
   // Extract a frame from video for AI analysis
-  const extractVideoFrame = async (file: File): Promise<string> => {
+  const extractVideoFrame = async (file: File, skipSeconds: number = 0): Promise<string> => {
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
       const canvas = document.createElement('canvas');
@@ -357,8 +360,11 @@ const MediaUpload: React.FC = () => {
       video.playsInline = true;
       
       video.onloadeddata = () => {
-        // Seek to 1 second or 10% of duration, whichever is smaller
-        video.currentTime = Math.min(1, video.duration * 0.1);
+        // Use bumper skip offset, or fallback to 1s / 10% of duration
+        const seekTime = skipSeconds > 0 
+          ? Math.min(skipSeconds, video.duration - 0.1) 
+          : Math.min(1, video.duration * 0.1);
+        video.currentTime = Math.max(0, seekTime);
       };
       
       video.onseeked = () => {
@@ -390,8 +396,8 @@ const MediaUpload: React.FC = () => {
       let mediaData: string | null = null;
       
       if (fileType === 'video') {
-        // Extract a frame from the video
-        mediaData = await extractVideoFrame(selectedFile);
+        // Extract a frame from the video, using bumper skip offset
+        mediaData = await extractVideoFrame(selectedFile, bumperSkipSeconds);
       } else if (fileType === 'image') {
         // Convert image directly to base64
         mediaData = await fileToBase64(selectedFile);
@@ -496,14 +502,18 @@ const MediaUpload: React.FC = () => {
         
         if (isVideo) {
           // Extract dimensions, duration, and thumbnail from video
+          // Use bumperSkipSeconds for thumbnail frame extraction too
           const videoData = await new Promise<{ width: number; height: number; thumbnail: string | null; duration: number }>((resolve) => {
             const video = document.createElement('video');
             video.preload = 'auto';
             video.muted = true;
             
             video.onloadeddata = () => {
-              // Seek to 1 second for thumbnail
-              video.currentTime = Math.min(1, video.duration * 0.1);
+              // Use bumper skip offset for thumbnail
+              const seekTime = bumperSkipSeconds > 0 
+                ? Math.min(bumperSkipSeconds, video.duration - 0.1) 
+                : Math.min(1, video.duration * 0.1);
+              video.currentTime = Math.max(0, seekTime);
             };
             
             video.onseeked = () => {
@@ -563,39 +573,6 @@ const MediaUpload: React.FC = () => {
         }
         
         setUploadProgress(15);
-        
-        // Read file as base64
-        const reader = new FileReader();
-        const base64Promise = new Promise<string>((resolve, reject) => {
-          reader.onprogress = (event) => {
-            if (event.lengthComputable) {
-              const readProgress = (event.loaded / event.total) * 15;
-              setUploadProgress(15 + readProgress);
-            }
-          };
-          reader.onload = () => {
-            const result = reader.result as string;
-            const base64 = result.split(',')[1];
-            resolve(base64);
-          };
-          reader.onerror = reject;
-        });
-        reader.readAsDataURL(selectedFile);
-        const base64Data = await base64Promise;
-        
-        // Stage 2: Uploading to S3 (30-90%)
-        setUploadProgress(35);
-        
-        // Simulate upload progress since edge function doesn't stream progress
-        const progressInterval = setInterval(() => {
-          setUploadProgress(prev => {
-            if (prev >= 85) {
-              clearInterval(progressInterval);
-              return prev;
-            }
-            return prev + 5;
-          });
-        }, 500);
 
         // Prepare tags - add Podcast tag for audio if flagged
         let finalTags = uploadData.tags.split(',').map(t => t.trim()).filter(Boolean);
@@ -603,28 +580,139 @@ const MediaUpload: React.FC = () => {
           finalTags = ['Podcast', ...finalTags];
         }
 
-        const { data, error } = await supabase.functions.invoke('upload-master-to-s3', {
-          body: {
-            imageBase64: base64Data,
-            filename: selectedFile.name,
-            mimeType: selectedFile.type,
-            width: dimensions.width,
-            height: dimensions.height,
-            title: uploadData.title,
-            description: uploadData.description,
-            tags: finalTags,
-            thumbnailBase64: thumbnailBase64, // Include thumbnail for videos
-            duration: (isVideo || isAudio) ? mediaDuration : undefined, // Include duration for videos and audio
-            isPodcast: isAudio ? isPodcast : undefined, // Pass podcast flag for audio
-          },
-        });
-        
-        clearInterval(progressInterval);
+        const PRESIGNED_THRESHOLD = 50 * 1024 * 1024; // 50MB
+        const usePresigned = selectedFile.size > PRESIGNED_THRESHOLD;
 
-        if (error) throw error;
+        if (usePresigned) {
+          // === PRESIGNED URL FLOW for large files ===
+          setUploadPhase('Preparing upload...');
+          setUploadProgress(20);
+
+          // Step 1: Get presigned URL
+          const { data: presignData, error: presignError } = await supabase.functions.invoke('generate-presigned-upload-url', {
+            body: {
+              filename: selectedFile.name,
+              mimeType: selectedFile.type,
+              width: dimensions.width,
+              height: dimensions.height,
+            },
+          });
+
+          if (presignError || !presignData?.success) {
+            throw new Error(presignError?.message || presignData?.error || 'Failed to get presigned URL');
+          }
+
+          // Step 2: Upload file directly to S3 with progress
+          setUploadPhase('Uploading to S3...');
+          setUploadProgress(25);
+
+          await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', presignData.presignedUrl, true);
+            xhr.setRequestHeader('Content-Type', selectedFile.type);
+
+            xhr.upload.onprogress = (event) => {
+              if (event.lengthComputable) {
+                const pct = 25 + (event.loaded / event.total) * 60; // 25-85%
+                setUploadProgress(pct);
+              }
+            };
+
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve();
+              } else {
+                reject(new Error(`S3 upload failed with status ${xhr.status}`));
+              }
+            };
+
+            xhr.onerror = () => reject(new Error('Network error during S3 upload'));
+            xhr.send(selectedFile);
+          });
+
+          // Step 3: Finalize metadata via edge function (no binary data)
+          setUploadPhase('Finalizing...');
+          setUploadProgress(88);
+
+          const { data, error } = await supabase.functions.invoke('upload-master-to-s3', {
+            body: {
+              filename: selectedFile.name,
+              mimeType: selectedFile.type,
+              width: dimensions.width,
+              height: dimensions.height,
+              title: uploadData.title,
+              description: uploadData.description,
+              tags: finalTags,
+              thumbnailBase64: thumbnailBase64,
+              duration: (isVideo || isAudio) ? mediaDuration : undefined,
+              isPodcast: isAudio ? isPodcast : undefined,
+              // Finalize path fields
+              s3Key: presignData.s3Key,
+              cdnUrl: presignData.cdnUrl,
+              masterId: presignData.masterId,
+              fileSize: selectedFile.size,
+            },
+          });
+
+          if (error) throw error;
+        } else {
+          // === TRADITIONAL BASE64 FLOW for smaller files ===
+          setUploadPhase('Reading file...');
+          
+          const reader = new FileReader();
+          const base64Promise = new Promise<string>((resolve, reject) => {
+            reader.onprogress = (event) => {
+              if (event.lengthComputable) {
+                const readProgress = (event.loaded / event.total) * 15;
+                setUploadProgress(15 + readProgress);
+              }
+            };
+            reader.onload = () => {
+              const result = reader.result as string;
+              const base64 = result.split(',')[1];
+              resolve(base64);
+            };
+            reader.onerror = reject;
+          });
+          reader.readAsDataURL(selectedFile);
+          const base64Data = await base64Promise;
+          
+          setUploadPhase('Uploading to S3...');
+          setUploadProgress(35);
+          
+          const progressInterval = setInterval(() => {
+            setUploadProgress(prev => {
+              if (prev >= 85) {
+                clearInterval(progressInterval);
+                return prev;
+              }
+              return prev + 5;
+            });
+          }, 500);
+
+          const { data, error } = await supabase.functions.invoke('upload-master-to-s3', {
+            body: {
+              imageBase64: base64Data,
+              filename: selectedFile.name,
+              mimeType: selectedFile.type,
+              width: dimensions.width,
+              height: dimensions.height,
+              title: uploadData.title,
+              description: uploadData.description,
+              tags: finalTags,
+              thumbnailBase64: thumbnailBase64,
+              duration: (isVideo || isAudio) ? mediaDuration : undefined,
+              isPodcast: isAudio ? isPodcast : undefined,
+            },
+          });
+          
+          clearInterval(progressInterval);
+          if (error) throw error;
+        }
         
         // Stage 3: Complete (100%)
         setUploadProgress(100);
+        setUploadPhase('Complete!');
         
         const mediaLabel = isVideo ? 'Video' : isAudio ? 'Audio' : 'Image';
         toast({
@@ -639,6 +727,7 @@ const MediaUpload: React.FC = () => {
         setSelectedFile(null);
         setUploadData({ url: '', title: '', description: '', tags: '', keywords: '' });
         setUploadProgress(0);
+        setUploadPhase('');
         
         // Navigate to library
         navigate('/admin/media/library');
@@ -1067,6 +1156,27 @@ const MediaUpload: React.FC = () => {
                         )}
                       </div>
 
+                      {/* Bumper Skip Slider - only for video files */}
+                      {selectedFile && isVideoFile(selectedFile) && (
+                        <div className="flex items-center gap-4 py-3 px-4 border border-muted-foreground/20 rounded-lg bg-muted/20">
+                          <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-muted-foreground">Skip intro (bumper)</span>
+                              <span className="text-sm font-medium">{bumperSkipSeconds}s</span>
+                            </div>
+                            <Slider
+                              value={[bumperSkipSeconds]}
+                              onValueChange={([val]) => setBumperSkipSeconds(val)}
+                              min={0}
+                              max={30}
+                              step={1}
+                              className="w-full"
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       {/* AI Analysis Section */}
                       {selectedFile && !analysisComplete && (
                         <div className="flex items-center justify-center gap-4 py-4 px-6 border border-dashed border-muted-foreground/30 rounded-lg bg-muted/30">
@@ -1167,7 +1277,7 @@ const MediaUpload: React.FC = () => {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">
-                            {uploadProgress < 30 ? 'Reading file...' : uploadProgress < 90 ? 'Uploading to S3...' : 'Finalizing...'}
+                            {uploadPhase || (uploadProgress < 30 ? 'Reading file...' : uploadProgress < 90 ? 'Uploading to S3...' : 'Finalizing...')}
                           </span>
                           <span className="font-medium">{Math.round(uploadProgress)}%</span>
                         </div>
