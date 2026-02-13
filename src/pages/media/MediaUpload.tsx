@@ -602,9 +602,7 @@ const MediaUpload: React.FC = () => {
           finalTags = ['Podcast', ...finalTags];
         }
 
-        // Images: 4MB threshold (base64 inflates ~33%, edge function has tight memory)
-        // Video/Audio: 50MB threshold
-        const PRESIGNED_THRESHOLD = isImage ? 4 * 1024 * 1024 : 50 * 1024 * 1024;
+        const PRESIGNED_THRESHOLD = 4 * 1024 * 1024; // 4MB for all file types — base64 inflates ~33%, edge function has tight memory
         const usePresigned = selectedFile.size > PRESIGNED_THRESHOLD;
 
         if (usePresigned) {
