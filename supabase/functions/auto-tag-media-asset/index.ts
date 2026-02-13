@@ -185,33 +185,44 @@ Return the classification using the analyze_media_for_salesforce function.`;
     }
   }];
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { role: 'system', content: KNEWTV_SYSTEM_PROMPT },
-        { 
-          role: 'user', 
-          content: [
-            { type: 'text', text: userPrompt },
-            { type: 'image_url', image_url: { url: mediaUrl } }
-          ]
-        }
-      ],
-      tools,
-      tool_choice: { type: 'function', function: { name: 'analyze_media_for_salesforce' } }
-    }),
+  const reqBody = JSON.stringify({
+    model: 'google/gemini-2.5-flash',
+    messages: [
+      { role: 'system', content: KNEWTV_SYSTEM_PROMPT },
+      { 
+        role: 'user', 
+        content: [
+          { type: 'text', text: userPrompt },
+          { type: 'image_url', image_url: { url: mediaUrl } }
+        ]
+      }
+    ],
+    tools,
+    tool_choice: { type: 'function', function: { name: 'analyze_media_for_salesforce' } }
   });
+  const reqHeaders = {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  };
 
-  if (!response.ok) {
+  let response: Response | null = null;
+  const MAX_RETRIES = 3;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST', headers: reqHeaders, body: reqBody,
+    });
+    if (response.ok || (response.status !== 502 && response.status !== 503)) break;
     const errorText = await response.text();
-    console.error('[AI] Gateway error:', response.status, errorText);
-    throw new Error(`AI Gateway error: ${response.status}`);
+    console.warn(`[AI] Gateway transient error (attempt ${attempt}/${MAX_RETRIES}): ${response.status} ${errorText}`);
+    if (attempt < MAX_RETRIES) {
+      await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
+    }
+  }
+
+  if (!response || !response.ok) {
+    const errorText = response ? await response.text() : 'no response';
+    console.error('[AI] Gateway error after retries:', response?.status, errorText);
+    throw new Error(`AI Gateway error: ${response?.status}`);
   }
 
   const data = await response.json();
@@ -313,26 +324,35 @@ Return the classification using the analyze_media_for_salesforce function.`;
     }
   }];
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { role: 'system', content: KNEWTV_SYSTEM_PROMPT },
-        { role: 'user', content: userPrompt }
-      ],
-      tools,
-      tool_choice: { type: 'function', function: { name: 'analyze_media_for_salesforce' } }
-    }),
+  const audioReqBody = JSON.stringify({
+    model: 'google/gemini-2.5-flash',
+    messages: [
+      { role: 'system', content: KNEWTV_SYSTEM_PROMPT },
+      { role: 'user', content: userPrompt }
+    ],
+    tools,
+    tool_choice: { type: 'function', function: { name: 'analyze_media_for_salesforce' } }
   });
+  const audioReqHeaders = {
+    'Authorization': `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  };
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('[AI] Gateway error for audio:', response.status, errorText);
+  let response: Response | null = null;
+  const MAX_RETRIES = 3;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST', headers: audioReqHeaders, body: audioReqBody,
+    });
+    if (response.ok || (response.status !== 502 && response.status !== 503)) break;
+    console.warn(`[AI] Audio gateway transient error (attempt ${attempt}/${MAX_RETRIES}): ${response.status}`);
+    if (attempt < MAX_RETRIES) {
+      await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
+    }
+  }
+
+  if (!response || !response.ok) {
+    console.error('[AI] Gateway error for audio after retries:', response?.status);
     // Return default audio classification
     return {
       description: isPodcast ? 'Podcast episode from World Moto Clash.' : 'Audio content from World Moto Clash.',
