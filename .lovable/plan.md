@@ -1,69 +1,24 @@
 
 
-# Editable Description and Tags in Preview Modals
+# Fix AI Analysis Hanging on WMC-Utah-Poster-1
 
-## Summary
-Make the description and tags in both ImagePreviewModal and VideoPreviewModal editable inline, and refresh the displayed data after a re-analyze so changes are immediately visible.
+## Root Cause
+The `analyze-video-preview` edge function is receiving **502 errors** from the Lovable AI Gateway. This is a transient upstream failure. The function immediately throws on the first failure without retrying, and the error propagates to the frontend which shows an error toast. However, the user perceives this as "hanging" because the analysis silently fails and the UI reverts to the un-analyzed state with no clear feedback.
 
-## Current Behavior
-- Description and tags are displayed as read-only text/badges
-- After clicking "Re-analyze," the parent list refreshes (`onAssetUpdated`), but the modal still shows the stale prop data
-- Users cannot manually edit description or tags from the preview
+The logs show two failed attempts for `WMC-Utah-Poster-1.png` both returning `502 error code: 500` from the AI Gateway, while other images like `WMC-Poster-3.png` and `WMC-Utah-Poster-2.png` succeeded.
 
-## Planned Behavior
-- Description becomes an editable textarea (toggle via an Edit/Save button)
-- Tags are shown with an "x" button to remove, plus an input to add new tags
-- A "Save" button persists manual edits to the database
-- After re-analyze completes, the modal re-fetches the asset data from the database and updates its local state, so the new description and tags appear immediately
+## Fix: Add Retry Logic to AI Gateway Calls
 
----
+### 1. `supabase/functions/analyze-video-preview/index.ts`
+- Wrap the `fetch` call to the AI gateway in a retry loop (up to 3 attempts)
+- Wait 2 seconds between retries (exponential backoff: 2s, 4s)
+- Only retry on 502 and 503 status codes (transient errors)
+- Log each retry attempt for debugging
 
-## Technical Changes
+### 2. `supabase/functions/auto-tag-media-asset/index.ts`
+- Apply the same retry logic to its AI gateway call (used by the re-analyze button in preview modals)
+- Same retry pattern: 3 attempts with exponential backoff on 502/503
 
-### 1. `src/components/media/ImagePreviewModal.tsx`
-
-**Local state for editable fields:**
-- `localDescription` (string) -- initialized from `asset.description`
-- `localTags` (MediaTag[]) -- initialized from `asset.tags`
-- `isEditing` (boolean) -- toggles between view and edit mode
-- `newTagInput` (string) -- for typing a new tag name
-
-**Edit mode UI:**
-- Description: swap `<p>` for a `<Textarea>` when editing
-- Tags: each tag gets an "x" button to remove; an `<Input>` + "Add" button to add a new tag (calls `findOrCreate` logic in the DB via direct Supabase insert)
-- "Edit" button toggles to edit mode; "Save" button persists changes and exits edit mode
-- "Cancel" discards local changes
-
-**Save handler (`handleSave`):**
-- Updates `media_assets.description` via Supabase
-- Handles tag additions (insert into `media_tags` if new, then `media_asset_tags`)
-- Handles tag removals (delete from `media_asset_tags`)
-- Calls `onAssetUpdated?.()` after save
-
-**Re-analyze refresh:**
-- After `handleReanalyze` succeeds, re-fetch the asset from `media_assets` joined with tags, and update local state (`localDescription`, `localTags`) so the new AI results appear immediately without closing/reopening the modal
-
-### 2. `src/components/media/VideoPreviewModal.tsx`
-
-Same pattern as ImagePreviewModal but adapted for the `VideoContent` type:
-
-**Local state:**
-- `localDescription` (string)
-- `localTags` (string[]) -- VideoContent uses string tags, not MediaTag objects
-- `isEditing` (boolean)
-- `newTagInput` (string)
-
-**Edit mode UI:**
-- Description: editable textarea
-- Tags: removable badges + add input
-
-**Save handler:**
-- For local assets (UUID IDs): update `media_assets.description` and manage `media_asset_tags` via Supabase
-- For Salesforce-only assets: save is disabled (read-only note shown)
-
-**Re-analyze refresh:**
-- After re-analyze, re-fetch asset data and update local state
-
-### 3. No backend changes required
-The existing `media_assets` table already has `description` (text) and the `media_tags` / `media_asset_tags` junction tables support add/remove operations. All edits use standard Supabase client calls.
+### No frontend changes needed
+The frontend error handling (`try/catch/finally`) is already correct. The fix is purely on the edge function side to make AI calls more resilient to transient gateway failures.
 
