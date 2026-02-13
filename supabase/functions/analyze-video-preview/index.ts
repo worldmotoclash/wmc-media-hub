@@ -65,23 +65,35 @@ Be accurate and specific to motorsports/racing content. The confidence should re
     }
   ];
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages,
-      max_tokens: 1000,
-    }),
+  const body = JSON.stringify({
+    model: "google/gemini-2.5-flash",
+    messages,
+    max_tokens: 1000,
   });
+  const headers = {
+    "Authorization": `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
 
-  if (!response.ok) {
+  let response: Response | null = null;
+  const MAX_RETRIES = 3;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST", headers, body,
+    });
+    if (response.ok || (response.status !== 502 && response.status !== 503)) break;
     const errorText = await response.text();
-    console.error("AI Gateway error:", response.status, errorText);
-    throw new Error(`AI analysis failed: ${response.status}`);
+    console.warn(`AI Gateway transient error (attempt ${attempt}/${MAX_RETRIES}): ${response.status} ${errorText}`);
+    if (attempt < MAX_RETRIES) {
+      const delay = Math.pow(2, attempt) * 1000; // 2s, 4s
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+
+  if (!response || !response.ok) {
+    const status = response?.status ?? 'unknown';
+    console.error("AI Gateway error after retries:", status);
+    throw new Error(`AI analysis failed: ${status}`);
   }
 
   const data = await response.json();
@@ -207,24 +219,34 @@ Since you cannot hear the audio, base your analysis on the filename and use lowe
 
   const userPrompt = `Classify this audio file: "${fileName}"`;
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      max_tokens: 500,
-    }),
+  const audioBody = JSON.stringify({
+    model: "google/gemini-2.5-flash",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ],
+    max_tokens: 500,
   });
+  const audioHeaders = {
+    "Authorization": `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
 
-  if (!response.ok) {
-    console.error("AI Gateway error for audio:", response.status);
+  let response: Response | null = null;
+  const MAX_RETRIES = 3;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST", headers: audioHeaders, body: audioBody,
+    });
+    if (response.ok || (response.status !== 502 && response.status !== 503)) break;
+    console.warn(`[Audio] AI Gateway transient error (attempt ${attempt}/${MAX_RETRIES}): ${response.status}`);
+    if (attempt < MAX_RETRIES) {
+      await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
+    }
+  }
+
+  if (!response || !response.ok) {
+    console.error("AI Gateway error for audio after retries:", response?.status);
     // Return defaults
     return {
       tags: isPodcast ? ['podcast', 'interview'] : ['audio'],
