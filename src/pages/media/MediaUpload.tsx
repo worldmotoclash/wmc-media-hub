@@ -276,6 +276,28 @@ const MediaUpload: React.FC = () => {
     });
   };
 
+  // Resize image to a smaller JPEG for AI analysis (avoids oversized payloads causing 502s)
+  const resizeImageForAnalysis = (file: File, maxDim = 1024): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(img.src);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(img.src);
+        reject(new Error('Failed to load image for resize'));
+      };
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
   const handleFileSelect = (file: File) => {
     const validTypes = [
       // Video
@@ -399,8 +421,8 @@ const MediaUpload: React.FC = () => {
         // Extract a frame from the video, using bumper skip offset
         mediaData = await extractVideoFrame(selectedFile, bumperSkipSeconds);
       } else if (fileType === 'image') {
-        // Convert image directly to base64
-        mediaData = await fileToBase64(selectedFile);
+        // Resize image to ~1024px JPEG to avoid oversized payloads causing 502s
+        mediaData = await resizeImageForAnalysis(selectedFile);
       }
       // For audio, we don't send visual data - just filename
       
