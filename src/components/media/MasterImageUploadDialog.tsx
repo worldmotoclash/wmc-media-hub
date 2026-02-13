@@ -137,61 +137,128 @@ export function MasterImageUploadDialog({
       // Get image dimensions
       const dimensions = await getImageDimensions(selectedFile);
       
-      setUploadProgress("Converting image...");
-      
-      // Convert file to base64
-      const imageBase64 = await fileToBase64(selectedFile);
-      
-      setUploadProgress("Uploading to Wasabi S3...");
-      
-      // Call the upload-master-to-s3 edge function with catalog fields
-      const { data, error } = await supabase.functions.invoke("upload-master-to-s3", {
-        body: {
-          imageBase64,
-          filename: selectedFile.name,
-          mimeType: selectedFile.type,
-          width: dimensions.width,
-          height: dimensions.height,
-          title: catalogFields?.naturalName || selectedFile.name.replace(/\.[^/.]+$/, ""),
-          creatorContactId: user?.id,
-          // Salesforce catalog fields
-          salesforceFields: catalogFields ? {
-            domain: catalogFields.domain,
-            eventCode: catalogFields.eventCode,
-            raceTrackCode: catalogFields.raceTrackCode,
-            contentClass: catalogFields.contentClass,
-            scene: catalogFields.scene,
-            contentType: catalogFields.contentType,
-            generationMethod: catalogFields.generationMethod,
-            aspectRatio: catalogFields.aspectRatio,
-            version: catalogFields.version,
-            eventDate: catalogFields.eventDate,
-          } : undefined,
-        },
-      });
+      const PRESIGNED_THRESHOLD = 4 * 1024 * 1024; // 4MB — base64 inflates ~33%, edge function has tight memory
+      const usePresigned = selectedFile.size > PRESIGNED_THRESHOLD;
 
-      if (error) {
-        throw new Error(error.message || "Upload failed");
+      if (usePresigned) {
+        // === PRESIGNED URL FLOW for large images ===
+        setUploadProgress("Preparing upload...");
+
+        const { data: presignData, error: presignError } = await supabase.functions.invoke("generate-presigned-upload-url", {
+          body: {
+            filename: selectedFile.name,
+            mimeType: selectedFile.type,
+            width: dimensions.width,
+            height: dimensions.height,
+          },
+        });
+
+        if (presignError || !presignData?.success) {
+          throw new Error(presignError?.message || presignData?.error || "Failed to get presigned URL");
+        }
+
+        setUploadProgress("Uploading to Wasabi S3...");
+
+        // Upload directly to S3
+        const xhr = await new Promise<void>((resolve, reject) => {
+          const x = new XMLHttpRequest();
+          x.open("PUT", presignData.presignedUrl, true);
+          x.setRequestHeader("Content-Type", selectedFile!.type);
+          x.onload = () => (x.status >= 200 && x.status < 300 ? resolve() : reject(new Error(`S3 upload failed: ${x.status}`)));
+          x.onerror = () => reject(new Error("Network error during S3 upload"));
+          x.send(selectedFile);
+        });
+
+        setUploadProgress("Finalizing...");
+
+        // Finalize metadata (no binary payload)
+        const { data, error } = await supabase.functions.invoke("upload-master-to-s3", {
+          body: {
+            filename: selectedFile.name,
+            mimeType: selectedFile.type,
+            width: dimensions.width,
+            height: dimensions.height,
+            title: catalogFields?.naturalName || selectedFile.name.replace(/\.[^/.]+$/, ""),
+            creatorContactId: user?.id,
+            salesforceFields: catalogFields ? {
+              domain: catalogFields.domain,
+              eventCode: catalogFields.eventCode,
+              raceTrackCode: catalogFields.raceTrackCode,
+              contentClass: catalogFields.contentClass,
+              scene: catalogFields.scene,
+              contentType: catalogFields.contentType,
+              generationMethod: catalogFields.generationMethod,
+              aspectRatio: catalogFields.aspectRatio,
+              version: catalogFields.version,
+              eventDate: catalogFields.eventDate,
+            } : undefined,
+            s3Key: presignData.s3Key,
+            cdnUrl: presignData.cdnUrl,
+            masterId: presignData.masterId,
+            fileSize: selectedFile.size,
+          },
+        });
+
+        if (error) throw new Error(error.message || "Upload failed");
+        if (!data.success) throw new Error(data.error || "Upload failed");
+
+        setUploadProgress("Upload complete!");
+
+        toast({ title: "Upload complete", description: "Master image uploaded to S3 successfully." });
+
+        onUploadComplete?.({
+          id: data.assetId,
+          url: data.s3Url,
+          title: selectedFile.name.replace(/\.[^/.]+$/, ""),
+          masterId: data.masterId,
+          salesforceId: data.salesforceId,
+        });
+      } else {
+        // === TRADITIONAL BASE64 FLOW for small images ===
+        setUploadProgress("Converting image...");
+        const imageBase64 = await fileToBase64(selectedFile);
+        
+        setUploadProgress("Uploading to Wasabi S3...");
+        
+        const { data, error } = await supabase.functions.invoke("upload-master-to-s3", {
+          body: {
+            imageBase64,
+            filename: selectedFile.name,
+            mimeType: selectedFile.type,
+            width: dimensions.width,
+            height: dimensions.height,
+            title: catalogFields?.naturalName || selectedFile.name.replace(/\.[^/.]+$/, ""),
+            creatorContactId: user?.id,
+            salesforceFields: catalogFields ? {
+              domain: catalogFields.domain,
+              eventCode: catalogFields.eventCode,
+              raceTrackCode: catalogFields.raceTrackCode,
+              contentClass: catalogFields.contentClass,
+              scene: catalogFields.scene,
+              contentType: catalogFields.contentType,
+              generationMethod: catalogFields.generationMethod,
+              aspectRatio: catalogFields.aspectRatio,
+              version: catalogFields.version,
+              eventDate: catalogFields.eventDate,
+            } : undefined,
+          },
+        });
+
+        if (error) throw new Error(error.message || "Upload failed");
+        if (!data.success) throw new Error(data.error || "Upload failed");
+
+        setUploadProgress("Upload complete!");
+
+        toast({ title: "Upload complete", description: "Master image uploaded to S3 successfully." });
+
+        onUploadComplete?.({
+          id: data.assetId,
+          url: data.s3Url,
+          title: selectedFile.name.replace(/\.[^/.]+$/, ""),
+          masterId: data.masterId,
+          salesforceId: data.salesforceId,
+        });
       }
-
-      if (!data.success) {
-        throw new Error(data.error || "Upload failed");
-      }
-
-      setUploadProgress("Upload complete!");
-
-      toast({
-        title: "Upload complete",
-        description: `Master image uploaded to S3 successfully.`,
-      });
-
-      onUploadComplete?.({
-        id: data.assetId,
-        url: data.s3Url,
-        title: selectedFile.name.replace(/\.[^/.]+$/, ""),
-        masterId: data.masterId,
-        salesforceId: data.salesforceId,
-      });
 
       handleClose();
     } catch (error: any) {
