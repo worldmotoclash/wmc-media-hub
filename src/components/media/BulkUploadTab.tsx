@@ -84,12 +84,49 @@ export const BulkUploadTab: React.FC = () => {
     setQueue(prev => prev.filter(f => f.id !== id));
   };
 
-  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragOver(true); };
-  const handleDragLeave = (e: React.DragEvent) => { e.preventDefault(); setIsDragOver(false); };
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDragOver(true);
+    }
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragOver(false);
-    addFiles(e.dataTransfer.files);
+
+    console.log('Drop event:', {
+      filesCount: e.dataTransfer.files?.length,
+      itemsCount: e.dataTransfer.items?.length,
+      types: Array.from(e.dataTransfer.types),
+    });
+
+    // Try dataTransfer.files first (standard browsers)
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      addFiles(e.dataTransfer.files);
+      return;
+    }
+
+    // Fallback: extract from dataTransfer.items (Image Capture / promised files)
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      const files: File[] = [];
+      for (let i = 0; i < e.dataTransfer.items.length; i++) {
+        const item = e.dataTransfer.items[i];
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file) files.push(file);
+        }
+      }
+      if (files.length > 0) {
+        addFiles(files);
+      }
+    }
   };
 
   const uploadSingleFile = async (qf: QueuedFile, createdAlbumId: string, tagsList: string[]): Promise<boolean> => {
