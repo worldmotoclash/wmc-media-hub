@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { UserProvider } from "./contexts/UserContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import PWAInstallPrompt from "./components/PWAInstallPrompt";
 import Index from "./pages/Index";
 import MediaHub from "./pages/MediaHub";
 import Login from "./pages/Login";
@@ -46,6 +47,7 @@ const App = () => (
         <UserProvider>
           <Toaster />
           <Sonner />
+          <PWAInstallPrompt />
           <BrowserRouter>
             <AnimatePresence mode="wait">
               <Routes>
