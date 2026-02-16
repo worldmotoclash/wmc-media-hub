@@ -1,42 +1,84 @@
 
 
-# Fix: Bulk Upload Not Accepting Dragged Files from Image Capture
+# Fix: Drag-and-Drop from Image Capture Not Detected
 
-## Problem
-When dragging files from Mac Image Capture into the dropzone, the browser receives `File` objects with **empty MIME types** (`file.type === ""`). The current code filters files using `file.type.startsWith('video/')`, which rejects all files with blank types. Nothing gets added to the queue.
+## Root Cause
+When dragging files from macOS Image Capture into the browser, the drag events fire but the browser handles them differently than standard file drags. Two issues:
 
-## Solution
-Add a **file extension fallback** when `file.type` is empty. If the MIME type is blank, check the file extension (`.jpg`, `.png`, `.mp4`, `.mov`, `.mp3`, etc.) to determine if the file is valid media.
+1. **No visual feedback**: The `dragover` handler works but there's no `e.stopPropagation()`, so parent elements may swallow the event. More importantly, Image Capture uses macOS "promised files" -- the actual `File` objects may not be in `e.dataTransfer.files` until the drop completes. The `dragover` event needs to check `e.dataTransfer.types.includes('Files')` rather than inspecting actual files.
 
-## Technical Change
+2. **Empty `files` on drop**: Image Capture may populate `dataTransfer.items` instead of `dataTransfer.files`. The drop handler needs to also check `e.dataTransfer.items` and use `getAsFile()` as a fallback.
 
-### `src/components/media/BulkUploadTab.tsx`
+## Changes to `src/components/media/BulkUploadTab.tsx`
 
-Update the `addFiles` function to use extension-based validation as a fallback:
-
+### 1. Fix `handleDragOver` -- add stopPropagation and proper type check
 ```typescript
-const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'tiff', 'bmp', 'svg'];
-const videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'wmv', 'm4v', 'flv'];
-const audioExtensions = ['mp3', 'wav', 'aac', 'm4a', 'ogg', 'flac', 'wma'];
-const allExtensions = [...imageExtensions, ...videoExtensions, ...audioExtensions];
-
-const isValidMedia = (f: File) => {
-  // Check MIME type first
-  if (f.type && ['video/', 'image/', 'audio/'].some(t => f.type.startsWith(t))) {
-    return true;
+const handleDragOver = (e: React.DragEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  // Check if drag contains files (works even for promised files from Image Capture)
+  if (e.dataTransfer.types.includes('Files')) {
+    setIsDragOver(true);
   }
-  // Fallback: check file extension
-  const ext = f.name.split('.').pop()?.toLowerCase() || '';
-  return allExtensions.includes(ext);
 };
 
-const newFiles = Array.from(files)
-  .filter(isValidMedia)
-  .map(f => ({ ... }));
+const handleDragLeave = (e: React.DragEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  setIsDragOver(false);
+};
 ```
 
-Also update `getFileIcon` to use the same extension fallback so icons display correctly for files with blank MIME types.
+### 2. Fix `handleDrop` -- extract files from both `files` and `items`
+```typescript
+const handleDrop = (e: React.DragEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  setIsDragOver(false);
 
-### No other files need to change
-The presigned URL edge function already infers MIME type from the extension, and the S3 upload uses `Content-Type` from the request -- so downstream everything already handles this case.
+  // Try dataTransfer.files first (standard browsers)
+  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    addFiles(e.dataTransfer.files);
+    return;
+  }
+
+  // Fallback: extract from dataTransfer.items (Image Capture / promised files)
+  if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+    const files: File[] = [];
+    for (let i = 0; i < e.dataTransfer.items.length; i++) {
+      const item = e.dataTransfer.items[i];
+      if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (file) files.push(file);
+      }
+    }
+    if (files.length > 0) {
+      addFiles(files);
+    }
+  }
+};
+```
+
+### 3. Add debug logging (temporary, to help verify)
+Add a `console.log` in both `handleDragOver` and `handleDrop` to confirm events fire and what data is available. This will help us verify the fix works and can be removed afterward.
+
+```typescript
+const handleDrop = (e: React.DragEvent) => {
+  console.log('Drop event:', {
+    filesCount: e.dataTransfer.files?.length,
+    itemsCount: e.dataTransfer.items?.length,
+    types: Array.from(e.dataTransfer.types),
+  });
+  // ... rest of handler
+};
+```
+
+## No Other Files Change
+The validation (`isValidMedia`) and upload logic remain the same -- only the drag event handling is fixed.
+
+## Summary
+- Add `e.stopPropagation()` to prevent parent interference
+- Use `e.dataTransfer.types.includes('Files')` for dragover detection (works with promised files)
+- Add `dataTransfer.items` fallback for the drop handler
+- Add temporary console logging to verify the fix
 
