@@ -22,9 +22,22 @@ interface QueuedFile {
 
 const MAX_CONCURRENCY = 3;
 
+const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'tiff', 'bmp', 'svg'];
+const videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'wmv', 'm4v', 'flv'];
+const audioExtensions = ['mp3', 'wav', 'aac', 'm4a', 'ogg', 'flac', 'wma'];
+const allExtensions = [...imageExtensions, ...videoExtensions, ...audioExtensions];
+
+const getExtension = (name: string) => name.split('.').pop()?.toLowerCase() || '';
+
+const isValidMedia = (f: File) => {
+  if (f.type && ['video/', 'image/', 'audio/'].some(t => f.type.startsWith(t))) return true;
+  return allExtensions.includes(getExtension(f.name));
+};
+
 const getFileIcon = (file: File) => {
-  if (file.type.startsWith('video/')) return <FileVideo className="w-4 h-4 text-blue-500" />;
-  if (file.type.startsWith('audio/')) return <Music className="w-4 h-4 text-orange-500" />;
+  const ext = getExtension(file.name);
+  if (file.type.startsWith('video/') || videoExtensions.includes(ext)) return <FileVideo className="w-4 h-4 text-blue-500" />;
+  if (file.type.startsWith('audio/') || audioExtensions.includes(ext)) return <Music className="w-4 h-4 text-orange-500" />;
   return <ImageIcon className="w-4 h-4 text-green-500" />;
 };
 
@@ -50,9 +63,8 @@ export const BulkUploadTab: React.FC = () => {
   const [albumId, setAlbumId] = useState<string | null>(null);
 
   const addFiles = useCallback((files: FileList | File[]) => {
-    const validTypes = ['video/', 'image/', 'audio/'];
     const newFiles: QueuedFile[] = Array.from(files)
-      .filter(f => validTypes.some(t => f.type.startsWith(t)))
+      .filter(isValidMedia)
       .map(f => ({
         file: f,
         id: crypto.randomUUID(),
