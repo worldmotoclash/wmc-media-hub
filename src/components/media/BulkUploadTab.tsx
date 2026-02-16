@@ -7,10 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Upload, X, CheckCircle2, AlertCircle, FileVideo, Image as ImageIcon, Music, Layers } from "lucide-react";
+import { Upload, X, CheckCircle2, AlertCircle, FileVideo, Image as ImageIcon, Music, Layers, Camera, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface QueuedFile {
   file: File;
@@ -48,6 +49,7 @@ const formatSize = (bytes: number) => {
 
 export const BulkUploadTab: React.FC = () => {
   const { user } = useUser();
+  const isMobile = useIsMobile();
   const navigate = useNavigate();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -116,19 +118,13 @@ export const BulkUploadTab: React.FC = () => {
     e.stopPropagation();
     setIsDragOver(false);
 
-    console.log('Drop event:', {
-      filesCount: e.dataTransfer.files?.length,
-      itemsCount: e.dataTransfer.items?.length,
-      types: Array.from(e.dataTransfer.types),
-    });
-
     // Try dataTransfer.files first (standard browsers)
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       addFiles(e.dataTransfer.files);
       return;
     }
 
-    // Fallback: extract from dataTransfer.items (Image Capture / promised files)
+    // Fallback: extract from dataTransfer.items
     if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
       const files: File[] = [];
       for (let i = 0; i < e.dataTransfer.items.length; i++) {
@@ -351,29 +347,58 @@ export const BulkUploadTab: React.FC = () => {
         </div>
 
         {/* Dropzone */}
-        <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={() => !isUploading && fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-            isDragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'
-          } ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
-        >
-          <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
-          <p className="text-lg font-medium">Drop files here or click to browse</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            Supports images, videos, and audio — select as many as you want
-          </p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept="image/*,video/*,audio/*"
-            className="hidden"
-            onChange={(e) => e.target.files && addFiles(e.target.files)}
-          />
-        </div>
+        {isMobile ? (
+          <div className={`space-y-3 ${isUploading ? 'pointer-events-none opacity-50' : ''}`}>
+            <Button
+              size="lg"
+              className="w-full h-20 text-lg gap-3"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Camera className="w-6 h-6" />
+              Select from Camera Roll
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*,video/*,audio/*"
+              className="hidden"
+              onChange={(e) => e.target.files && addFiles(e.target.files)}
+            />
+          </div>
+        ) : (
+          <>
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => !isUploading && fileInputRef.current?.click()}
+              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                isDragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'
+              } ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
+            >
+              <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+              <p className="text-lg font-medium">Drop files here or click to browse</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Supports images, videos, and audio — drag from Finder or use the button below
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,video/*,audio/*"
+                className="hidden"
+                onChange={(e) => e.target.files && addFiles(e.target.files)}
+              />
+            </div>
+            <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+              <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span>
+                <strong>Image Capture users:</strong> Save files to a folder first (set "Import To" in Image Capture), then drag from Finder or click to browse. Direct drag from Image Capture is not supported by browsers.
+              </span>
+            </div>
+          </>
+        )}
 
         {/* File Queue */}
         {queue.length > 0 && (
