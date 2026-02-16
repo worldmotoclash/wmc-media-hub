@@ -23,6 +23,7 @@ export interface MediaAsset {
   // Sync fields
   salesforceId?: string;
   syncStatus?: 'in_sync' | 'missing_sfdc' | 'missing_file' | 'unknown';
+  album_id?: string;
 }
 
 export interface MediaTag {
@@ -681,7 +682,8 @@ function transformDatabaseAsset(dbAsset: any): MediaAsset {
     tags: (dbAsset.media_asset_tags || []).map((rel: any) => rel.media_tags),
     activities: dbAsset.content_review_activities || [],
     salesforceId: dbAsset.salesforce_id,
-    syncStatus
+    syncStatus,
+    album_id: dbAsset.album_id || undefined,
   };
 }
 

@@ -95,6 +95,10 @@ export const UnifiedMediaLibrary: React.FC = () => {
   // Filter drawer state
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   
+  // Album filter state
+  const [albums, setAlbums] = useState<{ id: string; name: string; asset_count: number }[]>([]);
+  const [selectedAlbumId, setSelectedAlbumId] = useState<string>('all');
+  
   // Variant expansion state
   const [hideVariants, setHideVariants] = useState(true);
   const [variantCounts, setVariantCounts] = useState<Map<string, number>>(new Map());
@@ -229,6 +233,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
     if (activeTab === 'library') {
       loadLibraryData();
       loadFilterCounts();
+      loadAlbums();
     } else if (activeTab === 's3-config') {
       loadS3ConfigData();
     }
@@ -240,6 +245,18 @@ export const UnifiedMediaLibrary: React.FC = () => {
       setFilterCounts(stats);
     } catch (error) {
       console.error('Error loading filter counts:', error);
+    }
+  };
+
+  const loadAlbums = async () => {
+    try {
+      const { data } = await supabase
+        .from('media_albums')
+        .select('id, name, asset_count')
+        .order('created_at', { ascending: false });
+      setAlbums(data || []);
+    } catch (error) {
+      console.error('Error loading albums:', error);
     }
   };
 
@@ -257,7 +274,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
     }, 300);
 
     return () => clearTimeout(delayedSearch);
-  }, [searchQuery, filters, sortOption, activeTab, currentPage, searchScope]);
+  }, [searchQuery, filters, sortOption, activeTab, currentPage, searchScope, selectedAlbumId]);
 
   // Fetch variant counts on mount
   useEffect(() => {
@@ -361,7 +378,14 @@ export const UnifiedMediaLibrary: React.FC = () => {
       setIsFiltering(true);
       const offset = (currentPage - 1) * pageSize;
       const filtersWithScope = { ...filters, searchScope };
-      const { assets: assetsData, total } = await fetchAllMediaAssets(searchQuery, filtersWithScope, pageSize, offset, sortOption);
+      let { assets: assetsData, total } = await fetchAllMediaAssets(searchQuery, filtersWithScope, pageSize, offset, sortOption);
+      
+      // Client-side album filter (album_id not in the service layer yet)
+      if (selectedAlbumId && selectedAlbumId !== 'all') {
+        assetsData = assetsData.filter((a: any) => a.album_id === selectedAlbumId);
+        total = assetsData.length;
+      }
+      
       setAssets(assetsData);
       setTotalAssets(total);
       
@@ -375,7 +399,6 @@ export const UnifiedMediaLibrary: React.FC = () => {
       console.error('Error searching assets:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to search media assets';
       toast.error(errorMessage);
-      // Still clear results so user knows search failed
       setAssets([]);
       setTotalAssets(0);
     } finally {
@@ -612,7 +635,22 @@ export const UnifiedMediaLibrary: React.FC = () => {
                   </SelectContent>
                 </Select>
 
-                {/* View Mode Toggle */}
+                {/* Album Filter */}
+                {albums.length > 0 && (
+                  <Select value={selectedAlbumId} onValueChange={(v) => { setSelectedAlbumId(v); setCurrentPage(1); }}>
+                    <SelectTrigger className="w-[180px] bg-background">
+                      <Layers className="w-4 h-4 mr-2" />
+                      <SelectValue placeholder="Album" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border shadow-lg z-50">
+                      <SelectItem value="all">All Albums</SelectItem>
+                      {albums.map(a => (
+                        <SelectItem key={a.id} value={a.id}>{a.name} ({a.asset_count})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
                 <div className="flex border rounded-md">
                   <Button
                     variant={viewMode === 'grid' ? 'default' : 'ghost'}
