@@ -12,7 +12,8 @@ import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Wand2, AlertCircle, CheckCircle2, Calendar, MapPin, Tag, ArrowLeft, Sparkles, Clock, Monitor, Video, X, FileVideo, Image as ImageIcon, Music, Mic } from "lucide-react";
+import { Upload, Wand2, AlertCircle, CheckCircle2, Calendar, MapPin, Tag, ArrowLeft, Sparkles, Clock, Monitor, Video, X, FileVideo, Image as ImageIcon, Music, Mic, Layers } from "lucide-react";
+import { BulkUploadTab } from "@/components/media/BulkUploadTab";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -1051,7 +1052,7 @@ const MediaUpload: React.FC = () => {
           transition={{ delay: 0.2, duration: 0.6 }}
         >
           <Tabs defaultValue={isGenerateMode ? "generate" : "upload"} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-8">
+            <TabsList className="grid w-full grid-cols-3 mb-8">
               <TabsTrigger 
                 value="upload" 
                 className="flex items-center gap-2"
@@ -1061,12 +1062,19 @@ const MediaUpload: React.FC = () => {
                 Upload Media
               </TabsTrigger>
               <TabsTrigger 
+                value="bulk" 
+                className="flex items-center gap-2"
+              >
+                <Layers className="w-4 h-4" />
+                Bulk Upload
+              </TabsTrigger>
+              <TabsTrigger 
                 value="generate" 
                 className="flex items-center gap-2"
                 onClick={() => navigate('/admin/media/generate')}
               >
                 <Sparkles className="w-4 h-4" />
-                Generate AI Image / Video
+                Generate AI
               </TabsTrigger>
             </TabsList>
 
@@ -1320,6 +1328,10 @@ const MediaUpload: React.FC = () => {
                   </form>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="bulk" className="space-y-6">
+              <BulkUploadTab />
             </TabsContent>
 
             <TabsContent value="generate" className="space-y-6">

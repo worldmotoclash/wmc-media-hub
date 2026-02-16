@@ -147,6 +147,39 @@ export type Database = {
         }
         Relationships: []
       }
+      media_albums: {
+        Row: {
+          asset_count: number
+          cover_image_url: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          asset_count?: number
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          asset_count?: number
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       media_asset_tags: {
         Row: {
           created_at: string
@@ -185,6 +218,7 @@ export type Database = {
       }
       media_assets: {
         Row: {
+          album_id: string | null
           approved_at: string | null
           approved_by: string | null
           asset_type: string | null
@@ -211,6 +245,7 @@ export type Database = {
           variant_name: string | null
         }
         Insert: {
+          album_id?: string | null
           approved_at?: string | null
           approved_by?: string | null
           asset_type?: string | null
@@ -237,6 +272,7 @@ export type Database = {
           variant_name?: string | null
         }
         Update: {
+          album_id?: string | null
           approved_at?: string | null
           approved_by?: string | null
           asset_type?: string | null
@@ -262,7 +298,15 @@ export type Database = {
           updated_at?: string
           variant_name?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "media_assets_album_id_fkey"
+            columns: ["album_id"]
+            isOneToOne: false
+            referencedRelation: "media_albums"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       media_tags: {
         Row: {

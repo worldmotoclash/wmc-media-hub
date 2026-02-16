@@ -133,7 +133,7 @@ serve(async (req) => {
       dimensions: `${payload.width}x${payload.height}`,
     });
 
-    const { imageBase64, filename, mimeType, width, height, title, description, tags, creatorContactId, thumbnailBase64, duration, salesforceFields, isPodcast, s3Key: preuploadedS3Key, cdnUrl: preuploadedCdnUrl, masterId: preuploadedMasterId, fileSize: preuploadedFileSize } = payload as UploadMasterRequest & { s3Key?: string; cdnUrl?: string; masterId?: string; fileSize?: number };
+    const { imageBase64, filename, mimeType, width, height, title, description, tags, creatorContactId, thumbnailBase64, duration, salesforceFields, isPodcast, s3Key: preuploadedS3Key, cdnUrl: preuploadedCdnUrl, masterId: preuploadedMasterId, fileSize: preuploadedFileSize, albumId } = payload as UploadMasterRequest & { s3Key?: string; cdnUrl?: string; masterId?: string; fileSize?: number; albumId?: string };
 
     // Support two modes:
     // 1. Traditional: imageBase64 + filename (file sent through edge function)
@@ -293,22 +293,29 @@ serve(async (req) => {
       userProvidedTags: tags || [], // Store for debugging/backup
     };
 
-    const { data: assetData, error: assetError } = await supabase
-      .from("media_assets")
-      .insert({
+    const insertData: Record<string, any> = {
         title: imageTitle,
-        description: description || null, // Store AI-suggested or manual description
+        description: description || null,
         file_url: cdnUrl,
-        thumbnail_url: thumbnailUrl || (isAudio ? null : cdnUrl), // Audio has no thumbnail
+        thumbnail_url: thumbnailUrl || (isAudio ? null : cdnUrl),
         source: "local_upload",
         status: "ready",
         file_format: fileExtension,
         asset_type: assetType,
         s3_key: s3Key,
-        duration: (isVideo || isAudio) ? Math.round(duration || 0) : null, // Store duration for videos and audio (integer)
-        file_size: isFinalizePath ? (preuploadedFileSize || 0) : (fileData?.length || 0), // Store file size in bytes
+        duration: (isVideo || isAudio) ? Math.round(duration || 0) : null,
+        file_size: isFinalizePath ? (preuploadedFileSize || 0) : (fileData?.length || 0),
         metadata: initialMetadata,
-      })
+    };
+
+    // Add album_id if provided
+    if (albumId) {
+      insertData.album_id = albumId;
+    }
+
+    const { data: assetData, error: assetError } = await supabase
+      .from("media_assets")
+      .insert(insertData)
       .select()
       .single();
 
