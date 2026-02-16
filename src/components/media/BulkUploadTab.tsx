@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,6 +61,21 @@ export const BulkUploadTab: React.FC = () => {
   const [completedCount, setCompletedCount] = useState(0);
   const [uploadDone, setUploadDone] = useState(false);
   const [albumId, setAlbumId] = useState<string | null>(null);
+
+  // CRITICAL: Prevent browser default drag behavior at document level.
+  // Without this, macOS shows red "not allowed" cursor for external app drops (Image Capture).
+  useEffect(() => {
+    const preventDefaults = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    document.addEventListener('dragover', preventDefaults);
+    document.addEventListener('drop', preventDefaults);
+    return () => {
+      document.removeEventListener('dragover', preventDefaults);
+      document.removeEventListener('drop', preventDefaults);
+    };
+  }, []);
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const newFiles: QueuedFile[] = Array.from(files)
