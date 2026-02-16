@@ -1,77 +1,42 @@
 
 
-# Bulk Upload with Albums (Drag-and-Drop from Image Capture)
+# Fix: Bulk Upload Not Accepting Dragged Files from Image Capture
 
-## Overview
-Connect your iPhone to your Mac, open Image Capture, select all the photos/videos you want, and drag them straight into a new "Bulk Upload" dropzone. Name the batch as an album, and all files upload in parallel with shared tags and AI auto-tagging.
+## Problem
+When dragging files from Mac Image Capture into the dropzone, the browser receives `File` objects with **empty MIME types** (`file.type === ""`). The current code filters files using `file.type.startsWith('video/')`, which rejects all files with blank types. Nothing gets added to the queue.
 
-## What Changes
+## Solution
+Add a **file extension fallback** when `file.type` is empty. If the MIME type is blank, check the file extension (`.jpg`, `.png`, `.mp4`, `.mov`, `.mp3`, etc.) to determine if the file is valid media.
 
-### 1. New database table: `media_albums`
-Stores album metadata so assets can be grouped together.
+## Technical Change
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid | Primary key |
-| name | text | Required -- e.g. "Utah Race Day 2025" |
-| description | text | Optional |
-| cover_image_url | text | Auto-set to first image thumbnail |
-| asset_count | integer | Defaults to 0, updated as files finish |
-| created_by | uuid | Current user |
-| created_at | timestamptz | Auto |
-| updated_at | timestamptz | Auto |
+### `src/components/media/BulkUploadTab.tsx`
 
-RLS: viewable by everyone, insert/update/delete for authenticated users.
+Update the `addFiles` function to use extension-based validation as a fallback:
 
-### 2. New column on `media_assets`
-- `album_id` (uuid, nullable, foreign key to `media_albums.id`)
+```typescript
+const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'tiff', 'bmp', 'svg'];
+const videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'wmv', 'm4v', 'flv'];
+const audioExtensions = ['mp3', 'wav', 'aac', 'm4a', 'ogg', 'flac', 'wma'];
+const allExtensions = [...imageExtensions, ...videoExtensions, ...audioExtensions];
 
-### 3. New Bulk Upload tab on the Upload Media page (`MediaUpload.tsx`)
-- Third tab alongside the existing "Upload Media" and "Generate" tabs
-- **Multi-file dropzone** with `multiple` attribute -- accepts drag-and-drop of many files at once (exactly what Image Capture produces)
-- **Album name** input (required) and optional shared description/tags
-- **File queue** list showing each dropped file with name, size, type icon, and status (queued / uploading / done / error)
-- **Combined progress bar** showing overall completion
-- **Upload All** button -- processes files 3 at a time using the existing presigned URL flow (all files use presigned since most photos are over 4MB)
-- After each file completes: fires `auto-tag-media-asset` for AI analysis in the background
-- On completion: shows summary and link to library filtered by the new album
+const isValidMedia = (f: File) => {
+  // Check MIME type first
+  if (f.type && ['video/', 'image/', 'audio/'].some(t => f.type.startsWith(t))) {
+    return true;
+  }
+  // Fallback: check file extension
+  const ext = f.name.split('.').pop()?.toLowerCase() || '';
+  return allExtensions.includes(ext);
+};
 
-### 4. Edge function update (`upload-master-to-s3`)
-- Accept optional `albumId` in the request body
-- Store it in `media_assets.album_id` on insert
-- Increment `media_albums.asset_count` after successful insert
-
-### 5. Library filtering (`UnifiedMediaLibrary.tsx`)
-- Add album dropdown filter to browse assets by album
-- Show album badge on asset cards
-
-## Upload Flow
-
-```text
-Image Capture (Mac) --> Drag 30 files into browser
-  --> Browser queues all 30, shows file list
-  --> User names album "Sonoma Raceway March 2025", adds tags "race, sonoma"
-  --> Clicks "Upload All"
-  --> 3 files upload concurrently:
-       1. generate-presigned-upload-url (get S3 URL)
-       2. XHR PUT directly to S3 (with per-file progress)
-       3. upload-master-to-s3 finalize (albumId + shared tags)
-       4. auto-tag-media-asset (background AI tagging)
-  --> Progress bar: "12 of 30 complete"
-  --> Done: "30 files uploaded to Sonoma Raceway March 2025" with link to album view
+const newFiles = Array.from(files)
+  .filter(isValidMedia)
+  .map(f => ({ ... }));
 ```
 
-## Files to Create/Edit
+Also update `getFileIcon` to use the same extension fallback so icons display correctly for files with blank MIME types.
 
-| File | Action |
-|------|--------|
-| New migration | Create `media_albums` table + add `album_id` column to `media_assets` |
-| `src/pages/media/MediaUpload.tsx` | Add "Bulk Upload" tab with multi-file dropzone, queue, and parallel upload logic |
-| `supabase/functions/upload-master-to-s3/index.ts` | Accept `albumId`, store on asset, increment album count |
-| `src/components/media/UnifiedMediaLibrary.tsx` | Add album filter dropdown and album badges |
-
-## Mobile-Friendly Notes
-- iPhone Safari's file picker with `multiple` attribute lets you select many photos at once from Camera Roll (if uploading directly from phone)
-- Image Capture drag-and-drop works on desktop browsers natively
-- Large "Upload All" button, sticky at the bottom on mobile
+### No other files need to change
+The presigned URL edge function already infers MIME type from the extension, and the S3 upload uses `Content-Type` from the request -- so downstream everything already handles this case.
 
