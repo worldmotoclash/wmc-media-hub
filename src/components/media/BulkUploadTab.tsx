@@ -363,7 +363,7 @@ export const BulkUploadTab: React.FC = () => {
               multiple
               accept="image/*,video/*,audio/*"
               className="hidden"
-              onChange={(e) => e.target.files && addFiles(e.target.files)}
+              onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }}
             />
           </div>
         ) : (
@@ -388,7 +388,7 @@ export const BulkUploadTab: React.FC = () => {
                 multiple
                 accept="image/*,video/*,audio/*"
                 className="hidden"
-                onChange={(e) => e.target.files && addFiles(e.target.files)}
+                onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }}
               />
             </div>
             <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
