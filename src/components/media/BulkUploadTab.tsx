@@ -239,7 +239,7 @@ export const BulkUploadTab: React.FC = () => {
         .insert({
           name: albumName.trim(),
           description: albumDescription.trim() || null,
-          created_by: user?.id || null,
+          created_by: null,
         })
         .select()
         .single();
