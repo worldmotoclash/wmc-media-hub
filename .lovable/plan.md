@@ -1,33 +1,33 @@
 
 
-# Fix: "Failed to create album, invalid syntax" on iPhone
+# Fix: iPhone Photo Picker Only Allows 2 Selections
+
+## Problem
+On iOS Safari, the `<input type="file">` element has a known quirk: after selecting files once, tapping the button again and selecting more files may not trigger the `onChange` event reliably. This is because the browser sees the same input element with an existing value and sometimes suppresses the change event.
 
 ## Root Cause
-The `media_albums.created_by` column is type `uuid`, but `user.id` is a **Salesforce Contact ID** (e.g., `003XXXXXXXXXXXXXXX`) -- not a valid UUID. When the bulk upload tries to insert a new album row with this non-UUID string, Postgres rejects it with an "invalid input syntax for type uuid" error.
-
-This affects all devices (not just iPhone), but you likely noticed it on iPhone because that's where you tested the bulk upload flow.
+The file input's `value` is never cleared after a selection. iOS Safari requires the input value to be reset to empty after each use so that subsequent selections reliably fire the `onChange` event.
 
 ## Fix
-In `BulkUploadTab.tsx`, change the album insert to pass `null` instead of `user?.id` for `created_by`, since the Salesforce Contact ID is not a valid UUID. Alternatively, store the user identifier in a `text`-type column.
+Two changes in `src/components/media/BulkUploadTab.tsx`:
 
-The simplest fix (no database migration needed):
+### 1. Reset the file input value after each selection
+In the `onChange` handler, clear `e.target.value` after reading the files. This ensures the next tap always triggers `onChange`:
 
-### `src/components/media/BulkUploadTab.tsx`
-Change line 243 from:
-```
-created_by: user?.id || null,
-```
-to:
-```
-created_by: null,
+```typescript
+onChange={(e) => {
+  if (e.target.files) addFiles(e.target.files);
+  e.target.value = '';  // Reset so next selection always fires onChange
+}}
 ```
 
-This ensures the insert never fails due to an invalid UUID. The album is still associated with the session user contextually; we just stop trying to write a non-UUID into a UUID column.
+### 2. Apply the same fix to both mobile and desktop file inputs
+Both the mobile Camera Roll button input and the desktop dropzone input share a `fileInputRef` -- both need the reset.
 
-### Optional follow-up (not part of this fix)
-If you want to track who created each album, a future step would be to either:
-- Add a `created_by_contact_id` text column to `media_albums` for the Salesforce ID, or
-- Change `created_by` from `uuid` to `text`
+### Files Changed
+| File | Change |
+|------|--------|
+| `src/components/media/BulkUploadTab.tsx` | Reset `e.target.value = ''` after each file selection in both mobile and desktop `<input>` onChange handlers |
 
-But for now, setting it to `null` unblocks uploads immediately.
+This is a one-line fix in two places. No backend or database changes needed.
 
