@@ -30,7 +30,11 @@ const RacerApplication: React.FC = () => {
     setFormData((prev) => ({
       firstName: parsed.firstName || '',
       lastName: parsed.lastName || '',
+      email: parsed.email || '',
+      title: parsed.title || '',
       phone: parsed.phone || '',
+      mobile: parsed.mobile || '',
+      street: parsed.mailingstreet || '',
       city: parsed.mailingcity || '',
       state: parsed.mailingstate || '',
       zip: parsed.mailingzip || '',
@@ -87,10 +91,28 @@ const RacerApplication: React.FC = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Phone</Label>
-              <Input value={formData.phone || ''} onChange={(e) => updateField('phone', e.target.value)} />
+              <Label>Email</Label>
+              <Input type="email" value={formData.email || ''} onChange={(e) => updateField('email', e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Title / Position</Label>
+              <Input value={formData.title || ''} onChange={(e) => updateField('title', e.target.value)} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Phone</Label>
+                <Input value={formData.phone || ''} onChange={(e) => updateField('phone', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Mobile Phone</Label>
+                <Input value={formData.mobile || ''} onChange={(e) => updateField('mobile', e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Street Address</Label>
+              <Input value={formData.street || ''} onChange={(e) => updateField('street', e.target.value)} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>City</Label>
                 <Input value={formData.city || ''} onChange={(e) => updateField('city', e.target.value)} />
@@ -103,10 +125,10 @@ const RacerApplication: React.FC = () => {
                 <Label>ZIP Code</Label>
                 <Input value={formData.zip || ''} onChange={(e) => updateField('zip', e.target.value)} />
               </div>
-              <div className="space-y-2">
-                <Label>Country</Label>
-                <Input value={formData.country || ''} onChange={(e) => updateField('country', e.target.value)} />
-              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Country</Label>
+              <Input value={formData.country || ''} onChange={(e) => updateField('country', e.target.value)} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
