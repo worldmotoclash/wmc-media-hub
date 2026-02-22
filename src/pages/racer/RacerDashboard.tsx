@@ -20,8 +20,8 @@ const timelineSteps = [
   { label: 'Application Submitted', status: 'upcoming' as const, description: 'Complete the 5-step application' },
   { label: 'Video Audition Reviewed', status: 'upcoming' as const, description: 'WMC reviews your audition video' },
   { label: 'Scoring Complete', status: 'upcoming' as const, description: 'All 5 dimensions scored' },
-  { label: 'Qualification Decision', status: 'upcoming' as const, description: 'Top 48 riders selected' },
-  { label: 'Grid Position Assigned', status: 'upcoming' as const, description: 'Race day starting position' },
+  { label: 'Qualification Decision', status: 'upcoming' as const, description: 'Yes or no -- are you qualified to compete?' },
+  { label: 'Select a Race', status: 'upcoming' as const, description: 'Choose an upcoming race and submit your motorcycle details' },
 ];
 
 const RacerDashboard: React.FC = () => {
