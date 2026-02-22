@@ -65,6 +65,10 @@ const RacerLogin: React.FC = () => {
         mailingstate: member.mailingstate || '',
         mailingzip: member.mailingzip || '',
         mailingcountry: member.mailingcountry || '',
+        linkedin: member.linkedin || '',
+        youtube: member.youtube || '',
+        facebook: member.facebook || '',
+        twitter: member.twitter || '',
       };
       sessionStorage.setItem('racerUser', JSON.stringify(racerData));
 
