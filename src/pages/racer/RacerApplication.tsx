@@ -23,7 +23,24 @@ const RacerApplication: React.FC = () => {
   useEffect(() => {
     const stored = sessionStorage.getItem('racerUser');
     if (!stored) { navigate('/racer/login'); return; }
-    setRacer(JSON.parse(stored));
+    const parsed: RacerMember = JSON.parse(stored);
+    setRacer(parsed);
+
+    // Pre-populate form from profile data
+    setFormData((prev) => ({
+      firstName: parsed.firstName || '',
+      lastName: parsed.lastName || '',
+      phone: parsed.phone || '',
+      city: parsed.mailingcity || '',
+      state: parsed.mailingstate || '',
+      zip: parsed.mailingzip || '',
+      country: parsed.mailingcountry || '',
+      linkedin: parsed.linkedin || '',
+      youtube: parsed.youtube || '',
+      facebook: parsed.facebook || '',
+      twitter: parsed.twitter || '',
+      ...prev,
+    }));
   }, [navigate]);
 
   const updateField = (key: string, value: string) => {
@@ -73,13 +90,41 @@ const RacerApplication: React.FC = () => {
               <Label>Phone</Label>
               <Input value={formData.phone || ''} onChange={(e) => updateField('phone', e.target.value)} />
             </div>
-            <div className="space-y-2">
-              <Label>City / Country</Label>
-              <Input value={formData.location || ''} onChange={(e) => updateField('location', e.target.value)} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>City</Label>
+                <Input value={formData.city || ''} onChange={(e) => updateField('city', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>State</Label>
+                <Input value={formData.state || ''} onChange={(e) => updateField('state', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>ZIP Code</Label>
+                <Input value={formData.zip || ''} onChange={(e) => updateField('zip', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Country</Label>
+                <Input value={formData.country || ''} onChange={(e) => updateField('country', e.target.value)} />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Social Media Links</Label>
-              <Textarea placeholder="Instagram, YouTube, TikTok…" value={formData.socialLinks || ''} onChange={(e) => updateField('socialLinks', e.target.value)} rows={3} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>LinkedIn</Label>
+                <Input type="url" placeholder="https://linkedin.com/in/..." value={formData.linkedin || ''} onChange={(e) => updateField('linkedin', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>YouTube</Label>
+                <Input type="url" placeholder="https://youtube.com/..." value={formData.youtube || ''} onChange={(e) => updateField('youtube', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Facebook</Label>
+                <Input type="url" placeholder="https://facebook.com/..." value={formData.facebook || ''} onChange={(e) => updateField('facebook', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>X / Twitter</Label>
+                <Input type="url" placeholder="https://x.com/..." value={formData.twitter || ''} onChange={(e) => updateField('twitter', e.target.value)} />
+              </div>
             </div>
           </div>
         );
