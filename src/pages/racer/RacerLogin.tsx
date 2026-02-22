@@ -48,15 +48,23 @@ const RacerLogin: React.FC = () => {
         return;
       }
 
-      // Store racer data in session
+      // Store racer data in session with all profile fields
       const racerData = {
         id: member.id,
         email: member.email,
         name: member.name,
+        firstName: member.firstname || '',
+        lastName: member.lastname || '',
         status: member.status,
+        title: member.jobtitle || '',
         phone: member.phone,
         mobile: member.mobile,
+        website: member.website || '',
         mailingstreet: member.mailingstreet,
+        mailingcity: member.mailingcity || '',
+        mailingstate: member.mailingstate || '',
+        mailingzip: member.mailingzip || '',
+        mailingcountry: member.mailingcountry || '',
       };
       sessionStorage.setItem('racerUser', JSON.stringify(racerData));
 

@@ -163,17 +163,29 @@ export const fetchMemberByEmail = async (email: string) => {
       return null; // No member found
     }
     
+    const get = (tag: string) => memberElement.getElementsByTagName(tag)[0]?.textContent || '';
+
     return {
-      id: memberElement.getElementsByTagName('id')[0]?.textContent || '',
-      email: memberElement.getElementsByTagName('email')[0]?.textContent || '',
-      ripassword: memberElement.getElementsByTagName('ripassword')[0]?.textContent || '',
-      name: memberElement.getElementsByTagName('name')[0]?.textContent || '',
-      status: memberElement.getElementsByTagName('status')[0]?.textContent || '',
-      phone: memberElement.getElementsByTagName('phone')[0]?.textContent || '',
-      mobile: memberElement.getElementsByTagName('mobile')[0]?.textContent || '',
-      mailingstreet: memberElement.getElementsByTagName('mailingstreet')[0]?.textContent || '',
-      ipaddress: memberElement.getElementsByTagName('ipaddress')[0]?.textContent || '',
-      mediahubaccess: memberElement.getElementsByTagName('mediahubaccess')[0]?.textContent || ''
+      id: get('id'),
+      email: get('email'),
+      ripassword: get('ripassword'),
+      name: get('name'),
+      firstname: get('firstname'),
+      lastname: get('lastname'),
+      status: get('status'),
+      phone: get('phone'),
+      mobile: get('mobile'),
+      jobtitle: get('jobtitle'),
+      website: get('website'),
+      mailingstreet: get('mailingstreet'),
+      mailingcity: get('MailingCity'),
+      mailingstate: get('MailingState'),
+      mailingzip: get('MailingPostalCode'),
+      mailingcountry: get('MailingCountry'),
+      ipaddress: get('ipaddress'),
+      mediahubaccess: get('mediahubaccess'),
+      membership: get('membership'),
+      membershipdate: get('membershipdate'),
     };
   } else {
     // Assume JSON response - parse first member if it's an array
