@@ -186,6 +186,10 @@ export const fetchMemberByEmail = async (email: string) => {
       mediahubaccess: get('mediahubaccess'),
       membership: get('membership'),
       membershipdate: get('membershipdate'),
+      linkedin: get('rie__LinkedIn__c'),
+      youtube: get('Youtube__c'),
+      facebook: get('rie__Facebook__c'),
+      twitter: get('rie__Twitter__c'),
     };
   } else {
     // Assume JSON response - parse first member if it's an array

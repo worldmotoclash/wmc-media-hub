@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { User, Mail, Building, MapPin, Phone, Save, Loader2, Pencil, X } from 'lucide-react';
+import { User, Mail, Building, MapPin, Phone, Save, Loader2, Pencil, X, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import RacerPortalLayout from '@/components/racer/RacerPortalLayout';
 import { updateRacerProfile } from '@/services/racerService';
@@ -32,6 +32,10 @@ const RacerProfile: React.FC = () => {
     state: '',
     zip: '',
     country: 'US',
+    linkedin: '',
+    youtube: '',
+    facebook: '',
+    twitter: '',
   });
 
   useEffect(() => {
@@ -51,6 +55,10 @@ const RacerProfile: React.FC = () => {
       state: parsed.mailingstate || '',
       zip: parsed.mailingzip || '',
       country: parsed.mailingcountry || 'US',
+      linkedin: parsed.linkedin || '',
+      youtube: parsed.youtube || '',
+      facebook: parsed.facebook || '',
+      twitter: parsed.twitter || '',
     });
   }, [navigate]);
 
@@ -69,6 +77,10 @@ const RacerProfile: React.FC = () => {
       state: racer.mailingstate || '',
       zip: racer.mailingzip || '',
       country: racer.mailingcountry || 'US',
+      linkedin: racer.linkedin || '',
+      youtube: racer.youtube || '',
+      facebook: racer.facebook || '',
+      twitter: racer.twitter || '',
     });
     setIsEditing(false);
   };
@@ -93,6 +105,10 @@ const RacerProfile: React.FC = () => {
         mailingstate: formData.state,
         mailingzip: formData.zip,
         mailingcountry: formData.country,
+        linkedin: formData.linkedin,
+        youtube: formData.youtube,
+        facebook: formData.facebook,
+        twitter: formData.twitter,
       };
       setRacer(updated);
       sessionStorage.setItem('racerUser', JSON.stringify(updated));
@@ -269,6 +285,36 @@ const RacerProfile: React.FC = () => {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Social Media Links */}
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              Social Media Links
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="linkedin">LinkedIn</Label>
+                <Input id="linkedin" type="url" placeholder="https://linkedin.com/in/..." value={formData.linkedin} onChange={set('linkedin')} disabled={!isEditing} />
+              </div>
+              <div>
+                <Label htmlFor="youtube">YouTube</Label>
+                <Input id="youtube" type="url" placeholder="https://youtube.com/..." value={formData.youtube} onChange={set('youtube')} disabled={!isEditing} />
+              </div>
+              <div>
+                <Label htmlFor="facebook">Facebook</Label>
+                <Input id="facebook" type="url" placeholder="https://facebook.com/..." value={formData.facebook} onChange={set('facebook')} disabled={!isEditing} />
+              </div>
+              <div>
+                <Label htmlFor="twitter">X / Twitter</Label>
+                <Input id="twitter" type="url" placeholder="https://x.com/..." value={formData.twitter} onChange={set('twitter')} disabled={!isEditing} />
+              </div>
             </div>
           </CardContent>
         </Card>

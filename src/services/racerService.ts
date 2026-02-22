@@ -22,6 +22,10 @@ export interface RacerMember {
   mailingcountry?: string;
   membership?: string;
   membershipdate?: string;
+  linkedin?: string;
+  youtube?: string;
+  facebook?: string;
+  twitter?: string;
 }
 
 /** Parse a RacerMember from an XML <member> element */
@@ -46,6 +50,10 @@ const parseRacerMemberXml = (member: Element): RacerMember => {
     mailingcountry: get('MailingCountry'),
     membership: get('membership'),
     membershipdate: get('membershipdate'),
+    linkedin: get('rie__LinkedIn__c'),
+    youtube: get('Youtube__c'),
+    facebook: get('rie__Facebook__c'),
+    twitter: get('rie__Twitter__c'),
   };
 };
 
@@ -135,6 +143,10 @@ export const updateRacerProfile = async (
     state?: string;
     zip?: string;
     country?: string;
+    linkedin?: string;
+    youtube?: string;
+    facebook?: string;
+    twitter?: string;
   }
 ): Promise<void> => {
   const fields: Record<string, string> = {
@@ -153,6 +165,10 @@ export const updateRacerProfile = async (
   if (data.state !== undefined) fields['text_MailingState'] = data.state;
   if (data.zip !== undefined) fields['text_MailingPostalCode'] = data.zip;
   if (data.country !== undefined) fields['text_MailingCountry'] = data.country;
+  if (data.linkedin !== undefined) fields['url_rie__LinkedIn__c'] = data.linkedin;
+  if (data.youtube !== undefined) fields['url_Youtube__c'] = data.youtube;
+  if (data.facebook !== undefined) fields['url_rie__Facebook__c'] = data.facebook;
+  if (data.twitter !== undefined) fields['url_rie__Twitter__c'] = data.twitter;
 
   await submitViaIframe(UPDATE_ENGINE_URL, fields);
 };
