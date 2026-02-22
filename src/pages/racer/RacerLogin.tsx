@@ -10,6 +10,7 @@ import { fetchMemberByEmail } from '@/services/loginService';
 import { useUser } from '@/contexts/UserContext';
 import { toast } from 'sonner';
 import { validateLoginForm } from '@/utils/loginValidation';
+import PasswordResetDialog from '@/components/PasswordResetDialog';
 
 const RacerLogin: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -17,6 +18,7 @@ const RacerLogin: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const navigate = useNavigate();
   const { setUser } = useUser();
 
@@ -181,6 +183,16 @@ const RacerLogin: React.FC = () => {
                 )}
               </div>
 
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setForgotPasswordOpen(true)}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
+
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (
                   <>
@@ -207,6 +219,11 @@ const RacerLogin: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+
+        <PasswordResetDialog
+          open={forgotPasswordOpen}
+          onOpenChange={setForgotPasswordOpen}
+        />
 
         <p className="text-center text-xs text-muted-foreground">
           © {new Date().getFullYear()} World Moto Clash. All rights reserved.
