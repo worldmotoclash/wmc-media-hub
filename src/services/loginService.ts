@@ -164,32 +164,39 @@ export const fetchMemberByEmail = async (email: string) => {
     }
     
     const get = (tag: string) => memberElement.getElementsByTagName(tag)[0]?.textContent || '';
+    const getAny = (...tags: string[]) => {
+      for (const tag of tags) {
+        const val = get(tag);
+        if (val) return val;
+      }
+      return '';
+    };
 
     return {
       id: get('id'),
       email: get('email'),
       ripassword: get('ripassword'),
       name: get('name'),
-      firstname: get('firstname'),
-      lastname: get('lastname'),
+      firstname: getAny('firstname', 'firstName', 'FirstName', 'first_name'),
+      lastname: getAny('lastname', 'lastName', 'LastName', 'last_name'),
       status: get('status'),
       phone: get('phone'),
       mobile: get('mobile'),
-      jobtitle: get('jobtitle'),
+      jobtitle: getAny('jobtitle', 'title', 'Title', 'JobTitle'),
       website: get('website'),
       mailingstreet: get('mailingstreet'),
-      mailingcity: get('MailingCity'),
-      mailingstate: get('MailingState'),
-      mailingzip: get('MailingPostalCode'),
-      mailingcountry: get('MailingCountry'),
+      mailingcity: getAny('MailingCity', 'mailingcity', 'city'),
+      mailingstate: getAny('MailingState', 'mailingstate', 'state'),
+      mailingzip: getAny('MailingPostalCode', 'mailingpostalcode', 'mailingzip', 'zip'),
+      mailingcountry: getAny('MailingCountry', 'mailingcountry', 'country'),
       ipaddress: get('ipaddress'),
       mediahubaccess: get('mediahubaccess'),
       membership: get('membership'),
       membershipdate: get('membershipdate'),
-      linkedin: get('rie__LinkedIn__c'),
-      youtube: get('Youtube__c'),
-      facebook: get('rie__Facebook__c'),
-      twitter: get('rie__Twitter__c'),
+      linkedin: getAny('rie__LinkedIn__c', 'linkedin', 'LinkedIn'),
+      youtube: getAny('Youtube__c', 'youtube', 'YouTube'),
+      facebook: getAny('rie__Facebook__c', 'facebook', 'Facebook'),
+      twitter: getAny('rie__Twitter__c', 'twitter', 'Twitter'),
     };
   } else {
     // Assume JSON response - parse first member if it's an array
