@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { ChevronLeft, ChevronRight, CheckCircle2, Loader2 } from 'lucide-react';
 import RacerPortalLayout from '@/components/racer/RacerPortalLayout';
 import RacerFileUpload from '@/components/racer/RacerFileUpload';
+import SocialHandleInput from '@/components/racer/SocialHandleInput';
 import { submitRacerApplication, type RacerMember } from '@/services/racerService';
+import { getStepCompletion, getStorageKey, extractHandle } from '@/utils/applicationProgress';
 import { toast } from 'sonner';
 
 const STEPS = ['Personal Info', 'Racing History', 'Motorcycle', '5 Key Questions', 'Audition Video'];
@@ -26,8 +28,12 @@ const RacerApplication: React.FC = () => {
     const parsed: RacerMember = JSON.parse(stored);
     setRacer(parsed);
 
-    // Pre-populate form from profile data
-    setFormData((prev) => ({
+    // Load saved application data from localStorage first
+    const savedData = localStorage.getItem(getStorageKey(parsed.id));
+    const saved: Record<string, string> = savedData ? JSON.parse(savedData) : {};
+
+    // Pre-populate from profile, then overlay saved progress
+    const profileDefaults: Record<string, string> = {
       firstName: parsed.firstName || '',
       lastName: parsed.lastName || '',
       email: parsed.email || '',
@@ -39,17 +45,23 @@ const RacerApplication: React.FC = () => {
       state: parsed.mailingstate || '',
       zip: parsed.mailingzip || '',
       country: parsed.mailingcountry || '',
-      linkedin: parsed.linkedin || '',
-      youtube: parsed.youtube || '',
-      facebook: parsed.facebook || '',
-      twitter: parsed.twitter || '',
-      ...prev,
-    }));
+      linkedin: extractHandle('linkedin', parsed.linkedin || ''),
+      youtube: extractHandle('youtube', parsed.youtube || ''),
+      facebook: extractHandle('facebook', parsed.facebook || ''),
+      twitter: extractHandle('twitter', parsed.twitter || ''),
+    };
+
+    setFormData({ ...profileDefaults, ...saved });
   }, [navigate]);
 
-  const updateField = (key: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
-  };
+  // Persist to localStorage on every change
+  const updateField = useCallback((key: string, value: string) => {
+    setFormData((prev) => {
+      const next = { ...prev, [key]: value };
+      if (racer) localStorage.setItem(getStorageKey(racer.id), JSON.stringify(next));
+      return next;
+    });
+  }, [racer]);
 
   const handleNext = () => {
     if (step < STEPS.length - 1) setStep(step + 1);
@@ -74,6 +86,8 @@ const RacerApplication: React.FC = () => {
   };
 
   if (!racer) return null;
+
+  const stepCompletion = getStepCompletion(formData);
 
   const renderStep = () => {
     switch (step) {
@@ -130,22 +144,23 @@ const RacerApplication: React.FC = () => {
               <Label>Country</Label>
               <Input value={formData.country || ''} onChange={(e) => updateField('country', e.target.value)} />
             </div>
+            <p className="text-xs text-muted-foreground">At least one social handle is required.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>LinkedIn</Label>
-                <Input type="url" placeholder="https://linkedin.com/in/..." value={formData.linkedin || ''} onChange={(e) => updateField('linkedin', e.target.value)} />
+                <SocialHandleInput platform="linkedin" value={formData.linkedin || ''} onChange={(v) => updateField('linkedin', v)} />
               </div>
               <div className="space-y-2">
                 <Label>YouTube</Label>
-                <Input type="url" placeholder="https://youtube.com/..." value={formData.youtube || ''} onChange={(e) => updateField('youtube', e.target.value)} />
+                <SocialHandleInput platform="youtube" value={formData.youtube || ''} onChange={(v) => updateField('youtube', v)} />
               </div>
               <div className="space-y-2">
                 <Label>Facebook</Label>
-                <Input type="url" placeholder="https://facebook.com/..." value={formData.facebook || ''} onChange={(e) => updateField('facebook', e.target.value)} />
+                <SocialHandleInput platform="facebook" value={formData.facebook || ''} onChange={(v) => updateField('facebook', v)} />
               </div>
               <div className="space-y-2">
                 <Label>X / Twitter</Label>
-                <Input type="url" placeholder="https://x.com/..." value={formData.twitter || ''} onChange={(e) => updateField('twitter', e.target.value)} />
+                <SocialHandleInput platform="twitter" value={formData.twitter || ''} onChange={(v) => updateField('twitter', v)} />
               </div>
             </div>
           </div>
@@ -237,6 +252,7 @@ const RacerApplication: React.FC = () => {
               category="Audition Video"
               accept="video/*"
               label="Upload audition video"
+              onUploadComplete={() => updateField('auditionVideoUploaded', 'true')}
             />
           </div>
         );
@@ -262,12 +278,12 @@ const RacerApplication: React.FC = () => {
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                   i === step
                     ? 'bg-primary text-primary-foreground'
-                    : i < step
+                    : stepCompletion[i]
                     ? 'bg-green-500/20 text-green-400'
                     : 'bg-muted text-muted-foreground'
                 }`}
               >
-                {i < step ? <CheckCircle2 className="w-3 h-3" /> : <span>{i + 1}</span>}
+                {stepCompletion[i] ? <CheckCircle2 className="w-3 h-3" /> : <span>{i + 1}</span>}
                 <span className="hidden sm:inline">{s}</span>
               </button>
               {i < STEPS.length - 1 && <div className="h-px flex-1 bg-border" />}

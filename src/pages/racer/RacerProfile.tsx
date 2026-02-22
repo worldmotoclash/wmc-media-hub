@@ -8,8 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { User, Mail, Building, MapPin, Phone, Save, Loader2, Pencil, X, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import RacerPortalLayout from '@/components/racer/RacerPortalLayout';
+import SocialHandleInput from '@/components/racer/SocialHandleInput';
 import { updateRacerProfile } from '@/services/racerService';
 import { US_STATES, COUNTRIES } from '@/data/address-options';
+import { extractHandle, buildFullUrl } from '@/utils/applicationProgress';
 import type { RacerMember } from '@/services/racerService';
 
 const COUNTRIES_WITH_STATES = ['US', 'CA'];
@@ -55,10 +57,10 @@ const RacerProfile: React.FC = () => {
       state: parsed.mailingstate || '',
       zip: parsed.mailingzip || '',
       country: parsed.mailingcountry || 'US',
-      linkedin: parsed.linkedin || '',
-      youtube: parsed.youtube || '',
-      facebook: parsed.facebook || '',
-      twitter: parsed.twitter || '',
+      linkedin: extractHandle('linkedin', parsed.linkedin || ''),
+      youtube: extractHandle('youtube', parsed.youtube || ''),
+      facebook: extractHandle('facebook', parsed.facebook || ''),
+      twitter: extractHandle('twitter', parsed.twitter || ''),
     });
   }, [navigate]);
 
@@ -77,10 +79,10 @@ const RacerProfile: React.FC = () => {
       state: racer.mailingstate || '',
       zip: racer.mailingzip || '',
       country: racer.mailingcountry || 'US',
-      linkedin: racer.linkedin || '',
-      youtube: racer.youtube || '',
-      facebook: racer.facebook || '',
-      twitter: racer.twitter || '',
+      linkedin: extractHandle('linkedin', racer.linkedin || ''),
+      youtube: extractHandle('youtube', racer.youtube || ''),
+      facebook: extractHandle('facebook', racer.facebook || ''),
+      twitter: extractHandle('twitter', racer.twitter || ''),
     });
     setIsEditing(false);
   };
@@ -88,7 +90,15 @@ const RacerProfile: React.FC = () => {
   const handleSave = async () => {
     setIsLoading(true);
     try {
-      await updateRacerProfile(racer.id, formData);
+      // Build full URLs for Salesforce
+      const saveData = {
+        ...formData,
+        linkedin: buildFullUrl('linkedin', formData.linkedin),
+        youtube: buildFullUrl('youtube', formData.youtube),
+        facebook: buildFullUrl('facebook', formData.facebook),
+        twitter: buildFullUrl('twitter', formData.twitter),
+      };
+      await updateRacerProfile(racer.id, saveData);
 
       // Update local racer state + sessionStorage
       const updated: RacerMember = {
@@ -301,19 +311,19 @@ const RacerProfile: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="linkedin">LinkedIn</Label>
-                <Input id="linkedin" type="url" placeholder="https://linkedin.com/in/..." value={formData.linkedin} onChange={set('linkedin')} disabled={!isEditing} />
+                <SocialHandleInput platform="linkedin" value={formData.linkedin} onChange={(v) => setFormData({ ...formData, linkedin: v })} disabled={!isEditing} />
               </div>
               <div>
                 <Label htmlFor="youtube">YouTube</Label>
-                <Input id="youtube" type="url" placeholder="https://youtube.com/..." value={formData.youtube} onChange={set('youtube')} disabled={!isEditing} />
+                <SocialHandleInput platform="youtube" value={formData.youtube} onChange={(v) => setFormData({ ...formData, youtube: v })} disabled={!isEditing} />
               </div>
               <div>
                 <Label htmlFor="facebook">Facebook</Label>
-                <Input id="facebook" type="url" placeholder="https://facebook.com/..." value={formData.facebook} onChange={set('facebook')} disabled={!isEditing} />
+                <SocialHandleInput platform="facebook" value={formData.facebook} onChange={(v) => setFormData({ ...formData, facebook: v })} disabled={!isEditing} />
               </div>
               <div>
                 <Label htmlFor="twitter">X / Twitter</Label>
-                <Input id="twitter" type="url" placeholder="https://x.com/..." value={formData.twitter} onChange={set('twitter')} disabled={!isEditing} />
+                <SocialHandleInput platform="twitter" value={formData.twitter} onChange={(v) => setFormData({ ...formData, twitter: v })} disabled={!isEditing} />
               </div>
             </div>
           </CardContent>
