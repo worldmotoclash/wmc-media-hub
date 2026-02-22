@@ -1,17 +1,53 @@
 import { getCurrentIpAddress, getIPLocation } from './loginService';
 
 const W2X_ENGINE_URL = 'https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/w2x-engine.php';
+const UPDATE_ENGINE_URL = 'https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/update-engine-contact.php';
 const MEMBER_API_URL = 'https://api.realintelligence.com/api/specific-wmc-member-email.py';
 
 export interface RacerMember {
   id: string;
   email: string;
   name: string;
+  firstName: string;
+  lastName: string;
   status: string;
+  title?: string;
   phone?: string;
   mobile?: string;
+  website?: string;
   mailingstreet?: string;
+  mailingcity?: string;
+  mailingstate?: string;
+  mailingzip?: string;
+  mailingcountry?: string;
+  membership?: string;
+  membershipdate?: string;
 }
+
+/** Parse a RacerMember from an XML <member> element */
+const parseRacerMemberXml = (member: Element): RacerMember => {
+  const get = (tag: string) => member.getElementsByTagName(tag)[0]?.textContent || '';
+
+  return {
+    id: get('id'),
+    email: get('email'),
+    name: get('name'),
+    firstName: get('firstname'),
+    lastName: get('lastname'),
+    status: get('status'),
+    title: get('jobtitle'),
+    phone: get('phone'),
+    mobile: get('mobile'),
+    website: get('website'),
+    mailingstreet: get('mailingstreet'),
+    mailingcity: get('MailingCity'),
+    mailingstate: get('MailingState'),
+    mailingzip: get('MailingPostalCode'),
+    mailingcountry: get('MailingCountry'),
+    membership: get('membership'),
+    membershipdate: get('membershipdate'),
+  };
+};
 
 /** Validate racer email against RI API. Returns member data or null. */
 export const validateRacerEmail = async (email: string): Promise<RacerMember | null> => {
@@ -30,17 +66,7 @@ export const validateRacerEmail = async (email: string): Promise<RacerMember | n
 
     if (!member) return null;
 
-    const get = (tag: string) => member.getElementsByTagName(tag)[0]?.textContent || '';
-
-    return {
-      id: get('id'),
-      email: get('email'),
-      name: get('name'),
-      status: get('status'),
-      phone: get('phone'),
-      mobile: get('mobile'),
-      mailingstreet: get('mailingstreet'),
-    };
+    return parseRacerMemberXml(member);
   }
 
   const data = await response.json();
@@ -49,8 +75,8 @@ export const validateRacerEmail = async (email: string): Promise<RacerMember | n
   return item as RacerMember;
 };
 
-/** Submit form data to Salesforce via hidden iframe POST */
-export const submitToSalesforce = (fields: Record<string, string>): Promise<void> => {
+/** Submit form data via hidden iframe POST */
+const submitViaIframe = (actionUrl: string, fields: Record<string, string>): Promise<void> => {
   return new Promise((resolve) => {
     const iframe = document.createElement('iframe');
     iframe.style.display = 'none';
@@ -62,7 +88,7 @@ export const submitToSalesforce = (fields: Record<string, string>): Promise<void
 
         const form = doc.createElement('form');
         form.method = 'POST';
-        form.action = W2X_ENGINE_URL;
+        form.action = actionUrl;
 
         Object.entries(fields).forEach(([name, value]) => {
           const input = doc.createElement('input');
@@ -87,6 +113,48 @@ export const submitToSalesforce = (fields: Record<string, string>): Promise<void
       resolve();
     }, 5000);
   });
+};
+
+/** Submit form data to Salesforce via hidden iframe POST */
+export const submitToSalesforce = (fields: Record<string, string>): Promise<void> => {
+  return submitViaIframe(W2X_ENGINE_URL, fields);
+};
+
+/** Update racer profile in Salesforce */
+export const updateRacerProfile = async (
+  contactId: string,
+  data: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    title?: string;
+    phone?: string;
+    mobile?: string;
+    street?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    country?: string;
+  }
+): Promise<void> => {
+  const fields: Record<string, string> = {
+    sObj: 'Contact',
+    id_Contact: contactId,
+  };
+
+  if (data.firstName !== undefined) fields['string_FirstName'] = data.firstName;
+  if (data.lastName !== undefined) fields['string_LastName'] = data.lastName;
+  if (data.email !== undefined) fields['string_Email'] = data.email;
+  if (data.title !== undefined) fields['string_Title'] = data.title;
+  if (data.phone !== undefined) fields['phone_Phone'] = data.phone;
+  if (data.mobile !== undefined) fields['phone_MobilePhone'] = data.mobile;
+  if (data.street !== undefined) fields['text_MailingStreet'] = data.street;
+  if (data.city !== undefined) fields['text_MailingCity'] = data.city;
+  if (data.state !== undefined) fields['text_MailingState'] = data.state;
+  if (data.zip !== undefined) fields['text_MailingPostalCode'] = data.zip;
+  if (data.country !== undefined) fields['text_MailingCountry'] = data.country;
+
+  await submitViaIframe(UPDATE_ENGINE_URL, fields);
 };
 
 /** Track racer login activity to Salesforce */
