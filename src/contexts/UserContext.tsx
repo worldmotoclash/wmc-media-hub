@@ -12,6 +12,7 @@ export interface User {
   ipaddress?: string;
   ndaSigned?: boolean;
   mediaHubAccess: 'Admin' | 'Editor' | 'Viewer';
+  role?: 'racer' | 'admin' | 'investor';
 }
 
 export interface UserContextType {

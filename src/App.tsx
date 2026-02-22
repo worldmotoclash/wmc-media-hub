@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { UserProvider } from "./contexts/UserContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { isRacerHostname, RacerRoutes } from "./components/racer/HostnameRouter";
 import PWAInstallPrompt from "./components/PWAInstallPrompt";
 import Index from "./pages/Index";
 import MediaHub from "./pages/MediaHub";
@@ -50,42 +51,46 @@ const App = () => (
           <PWAInstallPrompt />
           <BrowserRouter>
             <AnimatePresence mode="wait">
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/hub" element={<MediaHub />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/reset" element={<ResetPassword />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/user-dashboard" element={<UserDashboard />} />
-                <Route path="/documents" element={<Documents />} />
-                <Route path="/updates" element={<Updates />} />
-                
-                <Route path="/investment-opportunity" element={<InvestmentOpportunity />} />
-                <Route path="/test-tracking" element={<TestTracking />} />
-                <Route path="/test-login-tracking" element={<TestLoginTracking />} />
-                <Route path="/thankyou" element={<ThankYou />} />
-                <Route path="/thankyouinvestor" element={<Navigate to="/thankyou" replace />} />
-                <Route path="/admin/media" element={
-                  <>
-                    <MediaHubHero />
-                    <ActionCards />
-                  </>
-                } />
-                <Route path="/admin/media/library" element={<UnifiedMediaLibrary />} />
-                <Route path="/admin/media/content" element={<MediaLibrary />} />
-                <Route path="/admin/media/upload" element={<MediaUpload />} />
-                <Route path="/admin/media/models" element={<ModelMarketplace />} />
-                <Route path="/admin/media/generate" element={<Generate />} />
-                <Route path="/admin/media/playlists" element={<PlaylistManager />} />
-                <Route path="/admin/media/scene-detection" element={<SceneDetection />} />
-                <Route path="/admin/media/social-kit" element={<SocialKit />} />
-                <Route path="/admin/media/characters" element={<CharacterLibrary />} />
-                <Route path="/admin/media/user-guide" element={<UserGuide />} />
-                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-                <Route path="/terms-of-service" element={<TermsOfService />} />
-                <Route path="/cookie-policy" element={<CookiePolicy />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+              {isRacerHostname() ? (
+                <RacerRoutes />
+              ) : (
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/hub" element={<MediaHub />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/reset" element={<ResetPassword />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/user-dashboard" element={<UserDashboard />} />
+                  <Route path="/documents" element={<Documents />} />
+                  <Route path="/updates" element={<Updates />} />
+                  
+                  <Route path="/investment-opportunity" element={<InvestmentOpportunity />} />
+                  <Route path="/test-tracking" element={<TestTracking />} />
+                  <Route path="/test-login-tracking" element={<TestLoginTracking />} />
+                  <Route path="/thankyou" element={<ThankYou />} />
+                  <Route path="/thankyouinvestor" element={<Navigate to="/thankyou" replace />} />
+                  <Route path="/admin/media" element={
+                    <>
+                      <MediaHubHero />
+                      <ActionCards />
+                    </>
+                  } />
+                  <Route path="/admin/media/library" element={<UnifiedMediaLibrary />} />
+                  <Route path="/admin/media/content" element={<MediaLibrary />} />
+                  <Route path="/admin/media/upload" element={<MediaUpload />} />
+                  <Route path="/admin/media/models" element={<ModelMarketplace />} />
+                  <Route path="/admin/media/generate" element={<Generate />} />
+                  <Route path="/admin/media/playlists" element={<PlaylistManager />} />
+                  <Route path="/admin/media/scene-detection" element={<SceneDetection />} />
+                  <Route path="/admin/media/social-kit" element={<SocialKit />} />
+                  <Route path="/admin/media/characters" element={<CharacterLibrary />} />
+                  <Route path="/admin/media/user-guide" element={<UserGuide />} />
+                  <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                  <Route path="/terms-of-service" element={<TermsOfService />} />
+                  <Route path="/cookie-policy" element={<CookiePolicy />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              )}
             </AnimatePresence>
           </BrowserRouter>
         </UserProvider>

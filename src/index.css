@@ -138,6 +138,18 @@
   }
 }
 
+/* Racing gradient utilities for Racer Portal */
+.racing-gradient {
+  background: linear-gradient(135deg, hsl(213 79% 39%), hsl(199 93% 52%));
+}
+
+.racing-gradient-text {
+  background: linear-gradient(135deg, hsl(213 79% 39%), hsl(199 93% 52%));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 /* Custom animations */
 .animated-gradient {
   background-size: 400% 400%;
