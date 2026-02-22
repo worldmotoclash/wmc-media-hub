@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Target, TrendingUp, Wrench, Video, Zap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Target, TrendingUp, Wrench, Video, Zap, CheckCircle2, Circle } from 'lucide-react';
 import RacerPortalLayout from '@/components/racer/RacerPortalLayout';
 import ScoringCard from '@/components/racer/ScoringCard';
 import QualificationTimeline from '@/components/racer/QualificationTimeline';
+import { getStepCompletion, getCompletionCount, getStorageKey, STEP_NAMES } from '@/utils/applicationProgress';
 import type { RacerMember } from '@/services/racerService';
 
 const scoringDimensions = [
@@ -27,14 +30,30 @@ const timelineSteps = [
 const RacerDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [racer, setRacer] = useState<RacerMember | null>(null);
+  const [stepCompletion, setStepCompletion] = useState<boolean[]>([false, false, false, false, false]);
 
   useEffect(() => {
     const stored = sessionStorage.getItem('racerUser');
     if (!stored) { navigate('/racer/login'); return; }
-    setRacer(JSON.parse(stored));
+    const parsed: RacerMember = JSON.parse(stored);
+    setRacer(parsed);
+
+    // Read application progress from localStorage
+    const appData = localStorage.getItem(getStorageKey(parsed.id));
+    if (appData) {
+      try {
+        const formData = JSON.parse(appData);
+        setStepCompletion(getStepCompletion(formData));
+      } catch {}
+    }
   }, [navigate]);
 
   if (!racer) return null;
+
+  const completedCount = stepCompletion.filter(Boolean).length;
+  const progressPercent = (completedCount / 5) * 100;
+  const statusLabel = completedCount === 0 ? 'Not Started' : completedCount === 5 ? 'Complete' : 'In Progress';
+  const badgeVariant = completedCount === 5 ? 'default' : 'secondary';
 
   return (
     <RacerPortalLayout>
@@ -49,14 +68,37 @@ const RacerDashboard: React.FC = () => {
           </p>
         </div>
 
-        {/* Status card */}
+        {/* Application Progress card */}
         <Card className="bg-card border-border">
-          <CardContent className="p-6 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Application Status</p>
-              <p className="text-lg font-semibold text-foreground mt-1">Not Started</p>
+          <CardContent className="p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Application Status</p>
+                <p className="text-lg font-semibold text-foreground mt-1">
+                  {completedCount === 5 ? 'Application Complete' : `${completedCount} of 5 steps complete`}
+                </p>
+              </div>
+              <Badge variant={badgeVariant}>{statusLabel}</Badge>
             </div>
-            <Badge variant="secondary">Pending</Badge>
+
+            <Progress value={progressPercent} className="h-2" />
+
+            <ul className="space-y-2">
+              {STEP_NAMES.map((name, i) => (
+                <li key={name} className="flex items-center gap-2 text-sm">
+                  {stepCompletion[i]
+                    ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                    : <Circle className="w-4 h-4 text-muted-foreground shrink-0" />}
+                  <span className={stepCompletion[i] ? 'text-foreground' : 'text-muted-foreground'}>{name}</span>
+                </li>
+              ))}
+            </ul>
+
+            <Button asChild size="sm" className="mt-2">
+              <Link to="/racer/application">
+                {completedCount === 0 ? 'Start Application' : completedCount === 5 ? 'Review Application' : 'Continue Application'}
+              </Link>
+            </Button>
           </CardContent>
         </Card>
 
