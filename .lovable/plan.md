@@ -1,111 +1,105 @@
 
+# Racer Profile: Full Editable Profile with Correct XML Field Mapping
 
-# Racer Portal (racers.worldmotoclash.com)
+## Problem
+The current `RacerProfile.tsx` only shows 5 basic fields read-only. The XML feed already contains address fields (`MailingCity`, `MailingState`, `MailingPostalCode`, `MailingCountry`) but they are not being parsed. The profile needs to match the portal rev 2 style with edit/save capability.
 
-A new racer-facing portal within the existing Media Hub project, served on a separate subdomain with hostname-based routing.
+## What Changes
 
-## Overview
+### 1. Expand `RacerMember` interface and XML parser in `racerService.ts`
 
-Racers visit `racers.worldmotoclash.com` and get a dark, racing-themed experience with email-only login, a 5-step application wizard, file uploads to Wasabi S3, and form submissions to Salesforce via hidden iframe POST. The existing Media Hub admin experience remains unchanged on the main domain.
+Add all fields the XML feed provides. Note the XML tag casing matches the feed exactly:
+- `mailingstreet` (lowercase -- already mapped)
+- `MailingCity` (capital M, capital C)
+- `MailingState` (capital M, capital S)
+- `MailingPostalCode` (capital M, capital P, capital C)
+- `MailingCountry` (capital M, capital C)
 
-## What Gets Built
+Also add `firstname`, `lastname`, `jobtitle`, `website`, `membership`, `membershipdate` to parse from the feed.
 
-### 1. Hostname Router
-A component in `App.tsx` that checks `window.location.hostname` -- if it includes "racer" or "racers", it renders the racer route tree; otherwise, the existing admin/investor routes render as-is.
+### 2. Add `updateRacerProfile` function to `racerService.ts`
 
-### 2. Racer Layout
-- Dark sidebar (desktop) with nav: Dashboard, Application, Motorcycle, Qualification, Profile
-- "WMC PORTAL" header with gradient text
-- Mobile: horizontal scrolling tab bar at the top
-- Sign Out at bottom of sidebar
+POST to `https://realintelligence.com/customers/expos/00D5e000000HEcP/exhibitors/engine/update-engine-contact.php` via hidden iframe, using the same field mapping as portal rev 2:
+- `sObj: 'Contact'`, `id_Contact: contactId`
+- `string_FirstName`, `string_LastName`, `string_Email`, `string_Title`
+- `phone_Phone`, `phone_MobilePhone`
+- `text_MailingStreet`, `text_MailingCity`, `text_MailingState`, `text_MailingPostalCode`, `text_MailingCountry`
 
-### 3. Racer Login (`/racer/login`)
-- Email-only field (no password for MVP)
-- Validates against the existing WMC member API (`specific-wmc-member-email.py`)
-- If `<member>` elements exist in XML response, user is valid
-- Stores member data in `sessionStorage`
-- Dark racing aesthetic with gradient accents
+### 3. Create `src/data/address-options.ts`
 
-### 4. Racer Dashboard (`/racer/dashboard`)
-- Status cards showing application progress
-- 5 scoring dimensions (Skill, Marketability, Equipment, Content Potential, X-Factor) with placeholder scores
-- Qualification timeline showing steps toward 48-spot grid
+Copy the US_STATES and COUNTRIES arrays from the other portal (51 US states/territories, 33 countries).
 
-### 5. Racer Application (`/racer/application`)
-- 5-step wizard: Personal Info, Racing History, Motorcycle, 5 Key Questions, Audition Video
-- Form data submitted to Salesforce via hidden iframe POST to `w2x-engine.php`
-- File uploads use the existing presigned URL pipeline (same as BulkUploadTab)
+### 4. Rebuild `RacerProfile.tsx`
 
-### 6. Remaining Pages
-- **Motorcycle** (`/racer/motorcycle`): Submit bike details per race, photos to S3
-- **Qualification** (`/racer/qualification`): Read-only scores from RI API
-- **Profile** (`/racer/profile`): Display member data from sessionStorage
+Mirror the UserProfile from portal rev 2 with:
+- Edit/Save/Cancel toggle buttons
+- **Personal Information** card: First Name, Last Name, Email (editable)
+- **Professional Information** card: Title/Position (editable)
+- **Contact Information** card: Phone, Mobile Phone (editable)
+- **Address Information** card: Street, City, State (dropdown for US/CA, text input otherwise), ZIP, Country (dropdown) -- all editable
+- **Account Status** card: Status display (read-only)
 
-### 7. Services
-- `racerService.ts`: Salesforce iframe POST helper, API fetch helpers
-- `racerMediaService.ts`: Wraps presigned URL upload flow with racer-specific auto-tagging
+On save: call `updateRacerProfile()`, update sessionStorage, show success toast.
 
-### 8. Reusable Upload Component
-- `RacerFileUpload.tsx`: Wraps the presigned URL flow with progress bar, auto-tags uploads with `['Racer Submission', racerName, category]`
+### 5. Update `RacerLogin.tsx`
 
-## Architecture Decisions
+Store expanded fields (firstname, lastname, city, state, zip, country, title, website) in sessionStorage when logging in.
 
-- **No new database tables** -- form data goes to Salesforce, files to Wasabi S3, media metadata to existing `media_assets` table
-- **Supabase** only used for `media_assets` metadata and edge functions (presigned URLs)
-- **UserContext** extended with a `role` field: `'racer' | 'admin' | 'investor'`
-- **Dark theme forced** for all racer routes (uses existing `.dark` CSS variables)
+### 6. Update `fetchMemberByEmail` in `loginService.ts`
+
+Add parsing of `MailingCity`, `MailingState`, `MailingPostalCode`, `MailingCountry`, `firstname`, `lastname`, `jobtitle`, `website` from the XML response so the racer login flow (which uses `fetchMemberByEmail`) captures all fields.
 
 ---
 
 ## Technical Details
 
-### New Files
+### Files to Create
 
 | File | Purpose |
 |------|---------|
-| `src/components/racer/HostnameRouter.tsx` | Hostname detection, renders racer vs admin routes |
-| `src/components/racer/RacerPortalLayout.tsx` | Sidebar + mobile tab bar layout |
-| `src/components/racer/RacerFileUpload.tsx` | Reusable file upload with progress, wraps presigned URL flow |
-| `src/components/racer/QualificationTimeline.tsx` | Visual timeline component |
-| `src/components/racer/ScoringCard.tsx` | Individual scoring dimension display |
-| `src/pages/racer/RacerLogin.tsx` | Email-only login page |
-| `src/pages/racer/RacerDashboard.tsx` | Dashboard with scores + timeline |
-| `src/pages/racer/RacerApplication.tsx` | 5-step application wizard |
-| `src/pages/racer/RacerMotorcycle.tsx` | Motorcycle details form |
-| `src/pages/racer/RacerQualification.tsx` | Read-only qualification scores |
-| `src/pages/racer/RacerProfile.tsx` | Profile display |
-| `src/services/racerService.ts` | Salesforce iframe POST + API helpers |
-| `src/services/racerMediaService.ts` | Upload wrapper with racer context tagging |
+| `src/data/address-options.ts` | US_STATES and COUNTRIES dropdown data |
 
-### Modified Files
+### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/App.tsx` | Wrap routes with HostnameRouter |
-| `src/contexts/UserContext.tsx` | Add `role: 'racer' \| 'admin' \| 'investor'` to User interface |
-| `src/index.css` | Add racing-gradient utility classes |
+| `src/services/racerService.ts` | Expand `RacerMember` interface with all address/profile fields, update XML parser, add `updateRacerProfile()` function |
+| `src/services/loginService.ts` | Add `MailingCity`, `MailingState`, `MailingPostalCode`, `MailingCountry`, `firstname`, `lastname`, `jobtitle`, `website` to `fetchMemberByEmail` XML parser |
+| `src/pages/racer/RacerProfile.tsx` | Full rebuild: editable profile with cards for Personal, Professional, Contact, Address info |
+| `src/pages/racer/RacerLogin.tsx` | Store expanded fields in sessionStorage on login |
 
-### Salesforce Iframe POST Pattern
-Reuses the exact pattern from `loginService.ts` `trackLogin()`:
-1. Create hidden iframe
-2. Build form with hidden inputs mapped to Salesforce fields
-3. POST to `w2x-engine.php`
-4. Remove iframe after timeout
+### XML Tag to Interface Mapping
 
-### File Upload Pattern
-Reuses the exact pipeline from `BulkUploadTab.tsx`:
-1. Call `generate-presigned-upload-url` edge function
-2. XHR PUT directly to S3 with progress tracking
-3. Call `upload-master-to-s3` to create `media_assets` row with racer-specific tags
+| XML Tag | RacerMember Field | Notes |
+|---------|-------------------|-------|
+| `mailingstreet` | `mailingstreet` | Lowercase in feed |
+| `MailingCity` | `mailingcity` | Mixed case in feed |
+| `MailingState` | `mailingstate` | Mixed case in feed |
+| `MailingPostalCode` | `mailingzip` | Mixed case in feed |
+| `MailingCountry` | `mailingcountry` | Mixed case in feed |
+| `firstname` | `firstName` | To be confirmed in feed |
+| `lastname` | `lastName` | To be confirmed in feed |
+| `jobtitle` | `title` | To be confirmed in feed |
+| `website` | `website` | To be confirmed in feed |
 
-### Implementation Order
-1. HostnameRouter + racer routes in App.tsx + UserContext role field
-2. RacerPortalLayout (sidebar + mobile tabs)
-3. RacerLogin (wired to member API)
-4. racerService.ts (Salesforce iframe POST)
-5. RacerFileUpload component (wrapping Wasabi pipeline)
-6. racerMediaService.ts
-7. RacerDashboard with QualificationTimeline + ScoringCard
-8. RacerApplication (5-step wizard with uploads)
-9. Remaining pages (Motorcycle, Qualification, Profile)
+### Salesforce Update Field Mapping
 
+Uses the same endpoint and prefix convention as portal rev 2:
+
+```
+POST https://realintelligence.com/.../update-engine-contact.php
+
+sObj = Contact
+id_Contact = {contactId}
+string_FirstName = {firstName}
+string_LastName = {lastName}
+string_Email = {email}
+string_Title = {title}
+phone_Phone = {phone}
+phone_MobilePhone = {mobile}
+text_MailingStreet = {street}
+text_MailingCity = {city}
+text_MailingState = {state}
+text_MailingPostalCode = {zip}
+text_MailingCountry = {country}
+```
