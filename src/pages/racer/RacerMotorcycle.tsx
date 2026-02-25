@@ -84,7 +84,7 @@ const RacerMotorcycle: React.FC = () => {
             </div>
             <div className="space-y-2">
               <Label>Bike Photos</Label>
-              <RacerFileUpload racerName={racer.name} racerContactId={racer.id} category="Motorcycle Photos" accept="image/*" label="Upload bike photos" />
+              <RacerFileUpload racerName={racer.name} racerContactId={racer.id} category="Motorcycle Photos" accept="image/*,.heic,.heif,.jpg,.png" label="Upload bike photos" />
             </div>
             <Button onClick={handleSubmit} disabled={submitting} className="w-full">
               {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</> : 'Save Motorcycle Details'}

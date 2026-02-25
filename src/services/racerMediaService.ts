@@ -33,26 +33,46 @@ export const uploadRacerFile = async (opts: RacerUploadOptions): Promise<UploadR
 
     onProgress?.(15);
 
-    // Step 2: Upload to S3 via XHR with progress
-    await new Promise<void>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('PUT', presignData.presignedUrl, true);
-      xhr.setRequestHeader('Content-Type', file.type);
+    // Step 2: Upload to S3 via XHR with progress, fetch fallback for iOS
+    console.log(`[racerMediaService] Uploading file: ${file.name}, type: ${file.type}, size: ${file.size}`);
+    let xhrFailed = false;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', presignData.presignedUrl, true);
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
 
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          const pct = 15 + (e.loaded / e.total) * 65;
-          onProgress?.(pct);
-        }
-      };
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const pct = 15 + (e.loaded / e.total) * 65;
+            onProgress?.(pct);
+          }
+        };
 
-      xhr.onload = () =>
-        xhr.status >= 200 && xhr.status < 300
-          ? resolve()
-          : reject(new Error(`S3 upload failed: ${xhr.status}`));
-      xhr.onerror = () => reject(new Error('Network error during upload'));
-      xhr.send(file);
-    });
+        xhr.onload = () =>
+          xhr.status >= 200 && xhr.status < 300
+            ? resolve()
+            : reject(new Error(`S3 upload failed: ${xhr.status}`));
+        xhr.onerror = () => reject(new Error('Network error during upload'));
+        xhr.send(file);
+      });
+    } catch (xhrErr: any) {
+      console.warn('[racerMediaService] XHR upload failed, trying fetch fallback:', xhrErr.message);
+      xhrFailed = true;
+    }
+
+    if (xhrFailed) {
+      const fetchRes = await fetch(presignData.presignedUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file,
+        mode: 'cors',
+      });
+      if (!fetchRes.ok) {
+        throw new Error(`Fetch upload failed: ${fetchRes.status} ${fetchRes.statusText}`);
+      }
+      onProgress?.(80);
+    }
 
     onProgress?.(85);
 

@@ -5,11 +5,29 @@ import { Progress } from '@/components/ui/progress';
 import { uploadRacerFile } from '@/services/racerMediaService';
 import { cn } from '@/lib/utils';
 
+const MIME_MAP: Record<string, string> = {
+  heic: 'image/heic',
+  heif: 'image/heif',
+  mov: 'video/quicktime',
+  mp4: 'video/mp4',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+};
+
+const inferMimeType = (file: File): string => {
+  if (file.type) return file.type;
+  const ext = file.name.split('.').pop()?.toLowerCase() || '';
+  return MIME_MAP[ext] || 'application/octet-stream';
+};
+
 interface RacerFileUploadProps {
   racerName: string;
   racerContactId: string;
   category: string;
   accept?: string;
+  capture?: 'user' | 'environment';
   label?: string;
   onUploadComplete?: (result: { masterId: string; cdnUrl: string }) => void;
 }
@@ -18,7 +36,8 @@ const RacerFileUpload: React.FC<RacerFileUploadProps> = ({
   racerName,
   racerContactId,
   category,
-  accept = 'image/*,video/*',
+  accept = 'image/*,video/*,.heic,.heif,.mov,.mp4,.jpg,.png',
+  capture,
   label = 'Upload File',
   onUploadComplete,
 }) => {
@@ -43,8 +62,13 @@ const RacerFileUpload: React.FC<RacerFileUploadProps> = ({
     setStatus('uploading');
     setError('');
 
+    const mimeType = inferMimeType(file);
+    const uploadFile = mimeType !== file.type
+      ? new File([file], file.name, { type: mimeType })
+      : file;
+
     const result = await uploadRacerFile({
-      file,
+      file: uploadFile,
       racerName,
       racerContactId,
       category,
@@ -85,6 +109,7 @@ const RacerFileUpload: React.FC<RacerFileUploadProps> = ({
           ref={inputRef}
           type="file"
           accept={accept}
+          capture={capture}
           className="hidden"
           onChange={handleSelect}
         />
