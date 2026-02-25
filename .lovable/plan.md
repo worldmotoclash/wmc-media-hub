@@ -1,113 +1,58 @@
 
 
-# Application Progress on Dashboard + Social Handle Inputs
+# Fix Mobile Upload (iPhone) + Swiper Build Error
 
-## Overview
+## Problems Identified
 
-Three connected changes: (1) the Dashboard status card shows a progress bar reflecting completion of the 5 application steps, (2) social media fields accept handles instead of full URLs with inline platform prefixes, and (3) handle verification checks that the constructed URL is reachable.
+### 1. iPhone file upload compatibility
+The `accept="video/*"` attribute is problematic on iOS Safari. iPhones record video as `.MOV` (MIME type `video/quicktime`), and iOS Safari can be inconsistent with the `video/*` wildcard -- sometimes it doesn't show the camera roll or blocks file selection entirely. Similarly, `image/*` can cause issues with HEIC photos.
 
----
+The `RacerFileUpload` component also lacks the `capture` attribute, which on mobile devices lets users choose between camera and file picker. Without it, iOS may not offer the camera option.
 
-## 1. Persist Application Progress
+Additionally, the XHR-based S3 PUT upload in `racerMediaService.ts` may fail silently on iOS Safari due to CORS preflight handling differences -- iOS Safari is stricter about certain headers in presigned URL flows.
 
-Currently application form data lives only in React state and is lost on navigation. To let the Dashboard read completion status:
+### 2. Swiper CSS TypeScript errors (blocking build)
+`src/components/VideoCarousel.tsx` imports `swiper/css`, `swiper/css/autoplay`, and `swiper/css/navigation` which produce TS2882 errors because the Swiper package lacks type declarations for CSS side-effect imports.
 
-- Store `formData` in `localStorage` (keyed by racer contact ID) whenever it changes in the Application page.
-- On Application load, read from `localStorage` first, then overlay any newer profile data from `sessionStorage`.
-- The Dashboard reads the same `localStorage` key to compute step completion.
+## Fixes
 
----
+### A. `src/components/VideoCarousel.tsx` -- Fix build error
+- Add `// @ts-ignore` comments above each Swiper CSS import to suppress the type-check errors. These are valid runtime imports that Vite handles correctly; they just lack `.d.ts` declarations.
 
-## 2. Step Completion Logic
+### B. `src/components/racer/RacerFileUpload.tsx` -- iOS compatibility
+1. **Expand `accept` defaults** to explicitly include common iPhone formats: add `.heic,.heif,.mov` alongside the wildcards
+2. **Add `capture` attribute support** as an optional prop so pages can enable direct camera capture on mobile
+3. **Normalize iPhone file types**: when a file is selected, if `file.type` is empty (which happens on some iOS versions for HEIC/MOV), infer the MIME type from the file extension before uploading
 
-Each of the 5 steps has a "complete" check based on whether required fields are filled:
+### C. `src/services/racerMediaService.ts` -- iOS XHR fix
+1. **Strip extra headers from XHR PUT**: only set `Content-Type` on the XHR request (no other custom headers). iOS Safari can reject presigned URL uploads if unexpected headers are included that weren't part of the signature.
+2. **Add fallback to `fetch` API**: if XHR upload fails, retry using the Fetch API with `mode: 'cors'` as a fallback, since some iOS versions handle `fetch` better than `XMLHttpRequest` for cross-origin PUT requests.
+3. **Add explicit error logging** with the file type and size so mobile failures are diagnosable.
 
-| Step | Complete When |
-|------|--------------|
-| Personal Info | First name, last name, email, phone filled AND at least 1 social handle provided |
-| Racing History | Years of experience AND at least one of racing series or results filled |
-| Motorcycle | Make, model, and year filled |
-| 5 Key Questions | All 5 question fields have content |
-| Audition Video | A video file has been uploaded (tracked via a flag in localStorage) |
+### D. `src/pages/racer/RacerApplication.tsx` and `src/pages/racer/RacerMotorcycle.tsx`
+- Update `accept` props to include explicit extensions: `accept="video/*,.mov,.mp4"` for video uploads and `accept="image/*,.heic,.heif,.jpg,.png"` for image uploads
 
-A shared utility function `getApplicationProgress(formData)` returns an array of booleans and a completion count (0-5). This is used by both the Application page (step indicators) and the Dashboard.
-
----
-
-## 3. Dashboard Status Card with Progress Bar
-
-Replace the current static "Not Started" / "Pending" status card with:
-
-- A text label: "0 of 5 steps complete", "3 of 5 steps complete", or "Application Complete"
-- A `Progress` bar component showing percentage (0%, 20%, 40%... 100%)
-- Badge changes from "Pending" to "In Progress" to "Complete"
-- A list of the 5 step names with checkmark or empty circle icons
-- A "Continue Application" button linking to `/racer/application`
-
----
-
-## 4. Social Handle Inputs (Application + Profile)
-
-Change social media fields from full-URL inputs to handle-only inputs with a visible platform prefix:
-
-- **LinkedIn**: prefix `linkedin.com/in/` -- user types just their handle
-- **YouTube**: prefix `youtube.com/@` -- user types their channel handle
-- **Facebook**: prefix `facebook.com/` -- user types their page/profile name
-- **X / Twitter**: prefix `x.com/` -- user types their handle
-
-Each input uses an `InputGroup`-style layout with the prefix shown as a non-editable span to the left of the input. On save/submit, the handle is stored as-is but the full URL is constructed for Salesforce updates.
-
-When loading existing data that contains a full URL, the component strips the prefix to show just the handle.
-
----
-
-## 5. Handle Verification
-
-When the user leaves (blurs) a social handle field that has content:
-
-- Construct the full URL from the handle
-- Attempt a lightweight check using `fetch` with `mode: 'no-cors'` or an `<img>` trick (since most social platforms block CORS, a full verification is not possible client-side)
-- **Practical approach**: validate the handle format (no spaces, no special characters besides dots/underscores/hyphens) and show a green checkmark for valid format, or a warning icon for suspicious input
-- A true URL existence check would require a backend proxy, so the client-side validation focuses on format correctness with a note that WMC will verify profiles
-
----
-
-## Files to Create/Modify
+## Files Modified
 
 | File | Change |
 |------|--------|
-| `src/utils/applicationProgress.ts` | **New** -- shared completion logic + handle-to-URL conversion utilities |
-| `src/pages/racer/RacerDashboard.tsx` | Add progress bar, dynamic status, step checklist |
-| `src/pages/racer/RacerApplication.tsx` | Persist formData to localStorage, use handle inputs for socials, show completion on step indicators |
-| `src/pages/racer/RacerProfile.tsx` | Switch social fields to handle inputs with prefixes |
-| `src/components/racer/SocialHandleInput.tsx` | **New** -- reusable input component with platform prefix and format validation |
+| `src/components/VideoCarousel.tsx` | Add `// @ts-ignore` above 3 Swiper CSS imports |
+| `src/components/racer/RacerFileUpload.tsx` | Add MIME type inference for extensionless files, iOS-friendly accept defaults |
+| `src/services/racerMediaService.ts` | Add fetch fallback for XHR failure, better error logging with file metadata |
+| `src/pages/racer/RacerApplication.tsx` | Update `accept` props with explicit iOS extensions |
+| `src/pages/racer/RacerMotorcycle.tsx` | Update `accept` prop with explicit iOS extensions |
 
----
+## Technical Detail: MIME Inference
 
-## Technical Details
-
-**applicationProgress.ts utility:**
-```
-SOCIAL_PLATFORMS = {
-  linkedin: { prefix: 'linkedin.com/in/', base: 'https://linkedin.com/in/' },
-  youtube:  { prefix: 'youtube.com/@',    base: 'https://youtube.com/@' },
-  facebook: { prefix: 'facebook.com/',    base: 'https://facebook.com/' },
-  twitter:  { prefix: 'x.com/',           base: 'https://x.com/' },
-}
-
-extractHandle(platform, value): strips full URL down to handle
-buildFullUrl(platform, handle): constructs full URL from handle
-isValidHandle(handle): regex check -- alphanumeric, dots, underscores, hyphens
-
-getStepCompletion(formData): returns boolean[] for each of 5 steps
-getCompletionCount(formData): returns number 0-5
+```text
+Extension → MIME mapping for iPhone edge cases:
+  .heic  → image/heic
+  .heif  → image/heif
+  .mov   → video/quicktime
+  .mp4   → video/mp4
+  .jpg   → image/jpeg
+  .png   → image/png
 ```
 
-**SocialHandleInput component:**
-- Props: `platform`, `value`, `onChange`, `disabled`
-- Shows prefix as a gray span inside the input border
-- On blur, validates handle format and shows green check or warning icon
-- Strips any pasted full URLs down to just the handle automatically
-
-**localStorage key**: `racerApplication_{contactId}`
+When `file.type` is empty (common on iOS), the extension is extracted from `file.name` and mapped to the correct MIME type before the presigned URL request.
 
