@@ -32,6 +32,9 @@ export interface RacerMember {
   emergencyname?: string;
   emergencyphone?: string;
   experiencelevel?: string;
+  heightininches?: string;
+  weightinlbs?: string;
+  placeofbirth?: string;
 }
 
 /** Parse a RacerMember from an XML <member> element */
@@ -73,6 +76,9 @@ const parseRacerMemberXml = (member: Element): RacerMember => {
     emergencyname: getAny('emergencyname', 'Emergency_Contact_Name__c'),
     emergencyphone: getAny('emergencyphone', 'Emergency_Contact_Phone__c'),
     experiencelevel: getAny('experiencelevel', 'Experience_Level__c'),
+    heightininches: getAny('heightininches', 'Height_In_Inches__c'),
+    weightinlbs: getAny('weightinlbs', 'Weight_in_lbs__c'),
+    placeofbirth: getAny('placeofbirth', 'Place_of_Birth__c'),
   };
 };
 
@@ -171,6 +177,9 @@ export const updateRacerProfile = async (
     dob?: string;
     emergencyContactName?: string;
     emergencyContactPhone?: string;
+    heightInInches?: string;
+    weightInLbs?: string;
+    placeOfBirth?: string;
   }
 ): Promise<void> => {
   const fields: Record<string, string> = {
@@ -198,6 +207,9 @@ export const updateRacerProfile = async (
   if (data.dob !== undefined) fields['date_Birthdate'] = data.dob;
   if (data.emergencyContactName !== undefined) fields['string_Emergency_Contact_Name__c'] = data.emergencyContactName;
   if (data.emergencyContactPhone !== undefined) fields['phone_Emergency_Contact_Phone__c'] = data.emergencyContactPhone;
+  if (data.heightInInches !== undefined) fields['string_Height_In_Inches__c'] = data.heightInInches;
+  if (data.weightInLbs !== undefined) fields['string_Weight_in_lbs__c'] = data.weightInLbs;
+  if (data.placeOfBirth !== undefined) fields['string_Place_of_Birth__c'] = data.placeOfBirth;
 
   await submitViaIframe(UPDATE_ENGINE_URL, fields);
 };

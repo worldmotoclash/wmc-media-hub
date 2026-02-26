@@ -57,6 +57,9 @@ const RacerApplication: React.FC = () => {
       emergencyContactName: parsed.emergencyname || '',
       emergencyContactPhone: parsed.emergencyphone || '',
       experienceLevel: parsed.experiencelevel || '',
+      heightInInches: parsed.heightininches || '',
+      weightInLbs: parsed.weightinlbs || '',
+      placeOfBirth: parsed.placeofbirth || '',
     };
 
     setFormData({ ...profileDefaults, ...saved });
@@ -95,6 +98,9 @@ const RacerApplication: React.FC = () => {
         if (formData.dob) fields['date_Birthdate'] = formData.dob;
         if (formData.emergencyContactName) fields['string_Emergency_Contact_Name__c'] = formData.emergencyContactName;
         if (formData.emergencyContactPhone) fields['phone_Emergency_Contact_Phone__c'] = formData.emergencyContactPhone;
+        if (formData.heightInInches) fields['string_Height_In_Inches__c'] = formData.heightInInches;
+        if (formData.weightInLbs) fields['string_Weight_in_lbs__c'] = formData.weightInLbs;
+        if (formData.placeOfBirth) fields['string_Place_of_Birth__c'] = formData.placeOfBirth;
         break;
       case 1:
         if (formData.experienceLevel) fields['string_Experience_Level__c'] = formData.experienceLevel;
@@ -197,6 +203,20 @@ const RacerApplication: React.FC = () => {
             <div className="space-y-2">
               <Label>Date of Birth</Label>
               <Input type="date" value={formData.dob || ''} onChange={(e) => updateField('dob', e.target.value)} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Height (inches)</Label>
+                <Input type="number" value={formData.heightInInches || ''} onChange={(e) => updateField('heightInInches', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Weight (lbs)</Label>
+                <Input type="number" value={formData.weightInLbs || ''} onChange={(e) => updateField('weightInLbs', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Place of Birth</Label>
+                <Input value={formData.placeOfBirth || ''} onChange={(e) => updateField('placeOfBirth', e.target.value)} />
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
