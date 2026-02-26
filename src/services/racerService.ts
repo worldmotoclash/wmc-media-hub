@@ -235,7 +235,7 @@ export const submitRacerApplication = async (
   contactId: string,
   stepData: Record<string, string>
 ): Promise<void> => {
-  await submitToSalesforce({
+  await submitViaIframe(UPDATE_ENGINE_URL, {
     sObj: 'Contact',
     id_Contact: contactId,
     ...stepData,
