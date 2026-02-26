@@ -11,7 +11,7 @@ import RacerPortalLayout from '@/components/racer/RacerPortalLayout';
 import RacerFileUpload from '@/components/racer/RacerFileUpload';
 import SocialHandleInput from '@/components/racer/SocialHandleInput';
 import { submitRacerApplication, type RacerMember } from '@/services/racerService';
-import { getStepCompletion, getStorageKey, extractHandle } from '@/utils/applicationProgress';
+import { getStepCompletion, getStorageKey, extractHandle, buildFullUrl } from '@/utils/applicationProgress';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -131,12 +131,12 @@ const RacerApplication: React.FC = () => {
         if (formData.state) fields['text_MailingState'] = formData.state;
         if (formData.zip) fields['text_MailingPostalCode'] = formData.zip;
         if (formData.country) fields['text_MailingCountry'] = formData.country;
-        if (formData.linkedin) fields['url_rie__LinkedIn__c'] = formData.linkedin;
-        if (formData.youtube) fields['url_Youtube__c'] = formData.youtube;
-        if (formData.facebook) fields['url_rie__Facebook__c'] = formData.facebook;
-        if (formData.twitter) fields['url_rie__Twitter__c'] = formData.twitter;
-        if (formData.tiktok) fields['url_rie__TikTok__c'] = formData.tiktok;
-        if (formData.instagram) fields['url_Instagram__c'] = formData.instagram;
+        if (formData.linkedin) fields['url_rie__LinkedIn__c'] = buildFullUrl('linkedin', formData.linkedin);
+        if (formData.youtube) fields['url_Youtube__c'] = buildFullUrl('youtube', formData.youtube);
+        if (formData.facebook) fields['url_rie__Facebook__c'] = buildFullUrl('facebook', formData.facebook);
+        if (formData.twitter) fields['url_rie__Twitter__c'] = buildFullUrl('twitter', formData.twitter);
+        if (formData.tiktok) fields['url_rie__TikTok__c'] = buildFullUrl('tiktok', formData.tiktok);
+        if (formData.instagram) fields['url_Instagram__c'] = buildFullUrl('instagram', formData.instagram);
         if (formData.dob) fields['date_Birthdate'] = formData.dob;
         if (formData.emergencyContactName) fields['string_Emergency_Contact_Name__c'] = formData.emergencyContactName;
         if (formData.emergencyContactPhone) fields['phone_Emergency_Contact_Phone__c'] = formData.emergencyContactPhone;
