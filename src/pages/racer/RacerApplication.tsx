@@ -133,11 +133,11 @@ const RacerApplication: React.FC = () => {
         if (formData.zip) fields['text_MailingPostalCode'] = formData.zip;
         if (formData.country) fields['text_MailingCountry'] = formData.country;
         if (formData.linkedin) fields['string_rie__LinkedIn__c'] = formData.linkedin;
-        if (formData.youtube) fields['string_Youtube__c'] = formData.youtube;
+        if (formData.youtube) fields['string_rie__Youtube__c'] = formData.youtube;
         if (formData.facebook) fields['string_rie__Facebook__c'] = formData.facebook;
         if (formData.twitter) fields['string_rie__Twitter__c'] = formData.twitter;
         if (formData.tiktok) fields['string_rie__TikTok__c'] = formData.tiktok;
-        if (formData.instagram) fields['string_Instagram__c'] = formData.instagram;
+        if (formData.instagram) fields['string_rie__Instagram__c'] = formData.instagram;
         if (formData.dob) fields['date_Birthdate'] = formData.dob;
         if (formData.emergencyContactName) fields['string_Emergency_Contact_Name__c'] = formData.emergencyContactName;
         if (formData.emergencyContactPhone) fields['phone_Emergency_Contact_Phone__c'] = formData.emergencyContactPhone;

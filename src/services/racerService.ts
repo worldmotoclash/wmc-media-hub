@@ -184,7 +184,8 @@ export const updateRacerProfile = async (
 ): Promise<void> => {
   const fields: Record<string, string> = {
     sObj: 'Contact',
-    id_Contact: contactId,
+    action: 'update',
+    Id: contactId,
   };
 
   if (data.firstName !== undefined) fields['string_FirstName'] = data.firstName;
@@ -198,12 +199,12 @@ export const updateRacerProfile = async (
   if (data.state !== undefined) fields['text_MailingState'] = data.state;
   if (data.zip !== undefined) fields['text_MailingPostalCode'] = data.zip;
   if (data.country !== undefined) fields['text_MailingCountry'] = data.country;
-  if (data.linkedin !== undefined) fields['url_rie__LinkedIn__c'] = data.linkedin;
-  if (data.youtube !== undefined) fields['url_Youtube__c'] = data.youtube;
-  if (data.facebook !== undefined) fields['url_rie__Facebook__c'] = data.facebook;
-  if (data.twitter !== undefined) fields['url_rie__Twitter__c'] = data.twitter;
-  if (data.tiktok !== undefined) fields['url_rie__TikTok__c'] = data.tiktok;
-  if (data.instagram !== undefined) fields['url_Instagram__c'] = data.instagram;
+  if (data.linkedin !== undefined) fields['string_rie__LinkedIn__c'] = data.linkedin;
+  if (data.youtube !== undefined) fields['string_rie__Youtube__c'] = data.youtube;
+  if (data.facebook !== undefined) fields['string_rie__Facebook__c'] = data.facebook;
+  if (data.twitter !== undefined) fields['string_rie__Twitter__c'] = data.twitter;
+  if (data.tiktok !== undefined) fields['string_rie__TikTok__c'] = data.tiktok;
+  if (data.instagram !== undefined) fields['string_rie__Instagram__c'] = data.instagram;
   if (data.dob !== undefined) fields['date_Birthdate'] = data.dob;
   if (data.emergencyContactName !== undefined) fields['string_Emergency_Contact_Name__c'] = data.emergencyContactName;
   if (data.emergencyContactPhone !== undefined) fields['phone_Emergency_Contact_Phone__c'] = data.emergencyContactPhone;
@@ -211,7 +212,7 @@ export const updateRacerProfile = async (
   if (data.weightInLbs !== undefined) fields['string_Weight_in_lbs__c'] = data.weightInLbs;
   if (data.placeOfBirth !== undefined) fields['string_Place_of_Birth__c'] = data.placeOfBirth;
 
-  await submitViaIframe(UPDATE_ENGINE_URL, fields);
+  await submitViaIframe(W2X_ENGINE_URL, fields);
 };
 
 /** Track racer login activity to Salesforce */
@@ -235,9 +236,10 @@ export const submitRacerApplication = async (
   contactId: string,
   stepData: Record<string, string>
 ): Promise<void> => {
-  await submitViaIframe(UPDATE_ENGINE_URL, {
+  await submitViaIframe(W2X_ENGINE_URL, {
     sObj: 'Contact',
-    id_Contact: contactId,
+    action: 'update',
+    Id: contactId,
     ...stepData,
   });
 };
