@@ -20,6 +20,7 @@ const RacerApplication: React.FC = () => {
   const [racer, setRacer] = useState<RacerMember | null>(null);
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -63,8 +64,70 @@ const RacerApplication: React.FC = () => {
     });
   }, [racer]);
 
-  const handleNext = () => {
-    if (step < STEPS.length - 1) setStep(step + 1);
+  const getSFDCFieldsForStep = (currentStep: number): Record<string, string> => {
+    const fields: Record<string, string> = {};
+    switch (currentStep) {
+      case 0:
+        if (formData.firstName) fields['string_FirstName'] = formData.firstName;
+        if (formData.lastName) fields['string_LastName'] = formData.lastName;
+        if (formData.email) fields['string_Email'] = formData.email;
+        if (formData.title) fields['string_Title'] = formData.title;
+        if (formData.phone) fields['phone_Phone'] = formData.phone;
+        if (formData.mobile) fields['phone_MobilePhone'] = formData.mobile;
+        if (formData.street) fields['text_MailingStreet'] = formData.street;
+        if (formData.city) fields['text_MailingCity'] = formData.city;
+        if (formData.state) fields['text_MailingState'] = formData.state;
+        if (formData.zip) fields['text_MailingPostalCode'] = formData.zip;
+        if (formData.country) fields['text_MailingCountry'] = formData.country;
+        if (formData.linkedin) fields['url_rie__LinkedIn__c'] = formData.linkedin;
+        if (formData.youtube) fields['url_Youtube__c'] = formData.youtube;
+        if (formData.facebook) fields['url_rie__Facebook__c'] = formData.facebook;
+        if (formData.twitter) fields['url_rie__Twitter__c'] = formData.twitter;
+        if (formData.dob) fields['date_Birthdate'] = formData.dob;
+        if (formData.emergencyContactName) fields['string_Emergency_Contact_Name__c'] = formData.emergencyContactName;
+        if (formData.emergencyContactPhone) fields['phone_Emergency_Contact_Phone__c'] = formData.emergencyContactPhone;
+        break;
+      case 1:
+        if (formData.yearsExperience) fields['string_Years_of_Experience__c'] = formData.yearsExperience;
+        if (formData.racingSeries) fields['text_Racing_Series__c'] = formData.racingSeries;
+        if (formData.results) fields['text_Notable_Results__c'] = formData.results;
+        if (formData.licenseType) fields['string_Racing_License_Type__c'] = formData.licenseType;
+        break;
+      case 2:
+        if (formData.bikeMake) fields['string_Bike_Make__c'] = formData.bikeMake;
+        if (formData.bikeModel) fields['string_Bike_Model__c'] = formData.bikeModel;
+        if (formData.bikeYear) fields['string_Bike_Year__c'] = formData.bikeYear;
+        if (formData.bikeModifications) fields['text_Bike_Modifications__c'] = formData.bikeModifications;
+        break;
+      case 3:
+        for (let i = 1; i <= 5; i++) {
+          if (formData[`question${i}`]) fields[`text_Question_${i}__c`] = formData[`question${i}`];
+        }
+        break;
+      case 4:
+        if (formData.auditionVideoUploaded) fields['string_Audition_Video_Uploaded__c'] = formData.auditionVideoUploaded;
+        break;
+    }
+    return fields;
+  };
+
+  const handleNext = async () => {
+    if (!racer || step >= STEPS.length - 1) return;
+    setSaving(true);
+    try {
+      const stepFields = getSFDCFieldsForStep(step);
+      if (Object.keys(stepFields).length > 0) {
+        await submitRacerApplication(racer.id, stepFields);
+        toast.success('Progress saved');
+      }
+      setStep(step + 1);
+    } catch (err) {
+      console.error('[RacerApplication] SFDC sync error:', err);
+      toast.error('Failed to save progress. You can continue, but data may not be synced.');
+      setStep(step + 1);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleBack = () => {
@@ -120,6 +183,20 @@ const RacerApplication: React.FC = () => {
               <div className="space-y-2">
                 <Label>Mobile Phone</Label>
                 <Input value={formData.mobile || ''} onChange={(e) => updateField('mobile', e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Date of Birth</Label>
+              <Input type="date" value={formData.dob || ''} onChange={(e) => updateField('dob', e.target.value)} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Emergency Contact Name</Label>
+                <Input value={formData.emergencyContactName || ''} onChange={(e) => updateField('emergencyContactName', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Emergency Contact Phone</Label>
+                <Input value={formData.emergencyContactPhone || ''} onChange={(e) => updateField('emergencyContactPhone', e.target.value)} />
               </div>
             </div>
             <div className="space-y-2">
@@ -305,8 +382,8 @@ const RacerApplication: React.FC = () => {
             <ChevronLeft className="w-4 h-4 mr-1" /> Back
           </Button>
           {step < STEPS.length - 1 ? (
-            <Button onClick={handleNext}>
-              Next <ChevronRight className="w-4 h-4 ml-1" />
+            <Button onClick={handleNext} disabled={saving}>
+              {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</> : <>Next <ChevronRight className="w-4 h-4 ml-1" /></>}
             </Button>
           ) : (
             <Button onClick={handleSubmitAll} disabled={submitting}>
