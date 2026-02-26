@@ -606,6 +606,12 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full"
                     autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    name="media-search-nofill"
+                    data-1p-ignore
+                    data-lpignore="true"
                   />
                 </div>
                 
