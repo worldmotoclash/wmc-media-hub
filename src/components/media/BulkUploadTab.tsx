@@ -7,11 +7,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Upload, X, CheckCircle2, AlertCircle, FileVideo, Image as ImageIcon, Music, Layers, Camera, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
 import { useIsMobile } from "@/hooks/use-mobile";
+
+interface ExistingAlbum {
+  id: string;
+  name: string;
+  asset_count: number;
+}
 
 interface QueuedFile {
   file: File;
@@ -58,6 +66,7 @@ export const BulkUploadTab: React.FC = () => {
   const uniqueId = useId();
   const inputId = `bulk-upload-${uniqueId}`;
 
+  const [albumMode, setAlbumMode] = useState<'new' | 'existing'>('new');
   const [albumName, setAlbumName] = useState('');
   const [albumDescription, setAlbumDescription] = useState('');
   const [sharedTags, setSharedTags] = useState('');
@@ -67,6 +76,20 @@ export const BulkUploadTab: React.FC = () => {
   const [completedCount, setCompletedCount] = useState(0);
   const [uploadDone, setUploadDone] = useState(false);
   const [albumId, setAlbumId] = useState<string | null>(null);
+  const [existingAlbums, setExistingAlbums] = useState<ExistingAlbum[]>([]);
+  const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
+
+  // Fetch existing albums
+  useEffect(() => {
+    const fetchAlbums = async () => {
+      const { data } = await supabase
+        .from('media_albums')
+        .select('id, name, asset_count')
+        .order('created_at', { ascending: false });
+      if (data) setExistingAlbums(data);
+    };
+    fetchAlbums();
+  }, []);
 
   // CRITICAL: Prevent browser default drag behavior at document level.
   // Without this, macOS shows red "not allowed" cursor for external app drops (Image Capture).
@@ -223,8 +246,12 @@ export const BulkUploadTab: React.FC = () => {
   };
 
   const handleUploadAll = async () => {
-    if (!albumName.trim()) {
+    if (albumMode === 'new' && !albumName.trim()) {
       toast({ title: "Album name required", description: "Please name your album before uploading", variant: "destructive" });
+      return;
+    }
+    if (albumMode === 'existing' && !selectedAlbumId) {
+      toast({ title: "Select an album", description: "Choose an existing album to upload to", variant: "destructive" });
       return;
     }
     if (queue.length === 0) {
@@ -237,59 +264,66 @@ export const BulkUploadTab: React.FC = () => {
     setUploadDone(false);
 
     try {
-      // Create album
-      const { data: album, error: albumError } = await supabase
-        .from('media_albums')
-        .insert({
-          name: albumName.trim(),
-          description: albumDescription.trim() || null,
-          created_by: null,
-        })
-        .select()
-        .single();
+      let targetAlbumId: string;
+      let targetAlbumName: string;
 
-      if (albumError) throw new Error(`Failed to create album: ${albumError.message}`);
-      
-      const createdAlbumId = album.id;
-      setAlbumId(createdAlbumId);
+      if (albumMode === 'new') {
+        const { data: album, error: albumError } = await supabase
+          .from('media_albums')
+          .insert({
+            name: albumName.trim(),
+            description: albumDescription.trim() || null,
+            created_by: null,
+          })
+          .select()
+          .single();
 
-      // Add album name as a tag automatically
-      const tagsList = [albumName.trim(), ...sharedTags.split(',').map(t => t.trim()).filter(Boolean)];
+        if (albumError) throw new Error(`Failed to create album: ${albumError.message}`);
+        targetAlbumId = album.id;
+        targetAlbumName = albumName.trim();
+      } else {
+        targetAlbumId = selectedAlbumId!;
+        targetAlbumName = existingAlbums.find(a => a.id === selectedAlbumId)?.name || '';
+      }
 
-      // Process queue with concurrency limit
+      setAlbumId(targetAlbumId);
+
+      const tagsList = [targetAlbumName, ...sharedTags.split(',').map(t => t.trim()).filter(Boolean)].filter(Boolean);
+
       let completed = 0;
       const pending = [...queue];
 
       const processNext = async (): Promise<void> => {
         const next = pending.shift();
         if (!next) return;
-
-        const success = await uploadSingleFile(next, createdAlbumId, tagsList);
+        const success = await uploadSingleFile(next, targetAlbumId, tagsList);
         if (success) completed++;
         setCompletedCount(prev => prev + 1);
         await processNext();
       };
 
-      // Start MAX_CONCURRENCY workers
       const workers = Array.from({ length: Math.min(MAX_CONCURRENCY, pending.length) }, () => processNext());
       await Promise.all(workers);
 
-      // Update album asset count
-      await supabase
-        .from('media_albums')
-        .update({ asset_count: completed })
-        .eq('id', createdAlbumId);
-
-      // Set cover image from first successful asset
-      const firstDone = queue.find(f => f.status === 'done');
-      if (firstDone) {
-        // Cover image will be set by the CDN URL from the first upload — skip for simplicity
+      if (albumMode === 'new') {
+        await supabase
+          .from('media_albums')
+          .update({ asset_count: completed })
+          .eq('id', targetAlbumId);
+      } else {
+        // Increment existing album's asset_count
+        const existing = existingAlbums.find(a => a.id === targetAlbumId);
+        const newCount = (existing?.asset_count || 0) + completed;
+        await supabase
+          .from('media_albums')
+          .update({ asset_count: newCount })
+          .eq('id', targetAlbumId);
       }
 
       setUploadDone(true);
       toast({
         title: "Bulk upload complete!",
-        description: `${completed} of ${queue.length} files uploaded to "${albumName}"`,
+        description: `${completed} of ${queue.length} files uploaded to "${targetAlbumName}"`,
       });
     } catch (err: any) {
       console.error('Bulk upload error:', err);
@@ -315,39 +349,94 @@ export const BulkUploadTab: React.FC = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Album Details */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="album-name">Album Name *</Label>
-            <Input
-              id="album-name"
-              placeholder="e.g. Sonoma Raceway March 2025"
-              value={albumName}
-              onChange={(e) => setAlbumName(e.target.value)}
-              disabled={isUploading}
-            />
-          </div>
-          <div>
-            <Label htmlFor="shared-tags">Shared Tags (comma separated)</Label>
-            <Input
-              id="shared-tags"
-              placeholder="e.g. race, sonoma, 2025"
-              value={sharedTags}
-              onChange={(e) => setSharedTags(e.target.value)}
-              disabled={isUploading}
-            />
-          </div>
-        </div>
-        <div>
-          <Label htmlFor="album-desc">Description (optional)</Label>
-          <Textarea
-            id="album-desc"
-            placeholder="Notes about this collection..."
-            value={albumDescription}
-            onChange={(e) => setAlbumDescription(e.target.value)}
+        {/* Album Mode Toggle */}
+        <div className="space-y-4">
+          <Label>Album</Label>
+          <RadioGroup
+            value={albumMode}
+            onValueChange={(v) => setAlbumMode(v as 'new' | 'existing')}
+            className="flex gap-4"
             disabled={isUploading}
-            rows={2}
-          />
+          >
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="new" id="mode-new" />
+              <Label htmlFor="mode-new" className="cursor-pointer font-normal">New Album</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="existing" id="mode-existing" />
+              <Label htmlFor="mode-existing" className="cursor-pointer font-normal">Existing Album</Label>
+            </div>
+          </RadioGroup>
+
+          {albumMode === 'new' ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="album-name">Album Name *</Label>
+                  <Input
+                    id="album-name"
+                    placeholder="e.g. Sonoma Raceway March 2025"
+                    value={albumName}
+                    onChange={(e) => setAlbumName(e.target.value)}
+                    disabled={isUploading}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="shared-tags">Shared Tags (comma separated)</Label>
+                  <Input
+                    id="shared-tags"
+                    placeholder="e.g. race, sonoma, 2025"
+                    value={sharedTags}
+                    onChange={(e) => setSharedTags(e.target.value)}
+                    disabled={isUploading}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="album-desc">Description (optional)</Label>
+                <Textarea
+                  id="album-desc"
+                  placeholder="Notes about this collection..."
+                  value={albumDescription}
+                  onChange={(e) => setAlbumDescription(e.target.value)}
+                  disabled={isUploading}
+                  rows={2}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Select Album *</Label>
+                <Select
+                  value={selectedAlbumId || ''}
+                  onValueChange={setSelectedAlbumId}
+                  disabled={isUploading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose an album..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {existingAlbums.map((album) => (
+                      <SelectItem key={album.id} value={album.id}>
+                        {album.name} ({album.asset_count} assets)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="shared-tags-existing">Shared Tags (comma separated)</Label>
+                <Input
+                  id="shared-tags-existing"
+                  placeholder="e.g. race, sonoma, 2025"
+                  value={sharedTags}
+                  onChange={(e) => setSharedTags(e.target.value)}
+                  disabled={isUploading}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Dropzone */}
@@ -459,7 +548,7 @@ export const BulkUploadTab: React.FC = () => {
             className="w-full sticky bottom-4"
             size="lg"
             onClick={handleUploadAll}
-            disabled={isUploading || !albumName.trim()}
+            disabled={isUploading || (albumMode === 'new' ? !albumName.trim() : !selectedAlbumId)}
           >
             {isUploading ? (
               <>Uploading {completedCount}/{queue.length}...</>
@@ -477,7 +566,7 @@ export const BulkUploadTab: React.FC = () => {
           <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 text-center space-y-3">
             <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto" />
             <p className="font-medium">
-              {doneCount} file{doneCount !== 1 ? 's' : ''} uploaded to "{albumName}"
+              {doneCount} file{doneCount !== 1 ? 's' : ''} uploaded to "{albumMode === 'existing' ? existingAlbums.find(a => a.id === selectedAlbumId)?.name : albumName}"
               {errorCount > 0 && <span className="text-destructive"> ({errorCount} failed)</span>}
             </p>
             <div className="flex gap-3 justify-center">
@@ -491,6 +580,8 @@ export const BulkUploadTab: React.FC = () => {
                 setSharedTags('');
                 setUploadDone(false);
                 setAlbumId(null);
+                setSelectedAlbumId(null);
+                setAlbumMode('new');
                 setCompletedCount(0);
               }}>
                 Upload More
