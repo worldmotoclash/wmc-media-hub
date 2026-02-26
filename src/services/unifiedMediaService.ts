@@ -96,6 +96,8 @@ export interface SearchFilters {
   moods?: string[];
   // Search scope - which fields to search
   searchScope?: 'all' | 'title' | 'title_desc' | 'filepath' | 'metadata';
+  // Album filter
+  albumId?: string;
 }
 
 export interface SortOption {
@@ -219,6 +221,11 @@ export async function fetchAllMediaAssets(
 
     if (filters?.moods?.length) {
       query = query.in('metadata->sfdcAnalysis->>mood', filters.moods);
+    }
+
+    // Apply album filter
+    if (filters?.albumId) {
+      query = query.eq('album_id', filters.albumId);
     }
 
     if (searchQuery) {
