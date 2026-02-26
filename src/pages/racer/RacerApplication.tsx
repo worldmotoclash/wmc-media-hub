@@ -39,8 +39,8 @@ const RacerApplication: React.FC = () => {
     const savedData = localStorage.getItem(getStorageKey(parsed.id));
     const saved: Record<string, string> = savedData ? JSON.parse(savedData) : {};
 
-    // Pre-populate from profile, then overlay saved progress
-    const profileDefaults: Record<string, string> = {
+    // Pre-populate from profile — these fields always come fresh from the feed
+    const feedFields: Record<string, string> = {
       firstName: parsed.firstName || '',
       lastName: parsed.lastName || '',
       email: parsed.email || '',
@@ -67,7 +67,8 @@ const RacerApplication: React.FC = () => {
       placeOfBirth: parsed.placeofbirth || '',
     };
 
-    setFormData({ ...profileDefaults, ...saved });
+    // Saved progress first, then feed data wins for feed-sourced fields
+    setFormData({ ...saved, ...feedFields });
   }, [navigate]);
 
   // Find or create albums for racer uploads
