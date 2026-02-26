@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { User, Mail, Building, MapPin, Phone, Save, Loader2, Pencil, X, Globe } from 'lucide-react';
+import { User, Mail, Building, MapPin, Phone, Save, Loader2, Pencil, X, Globe, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import RacerPortalLayout from '@/components/racer/RacerPortalLayout';
 import SocialHandleInput from '@/components/racer/SocialHandleInput';
@@ -39,6 +39,10 @@ const RacerProfile: React.FC = () => {
     facebook: '',
     twitter: '',
     tiktok: '',
+    instagram: '',
+    dob: '',
+    emergencyContactName: '',
+    emergencyContactPhone: '',
   });
 
   useEffect(() => {
@@ -63,6 +67,10 @@ const RacerProfile: React.FC = () => {
       facebook: extractHandle('facebook', parsed.facebook || ''),
       twitter: extractHandle('twitter', parsed.twitter || ''),
       tiktok: extractHandle('tiktok', parsed.tiktok || ''),
+      instagram: extractHandle('instagram', parsed.instagram || ''),
+      dob: parsed.birthdate || '',
+      emergencyContactName: parsed.emergencyname || '',
+      emergencyContactPhone: parsed.emergencyphone || '',
     });
   }, [navigate]);
 
@@ -86,6 +94,10 @@ const RacerProfile: React.FC = () => {
       facebook: extractHandle('facebook', racer.facebook || ''),
       twitter: extractHandle('twitter', racer.twitter || ''),
       tiktok: extractHandle('tiktok', racer.tiktok || ''),
+      instagram: extractHandle('instagram', racer.instagram || ''),
+      dob: racer.birthdate || '',
+      emergencyContactName: racer.emergencyname || '',
+      emergencyContactPhone: racer.emergencyphone || '',
     });
     setIsEditing(false);
   };
@@ -101,6 +113,10 @@ const RacerProfile: React.FC = () => {
         facebook: buildFullUrl('facebook', formData.facebook),
         twitter: buildFullUrl('twitter', formData.twitter),
         tiktok: buildFullUrl('tiktok', formData.tiktok),
+        instagram: buildFullUrl('instagram', formData.instagram),
+        dob: formData.dob,
+        emergencyContactName: formData.emergencyContactName,
+        emergencyContactPhone: formData.emergencyContactPhone,
       };
       await updateRacerProfile(racer.id, saveData);
 
@@ -124,6 +140,10 @@ const RacerProfile: React.FC = () => {
         facebook: formData.facebook,
         twitter: formData.twitter,
         tiktok: formData.tiktok,
+        instagram: formData.instagram,
+        birthdate: formData.dob,
+        emergencyname: formData.emergencyContactName,
+        emergencyphone: formData.emergencyContactPhone,
       };
       setRacer(updated);
       sessionStorage.setItem('racerUser', JSON.stringify(updated));
@@ -333,6 +353,36 @@ const RacerProfile: React.FC = () => {
               <div>
                 <Label htmlFor="tiktok">TikTok</Label>
                 <SocialHandleInput platform="tiktok" value={formData.tiktok} onChange={(v) => setFormData({ ...formData, tiktok: v })} disabled={!isEditing} />
+              </div>
+              <div>
+                <Label htmlFor="instagram">Instagram</Label>
+                <SocialHandleInput platform="instagram" value={formData.instagram} onChange={(v) => setFormData({ ...formData, instagram: v })} disabled={!isEditing} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Safety & Emergency */}
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4" />
+              Safety & Emergency
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="dob">Date of Birth</Label>
+              <Input id="dob" type="date" value={formData.dob} onChange={(e) => setFormData({ ...formData, dob: e.target.value })} disabled={!isEditing} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="emergencyContactName">Emergency Contact Name</Label>
+                <Input id="emergencyContactName" value={formData.emergencyContactName} onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })} disabled={!isEditing} />
+              </div>
+              <div>
+                <Label htmlFor="emergencyContactPhone">Emergency Contact Phone</Label>
+                <Input id="emergencyContactPhone" value={formData.emergencyContactPhone} onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value })} disabled={!isEditing} />
               </div>
             </div>
           </CardContent>

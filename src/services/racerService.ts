@@ -27,6 +27,10 @@ export interface RacerMember {
   facebook?: string;
   twitter?: string;
   tiktok?: string;
+  instagram?: string;
+  birthdate?: string;
+  emergencyname?: string;
+  emergencyphone?: string;
 }
 
 /** Parse a RacerMember from an XML <member> element */
@@ -63,6 +67,10 @@ const parseRacerMemberXml = (member: Element): RacerMember => {
     facebook: getAny('rie__Facebook__c', 'facebook', 'Facebook'),
     twitter: getAny('rie__Twitter__c', 'twitter', 'Twitter'),
     tiktok: getAny('rie__TikTok__c', 'tiktok', 'TikTok'),
+    instagram: getAny('instagram', 'Instagram', 'rie__Instagram__c'),
+    birthdate: get('birthdate'),
+    emergencyname: getAny('emergencyname', 'Emergency_Contact_Name__c'),
+    emergencyphone: getAny('emergencyphone', 'Emergency_Contact_Phone__c'),
   };
 };
 
@@ -157,6 +165,10 @@ export const updateRacerProfile = async (
     facebook?: string;
     twitter?: string;
     tiktok?: string;
+    instagram?: string;
+    dob?: string;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
   }
 ): Promise<void> => {
   const fields: Record<string, string> = {
@@ -180,6 +192,10 @@ export const updateRacerProfile = async (
   if (data.facebook !== undefined) fields['url_rie__Facebook__c'] = data.facebook;
   if (data.twitter !== undefined) fields['url_rie__Twitter__c'] = data.twitter;
   if (data.tiktok !== undefined) fields['url_rie__TikTok__c'] = data.tiktok;
+  if (data.instagram !== undefined) fields['url_Instagram__c'] = data.instagram;
+  if (data.dob !== undefined) fields['date_Birthdate'] = data.dob;
+  if (data.emergencyContactName !== undefined) fields['string_Emergency_Contact_Name__c'] = data.emergencyContactName;
+  if (data.emergencyContactPhone !== undefined) fields['phone_Emergency_Contact_Phone__c'] = data.emergencyContactPhone;
 
   await submitViaIframe(UPDATE_ENGINE_URL, fields);
 };
