@@ -43,6 +43,9 @@ const RacerProfile: React.FC = () => {
     dob: '',
     emergencyContactName: '',
     emergencyContactPhone: '',
+    heightInInches: '',
+    weightInLbs: '',
+    placeOfBirth: '',
   });
 
   useEffect(() => {
@@ -71,6 +74,9 @@ const RacerProfile: React.FC = () => {
       dob: parsed.birthdate || '',
       emergencyContactName: parsed.emergencyname || '',
       emergencyContactPhone: parsed.emergencyphone || '',
+      heightInInches: parsed.heightininches || '',
+      weightInLbs: parsed.weightinlbs || '',
+      placeOfBirth: parsed.placeofbirth || '',
     });
   }, [navigate]);
 
@@ -98,6 +104,9 @@ const RacerProfile: React.FC = () => {
       dob: racer.birthdate || '',
       emergencyContactName: racer.emergencyname || '',
       emergencyContactPhone: racer.emergencyphone || '',
+      heightInInches: racer.heightininches || '',
+      weightInLbs: racer.weightinlbs || '',
+      placeOfBirth: racer.placeofbirth || '',
     });
     setIsEditing(false);
   };
@@ -117,6 +126,9 @@ const RacerProfile: React.FC = () => {
         dob: formData.dob,
         emergencyContactName: formData.emergencyContactName,
         emergencyContactPhone: formData.emergencyContactPhone,
+        heightInInches: formData.heightInInches,
+        weightInLbs: formData.weightInLbs,
+        placeOfBirth: formData.placeOfBirth,
       };
       await updateRacerProfile(racer.id, saveData);
 
@@ -144,6 +156,9 @@ const RacerProfile: React.FC = () => {
         birthdate: formData.dob,
         emergencyname: formData.emergencyContactName,
         emergencyphone: formData.emergencyContactPhone,
+        heightininches: formData.heightInInches,
+        weightinlbs: formData.weightInLbs,
+        placeofbirth: formData.placeOfBirth,
       };
       setRacer(updated);
       sessionStorage.setItem('racerUser', JSON.stringify(updated));
@@ -374,6 +389,20 @@ const RacerProfile: React.FC = () => {
             <div>
               <Label htmlFor="dob">Date of Birth</Label>
               <Input id="dob" type="date" value={formData.dob} onChange={(e) => setFormData({ ...formData, dob: e.target.value })} disabled={!isEditing} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="heightInInches">Height (inches)</Label>
+                <Input id="heightInInches" type="number" value={formData.heightInInches} onChange={(e) => setFormData({ ...formData, heightInInches: e.target.value })} disabled={!isEditing} />
+              </div>
+              <div>
+                <Label htmlFor="weightInLbs">Weight (lbs)</Label>
+                <Input id="weightInLbs" type="number" value={formData.weightInLbs} onChange={(e) => setFormData({ ...formData, weightInLbs: e.target.value })} disabled={!isEditing} />
+              </div>
+              <div>
+                <Label htmlFor="placeOfBirth">Place of Birth</Label>
+                <Input id="placeOfBirth" value={formData.placeOfBirth} onChange={(e) => setFormData({ ...formData, placeOfBirth: e.target.value })} disabled={!isEditing} />
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
