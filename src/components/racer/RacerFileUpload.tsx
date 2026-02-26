@@ -26,6 +26,7 @@ interface RacerFileUploadProps {
   racerName: string;
   racerContactId: string;
   category: string;
+  albumId?: string;
   accept?: string;
   capture?: 'user' | 'environment';
   label?: string;
@@ -36,6 +37,7 @@ const RacerFileUpload: React.FC<RacerFileUploadProps> = ({
   racerName,
   racerContactId,
   category,
+  albumId,
   accept = 'image/jpeg,image/png,image/heic,image/heif,image/webp,video/mp4,video/quicktime',
   capture,
   label = 'Upload File',
@@ -74,6 +76,7 @@ const RacerFileUpload: React.FC<RacerFileUploadProps> = ({
       racerName,
       racerContactId,
       category,
+      albumId,
       onProgress: setProgress,
     });
 
