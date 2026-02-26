@@ -1,58 +1,66 @@
 
 
-# Fix Mobile Upload (iPhone) + Swiper Build Error
+# Fix: iOS Photo Library Selection Not Working
 
-## Problems Identified
+## Problem
 
-### 1. iPhone file upload compatibility
-The `accept="video/*"` attribute is problematic on iOS Safari. iPhones record video as `.MOV` (MIME type `video/quicktime`), and iOS Safari can be inconsistent with the `video/*` wildcard -- sometimes it doesn't show the camera roll or blocks file selection entirely. Similarly, `image/*` can cause issues with HEIC photos.
+When selecting a photo from the iPhone photo library and tapping "Done", nothing happens — the file never appears in the upload UI. The `onChange` event on the hidden `<input type="file">` is not firing.
 
-The `RacerFileUpload` component also lacks the `capture` attribute, which on mobile devices lets users choose between camera and file picker. Without it, iOS may not offer the camera option.
+## Root Cause
 
-Additionally, the XHR-based S3 PUT upload in `racerMediaService.ts` may fail silently on iOS Safari due to CORS preflight handling differences -- iOS Safari is stricter about certain headers in presigned URL flows.
+The `accept` attribute combines wildcards (`image/*`, `video/*`) with explicit extensions (`.heic`, `.heif`, `.jpg`, `.png`). On iOS Safari, this combination can cause the file picker to fail silently — the `onChange` event doesn't fire after the user selects a file and taps Done. iOS Safari handles MIME-type wildcards and file extensions differently, and mixing them in one `accept` string is unreliable.
 
-### 2. Swiper CSS TypeScript errors (blocking build)
-`src/components/VideoCarousel.tsx` imports `swiper/css`, `swiper/css/autoplay`, and `swiper/css/navigation` which produce TS2882 errors because the Swiper package lacks type declarations for CSS side-effect imports.
+Additionally, programmatically clicking a hidden input (`inputRef.current?.click()`) from within a `div`'s `onClick` can sometimes lose the "user gesture" context on iOS Safari, causing the file picker to open but then silently discard the selection.
 
-## Fixes
+## Fix
 
-### A. `src/components/VideoCarousel.tsx` -- Fix build error
-- Add `// @ts-ignore` comments above each Swiper CSS import to suppress the type-check errors. These are valid runtime imports that Vite handles correctly; they just lack `.d.ts` declarations.
+### A. `src/components/racer/RacerFileUpload.tsx`
 
-### B. `src/components/racer/RacerFileUpload.tsx` -- iOS compatibility
-1. **Expand `accept` defaults** to explicitly include common iPhone formats: add `.heic,.heif,.mov` alongside the wildcards
-2. **Add `capture` attribute support** as an optional prop so pages can enable direct camera capture on mobile
-3. **Normalize iPhone file types**: when a file is selected, if `file.type` is empty (which happens on some iOS versions for HEIC/MOV), infer the MIME type from the file extension before uploading
+1. **Split `accept` to use only MIME types** (no dot-extensions mixed with wildcards):
+   - Image uploads: `"image/jpeg,image/png,image/heic,image/heif,image/webp"`
+   - Video uploads: `"video/mp4,video/quicktime"`
+   - Default (both): `"image/jpeg,image/png,image/heic,image/heif,image/webp,video/mp4,video/quicktime"`
 
-### C. `src/services/racerMediaService.ts` -- iOS XHR fix
-1. **Strip extra headers from XHR PUT**: only set `Content-Type` on the XHR request (no other custom headers). iOS Safari can reject presigned URL uploads if unexpected headers are included that weren't part of the signature.
-2. **Add fallback to `fetch` API**: if XHR upload fails, retry using the Fetch API with `mode: 'cors'` as a fallback, since some iOS versions handle `fetch` better than `XMLHttpRequest` for cross-origin PUT requests.
-3. **Add explicit error logging** with the file type and size so mobile failures are diagnosable.
+2. **Use a `<label>` element wrapping the input** instead of a `div` with `onClick` + programmatic `.click()`. The native `<label htmlFor>` approach is more reliable on iOS Safari because it preserves the user gesture chain without JavaScript intermediation.
 
-### D. `src/pages/racer/RacerApplication.tsx` and `src/pages/racer/RacerMotorcycle.tsx`
-- Update `accept` props to include explicit extensions: `accept="video/*,.mov,.mp4"` for video uploads and `accept="image/*,.heic,.heif,.jpg,.png"` for image uploads
+3. **Add a unique `id` to the input** so the label's `htmlFor` can reference it directly.
+
+### B. `src/pages/racer/RacerApplication.tsx`
+
+Update `accept` props:
+- Bike photos: `accept="image/jpeg,image/png,image/heic,image/heif,image/webp"`
+- Audition video: `accept="video/mp4,video/quicktime"`
+
+### C. `src/pages/racer/RacerMotorcycle.tsx`
+
+Update `accept` prop:
+- Bike photos: `accept="image/jpeg,image/png,image/heic,image/heif,image/webp"`
 
 ## Files Modified
 
 | File | Change |
 |------|--------|
-| `src/components/VideoCarousel.tsx` | Add `// @ts-ignore` above 3 Swiper CSS imports |
-| `src/components/racer/RacerFileUpload.tsx` | Add MIME type inference for extensionless files, iOS-friendly accept defaults |
-| `src/services/racerMediaService.ts` | Add fetch fallback for XHR failure, better error logging with file metadata |
-| `src/pages/racer/RacerApplication.tsx` | Update `accept` props with explicit iOS extensions |
-| `src/pages/racer/RacerMotorcycle.tsx` | Update `accept` prop with explicit iOS extensions |
+| `src/components/racer/RacerFileUpload.tsx` | Replace `div onClick` with `label htmlFor`, use MIME-only accept, add unique input id |
+| `src/pages/racer/RacerApplication.tsx` | Update `accept` props to MIME-only strings |
+| `src/pages/racer/RacerMotorcycle.tsx` | Update `accept` prop to MIME-only string |
 
-## Technical Detail: MIME Inference
+## Technical Detail
 
 ```text
-Extension → MIME mapping for iPhone edge cases:
-  .heic  → image/heic
-  .heif  → image/heif
-  .mov   → video/quicktime
-  .mp4   → video/mp4
-  .jpg   → image/jpeg
-  .png   → image/png
-```
+iOS Safari file picker compatibility:
 
-When `file.type` is empty (common on iOS), the extension is extracted from `file.name` and mapped to the correct MIME type before the presigned URL request.
+BAD  (mixed):  accept="image/*,.heic,.heif,.jpg,.png"
+GOOD (MIME):   accept="image/jpeg,image/png,image/heic,image/heif"
+
+BAD  (programmatic click from div):
+  <div onClick={() => inputRef.current?.click()}>
+    <input type="file" className="hidden" />
+  </div>
+
+GOOD (native label association):
+  <label htmlFor="file-upload-xyz">
+    ...
+  </label>
+  <input id="file-upload-xyz" type="file" className="sr-only" />
+```
 
