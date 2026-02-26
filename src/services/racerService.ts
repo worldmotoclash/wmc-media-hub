@@ -31,6 +31,7 @@ export interface RacerMember {
   birthdate?: string;
   emergencyname?: string;
   emergencyphone?: string;
+  experiencelevel?: string;
 }
 
 /** Parse a RacerMember from an XML <member> element */
@@ -71,6 +72,7 @@ const parseRacerMemberXml = (member: Element): RacerMember => {
     birthdate: get('birthdate'),
     emergencyname: getAny('emergencyname', 'Emergency_Contact_Name__c'),
     emergencyphone: getAny('emergencyphone', 'Emergency_Contact_Phone__c'),
+    experiencelevel: getAny('experiencelevel', 'Experience_Level__c'),
   };
 };
 
