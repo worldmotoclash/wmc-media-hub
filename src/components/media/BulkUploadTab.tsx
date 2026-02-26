@@ -9,8 +9,9 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Upload, X, CheckCircle2, AlertCircle, FileVideo, Image as ImageIcon, Music, Layers, Camera, Info } from "lucide-react";
+import { Upload, X, CheckCircle2, AlertCircle, FileVideo, Image as ImageIcon, Music, Layers, Camera, Info, TriangleAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -121,8 +122,20 @@ export const BulkUploadTab: React.FC = () => {
       return;
     }
 
+    // Large file warnings
+    const warnThreshold = isMobile ? 50 * 1024 * 1024 : 200 * 1024 * 1024;
+    const largeFiles = newFiles.filter(f => f.file.size > warnThreshold);
+    if (largeFiles.length > 0) {
+      const names = largeFiles.slice(0, 3).map(f => `${f.file.name} (${formatSize(f.file.size)})`).join(', ');
+      const extra = largeFiles.length > 3 ? ` and ${largeFiles.length - 3} more` : '';
+      toast({
+        title: `${largeFiles.length} large file${largeFiles.length > 1 ? 's' : ''} detected`,
+        description: `${names}${extra}. These may take a while to upload.${isMobile ? ' Consider AirDropping to a laptop for faster uploads.' : ''}`,
+      });
+    }
+
     setQueue(prev => [...prev, ...newFiles]);
-  }, [toast]);
+  }, [toast, isMobile]);
 
   const removeFile = (id: string) => {
     setQueue(prev => prev.filter(f => f.id !== id));
@@ -336,6 +349,8 @@ export const BulkUploadTab: React.FC = () => {
   const overallProgress = queue.length > 0 ? (completedCount / queue.length) * 100 : 0;
   const doneCount = queue.filter(f => f.status === 'done').length;
   const errorCount = queue.filter(f => f.status === 'error').length;
+  const totalQueueBytes = queue.reduce((sum, f) => sum + f.file.size, 0);
+  const isLargeQueue = totalQueueBytes > 500 * 1024 * 1024;
 
   return (
     <Card>
@@ -497,8 +512,20 @@ export const BulkUploadTab: React.FC = () => {
         {/* File Queue */}
         {queue.length > 0 && (
           <div className="space-y-3">
+            {isLargeQueue && (
+              <Alert className="border-yellow-500/50 bg-yellow-500/10">
+                <TriangleAlert className="h-4 w-4 text-yellow-600" />
+                <AlertDescription className="text-sm text-yellow-700 dark:text-yellow-400">
+                  Large upload: {formatSize(totalQueueBytes)} total. This may take several minutes depending on your connection.
+                  {isMobile && ' For faster uploads, AirDrop files to a laptop first.'}
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">{queue.length} file{queue.length !== 1 ? 's' : ''} queued</span>
+              <span className="text-sm font-medium">
+                {queue.length} file{queue.length !== 1 ? 's' : ''} queued
+                <span className="text-muted-foreground font-normal ml-1">— {formatSize(totalQueueBytes)}</span>
+              </span>
               {!isUploading && (
                 <Button variant="ghost" size="sm" onClick={() => setQueue([])}>
                   Clear All
