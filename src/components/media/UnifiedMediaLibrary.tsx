@@ -28,6 +28,7 @@ import {
 } from "@/services/unifiedMediaService";
 import { MediaFilterDrawer } from "./MediaFilterDrawer";
 import { getMediaSourceStats, MediaSourceStats } from "@/services/mediaSourceStatsService";
+import { ASPECT_RATIOS } from "@/constants/salesforceFields";
 import { supabase } from "@/integrations/supabase/client";
 import { LibrarianWorkflowDialog } from "./LibrarianWorkflowDialog";
 import VideoPreviewModal from "./VideoPreviewModal";
@@ -855,6 +856,25 @@ export const UnifiedMediaLibrary: React.FC = () => {
                   </label>
                 </div>
               </div>
+            </div>
+
+            {/* Aspect Ratio Filter */}
+            <div className="space-y-2 mt-3">
+              <label className="text-sm font-medium block">Aspect Ratio</label>
+              <Select
+                value={filters.aspectRatio || 'all'}
+                onValueChange={(v) => handleFilterChange('aspectRatio', v === 'all' ? undefined : v)}
+              >
+                <SelectTrigger className="h-8 text-sm">
+                  <SelectValue placeholder="All ratios" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {ASPECT_RATIOS.map(r => (
+                    <SelectItem key={r} value={r}>{r.replace('x', ':')}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Content Origin Filter (replaces Sources) */}

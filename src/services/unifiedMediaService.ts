@@ -94,6 +94,7 @@ export interface SearchFilters {
   contentTypes?: string[];
   locations?: string[];
   moods?: string[];
+  aspectRatio?: string;
   // Search scope - which fields to search
   searchScope?: 'all' | 'title' | 'title_desc' | 'filepath' | 'metadata';
   // Album filter
@@ -221,6 +222,10 @@ export async function fetchAllMediaAssets(
 
     if (filters?.moods?.length) {
       query = query.in('metadata->sfdcAnalysis->>mood', filters.moods);
+    }
+
+    if (filters?.aspectRatio) {
+      query = query.eq('metadata->sfdcAnalysis->>aspectRatio', filters.aspectRatio);
     }
 
     // Apply album filter
