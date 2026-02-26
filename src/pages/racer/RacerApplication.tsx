@@ -213,7 +213,7 @@ const RacerApplication: React.FC = () => {
                 racerName={racer.name}
                 racerContactId={racer.id}
                 category="Motorcycle Photos"
-                accept="image/*,.heic,.heif,.jpg,.png"
+                accept="image/jpeg,image/png,image/heic,image/heif,image/webp"
                 label="Upload bike photos"
               />
             </div>
@@ -250,7 +250,7 @@ const RacerApplication: React.FC = () => {
               racerName={racer.name}
               racerContactId={racer.id}
               category="Audition Video"
-              accept="video/*,.mov,.mp4"
+              accept="video/mp4,video/quicktime"
               label="Upload audition video"
               onUploadComplete={() => updateField('auditionVideoUploaded', 'true')}
             />
