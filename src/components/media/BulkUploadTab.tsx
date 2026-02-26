@@ -81,16 +81,17 @@ export const BulkUploadTab: React.FC = () => {
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
 
   // Fetch existing albums
-  useEffect(() => {
-    const fetchAlbums = async () => {
-      const { data } = await supabase
-        .from('media_albums')
-        .select('id, name, asset_count')
-        .order('created_at', { ascending: false });
-      if (data) setExistingAlbums(data);
-    };
-    fetchAlbums();
+  const fetchAlbums = useCallback(async () => {
+    const { data } = await supabase
+      .from('media_albums')
+      .select('id, name, asset_count')
+      .order('created_at', { ascending: false });
+    if (data) setExistingAlbums(data);
   }, []);
+
+  useEffect(() => {
+    fetchAlbums();
+  }, [fetchAlbums]);
 
   // CRITICAL: Prevent browser default drag behavior at document level.
   // Without this, macOS shows red "not allowed" cursor for external app drops (Image Capture).
@@ -334,6 +335,7 @@ export const BulkUploadTab: React.FC = () => {
       }
 
       setUploadDone(true);
+      await fetchAlbums();
       toast({
         title: "Bulk upload complete!",
         description: `${completed} of ${queue.length} files uploaded to "${targetAlbumName}"`,
