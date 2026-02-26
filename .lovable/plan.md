@@ -1,42 +1,39 @@
 
 
-# Add Racing License Image Upload to Racing History Step
+# Fix Social Media Field Prefixes in Salesforce Payload
 
-## Overview
+## Problem
 
-Add a `RacerFileUpload` component directly below the "Racing License Type" field on Step 1 (Racing History). Uploaded images will be tagged and assigned to a "Racing Licenses" album in S3/Supabase.
+The social media fields are being sent with `url_` prefixes and full URLs, but Salesforce expects bare handles with `string_` prefixes.
 
-## Changes
+## Change
 
-### 1. `src/services/racerMediaService.ts`
+In `src/pages/racer/RacerApplication.tsx`, revert the `buildFullUrl` wrapping and change the field prefixes from `url_` to `string_`:
 
-- Add optional `albumId?: string` to `RacerUploadOptions` interface
-- Pass `albumId` through to the `upload-master-to-s3` edge function body (the function already supports this field)
+```typescript
+// Before (wrong)
+if (formData.linkedin) fields['url_rie__LinkedIn__c'] = buildFullUrl('linkedin', formData.linkedin);
 
-### 2. `src/components/racer/RacerFileUpload.tsx`
+// After (correct)
+if (formData.linkedin) fields['string_rie__LinkedIn__c'] = formData.linkedin;
+```
 
-- Add optional `albumId?: string` prop to `RacerFileUploadProps`
-- Forward `albumId` to `uploadRacerFile()` call
+Apply this to all six social fields: LinkedIn, YouTube, Facebook, Twitter, TikTok, Instagram. Also update YouTube and Instagram field names to use the `string_` prefix consistently:
 
-### 3. `src/pages/racer/RacerApplication.tsx`
+| Current | Corrected |
+|---------|-----------|
+| `url_rie__LinkedIn__c` | `string_rie__LinkedIn__c` |
+| `url_Youtube__c` | `string_Youtube__c` |
+| `url_rie__Facebook__c` | `string_rie__Facebook__c` |
+| `url_rie__Twitter__c` | `string_rie__Twitter__c` |
+| `url_rie__TikTok__c` | `string_rie__TikTok__c` |
+| `url_Instagram__c` | `string_Instagram__c` |
 
-- Add state + logic to find-or-create a "Racing Licenses" album in `media_albums` table on mount
-- Add a `RacerFileUpload` component immediately after the Racing License Type input (line 310), configured with:
-  - `category="Racing License"`
-  - `albumId={racingLicensesAlbumId}`
-  - `accept="image/jpeg,image/png,image/heic,image/heif,image/webp"`
-  - `label="Upload Racing License Image"`
-- On upload complete, store the CDN URL in formData (e.g. `licenseImageUrl`) for reference
-
-### Album Lookup Flow
-
-On component mount (alongside loading racer data), query `media_albums` for a row with `name = 'Racing Licenses'`. If none exists, insert one. Cache the album ID in state. This ensures all racing license uploads across all racers land in the same album, with per-racer identification via the existing tag system (`['Racer Submission', racerName, 'Racing License']`).
+The `buildFullUrl` import can be removed if no longer used elsewhere in this file.
 
 ## Files Modified
 
 | File | Change |
 |------|--------|
-| `src/services/racerMediaService.ts` | Add `albumId` to options and pass to edge function |
-| `src/components/racer/RacerFileUpload.tsx` | Add `albumId` prop, forward to upload call |
-| `src/pages/racer/RacerApplication.tsx` | Find-or-create "Racing Licenses" album; add upload component below license type field |
+| `src/pages/racer/RacerApplication.tsx` | Change 6 social field prefixes from `url_` to `string_`, send raw handles instead of full URLs |
 
