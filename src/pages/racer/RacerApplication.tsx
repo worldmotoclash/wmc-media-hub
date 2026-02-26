@@ -50,6 +50,7 @@ const RacerApplication: React.FC = () => {
       youtube: extractHandle('youtube', parsed.youtube || ''),
       facebook: extractHandle('facebook', parsed.facebook || ''),
       twitter: extractHandle('twitter', parsed.twitter || ''),
+      tiktok: extractHandle('tiktok', parsed.tiktok || ''),
     };
 
     setFormData({ ...profileDefaults, ...saved });
@@ -83,6 +84,7 @@ const RacerApplication: React.FC = () => {
         if (formData.youtube) fields['url_Youtube__c'] = formData.youtube;
         if (formData.facebook) fields['url_rie__Facebook__c'] = formData.facebook;
         if (formData.twitter) fields['url_rie__Twitter__c'] = formData.twitter;
+        if (formData.tiktok) fields['url_rie__TikTok__c'] = formData.tiktok;
         if (formData.dob) fields['date_Birthdate'] = formData.dob;
         if (formData.emergencyContactName) fields['string_Emergency_Contact_Name__c'] = formData.emergencyContactName;
         if (formData.emergencyContactPhone) fields['phone_Emergency_Contact_Phone__c'] = formData.emergencyContactPhone;
@@ -238,6 +240,10 @@ const RacerApplication: React.FC = () => {
               <div className="space-y-2">
                 <Label>X / Twitter</Label>
                 <SocialHandleInput platform="twitter" value={formData.twitter || ''} onChange={(v) => updateField('twitter', v)} />
+              </div>
+              <div className="space-y-2">
+                <Label>TikTok</Label>
+                <SocialHandleInput platform="tiktok" value={formData.tiktok || ''} onChange={(v) => updateField('tiktok', v)} />
               </div>
             </div>
           </div>

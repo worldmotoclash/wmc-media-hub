@@ -26,6 +26,7 @@ export interface RacerMember {
   youtube?: string;
   facebook?: string;
   twitter?: string;
+  tiktok?: string;
 }
 
 /** Parse a RacerMember from an XML <member> element */
@@ -61,6 +62,7 @@ const parseRacerMemberXml = (member: Element): RacerMember => {
     youtube: getAny('Youtube__c', 'youtube', 'YouTube'),
     facebook: getAny('rie__Facebook__c', 'facebook', 'Facebook'),
     twitter: getAny('rie__Twitter__c', 'twitter', 'Twitter'),
+    tiktok: getAny('rie__TikTok__c', 'tiktok', 'TikTok'),
   };
 };
 
@@ -154,6 +156,7 @@ export const updateRacerProfile = async (
     youtube?: string;
     facebook?: string;
     twitter?: string;
+    tiktok?: string;
   }
 ): Promise<void> => {
   const fields: Record<string, string> = {
@@ -176,6 +179,7 @@ export const updateRacerProfile = async (
   if (data.youtube !== undefined) fields['url_Youtube__c'] = data.youtube;
   if (data.facebook !== undefined) fields['url_rie__Facebook__c'] = data.facebook;
   if (data.twitter !== undefined) fields['url_rie__Twitter__c'] = data.twitter;
+  if (data.tiktok !== undefined) fields['url_rie__TikTok__c'] = data.tiktok;
 
   await submitViaIframe(UPDATE_ENGINE_URL, fields);
 };

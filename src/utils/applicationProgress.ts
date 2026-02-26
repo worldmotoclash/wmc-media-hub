@@ -3,6 +3,7 @@ export const SOCIAL_PLATFORMS = {
   youtube: { prefix: 'youtube.com/@', base: 'https://youtube.com/@' },
   facebook: { prefix: 'facebook.com/', base: 'https://facebook.com/' },
   twitter: { prefix: 'x.com/', base: 'https://x.com/' },
+  tiktok: { prefix: 'tiktok.com/@', base: 'https://tiktok.com/@' },
 } as const;
 
 export type SocialPlatform = keyof typeof SOCIAL_PLATFORMS;
@@ -49,7 +50,7 @@ export const STEP_NAMES = [
 export const getStepCompletion = (formData: Record<string, string>): boolean[] => {
   const filled = (key: string) => !!(formData[key] && formData[key].trim());
 
-  const hasSocial = filled('linkedin') || filled('youtube') || filled('facebook') || filled('twitter');
+  const hasSocial = filled('linkedin') || filled('youtube') || filled('facebook') || filled('twitter') || filled('tiktok');
   const personalComplete = filled('firstName') && filled('lastName') && filled('email') && filled('phone') && hasSocial;
 
   const racingComplete = filled('yearsExperience') && (filled('racingSeries') || filled('results'));
