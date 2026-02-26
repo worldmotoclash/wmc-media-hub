@@ -25,6 +25,7 @@ const RacerApplication: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [racingLicensesAlbumId, setRacingLicensesAlbumId] = useState<string | null>(null);
+  const [racerBikesAlbumId, setRacerBikesAlbumId] = useState<string | null>(null);
   const albumLookupDone = useRef(false);
 
   useEffect(() => {
@@ -68,31 +69,38 @@ const RacerApplication: React.FC = () => {
     setFormData({ ...profileDefaults, ...saved });
   }, [navigate]);
 
-  // Find or create "Racing Licenses" album
+  // Find or create albums for racer uploads
   useEffect(() => {
     if (albumLookupDone.current) return;
     albumLookupDone.current = true;
-    (async () => {
+
+    const findOrCreateAlbum = async (name: string, description: string): Promise<string | null> => {
       try {
         const { data: existing } = await supabase
           .from('media_albums')
           .select('id')
-          .eq('name', 'Racing Licenses')
+          .eq('name', name)
           .limit(1)
           .single();
-        if (existing) {
-          setRacingLicensesAlbumId(existing.id);
-        } else {
-          const { data: created } = await supabase
-            .from('media_albums')
-            .insert({ name: 'Racing Licenses', description: 'Racing license images submitted by racers' })
-            .select('id')
-            .single();
-          if (created) setRacingLicensesAlbumId(created.id);
-        }
-      } catch (err) {
-        console.warn('[RacerApplication] Album lookup failed:', err);
+        if (existing) return existing.id;
+        const { data: created } = await supabase
+          .from('media_albums')
+          .insert({ name, description })
+          .select('id')
+          .single();
+        return created?.id || null;
+      } catch {
+        return null;
       }
+    };
+
+    (async () => {
+      const [licensesId, bikesId] = await Promise.all([
+        findOrCreateAlbum('Racing Licenses', 'Racing license images submitted by racers'),
+        findOrCreateAlbum('Racer Bikes', 'Motorcycle photos submitted by racers'),
+      ]);
+      if (licensesId) setRacingLicensesAlbumId(licensesId);
+      if (bikesId) setRacerBikesAlbumId(bikesId);
     })();
   }, []);
 
@@ -380,6 +388,7 @@ const RacerApplication: React.FC = () => {
                 racerName={racer.name}
                 racerContactId={racer.id}
                 category="Motorcycle Photos"
+                albumId={racerBikesAlbumId || undefined}
                 accept="image/jpeg,image/png,image/heic,image/heif,image/webp"
                 label="Upload bike photos"
               />
