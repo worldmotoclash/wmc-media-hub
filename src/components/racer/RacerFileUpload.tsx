@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useId } from 'react';
 import { Upload, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -36,11 +36,13 @@ const RacerFileUpload: React.FC<RacerFileUploadProps> = ({
   racerName,
   racerContactId,
   category,
-  accept = 'image/*,video/*,.heic,.heif,.mov,.mp4,.jpg,.png',
+  accept = 'image/jpeg,image/png,image/heic,image/heif,image/webp,video/mp4,video/quicktime',
   capture,
   label = 'Upload File',
   onUploadComplete,
 }) => {
+  const uniqueId = useId();
+  const inputId = `racer-upload-${uniqueId}`;
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
@@ -94,26 +96,27 @@ const RacerFileUpload: React.FC<RacerFileUploadProps> = ({
 
   return (
     <div className="space-y-3">
-      <div
-        onClick={() => status !== 'uploading' && inputRef.current?.click()}
+      <label
+        htmlFor={status !== 'uploading' ? inputId : undefined}
         className={cn(
-          'border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors',
+          'border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors block',
           'border-border hover:border-primary/50',
           status === 'uploading' && 'pointer-events-none opacity-50'
         )}
       >
         <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
         <p className="text-sm font-medium text-foreground">{label}</p>
-        <p className="text-xs text-muted-foreground mt-1">Click to select a file</p>
-        <input
-          ref={inputRef}
-          type="file"
-          accept={accept}
-          capture={capture}
-          className="hidden"
-          onChange={handleSelect}
-        />
-      </div>
+        <p className="text-xs text-muted-foreground mt-1">Tap to select a file</p>
+      </label>
+      <input
+        id={inputId}
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        capture={capture}
+        className="sr-only"
+        onChange={handleSelect}
+      />
 
       {file && (
         <div className="flex items-center gap-3 bg-accent/50 rounded-lg p-3">
