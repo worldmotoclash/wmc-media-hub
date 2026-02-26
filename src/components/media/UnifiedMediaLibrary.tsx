@@ -268,10 +268,13 @@ export const UnifiedMediaLibrary: React.FC = () => {
   useEffect(() => {
     // Only search/load assets when on library tab
     if (activeTab !== 'library') return;
+
+    // Require at least 3 characters before searching, or empty to show all
+    if (searchQuery.length > 0 && searchQuery.length < 3) return;
     
     const delayedSearch = setTimeout(() => {
       searchAssets();
-    }, 300);
+    }, 400);
 
     return () => clearTimeout(delayedSearch);
   }, [searchQuery, filters, sortOption, activeTab, currentPage, searchScope, selectedAlbumId]);
