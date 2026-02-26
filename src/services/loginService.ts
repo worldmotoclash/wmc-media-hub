@@ -197,6 +197,15 @@ export const fetchMemberByEmail = async (email: string) => {
       youtube: getAny('Youtube__c', 'youtube', 'YouTube'),
       facebook: getAny('rie__Facebook__c', 'facebook', 'Facebook'),
       twitter: getAny('rie__Twitter__c', 'twitter', 'Twitter'),
+      tiktok: getAny('rie__TikTok__c', 'tiktok', 'TikTok'),
+      instagram: getAny('instagram', 'Instagram', 'rie__Instagram__c'),
+      birthdate: get('birthdate'),
+      emergencyname: getAny('emergencyname', 'Emergency_Contact_Name__c'),
+      emergencyphone: getAny('emergencyphone', 'Emergency_Contact_Phone__c'),
+      experiencelevel: getAny('experiencelevel', 'Experience_Level__c'),
+      heightininches: getAny('heightininches', 'Height_In_Inches__c'),
+      weightinlbs: getAny('weightinlbs', 'Weight_in_lbs__c'),
+      placeofbirth: getAny('placeofbirth', 'Place_of_Birth__c'),
     };
   } else {
     // Assume JSON response - parse first member if it's an array

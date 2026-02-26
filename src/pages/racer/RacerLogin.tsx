@@ -71,6 +71,15 @@ const RacerLogin: React.FC = () => {
         youtube: member.youtube || '',
         facebook: member.facebook || '',
         twitter: member.twitter || '',
+        tiktok: member.tiktok || '',
+        instagram: member.instagram || '',
+        birthdate: member.birthdate || '',
+        emergencyname: member.emergencyname || '',
+        emergencyphone: member.emergencyphone || '',
+        experiencelevel: member.experiencelevel || '',
+        heightininches: member.heightininches || '',
+        weightinlbs: member.weightinlbs || '',
+        placeofbirth: member.placeofbirth || '',
       };
       sessionStorage.setItem('racerUser', JSON.stringify(racerData));
 
