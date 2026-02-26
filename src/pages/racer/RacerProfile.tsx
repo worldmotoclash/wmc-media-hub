@@ -38,6 +38,7 @@ const RacerProfile: React.FC = () => {
     youtube: '',
     facebook: '',
     twitter: '',
+    tiktok: '',
   });
 
   useEffect(() => {
@@ -61,6 +62,7 @@ const RacerProfile: React.FC = () => {
       youtube: extractHandle('youtube', parsed.youtube || ''),
       facebook: extractHandle('facebook', parsed.facebook || ''),
       twitter: extractHandle('twitter', parsed.twitter || ''),
+      tiktok: extractHandle('tiktok', parsed.tiktok || ''),
     });
   }, [navigate]);
 
@@ -83,6 +85,7 @@ const RacerProfile: React.FC = () => {
       youtube: extractHandle('youtube', racer.youtube || ''),
       facebook: extractHandle('facebook', racer.facebook || ''),
       twitter: extractHandle('twitter', racer.twitter || ''),
+      tiktok: extractHandle('tiktok', racer.tiktok || ''),
     });
     setIsEditing(false);
   };
@@ -97,6 +100,7 @@ const RacerProfile: React.FC = () => {
         youtube: buildFullUrl('youtube', formData.youtube),
         facebook: buildFullUrl('facebook', formData.facebook),
         twitter: buildFullUrl('twitter', formData.twitter),
+        tiktok: buildFullUrl('tiktok', formData.tiktok),
       };
       await updateRacerProfile(racer.id, saveData);
 
@@ -119,6 +123,7 @@ const RacerProfile: React.FC = () => {
         youtube: formData.youtube,
         facebook: formData.facebook,
         twitter: formData.twitter,
+        tiktok: formData.tiktok,
       };
       setRacer(updated);
       sessionStorage.setItem('racerUser', JSON.stringify(updated));
@@ -324,6 +329,10 @@ const RacerProfile: React.FC = () => {
               <div>
                 <Label htmlFor="twitter">X / Twitter</Label>
                 <SocialHandleInput platform="twitter" value={formData.twitter} onChange={(v) => setFormData({ ...formData, twitter: v })} disabled={!isEditing} />
+              </div>
+              <div>
+                <Label htmlFor="tiktok">TikTok</Label>
+                <SocialHandleInput platform="tiktok" value={formData.tiktok} onChange={(v) => setFormData({ ...formData, tiktok: v })} disabled={!isEditing} />
               </div>
             </div>
           </CardContent>
