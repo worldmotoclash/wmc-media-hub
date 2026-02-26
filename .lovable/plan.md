@@ -1,46 +1,63 @@
 
 
-# Add DOB + Emergency Contact Fields & Per-Step SFDC Sync
+# Parse New XML Feed Fields (birthdate, emergencyname, emergencyphone, instagram)
+
+The XML member feed now includes `<birthdate>`, `<emergencyname>`, `<emergencyphone>`, and `<instagram>` tags. These need to be parsed and pre-populated into the application and profile.
 
 ## Changes
 
-### 1. `src/pages/racer/RacerApplication.tsx`
+### 1. `src/services/racerService.ts`
 
-**New fields in Step 0 (Personal Info):**
-- Date of Birth (`dob`) — `<Input type="date">` field
-- Emergency Contact Name (`emergencyContactName`) — text input
-- Emergency Contact Phone (`emergencyContactPhone`) — text input
+**Add new fields to `RacerMember` interface:**
+- `birthdate?: string`
+- `emergencyname?: string`
+- `emergencyphone?: string`
+- `instagram?: string`
 
-Place these after the phone/mobile row and before the street address.
+**Update `parseRacerMemberXml`:**
+- `birthdate: get('birthdate')`
+- `emergencyname: getAny('emergencyname', 'Emergency_Contact_Name__c')`
+- `emergencyphone: getAny('emergencyphone', 'Emergency_Contact_Phone__c')`
+- `instagram: getAny('instagram', 'Instagram')`
 
-**Per-step SFDC sync on Next button:**
-- Replace `handleNext` with an async function that:
-  1. Sets a `saving` loading state
-  2. Builds a field map for the current step's data with proper w2x field prefixes
-  3. Calls `submitRacerApplication(racer.id, stepFields)` (which POSTs to w2x-engine)
-  4. Shows a brief toast ("Progress saved")
-  5. Advances to next step
-- The field mapping per step:
-  - **Step 0**: `string_FirstName`, `string_LastName`, `string_Email`, `string_Title`, `phone_Phone`, `phone_MobilePhone`, `text_MailingStreet`, `text_MailingCity`, `text_MailingState`, `text_MailingPostalCode`, `text_MailingCountry`, `url_rie__LinkedIn__c`, `url_Youtube__c`, `url_rie__Facebook__c`, `url_rie__Twitter__c`, `date_Birthdate`, `string_Emergency_Contact_Name__c`, `phone_Emergency_Contact_Phone__c`
-  - **Step 1**: `string_Years_of_Experience__c` (or similar custom field names — passed as raw keys)
-  - **Steps 2-4**: Pass formData keys as-is (they'll be stored in SFDC via the engine)
-- Add a `saving` state and show a spinner on the Next button while saving
+**Update `updateRacerProfile`:**
+- Add `dob`, `emergencyContactName`, `emergencyContactPhone` to the accepted data shape
+- Map: `date_Birthdate`, `string_Emergency_Contact_Name__c`, `phone_Emergency_Contact_Phone__c`
 
-### 2. `src/utils/applicationProgress.ts`
+### 2. `src/pages/racer/RacerApplication.tsx`
 
-- No changes needed to step completion logic (DOB and emergency contact are optional fields, not required for step completion)
+**Pre-populate new fields from profile (line 37-54 area):**
+- `dob: parsed.birthdate || ''`
+- `emergencyContactName: parsed.emergencyname || ''`
+- `emergencyContactPhone: parsed.emergencyphone || ''`
 
-### 3. `src/services/racerService.ts`
+These fields already exist in the form UI but are not currently pre-populated from the feed.
 
-- No structural changes needed — `submitRacerApplication` already accepts arbitrary `Record<string, string>` and POSTs to w2x-engine with `sObj: 'Contact'`
+### 3. `src/pages/racer/RacerProfile.tsx`
 
-## New helper: step-to-SFDC field mapping
+**Add DOB and Emergency Contact display/edit fields:**
+- Add `dob`, `emergencyContactName`, `emergencyContactPhone` to `formData` state
+- Pre-populate from `parsed.birthdate`, `parsed.emergencyname`, `parsed.emergencyphone`
+- Add a "Safety & Emergency" card with Date of Birth, Emergency Contact Name, Emergency Contact Phone fields
+- Include these fields in `handleSave` and `handleCancel`
+- Update the `updateRacerProfile` call to pass the new fields
 
-A mapping function in `RacerApplication.tsx` that converts local formData keys to w2x-engine field names for each step, so the Next button sends only the current step's fields with correct SFDC API names.
+### 4. `src/utils/applicationProgress.ts` (optional)
+
+**Add Instagram platform** since the feed now includes it:
+- Add `instagram: { prefix: 'instagram.com/', base: 'https://instagram.com/' }` to `SOCIAL_PLATFORMS`
+
+### 5. Application + Profile: Add Instagram field
+
+- Add Instagram `SocialHandleInput` to both the application Step 0 and the Profile social media card
+- Add `instagram` to `RacerMember` parsing, profile formData, and SFDC mapping (`url_Instagram__c` or similar)
 
 ## Files Modified
 
 | File | Change |
 |------|--------|
-| `src/pages/racer/RacerApplication.tsx` | Add 3 new fields to Step 0; replace `handleNext` with async save-then-advance; add `saving` state |
+| `src/services/racerService.ts` | Add `birthdate`, `emergencyname`, `emergencyphone`, `instagram` to interface + XML parser + updateRacerProfile |
+| `src/pages/racer/RacerApplication.tsx` | Pre-populate `dob`, `emergencyContactName`, `emergencyContactPhone`, add Instagram field + SFDC mapping |
+| `src/pages/racer/RacerProfile.tsx` | Add DOB + emergency contact + Instagram fields to profile form, save, and cancel logic |
+| `src/utils/applicationProgress.ts` | Add `instagram` to `SOCIAL_PLATFORMS` |
 
