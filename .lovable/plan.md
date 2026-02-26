@@ -1,100 +1,20 @@
 
 
-# Fix Salesforce Updates for Both Profile and Application
-
-## Problem
-
-Neither the Profile nor the Application saves social handles, height, weight, or place of birth to Salesforce. The user provided a working HTML form that reveals the exact payload pattern required by `w2x-engine.php`.
-
-## Root Cause — Three Mismatches vs. Working HTML
-
-The user's working HTML test form uses:
-
-```html
-<form action="w2x-engine.php" method="POST">
-  <input name="action" value="update">
-  <input name="Id" value="0035e000003cugh">
-  <input name="sObj" value="Contact">
-  <input name="string_rie__TikTok__c" value="...">
-</form>
-```
-
-Our code differs in three critical ways:
-
-| Aspect | Working HTML | Our Profile Code | Our Application Code |
-|--------|-------------|-----------------|---------------------|
-| Endpoint | `w2x-engine.php` | `update-engine-contact.php` | `update-engine-contact.php` |
-| Record ID field | `Id` | `id_Contact` | `id_Contact` |
-| Action field | `action=update` | missing | missing |
-| Social prefix | `string_` | `url_` | `string_` (correct) |
-
-All three issues must be fixed in both flows.
+# Change Media Library Search to Manual Trigger
 
 ## Changes
 
-### File 1: `src/services/racerService.ts` — `updateRacerProfile`
+### File: `src/components/media/UnifiedMediaLibrary.tsx`
 
-1. Switch endpoint from `UPDATE_ENGINE_URL` to `W2X_ENGINE_URL`
-2. Change `id_Contact` to `Id`
-3. Add `action: 'update'`
-4. Change social handle prefixes from `url_` to `string_`
+1. **Add a `pendingSearch` state** to hold what the user types, separate from the `searchQuery` that triggers the actual search.
 
-The fields block becomes:
-```typescript
-const fields: Record<string, string> = {
-  sObj: 'Contact',
-  action: 'update',
-  Id: contactId,
-};
-// ... all existing field mappings, but social handles change from url_ to string_:
-// url_rie__LinkedIn__c  →  string_rie__LinkedIn__c
-// url_Youtube__c        →  string_rie__Youtube__c   (also fix casing: Youtube → rie__Youtube__c)
-// url_rie__Facebook__c  →  string_rie__Facebook__c
-// url_rie__Twitter__c   →  string_rie__Twitter__c
-// url_rie__TikTok__c    →  string_rie__TikTok__c
-// url_Instagram__c      →  string_rie__Instagram__c (also fix: Instagram__c → rie__Instagram__c)
-```
+2. **Remove auto-search on typing**: Remove `searchQuery` from the `useEffect` dependency array (line 280) so typing alone does not trigger a search. Remove the min-3-char guard and debounce since search is now manual.
 
-Note: The working HTML uses `string_rie__Youtube__c` and `string_rie__Instagram__c` — our code currently has `Youtube__c` and `Instagram__c` (missing `rie__` prefix). This is also fixed.
+3. **Add a `handleSearch` function** that sets `searchQuery = pendingSearch` and resets to page 1. Triggered by pressing Enter or clicking a Search button.
 
-### File 2: `src/services/racerService.ts` — `submitRacerApplication`
+4. **Update the Input** (line 606-618): bind `value` and `onChange` to `pendingSearch` instead of `searchQuery`. Add `onKeyDown` handler for Enter key.
 
-1. Switch endpoint back from `UPDATE_ENGINE_URL` to `W2X_ENGINE_URL`
-2. Change `id_Contact` to `Id`
-3. Add `action: 'update'`
+5. **Add a Search button** next to the input (after line 619) that calls `handleSearch`.
 
-```typescript
-export const submitRacerApplication = async (
-  contactId: string,
-  stepData: Record<string, string>
-): Promise<void> => {
-  await submitViaIframe(W2X_ENGINE_URL, {
-    sObj: 'Contact',
-    action: 'update',
-    Id: contactId,
-    ...stepData,
-  });
-};
-```
-
-### File 3: `src/pages/racer/RacerApplication.tsx` — `getSFDCFieldsForStep` (case 0, lines 135-140)
-
-Fix social handle field names to match the working `rie__` pattern:
-
-```
-string_rie__LinkedIn__c   (unchanged)
-string_rie__Youtube__c    (was string_Youtube__c — add rie__ prefix)
-string_rie__Facebook__c   (unchanged)
-string_rie__Twitter__c    (unchanged)
-string_rie__TikTok__c     (unchanged)
-string_rie__Instagram__c  (was string_Instagram__c — add rie__ prefix)
-```
-
-## Summary of All Changes
-
-| File | Change |
-|------|--------|
-| `src/services/racerService.ts` | `updateRacerProfile`: switch to `W2X_ENGINE_URL`, add `action: 'update'`, change `id_Contact` → `Id`, change `url_` → `string_` for social fields, fix `Youtube__c` → `rie__Youtube__c` and `Instagram__c` → `rie__Instagram__c` |
-| `src/services/racerService.ts` | `submitRacerApplication`: switch back to `W2X_ENGINE_URL`, add `action: 'update'`, change `id_Contact` → `Id` |
-| `src/pages/racer/RacerApplication.tsx` | Fix `Youtube__c` → `rie__Youtube__c` and `Instagram__c` → `rie__Instagram__c` in `getSFDCFieldsForStep` |
+6. **Initial load**: keep `searchQuery` starting from URL param so the initial asset load still works. The `useEffect` at line 268 continues to fire on `filters`, `sortOption`, `currentPage`, etc. — just not on every keystroke.
 
