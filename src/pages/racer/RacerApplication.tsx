@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronLeft, ChevronRight, CheckCircle2, Loader2 } from 'lucide-react';
 import RacerPortalLayout from '@/components/racer/RacerPortalLayout';
 import RacerFileUpload from '@/components/racer/RacerFileUpload';
@@ -55,6 +56,7 @@ const RacerApplication: React.FC = () => {
       dob: parsed.birthdate || '',
       emergencyContactName: parsed.emergencyname || '',
       emergencyContactPhone: parsed.emergencyphone || '',
+      experienceLevel: parsed.experiencelevel || '',
     };
 
     setFormData({ ...profileDefaults, ...saved });
@@ -95,7 +97,7 @@ const RacerApplication: React.FC = () => {
         if (formData.emergencyContactPhone) fields['phone_Emergency_Contact_Phone__c'] = formData.emergencyContactPhone;
         break;
       case 1:
-        if (formData.yearsExperience) fields['string_Years_of_Experience__c'] = formData.yearsExperience;
+        if (formData.experienceLevel) fields['string_Experience_Level__c'] = formData.experienceLevel;
         if (formData.racingSeries) fields['text_Racing_Series__c'] = formData.racingSeries;
         if (formData.results) fields['text_Notable_Results__c'] = formData.results;
         if (formData.licenseType) fields['string_Racing_License_Type__c'] = formData.licenseType;
@@ -261,8 +263,18 @@ const RacerApplication: React.FC = () => {
         return (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Years of Racing Experience</Label>
-              <Input type="number" value={formData.yearsExperience || ''} onChange={(e) => updateField('yearsExperience', e.target.value)} />
+              <Label>Experience Level</Label>
+              <Select value={formData.experienceLevel || ''} onValueChange={(value) => updateField('experienceLevel', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select your experience level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Beginner (0-2 years)">Beginner (0-2 years)</SelectItem>
+                  <SelectItem value="Intermediate (3-5 years)">Intermediate (3-5 years)</SelectItem>
+                  <SelectItem value="Advanced (6-10 years)">Advanced (6-10 years)</SelectItem>
+                  <SelectItem value="Professional (10+ years)">Professional (10+ years)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Racing Series / Leagues</Label>
