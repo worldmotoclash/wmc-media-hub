@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import RacerFileUpload from '@/components/racer/RacerFileUpload';
 import SocialHandleInput from '@/components/racer/SocialHandleInput';
 import { submitRacerApplication, type RacerMember } from '@/services/racerService';
 import { getStepCompletion, getStorageKey, extractHandle } from '@/utils/applicationProgress';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const STEPS = ['Personal Info', 'Racing History', 'Motorcycle', '5 Key Questions', 'Audition Video'];
@@ -23,6 +24,8 @@ const RacerApplication: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<Record<string, string>>({});
+  const [racingLicensesAlbumId, setRacingLicensesAlbumId] = useState<string | null>(null);
+  const albumLookupDone = useRef(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem('racerUser');
@@ -64,6 +67,34 @@ const RacerApplication: React.FC = () => {
 
     setFormData({ ...profileDefaults, ...saved });
   }, [navigate]);
+
+  // Find or create "Racing Licenses" album
+  useEffect(() => {
+    if (albumLookupDone.current) return;
+    albumLookupDone.current = true;
+    (async () => {
+      try {
+        const { data: existing } = await supabase
+          .from('media_albums')
+          .select('id')
+          .eq('name', 'Racing Licenses')
+          .limit(1)
+          .single();
+        if (existing) {
+          setRacingLicensesAlbumId(existing.id);
+        } else {
+          const { data: created } = await supabase
+            .from('media_albums')
+            .insert({ name: 'Racing Licenses', description: 'Racing license images submitted by racers' })
+            .select('id')
+            .single();
+          if (created) setRacingLicensesAlbumId(created.id);
+        }
+      } catch (err) {
+        console.warn('[RacerApplication] Album lookup failed:', err);
+      }
+    })();
+  }, []);
 
   // Persist to localStorage on every change
   const updateField = useCallback((key: string, value: string) => {
@@ -307,6 +338,18 @@ const RacerApplication: React.FC = () => {
             <div className="space-y-2">
               <Label>Racing License Type</Label>
               <Input value={formData.licenseType || ''} onChange={(e) => updateField('licenseType', e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Upload Racing License Image</Label>
+              <RacerFileUpload
+                racerName={racer.name}
+                racerContactId={racer.id}
+                category="Racing License"
+                albumId={racingLicensesAlbumId || undefined}
+                accept="image/jpeg,image/png,image/heic,image/heif,image/webp"
+                label="Upload Racing License Image"
+                onUploadComplete={(result) => updateField('licenseImageUrl', result.cdnUrl)}
+              />
             </div>
           </div>
         );

@@ -5,6 +5,7 @@ interface RacerUploadOptions {
   racerName: string;
   racerContactId: string;
   category: string;
+  albumId?: string;
   onProgress?: (pct: number) => void;
 }
 
@@ -17,7 +18,7 @@ interface UploadResult {
 
 /** Upload a file via presigned URL pipeline with racer-specific auto-tagging */
 export const uploadRacerFile = async (opts: RacerUploadOptions): Promise<UploadResult> => {
-  const { file, racerName, racerContactId, category, onProgress } = opts;
+  const { file, racerName, racerContactId, category, albumId, onProgress } = opts;
 
   try {
     // Step 1: Get presigned URL
@@ -92,6 +93,7 @@ export const uploadRacerFile = async (opts: RacerUploadOptions): Promise<UploadR
         cdnUrl: presignData.cdnUrl,
         masterId: presignData.masterId,
         fileSize: file.size,
+        ...(albumId ? { albumId } : {}),
       },
     });
 
