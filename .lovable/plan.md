@@ -1,44 +1,32 @@
 
 
-# Add Large File Warning to Bulk Upload
+# Fix Album Filter in Media Library
 
 ## Problem
-Users can select very large video files (100MB+, even 1GB+) without any warning about upload time. This is especially problematic on mobile where bandwidth is limited, but even on desktop with a wired connection, uploading a 1.2GB MOV file takes significant time.
-
-## Solution
-Add a warning toast/banner when files are added to the queue that exceed a size threshold. Two thresholds:
-- **Mobile (iPhone)**: warn at 50MB per file, strongly warn at 200MB
-- **Desktop**: warn at 200MB per file, strongly warn at 500MB
-
-Also show total queue size summary so users understand the full upload commitment.
+The album filter dropdown already exists in the Unified Media Library UI, but it doesn't work correctly. The filtering happens **client-side** on the already-paginated 20-result page (line 383-386 of `UnifiedMediaLibrary.tsx`). If the album's assets aren't on the current page, they won't appear. This needs to be a server-side (Supabase query) filter.
 
 ## Changes
 
-### `src/components/media/BulkUploadTab.tsx`
+### 1. `src/services/unifiedMediaService.ts`
 
-1. **In `addFiles` callback**, after filtering valid files, check for large files:
-   - Calculate total queue size (existing + new)
-   - Identify files over the threshold (50MB mobile / 200MB desktop)
-   - Show a toast warning listing the large file names and estimated upload time
-   - Files are still added to the queue (not blocked), just warned about
+- Add `albumId?: string` to the `SearchFilters` interface
+- In `fetchAllMediaAssets`, apply `.eq('album_id', filters.albumId)` to the Supabase query when the filter is set — this ensures pagination and count are correct
 
-2. **Add a total size summary** above the file list (e.g., "6 files queued — 1.7 GB total") so users can see the total payload at a glance
+### 2. `src/components/media/UnifiedMediaLibrary.tsx`
 
-3. **Show a yellow warning banner** when total queue size exceeds 500MB:
-   ```
-   ⚠ Large upload: 1.7 GB total. This may take several minutes depending on your connection.
-   ```
+- Remove the broken client-side album filter block (lines 383-387) that filters `assetsData` after fetch
+- Instead, pass `selectedAlbumId` into the `filters` object so the service layer handles it server-side
+- Remove the separate `selectedAlbumId` state tracking in the `useEffect` dependency — it will be part of `filters`
+- Keep the existing album dropdown UI as-is (it already looks good)
+- Call `loadAlbums()` after search/filter changes to keep the list fresh (or just on mount, which it already does)
 
-4. **On mobile specifically**, if any single file exceeds 200MB, show a stronger warning suggesting AirDrop to laptop first for faster upload.
-
-### UI additions
-- Total size badge next to "X files queued" heading
-- Conditional yellow `Alert` banner when queue total > 500MB
-- Toast on file add when individual files exceed threshold
+### Result
+Selecting an album will correctly query only assets with that `album_id` from Supabase, with proper pagination and total count.
 
 ## Files Modified
 
 | File | Change |
 |------|--------|
-| `src/components/media/BulkUploadTab.tsx` | Add size threshold warnings, total size display, and conditional alert banner |
+| `src/services/unifiedMediaService.ts` | Add `albumId` to `SearchFilters`, apply `.eq('album_id')` in query |
+| `src/components/media/UnifiedMediaLibrary.tsx` | Remove client-side album filter, pass albumId through filters object |
 
