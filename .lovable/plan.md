@@ -1,63 +1,37 @@
 
 
-# Parse New XML Feed Fields (birthdate, emergencyname, emergencyphone, instagram)
-
-The XML member feed now includes `<birthdate>`, `<emergencyname>`, `<emergencyphone>`, and `<instagram>` tags. These need to be parsed and pre-populated into the application and profile.
+# Replace "Years of Experience" with "Experience Level" Picklist + Parse from Feed
 
 ## Changes
 
 ### 1. `src/services/racerService.ts`
-
-**Add new fields to `RacerMember` interface:**
-- `birthdate?: string`
-- `emergencyname?: string`
-- `emergencyphone?: string`
-- `instagram?: string`
-
-**Update `parseRacerMemberXml`:**
-- `birthdate: get('birthdate')`
-- `emergencyname: getAny('emergencyname', 'Emergency_Contact_Name__c')`
-- `emergencyphone: getAny('emergencyphone', 'Emergency_Contact_Phone__c')`
-- `instagram: getAny('instagram', 'Instagram')`
-
-**Update `updateRacerProfile`:**
-- Add `dob`, `emergencyContactName`, `emergencyContactPhone` to the accepted data shape
-- Map: `date_Birthdate`, `string_Emergency_Contact_Name__c`, `phone_Emergency_Contact_Phone__c`
+- Add `experiencelevel?: string` to `RacerMember` interface
+- Parse `experiencelevel` in `parseRacerMemberXml` via `get('experiencelevel')`
 
 ### 2. `src/pages/racer/RacerApplication.tsx`
 
-**Pre-populate new fields from profile (line 37-54 area):**
-- `dob: parsed.birthdate || ''`
-- `emergencyContactName: parsed.emergencyname || ''`
-- `emergencyContactPhone: parsed.emergencyphone || ''`
+**Pre-populate from feed (line ~57 area):**
+- Add `experienceLevel: parsed.experiencelevel || ''` to `profileDefaults`
 
-These fields already exist in the form UI but are not currently pre-populated from the feed.
+**Replace field in Step 1 UI (lines 263-265):**
+- Remove the `<Input type="number">` for "Years of Racing Experience"
+- Replace with a `<Select>` dropdown labeled "Experience Level" with four options:
+  - Beginner (0-2 years)
+  - Intermediate (3-5 years)
+  - Advanced (6-10 years)
+  - Professional (10+ years)
+- Bind to `formData.experienceLevel` via `updateField`
 
-### 3. `src/pages/racer/RacerProfile.tsx`
+**Update SFDC mapping (line 98):**
+- Change `formData.yearsExperience` / `string_Years_of_Experience__c` to `formData.experienceLevel` / `string_Experience_Level__c`
 
-**Add DOB and Emergency Contact display/edit fields:**
-- Add `dob`, `emergencyContactName`, `emergencyContactPhone` to `formData` state
-- Pre-populate from `parsed.birthdate`, `parsed.emergencyname`, `parsed.emergencyphone`
-- Add a "Safety & Emergency" card with Date of Birth, Emergency Contact Name, Emergency Contact Phone fields
-- Include these fields in `handleSave` and `handleCancel`
-- Update the `updateRacerProfile` call to pass the new fields
-
-### 4. `src/utils/applicationProgress.ts` (optional)
-
-**Add Instagram platform** since the feed now includes it:
-- Add `instagram: { prefix: 'instagram.com/', base: 'https://instagram.com/' }` to `SOCIAL_PLATFORMS`
-
-### 5. Application + Profile: Add Instagram field
-
-- Add Instagram `SocialHandleInput` to both the application Step 0 and the Profile social media card
-- Add `instagram` to `RacerMember` parsing, profile formData, and SFDC mapping (`url_Instagram__c` or similar)
+### 3. Import
+- Add `Select, SelectContent, SelectItem, SelectTrigger, SelectValue` imports to `RacerApplication.tsx`
 
 ## Files Modified
 
 | File | Change |
 |------|--------|
-| `src/services/racerService.ts` | Add `birthdate`, `emergencyname`, `emergencyphone`, `instagram` to interface + XML parser + updateRacerProfile |
-| `src/pages/racer/RacerApplication.tsx` | Pre-populate `dob`, `emergencyContactName`, `emergencyContactPhone`, add Instagram field + SFDC mapping |
-| `src/pages/racer/RacerProfile.tsx` | Add DOB + emergency contact + Instagram fields to profile form, save, and cancel logic |
-| `src/utils/applicationProgress.ts` | Add `instagram` to `SOCIAL_PLATFORMS` |
+| `src/services/racerService.ts` | Add `experiencelevel` to interface + XML parser |
+| `src/pages/racer/RacerApplication.tsx` | Replace years input with Experience Level select; pre-populate from feed; update SFDC field name |
 
