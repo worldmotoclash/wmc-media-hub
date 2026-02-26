@@ -377,14 +377,12 @@ export const UnifiedMediaLibrary: React.FC = () => {
     try {
       setIsFiltering(true);
       const offset = (currentPage - 1) * pageSize;
-      const filtersWithScope = { ...filters, searchScope };
-      let { assets: assetsData, total } = await fetchAllMediaAssets(searchQuery, filtersWithScope, pageSize, offset, sortOption);
-      
-      // Client-side album filter (album_id not in the service layer yet)
-      if (selectedAlbumId && selectedAlbumId !== 'all') {
-        assetsData = assetsData.filter((a: any) => a.album_id === selectedAlbumId);
-        total = assetsData.length;
-      }
+      const filtersWithScope: SearchFilters = {
+        ...filters,
+        searchScope,
+        albumId: selectedAlbumId && selectedAlbumId !== 'all' ? selectedAlbumId : undefined,
+      };
+      const { assets: assetsData, total } = await fetchAllMediaAssets(searchQuery, filtersWithScope, pageSize, offset, sortOption);
       
       setAssets(assetsData);
       setTotalAssets(total);
