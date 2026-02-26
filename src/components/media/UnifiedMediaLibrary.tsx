@@ -61,6 +61,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isFiltering, setIsFiltering] = useState(false);
   const [searchQuery, setSearchQuery] = useState(initialSearch);
+  const [pendingSearch, setPendingSearch] = useState(initialSearch);
   const [selectedAsset, setSelectedAsset] = useState<MediaAsset | null>(null);
   const [showWorkflowDialog, setShowWorkflowDialog] = useState(false);
   const [workflowAsset, setWorkflowAsset] = useState<MediaAsset | null>(null);
@@ -265,18 +266,14 @@ export const UnifiedMediaLibrary: React.FC = () => {
     setBrokenThumbnails(new Set());
   }, [searchQuery, filters, sortOption, currentPage]);
 
+  const handleSearch = () => {
+    setSearchQuery(pendingSearch);
+    setCurrentPage(1);
+  };
+
   useEffect(() => {
-    // Only search/load assets when on library tab
     if (activeTab !== 'library') return;
-
-    // Require at least 3 characters before searching, or empty to show all
-    if (searchQuery.length > 0 && searchQuery.length < 3) return;
-    
-    const delayedSearch = setTimeout(() => {
-      searchAssets();
-    }, 400);
-
-    return () => clearTimeout(delayedSearch);
+    searchAssets();
   }, [searchQuery, filters, sortOption, activeTab, currentPage, searchScope, selectedAlbumId]);
 
   // Fetch variant counts on mount
@@ -602,11 +599,12 @@ export const UnifiedMediaLibrary: React.FC = () => {
                   </SelectContent>
                 </Select>
                 
-                <div className="flex-1 min-w-[200px]">
+                <div className="flex-1 min-w-[200px] flex gap-2">
                   <Input
-                    placeholder="Search media..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search media… (press Enter)"
+                    value={pendingSearch}
+                    onChange={(e) => setPendingSearch(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
                     className="w-full"
                     autoComplete="off"
                     autoCorrect="off"
@@ -616,6 +614,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     data-1p-ignore
                     data-lpignore="true"
                   />
+                  <Button onClick={handleSearch} size="icon" variant="outline" title="Search">
+                    <Search className="w-4 h-4" />
+                  </Button>
                 </div>
                 
                 {/* Sort Dropdown */}
