@@ -1,37 +1,38 @@
 
 
-# Replace "Years of Experience" with "Experience Level" Picklist + Parse from Feed
+# Add Height, Weight, Place of Birth Fields + LinkedIn Feed Parsing
 
 ## Changes
 
 ### 1. `src/services/racerService.ts`
-- Add `experiencelevel?: string` to `RacerMember` interface
-- Parse `experiencelevel` in `parseRacerMemberXml` via `get('experiencelevel')`
+- Add to `RacerMember` interface: `heightininches?: string`, `weightinlbs?: string`, `placeofbirth?: string`
+- Add to `parseRacerMemberXml`: parse `heightininches`, `weightinlbs`, `placeofbirth` tags
+- Add to `updateRacerProfile` data shape and field mapping:
+  - `string_Height_In_Inches__c`
+  - `string_Weight_in_lbs__c`
+  - `string_Place_of_Birth__c`
+- Note: LinkedIn already parsed as `rie__LinkedIn__c` — confirmed correct per user's SFDC API name
 
 ### 2. `src/pages/racer/RacerApplication.tsx`
+- Pre-populate: `heightInInches`, `weightInLbs`, `placeOfBirth` from feed
+- Add 3 fields to Step 0 Personal Info section (after DOB, before emergency contact):
+  - Height (inches) — numeric input
+  - Weight (lbs) — numeric input
+  - Place of Birth — text input
+- Add SFDC mapping in `getSFDCFieldsForStep` case 0:
+  - `string_Height_In_Inches__c`, `string_Weight_in_lbs__c`, `string_Place_of_Birth__c`
 
-**Pre-populate from feed (line ~57 area):**
-- Add `experienceLevel: parsed.experiencelevel || ''` to `profileDefaults`
-
-**Replace field in Step 1 UI (lines 263-265):**
-- Remove the `<Input type="number">` for "Years of Racing Experience"
-- Replace with a `<Select>` dropdown labeled "Experience Level" with four options:
-  - Beginner (0-2 years)
-  - Intermediate (3-5 years)
-  - Advanced (6-10 years)
-  - Professional (10+ years)
-- Bind to `formData.experienceLevel` via `updateField`
-
-**Update SFDC mapping (line 98):**
-- Change `formData.yearsExperience` / `string_Years_of_Experience__c` to `formData.experienceLevel` / `string_Experience_Level__c`
-
-### 3. Import
-- Add `Select, SelectContent, SelectItem, SelectTrigger, SelectValue` imports to `RacerApplication.tsx`
+### 3. `src/pages/racer/RacerProfile.tsx`
+- Add `heightInInches`, `weightInLbs`, `placeOfBirth` to formData state
+- Pre-populate from `parsed.heightininches`, `parsed.weightinlbs`, `parsed.placeofbirth`
+- Add fields to Safety & Emergency card (Place of Birth after DOB; Height + Weight in a row)
+- Update `handleCancel`, `handleSave`, and sessionStorage sync
 
 ## Files Modified
 
 | File | Change |
 |------|--------|
-| `src/services/racerService.ts` | Add `experiencelevel` to interface + XML parser |
-| `src/pages/racer/RacerApplication.tsx` | Replace years input with Experience Level select; pre-populate from feed; update SFDC field name |
+| `src/services/racerService.ts` | Add 3 fields to interface, XML parser, and updateRacerProfile |
+| `src/pages/racer/RacerApplication.tsx` | Pre-populate + add UI fields + SFDC mapping for height/weight/place of birth |
+| `src/pages/racer/RacerProfile.tsx` | Add 3 fields to form state, display, save, and cancel logic |
 
