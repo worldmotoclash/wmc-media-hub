@@ -26,6 +26,7 @@ const RacerApplication: React.FC = () => {
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [racingLicensesAlbumId, setRacingLicensesAlbumId] = useState<string | null>(null);
   const [racerBikesAlbumId, setRacerBikesAlbumId] = useState<string | null>(null);
+  const [racerAuditionsAlbumId, setRacerAuditionsAlbumId] = useState<string | null>(null);
   const albumLookupDone = useRef(false);
 
   useEffect(() => {
@@ -95,12 +96,14 @@ const RacerApplication: React.FC = () => {
     };
 
     (async () => {
-      const [licensesId, bikesId] = await Promise.all([
+      const [licensesId, bikesId, auditionsId] = await Promise.all([
         findOrCreateAlbum('Racing Licenses', 'Racing license images submitted by racers'),
         findOrCreateAlbum('Racer Bikes', 'Motorcycle photos submitted by racers'),
+        findOrCreateAlbum('Racer Auditions', 'Audition videos submitted by racers'),
       ]);
       if (licensesId) setRacingLicensesAlbumId(licensesId);
       if (bikesId) setRacerBikesAlbumId(bikesId);
+      if (auditionsId) setRacerAuditionsAlbumId(auditionsId);
     })();
   }, []);
 
@@ -426,6 +429,7 @@ const RacerApplication: React.FC = () => {
               racerName={racer.name}
               racerContactId={racer.id}
               category="Audition Video"
+              albumId={racerAuditionsAlbumId || undefined}
               accept="video/mp4,video/quicktime"
               label="Upload audition video"
               onUploadComplete={() => updateField('auditionVideoUploaded', 'true')}
