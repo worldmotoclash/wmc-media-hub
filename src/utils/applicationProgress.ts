@@ -23,6 +23,9 @@ export const extractHandle = (platform: SocialPlatform, value: string): string =
     }
   }
 
+  // Strip leading slashes or bare path prefixes like "/in/"
+  cleaned = cleaned.replace(/^\/+/, '');
+
   // Remove trailing slashes
   return cleaned.replace(/\/+$/, '');
 };
