@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback, useEffect, useId } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,12 +47,16 @@ const formatSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+const ACCEPT_MIME = "image/jpeg,image/png,image/heic,image/heif,image/webp,video/mp4,video/quicktime,audio/mpeg,audio/mp4,audio/wav";
+
 export const BulkUploadTab: React.FC = () => {
   const { user } = useUser();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uniqueId = useId();
+  const inputId = `bulk-upload-${uniqueId}`;
 
   const [albumName, setAlbumName] = useState('');
   const [albumDescription, setAlbumDescription] = useState('');
@@ -349,31 +353,31 @@ export const BulkUploadTab: React.FC = () => {
         {/* Dropzone */}
         {isMobile ? (
           <div className={`space-y-3 ${isUploading ? 'pointer-events-none opacity-50' : ''}`}>
-            <Button
-              size="lg"
-              className="w-full h-20 text-lg gap-3"
-              onClick={() => fileInputRef.current?.click()}
+            <label
+              htmlFor={inputId}
+              className="flex items-center justify-center gap-3 w-full h-20 text-lg font-medium rounded-md bg-primary text-primary-foreground cursor-pointer"
             >
               <Camera className="w-6 h-6" />
               Select from Camera Roll
-            </Button>
+            </label>
             <input
+              id={inputId}
               ref={fileInputRef}
               type="file"
               multiple
-              accept="image/*,video/*,audio/*"
-              className="hidden"
+              accept={ACCEPT_MIME}
+              className="sr-only"
               onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }}
             />
           </div>
         ) : (
           <>
-            <div
+            <label
+              htmlFor={!isUploading ? inputId : undefined}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              onClick={() => !isUploading && fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors block ${
                 isDragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'
               } ${isUploading ? 'pointer-events-none opacity-50' : ''}`}
             >
@@ -382,15 +386,16 @@ export const BulkUploadTab: React.FC = () => {
               <p className="text-sm text-muted-foreground mt-1">
                 Supports images, videos, and audio — drag from Finder or use the button below
               </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/*,video/*,audio/*"
-                className="hidden"
-                onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }}
-              />
-            </div>
+            </label>
+            <input
+              id={inputId}
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={ACCEPT_MIME}
+              className="sr-only"
+              onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }}
+            />
             <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
               <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
               <span>
