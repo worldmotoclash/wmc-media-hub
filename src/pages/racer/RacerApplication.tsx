@@ -51,6 +51,10 @@ const RacerApplication: React.FC = () => {
       facebook: extractHandle('facebook', parsed.facebook || ''),
       twitter: extractHandle('twitter', parsed.twitter || ''),
       tiktok: extractHandle('tiktok', parsed.tiktok || ''),
+      instagram: extractHandle('instagram', parsed.instagram || ''),
+      dob: parsed.birthdate || '',
+      emergencyContactName: parsed.emergencyname || '',
+      emergencyContactPhone: parsed.emergencyphone || '',
     };
 
     setFormData({ ...profileDefaults, ...saved });
@@ -85,6 +89,7 @@ const RacerApplication: React.FC = () => {
         if (formData.facebook) fields['url_rie__Facebook__c'] = formData.facebook;
         if (formData.twitter) fields['url_rie__Twitter__c'] = formData.twitter;
         if (formData.tiktok) fields['url_rie__TikTok__c'] = formData.tiktok;
+        if (formData.instagram) fields['url_Instagram__c'] = formData.instagram;
         if (formData.dob) fields['date_Birthdate'] = formData.dob;
         if (formData.emergencyContactName) fields['string_Emergency_Contact_Name__c'] = formData.emergencyContactName;
         if (formData.emergencyContactPhone) fields['phone_Emergency_Contact_Phone__c'] = formData.emergencyContactPhone;
@@ -244,6 +249,10 @@ const RacerApplication: React.FC = () => {
               <div className="space-y-2">
                 <Label>TikTok</Label>
                 <SocialHandleInput platform="tiktok" value={formData.tiktok || ''} onChange={(v) => updateField('tiktok', v)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Instagram</Label>
+                <SocialHandleInput platform="instagram" value={formData.instagram || ''} onChange={(v) => updateField('instagram', v)} />
               </div>
             </div>
           </div>
