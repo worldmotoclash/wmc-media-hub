@@ -1,50 +1,56 @@
 
 
-# Add Aspect Ratio Filter as Picklist
+# Fix: VEO 3.0 Returns Base64 Video, Not a URL
 
-## Changes
+## Root Cause
 
-### File 1: `src/services/unifiedMediaService.ts` — `SearchFilters` interface (~line 96)
+The VEO 3.0 API returned the generated video as **base64-encoded data** (`bytesBase64Encoded`) inside `response.videos[0]`, but the `findVideoUrlInResponse` function only searches for URL/URI string fields. It never checks for base64 video data, so it reports "no video URL found" even though the video was successfully generated.
 
-Add `aspectRatio?: string` field after `moods`.
-
-### File 2: `src/services/unifiedMediaService.ts` — `fetchAllMediaAssets` (~line 224, after moods filter)
-
-Add filter logic:
-```typescript
-if (filters?.aspectRatio) {
-  query = query.eq('metadata->sfdcAnalysis->>aspectRatio', filters.aspectRatio);
+From the logs, the actual response structure is:
+```json
+{
+  "done": true,
+  "response": {
+    "videos": [
+      { "bytesBase64Encoded": "AAAAIGZ0eXBpc29t..." }
+    ]
+  }
 }
 ```
 
-### File 3: `src/components/media/UnifiedMediaLibrary.tsx` — After the Asset Type filter block (~line 858)
+## Fix (single file)
 
-Add an "Aspect Ratio" picklist using the `Select` component, placed directly below the Asset Type section:
+### `supabase/functions/generate-veo-video/index.ts`
 
-```tsx
-{/* Aspect Ratio Filter */}
-<div className="space-y-2 mt-3">
-  <label className="text-sm font-medium block">Aspect Ratio</label>
-  <Select
-    value={filters.aspectRatio || 'all'}
-    onValueChange={(v) => handleFilterChange('aspectRatio', v === 'all' ? undefined : v)}
-  >
-    <SelectTrigger className="h-8 text-sm">
-      <SelectValue placeholder="All ratios" />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="all">All</SelectItem>
-      {ASPECT_RATIOS.map(r => (
-        <SelectItem key={r} value={r}>{r.replace('x', ':')}</SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-</div>
+**1. Update the polling section (~line 473-498):** After calling `findVideoUrlInResponse`, add a fallback check for `bytesBase64Encoded` in `response.videos[0]`. If found, decode the base64 data, upload it to Supabase storage (`generated-videos` bucket), and use the resulting public URL as `videoUrl`.
+
+```typescript
+// After findVideoUrlInResponse returns null, check for base64 video
+if (!videoUrl) {
+  const base64Video = opData?.response?.videos?.[0]?.bytesBase64Encoded;
+  if (base64Video && typeof base64Video === 'string') {
+    console.log('📦 Found base64-encoded video, decoding and uploading...');
+    const binaryStr = atob(base64Video);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    const fileName = `veo-${generationId}-${Date.now()}.mp4`;
+    const filePath = `generated/${fileName}`;
+    const { error: uploadError } = await supabaseClient.storage
+      .from('generated-videos')
+      .upload(filePath, bytes, { contentType: 'video/mp4', upsert: false });
+    if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+    const { data: urlData } = supabaseClient.storage
+      .from('generated-videos')
+      .getPublicUrl(filePath);
+    videoUrl = urlData?.publicUrl || null;
+    console.log('✅ Base64 video uploaded, URL:', videoUrl);
+  }
+}
 ```
 
-Import `ASPECT_RATIOS` from `@/constants/salesforceFields`.
+**2. Also add `bytesBase64Encoded` to `findVideoUrlInResponse`** as a secondary signal -- if the field exists and is a long string, log it so the caller knows base64 data is available (handled by the new code above).
 
-### File 4: `src/components/media/UnifiedMediaLibrary.tsx` — `clearAllFilters` and active filter count
-
-Include `aspectRatio: undefined` in the clear-all logic and count it in the active filter badge.
+No database changes required. No new secrets needed.
 
