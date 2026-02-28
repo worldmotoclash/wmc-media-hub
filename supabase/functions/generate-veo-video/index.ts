@@ -485,7 +485,32 @@ async function startVeoGeneration(generationId: string, generationData: any, pro
         if (videoUrl) {
           console.log('✅ Found video URL:', videoUrl);
         } else {
-          console.warn('⚠️ No video URL found in response structure');
+          console.warn('⚠️ No video URL found in response structure, checking for base64 video data...');
+          
+          // VEO 3.0 returns base64-encoded video data instead of a URL
+          const base64Video = opData?.response?.videos?.[0]?.bytesBase64Encoded;
+          if (base64Video && typeof base64Video === 'string' && base64Video.length > 100) {
+            console.log(`📦 Found base64-encoded video (${Math.round(base64Video.length * 0.75 / 1024 / 1024)} MB), decoding and uploading...`);
+            const binaryStr = atob(base64Video);
+            const bytes = new Uint8Array(binaryStr.length);
+            for (let i = 0; i < binaryStr.length; i++) {
+              bytes[i] = binaryStr.charCodeAt(i);
+            }
+            const fileName = `veo-${generationId}-${Date.now()}.mp4`;
+            const filePath = `generated/${fileName}`;
+            const { error: uploadError } = await supabaseClient.storage
+              .from('generated-videos')
+              .upload(filePath, bytes, { contentType: 'video/mp4', upsert: false });
+            if (uploadError) {
+              console.error('❌ Failed to upload base64 video:', uploadError);
+              throw new Error(`Base64 video upload failed: ${uploadError.message}`);
+            }
+            const { data: urlData } = supabaseClient.storage
+              .from('generated-videos')
+              .getPublicUrl(filePath);
+            videoUrl = urlData?.publicUrl || null;
+            console.log('✅ Base64 video uploaded successfully, URL:', videoUrl);
+          }
         }
         break;
       }
