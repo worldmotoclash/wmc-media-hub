@@ -1,38 +1,31 @@
 
-Root cause of what you’re still seeing:
 
-1) The exact bug we fixed is no longer creating new duplicates.
-- I checked for `local_upload` + `s3_bucket` rows sharing the same `s3_key`: `0` remaining.
-- I checked duplicate keys created recently (after 2026-03-01): none.
+# Fix: Deduplicate DB + Salesforce Assets in Unified Media Library
 
-2) You still have a large backlog of older duplicate rows from earlier scans.
-- `media_assets` currently has many historical duplicate keys, mostly `s3_bucket` records (thousands), with repeated inserts around 2026-02-04.
-- These are legacy duplicates that were not targeted by the previous cleanup (which only removed `local_upload` vs `s3_bucket` collisions).
+## Problem
+The Unified Media Library combines database assets and Salesforce API assets without deduplication. When a file is uploaded (creating a DB record) and then synced to Salesforce (adding a `salesforce_id` to that DB record), the same content appears twice:
+- Once from the DB query (the `local_upload` record with `salesforce_id`)
+- Once from the Salesforce API response (the SFDC record)
 
-3) In the screenshot, some “duplicates” are same title, different files.
-- Example: `"New poster mountains no snow"` appears as multiple `local_upload` records with different `s3_key` values, so those are separate uploads, not scanner collisions.
+The left card in your screenshot is the Salesforce API version; the right card is the database version.
 
-Implementation plan:
+## Fix
 
-1. Run a second cleanup migration for historical S3-only duplicates
-- Keep one canonical row per key (prefer newest, or prefer non-`s3_bucket` when mixed).
-- Delete extra rows where the dedupe key matches:
-  - `coalesce(nullif(s3_key,''), nullif(source_id,''), nullif(file_url,''))`
+**File: `src/services/unifiedMediaService.ts`** (~line 430-432)
 
-2. Add DB-level guardrails to prevent re-introduction
-- Add a partial unique index for scanned rows (e.g., `source='s3_bucket'`) on normalized key so same scanned object cannot be inserted multiple times.
-- Keep it partial so legitimate multi-source records still work.
+After fetching both DB assets and Salesforce assets, deduplicate before combining:
+- Collect all `salesforceId` values from the DB assets into a Set
+- Filter Salesforce assets to exclude any whose `sourceId` (Salesforce record ID) is already represented by a DB asset
+- This ensures that synced assets only appear once (as the richer DB version with tags, description, etc.)
 
-3. Make scanner writes idempotent at write-time
-- Change scanner insert path to `upsert` using the same conflict key used by the unique index.
-- This makes repeated scans safe even under retries.
+```text
+DB assets (with salesforce_id) ──┐
+                                 ├──► Deduplicated combined list
+Salesforce API assets ───────────┘
+  (exclude if salesforceId already in DB set)
+```
 
-4. Optional UX clarity improvement
-- Show `s3_key` (or short key hash) in details so “same title but different file” is obvious.
-- Optional “Group by title” toggle to reduce visual confusion without deleting valid rows.
+**Single change location**: `fetchAllMediaAssets()` function, right before the `const allAssets = [...]` line. Add ~5 lines to filter out Salesforce duplicates.
 
-Technical details:
-- Current data indicates two separate categories:
-  - Legacy true duplicates (same file key, multiple rows): needs cleanup.
-  - Intentional/valid repeats (same title, different key): keep unless you want title-based dedupe rules.
-- I can prepare the exact migration and scanner update in the next step.
+No database changes needed.
+
