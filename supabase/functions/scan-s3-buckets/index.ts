@@ -475,19 +475,8 @@ serve(async (req) => {
               let assetId: string | null = null;
               let isNewAsset = false;
 
-            // Fallback: check s3_key to avoid duplicating records created by upload-master-to-s3
-            if (!existingAsset?.id) {
-              const { data: byS3Key } = await supabase
-                .from('media_assets')
-                .select('id')
-                .eq('s3_key', obj.Key)
-                .maybeSingle();
-              if (byS3Key) {
-                skippedMedia++;
-                continue;
-              }
-            }
-
+            // Use upsert keyed on s3_key (partial unique index for source='s3_bucket')
+            // This handles both new inserts and updates idempotently
             if (existingAsset?.id) {
                 const { error } = await supabase.from('media_assets').update(assetData).eq('id', existingAsset.id);
                 if (!error) {
@@ -498,12 +487,32 @@ serve(async (req) => {
                   failedMedia++;
                 }
               } else {
-                const { data: newAsset, error } = await supabase.from('media_assets').insert(assetData).select('id').single();
+                // Check for existing record by s3_key first (covers local_upload records)
+                const { data: byS3Key } = await supabase
+                  .from('media_assets')
+                  .select('id')
+                  .eq('s3_key', obj.Key)
+                  .maybeSingle();
+
+                if (byS3Key) {
+                  skippedMedia++;
+                  continue;
+                }
+
+                const { data: newAsset, error } = await supabase
+                  .from('media_assets')
+                  .upsert(assetData, { onConflict: 's3_key', ignoreDuplicates: true })
+                  .select('id')
+                  .single();
+
                 if (!error && newAsset) {
                   newMedia++;
                   assetId = newAsset.id;
                   isNewAsset = true;
                   console.log(`[SCAN] Imported new asset: ${obj.Key}`);
+                } else if (error?.code === '23505') {
+                  // Unique violation - already exists, skip
+                  skippedMedia++;
                 } else {
                   console.error(`[DB] Insert error for ${obj.Key}:`, error?.message);
                   failedMedia++;
