@@ -475,7 +475,20 @@ serve(async (req) => {
               let assetId: string | null = null;
               let isNewAsset = false;
 
-              if (existingAsset?.id) {
+            // Fallback: check s3_key to avoid duplicating records created by upload-master-to-s3
+            if (!existingAsset?.id) {
+              const { data: byS3Key } = await supabase
+                .from('media_assets')
+                .select('id')
+                .eq('s3_key', obj.Key)
+                .maybeSingle();
+              if (byS3Key) {
+                skippedMedia++;
+                continue;
+              }
+            }
+
+            if (existingAsset?.id) {
                 const { error } = await supabase.from('media_assets').update(assetData).eq('id', existingAsset.id);
                 if (!error) {
                   updatedMedia++;
