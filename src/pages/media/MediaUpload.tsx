@@ -1097,7 +1097,7 @@ const MediaUpload: React.FC = () => {
                   <form onSubmit={handleUploadSubmit} className="space-y-6">
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor="url">Video URL (YouTube, Vimeo, etc.)</Label>
+                        <Label htmlFor="url"><Label htmlFor="url">Media URL (YouTube, Vimeo, etc.)</Label></Label>
                         <Input
                           id="url"
                           type="url"
@@ -1266,7 +1266,7 @@ const MediaUpload: React.FC = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <Label htmlFor="title" className="flex items-center gap-2">
-                            Video Title
+                            Title
                           </Label>
                           <Input
                             id="title"
@@ -1298,7 +1298,7 @@ const MediaUpload: React.FC = () => {
                         </Label>
                         <Textarea
                           id="description"
-                          placeholder="Describe the video content..."
+                          placeholder="Describe the media content..."
                           value={uploadData.description}
                           onChange={(e) => setUploadData({...uploadData, description: e.target.value})}
                           className="mt-2"
@@ -1326,7 +1326,7 @@ const MediaUpload: React.FC = () => {
                           Uploading...
                         </>
                       ) : (
-                        'Upload & Process Video'
+                        'Upload & Process Media'
                       )}
                     </Button>
                   </form>
@@ -1421,7 +1421,7 @@ const MediaUpload: React.FC = () => {
                         <Label htmlFor="description">Description</Label>
                         <Textarea
                           id="description"
-                          placeholder="Describe the video content and context..."
+                          placeholder="Describe the content and context..."
                           value={genData.description}
                           onChange={(e) => setGenData({...genData, description: e.target.value})}
                           className="mt-2"
