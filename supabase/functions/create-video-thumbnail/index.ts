@@ -48,30 +48,7 @@ async function findSalesforceIdByUrl(cdnUrl: string, maxAttempts = 5): Promise<s
       const xmlText = await response.text();
       console.log(`API response length: ${xmlText.length} characters`);
       
-      // Parse XML to find content record with matching URL
-      const escapedUrl = escapeRegExp(cdnUrl);
-      
-      // Try multiple patterns to match the URL
-      const patterns = [
-        // Pattern 1: URL in CDATA
-        new RegExp(`<content>.*?<id>([^<]+)</id>.*?<url><!\\[CDATA\\[${escapedUrl}\\]\\]></url>.*?</content>`, 's'),
-        // Pattern 2: URL without CDATA
-        new RegExp(`<content>.*?<id>([^<]+)</id>.*?<url>${escapedUrl}</url>.*?</content>`, 's'),
-        // Pattern 3: ID after URL (different order)
-        new RegExp(`<content>.*?<url><!\\[CDATA\\[${escapedUrl}\\]\\]></url>.*?<id>([^<]+)</id>.*?</content>`, 's'),
-        new RegExp(`<content>.*?<url>${escapedUrl}</url>.*?<id>([^<]+)</id>.*?</content>`, 's'),
-      ];
-      
-      for (const pattern of patterns) {
-        const match = xmlText.match(pattern);
-        if (match && match[1]) {
-          const salesforceId = match[1].trim();
-          console.log(`Found Salesforce ID: ${salesforceId} (attempt ${attempt})`);
-          return salesforceId;
-        }
-      }
-      
-      // If patterns didn't work, try a simpler approach: find all content blocks and check URLs
+      // Block-isolated search: find all content blocks and check if each contains our URL
       const contentBlocks = xmlText.match(/<content>[\s\S]*?<\/content>/g) || [];
       console.log(`Found ${contentBlocks.length} content blocks, searching for URL match...`);
       

@@ -223,22 +223,8 @@ async function findSalesforceIdByUrl(cdnUrl: string, maxAttempts = 3): Promise<s
       if (!response.ok) continue;
       
       const xmlText = await response.text();
-      const escapedUrl = escapeRegExp(cdnUrl);
       
-      const patterns = [
-        new RegExp(`<content>.*?<id>([^<]+)</id>.*?<url><!\\[CDATA\\[${escapedUrl}\\]\\]></url>.*?</content>`, 's'),
-        new RegExp(`<content>.*?<id>([^<]+)</id>.*?<url>${escapedUrl}</url>.*?</content>`, 's'),
-        new RegExp(`<content>.*?<url><!\\[CDATA\\[${escapedUrl}\\]\\]></url>.*?<id>([^<]+)</id>.*?</content>`, 's'),
-        new RegExp(`<content>.*?<url>${escapedUrl}</url>.*?<id>([^<]+)</id>.*?</content>`, 's'),
-      ];
-      
-      for (const pattern of patterns) {
-        const match = xmlText.match(pattern);
-        if (match && match[1]) {
-          return match[1].trim();
-        }
-      }
-      
+      // Block-isolated search: find all content blocks and check if each contains our URL
       const contentBlocks = xmlText.match(/<content>[\s\S]*?<\/content>/g) || [];
       for (const block of contentBlocks) {
         if (block.includes(cdnUrl)) {

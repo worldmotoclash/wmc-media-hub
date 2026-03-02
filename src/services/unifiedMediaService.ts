@@ -429,11 +429,16 @@ export async function fetchAllMediaAssets(
     }
 
     // Deduplicate: exclude Salesforce API assets that already exist as synced DB records
+    // Match by salesforceId OR by file URL to catch mislinked records
     const dbSalesforceIds = new Set(
       transformedAssets.map(a => a.salesforceId).filter(Boolean)
     );
+    const dbFileUrls = new Set(
+      transformedAssets.map(a => a.fileUrl).filter(Boolean)
+    );
     const uniqueSalesforceAssets = salesforceAssets.filter(
-      a => !a.sourceId || !dbSalesforceIds.has(a.sourceId)
+      a => (!a.sourceId || !dbSalesforceIds.has(a.sourceId)) &&
+           (!a.fileUrl || !dbFileUrls.has(a.fileUrl))
     );
 
     // Combine and sort results (respecting user's sort selection with case-insensitive title sorting)
