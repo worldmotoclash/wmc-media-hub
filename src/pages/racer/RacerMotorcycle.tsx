@@ -51,7 +51,7 @@ const RacerMotorcycle: React.FC = () => {
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Motorcycle Details</h2>
-          <p className="text-muted-foreground text-sm mt-1">Submit your bike specs for race day</p>
+          <p className="text-muted-foreground text-sm mt-1">Submit your bike specs for race day. We realize that your entry may change.</p>
         </div>
 
         <Card className="bg-card border-border">
