@@ -305,6 +305,9 @@ export async function fetchAllMediaAssets(
     
     // Check if we should include Salesforce content based on contentOrigin or sources filters
     const shouldFetchSalesforce = (() => {
+      // Skip Salesforce when filtering by album — Salesforce has no album concept
+      if (filters?.albumId) return false;
+      
       // Skip Salesforce if filtering for database-only asset types (images are DB-only)
       if (filters?.assetTypes?.length) {
         const dbOnlyTypes = ['image', 'master_image', 'image_variant', 'grid_variant', 'generation_master'];

@@ -71,7 +71,13 @@ export interface MediaSourceStats {
   statusCounts: StatusStats;
 }
 
-export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
+export const getMediaSourceStats = async (albumId?: string): Promise<MediaSourceStats> => {
+  // Helper to add album filter to media_assets queries
+  const withAlbumFilter = (query: any) => {
+    if (albumId) return query.eq('album_id', albumId);
+    return query;
+  };
+
   const stats: MediaSourceStats = {
     salesforce: { source: 'Salesforce', count: 0, status: 'error' },
     s3Buckets: [],
@@ -153,11 +159,12 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
     if (bucketConfigs) {
       for (const config of bucketConfigs) {
         // Count media assets from this bucket
-        const { count, error } = await supabase
+        const baseQuery = supabase
           .from('media_assets')
           .select('*', { count: 'exact', head: true })
           .eq('source', 's3_bucket')
           .ilike('source_id', `%${config.bucket_name}%`);
+        const { count, error } = await withAlbumFilter(baseQuery);
 
         stats.s3Buckets.push({
           source: `S3: ${config.name}`,
@@ -170,10 +177,10 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
     }
 
     // Get database assets count (excluding generated videos)
-    const { count: dbAssetsCount } = await supabase
+    const { count: dbAssetsCount } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
-      .neq('source', 'generated');
+      .neq('source', 'generated'));
 
     stats.databaseAssets = {
       source: 'Database Assets',
@@ -196,26 +203,23 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
     };
 
     // Calculate sync health stats
-    // In Sync: has salesforce_id AND has file_url
-    const { count: inSyncCount } = await supabase
+    const { count: inSyncCount } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
       .not('salesforce_id', 'is', null)
-      .not('file_url', 'is', null);
+      .not('file_url', 'is', null));
 
-    // Missing SFDC: has file_url but no salesforce_id
-    const { count: missingSfdcCount } = await supabase
+    const { count: missingSfdcCount } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
       .is('salesforce_id', null)
-      .not('file_url', 'is', null);
+      .not('file_url', 'is', null));
 
-    // Missing File: has salesforce_id but no file_url
-    const { count: missingFileCount } = await supabase
+    const { count: missingFileCount } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
       .not('salesforce_id', 'is', null)
-      .is('file_url', null);
+      .is('file_url', null));
 
     stats.syncHealth = {
       inSync: inSyncCount || 0,
@@ -224,53 +228,49 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
       total: (inSyncCount || 0) + (missingSfdcCount || 0) + (missingFileCount || 0)
     };
 
-    // Calculate content origin stats from database
-    // YouTube count already set from Salesforce API (lines 67-78, 93)
-    
     // AI Generated: source = 'generated'
-    const { count: aiGeneratedCount } = await supabase
+    const { count: aiGeneratedCount } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
-      .eq('source', 'generated');
+      .eq('source', 'generated'));
 
     // Uploaded: source = 'local_upload' OR source = 's3_bucket'
-    const { count: uploadedCount } = await supabase
+    const { count: uploadedCount } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
-      .in('source', ['local_upload', 's3_bucket']);
+      .in('source', ['local_upload', 's3_bucket']));
 
-    // Audio: check file_format for audio types (add to Salesforce audio count)
-    const { count: audioCount } = await supabase
+    // Audio: check file_format for audio types
+    const { count: audioCount } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
-      .or('file_format.ilike.%mp3%,file_format.ilike.%wav%,file_format.ilike.%aac%,file_format.ilike.%m4a%,file_format.ilike.%audio%');
+      .or('file_format.ilike.%mp3%,file_format.ilike.%wav%,file_format.ilike.%aac%,file_format.ilike.%m4a%,file_format.ilike.%audio%'));
 
-    // Preserve YouTube/Audio counts from Salesforce, add database counts for others
     stats.contentOrigin.aiGenerated = aiGeneratedCount || 0;
     stats.contentOrigin.uploaded = uploadedCount || 0;
     stats.contentOrigin.audio += (audioCount || 0);
 
-    // Podcasts: audio assets with metadata.isPodcast = true
-    const { count: podcastCount } = await supabase
+    // Podcasts
+    const { count: podcastCount } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
       .eq('asset_type', 'audio')
-      .eq('metadata->>isPodcast', 'true');
+      .eq('metadata->>isPodcast', 'true'));
 
     stats.contentOrigin.podcasts = podcastCount || 0;
 
     // Get Wasabi (S3) breakdown by media type
-    const { count: wasabiVideos } = await supabase
+    const { count: wasabiVideos } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
       .eq('source', 's3_bucket')
-      .eq('asset_type', 'video');
+      .eq('asset_type', 'video'));
 
-    const { count: wasabiImages } = await supabase
+    const { count: wasabiImages } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
       .eq('source', 's3_bucket')
-      .eq('asset_type', 'image');
+      .eq('asset_type', 'image'));
 
     stats.wasabiBreakdown = {
       videos: wasabiVideos || 0,
@@ -278,20 +278,18 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
       total: (wasabiVideos || 0) + (wasabiImages || 0)
     };
 
-    // Get S3 bucket totals more accurately (all asset types from S3)
-    const { count: totalS3Assets } = await supabase
+    // Get S3 bucket totals more accurately
+    const { count: totalS3Assets } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
-      .eq('source', 's3_bucket');
+      .eq('source', 's3_bucket'));
 
-    // Count all image-type assets from S3 (not just asset_type = 'image')
-    const { count: s3AllImages } = await supabase
+    const { count: s3AllImages } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
       .eq('source', 's3_bucket')
-      .in('asset_type', ['image', 'master_image', 'image_variant', 'grid_variant', 'generation_master']);
+      .in('asset_type', ['image', 'master_image', 'image_variant', 'grid_variant', 'generation_master']));
 
-    // Update wasabi breakdown with accurate counts
     stats.wasabiBreakdown = {
       videos: wasabiVideos || 0,
       images: s3AllImages || wasabiImages || 0,
@@ -299,36 +297,35 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
     };
 
     // Get asset type counts
-    const { count: videoCount } = await supabase
+    const { count: videoCount } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
-      .eq('asset_type', 'video');
+      .eq('asset_type', 'video'));
 
-    const { count: masterCount } = await supabase
+    const { count: masterCount } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
-      .eq('asset_type', 'master_image');
+      .eq('asset_type', 'master_image'));
 
-    const { count: imageVariantCount } = await supabase
+    const { count: imageVariantCount } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
-      .eq('asset_type', 'image_variant');
+      .eq('asset_type', 'image_variant'));
 
-    const { count: gridVariantCount } = await supabase
+    const { count: gridVariantCount } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
-      .eq('asset_type', 'grid_variant');
+      .eq('asset_type', 'grid_variant'));
 
-    const { count: generationMasterCount } = await supabase
+    const { count: generationMasterCount } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
-      .eq('asset_type', 'generation_master');
+      .eq('asset_type', 'generation_master'));
 
-    // Count standard images (plain 'image' type - not masters, variants, or grids)
-    const { count: standardImageCount } = await supabase
+    const { count: standardImageCount } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
-      .eq('asset_type', 'image');
+      .eq('asset_type', 'image'));
 
     const variantsTotal = (imageVariantCount || 0) + (gridVariantCount || 0);
     const allImagesTotal = (masterCount || 0) + variantsTotal + (generationMasterCount || 0) + (standardImageCount || 0);
@@ -343,20 +340,20 @@ export const getMediaSourceStats = async (): Promise<MediaSourceStats> => {
     };
 
     // Get status counts
-    const { count: pendingCount } = await supabase
+    const { count: pendingCount } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending');
+      .eq('status', 'pending'));
 
-    const { count: approvedCount } = await supabase
+    const { count: approvedCount } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
-      .eq('status', 'approved');
+      .eq('status', 'approved'));
 
-    const { count: rejectedCount } = await supabase
+    const { count: rejectedCount } = await withAlbumFilter(supabase
       .from('media_assets')
       .select('*', { count: 'exact', head: true })
-      .eq('status', 'rejected');
+      .eq('status', 'rejected'));
 
     stats.statusCounts = {
       pending: pendingCount || 0,
