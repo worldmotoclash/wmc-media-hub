@@ -1918,6 +1918,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
         onOpenChange={setShowFilterDrawer}
         filters={filters}
         onFilterChange={handleBatchFilterChange}
+        availableTags={tags}
       />
     </div>
     </div>
