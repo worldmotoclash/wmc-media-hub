@@ -5,9 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, FolderOpen, FileVideo, MapPin, Palette, X } from "lucide-react";
+import { ChevronDown, FolderOpen, FileVideo, MapPin, Palette, X, Tag } from "lucide-react";
 import {
   SearchFilters,
+  MediaTag,
   APPROVED_LOCATIONS,
   APPROVED_MOODS,
 } from "@/services/unifiedMediaService";
@@ -30,6 +31,7 @@ interface MediaFilterDrawerProps {
   onOpenChange: (open: boolean) => void;
   filters: SearchFilters;
   onFilterChange: (filters: SearchFilters) => void;
+  availableTags?: MediaTag[];
 }
 
 export const MediaFilterDrawer: React.FC<MediaFilterDrawerProps> = ({
@@ -37,9 +39,10 @@ export const MediaFilterDrawer: React.FC<MediaFilterDrawerProps> = ({
   onOpenChange,
   filters,
   onFilterChange,
+  availableTags = [],
 }) => {
   const toggleArrayFilter = (
-    key: 'categories' | 'contentTypes' | 'locations' | 'moods',
+    key: 'categories' | 'contentTypes' | 'locations' | 'moods' | 'tagIds',
     value: string,
     checked: boolean
   ) => {
@@ -50,7 +53,7 @@ export const MediaFilterDrawer: React.FC<MediaFilterDrawerProps> = ({
     onFilterChange({ ...filters, [key]: updated.length > 0 ? updated : undefined });
   };
 
-  const clearSection = (key: 'categories' | 'contentTypes' | 'locations' | 'moods') => {
+  const clearSection = (key: 'categories' | 'contentTypes' | 'locations' | 'moods' | 'tagIds') => {
     onFilterChange({ ...filters, [key]: undefined });
   };
 
@@ -61,6 +64,7 @@ export const MediaFilterDrawer: React.FC<MediaFilterDrawerProps> = ({
       contentTypes: undefined,
       locations: undefined,
       moods: undefined,
+      tagIds: undefined,
     });
   };
 
@@ -68,7 +72,8 @@ export const MediaFilterDrawer: React.FC<MediaFilterDrawerProps> = ({
     (filters.categories?.length || 0) +
     (filters.contentTypes?.length || 0) +
     (filters.locations?.length || 0) +
-    (filters.moods?.length || 0);
+    (filters.moods?.length || 0) +
+    (filters.tagIds?.length || 0);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -132,6 +137,20 @@ export const MediaFilterDrawer: React.FC<MediaFilterDrawerProps> = ({
               onClear={() => clearSection('moods')}
               scrollable
             />
+
+            {/* Tags Section */}
+            {availableTags.length > 0 && (
+              <FilterSection
+                title="Tags"
+                icon={<Tag className="w-4 h-4" />}
+                items={availableTags.map(t => t.id)}
+                itemLabels={Object.fromEntries(availableTags.map(t => [t.id, t.name]))}
+                selectedItems={filters.tagIds || []}
+                onToggle={(value, checked) => toggleArrayFilter('tagIds', value, checked)}
+                onClear={() => clearSection('tagIds')}
+                scrollable
+              />
+            )}
           </div>
         </ScrollArea>
 
@@ -149,6 +168,7 @@ interface FilterSectionProps {
   title: string;
   icon: React.ReactNode;
   items: string[];
+  itemLabels?: Record<string, string>;
   selectedItems: string[];
   onToggle: (value: string, checked: boolean) => void;
   onClear: () => void;
@@ -159,6 +179,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({
   title,
   icon,
   items,
+  itemLabels,
   selectedItems,
   onToggle,
   onClear,
@@ -213,7 +234,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({
                   htmlFor={`filter-${title}-${item}`}
                   className="text-sm cursor-pointer flex-1"
                 >
-                  {item}
+                  {itemLabels?.[item] || item}
                 </label>
               </div>
             ))}

@@ -99,6 +99,8 @@ export interface SearchFilters {
   searchScope?: 'all' | 'title' | 'title_desc' | 'filepath' | 'metadata';
   // Album filter
   albumId?: string;
+  // Tag-based filtering (by tag IDs)
+  tagIds?: string[];
 }
 
 export interface SortOption {
@@ -231,6 +233,22 @@ export async function fetchAllMediaAssets(
     // Apply album filter
     if (filters?.albumId) {
       query = query.eq('album_id', filters.albumId);
+    }
+
+    // Apply tag filter — find assets that have ANY of the selected tags
+    if (filters?.tagIds?.length) {
+      const { data: tagMatches } = await supabase
+        .from('media_asset_tags')
+        .select('media_asset_id')
+        .in('tag_id', filters.tagIds);
+      
+      const matchingIds = [...new Set((tagMatches || []).map(r => r.media_asset_id))];
+      if (matchingIds.length > 0) {
+        query = query.in('id', matchingIds);
+      } else {
+        // No assets match the selected tags — return empty
+        return { assets: [], total: 0 };
+      }
     }
 
     if (searchQuery) {
