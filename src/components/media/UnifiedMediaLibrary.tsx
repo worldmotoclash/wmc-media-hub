@@ -241,9 +241,11 @@ export const UnifiedMediaLibrary: React.FC = () => {
     }
   }, [activeTab]);
 
-  const loadFilterCounts = async () => {
+  const loadFilterCounts = async (albumFilter?: string) => {
     try {
-      const stats = await getMediaSourceStats();
+      const effectiveAlbumId = albumFilter !== undefined ? albumFilter : 
+        (selectedAlbumId && selectedAlbumId !== 'all' ? selectedAlbumId : undefined);
+      const stats = await getMediaSourceStats(effectiveAlbumId);
       setFilterCounts(stats);
     } catch (error) {
       console.error('Error loading filter counts:', error);
@@ -275,6 +277,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
   useEffect(() => {
     if (activeTab !== 'library') return;
     searchAssets();
+    // Reload filter counts when album changes so sidebar numbers reflect the selected album
+    const albumForStats = selectedAlbumId && selectedAlbumId !== 'all' ? selectedAlbumId : undefined;
+    loadFilterCounts(albumForStats);
   }, [searchQuery, filters, sortOption, activeTab, currentPage, searchScope, selectedAlbumId]);
 
   // Fetch variant counts on mount
