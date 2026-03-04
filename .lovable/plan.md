@@ -1,27 +1,31 @@
 
 
-# Fix: Album Filter Not Reflected in Total Asset Count
+# Add Tag-Based Filtering to Media Library
 
-## Problem
-When you select an album (e.g. "Utah Scout Location February 2026" with 25 items), the "total assets" badge still shows 290 because:
+## Current State
+- Search scopes "All" and "Metadata" already match against tag names in the text search
+- But there's no way to filter by specific tags (e.g., pick "Racer Submission" from a list)
+- The `MediaFilterDrawer` has Category, Content Type, Location, and Mood filters — but no Tags section
 
-1. **Salesforce assets aren't album-aware**: The DB query correctly filters by `album_id`, but Salesforce API assets are fetched separately and never filtered by album. Their count gets added to the total on line 478: `total: (count || 0) + salesforceAssets.length`.
+## Plan
 
-2. **Sidebar filter counts are global**: The `filterCounts` (Video 527, Image 2935, etc.) are loaded once from `getMediaSourceStats()` without any album context, so they always show global numbers.
-
-## Fix
-
-### 1. Skip Salesforce fetch when album filter is active
+### 1. Add `tagIds` to `SearchFilters` type
 **File**: `src/services/unifiedMediaService.ts`
 
-Since Salesforce has no album concept, when `filters.albumId` is set, skip the Salesforce API call entirely (similar to the existing optimization that skips Salesforce for DB-only asset types). This makes the total count accurate — it will only reflect the DB count which is correctly filtered by `album_id`.
+Add an optional `tagIds?: string[]` field to the `SearchFilters` interface.
 
-### 2. Pass album filter to sidebar counts
+### 2. Apply tag filter in the DB query
+**File**: `src/services/unifiedMediaService.ts`
+
+When `filters.tagIds` is set, query `media_asset_tags` to get matching `media_asset_id` values, then filter the main query using `.in('id', matchingIds)`. This ensures only assets with ALL selected tags (or ANY — we can use ANY for better UX) are returned.
+
+### 3. Add Tags section to `MediaFilterDrawer`
+**File**: `src/components/media/MediaFilterDrawer.tsx`
+
+Add a new collapsible "Tags" section that loads available tags from the `media_tags` table (already fetched via `fetchMediaTags()`). Display them as checkboxes like the other filter sections. Pass `tags` as a prop from `UnifiedMediaLibrary`.
+
+### 4. Wire up in `UnifiedMediaLibrary`
 **File**: `src/components/media/UnifiedMediaLibrary.tsx`
 
-Update `loadFilterCounts()` to pass the current `albumId` filter to `getMediaSourceStats()`, so the sidebar numbers (Video, Image, Masters, etc.) reflect the selected album's contents rather than the global library.
-
-**File**: `src/services/mediaSourceStatsService.ts` (or wherever `getMediaSourceStats` lives)
-
-Accept an optional `albumId` parameter and add `.eq('album_id', albumId)` to each count query when present.
+Pass the loaded `tags` array to `MediaFilterDrawer`. Handle `tagIds` filter changes alongside existing filters. Include tag count in the active filter badge.
 
