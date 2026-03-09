@@ -10,10 +10,11 @@ import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { 
-  X, Video, Image, Music, MapPin, Sparkles, Clock, 
-  HardDrive, Calendar, ExternalLink, CheckCircle, AlertTriangle, 
-  Gauge, Link2, Eye, Wand2, Mic, Pencil, Save, Loader2
+  X, Video, Image, Music, MapPin, Sparkles, Clock,
+  HardDrive, Calendar, ExternalLink, CheckCircle, AlertTriangle,
+  Gauge, Link2, Eye, Wand2, Mic, Pencil, Loader2
 } from "lucide-react";
+import { Save } from "lucide-react";
 import { MediaAsset } from "@/services/unifiedMediaService";
 import { AudioToVideoWorkflow } from "./AudioToVideoWorkflow";
 import { supabase } from "@/integrations/supabase/client";
