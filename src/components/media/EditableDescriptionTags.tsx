@@ -62,12 +62,6 @@ const EditableDescriptionTags: React.FC<EditableDescriptionTagsProps> = ({
         <div>
           <div className="flex items-center justify-between mb-2">
             <h4 className="font-semibold text-foreground">Title</h4>
-            {canEdit && !isEditing && (
-              <Button variant="ghost" size="sm" onClick={onStartEditing} className="h-7 px-2 text-xs">
-                <Pencil className="w-3 h-3 mr-1" />
-                Edit
-              </Button>
-            )}
           </div>
           {isEditing ? (
             <Input
