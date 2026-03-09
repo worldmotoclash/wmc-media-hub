@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { 
   X, Video, Image, Music, MapPin, Sparkles, Clock, 
   HardDrive, Calendar, ExternalLink, CheckCircle, AlertTriangle, 
-  Gauge, Link2, Eye, Wand2, Mic
+  Gauge, Link2, Eye, Wand2, Mic, Pencil, Save, Loader2
 } from "lucide-react";
 import { MediaAsset } from "@/services/unifiedMediaService";
 import { AudioToVideoWorkflow } from "./AudioToVideoWorkflow";
@@ -231,15 +231,35 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
         </ScrollArea>
 
         <DrawerFooter className="border-t">
-          <div className="flex flex-col gap-2">
-            {isVideoAsset && asset.fileUrl && (
-              <Button variant="secondary" className="w-full" onClick={() => setAudioToVideoOpen(true)}><Wand2 className="w-4 h-4 mr-2" />Create Video with This Audio</Button>
-            )}
+          {editableFields.isEditing ? (
             <div className="flex gap-2">
-              {asset.fileUrl && <Button variant="outline" className="flex-1" onClick={() => window.open(asset.fileUrl, '_blank')}><ExternalLink className="w-4 h-4 mr-2" />Open File</Button>}
-              <Button className="flex-1" onClick={() => onPreview?.(asset)}><Eye className="w-4 h-4 mr-2" />Preview</Button>
+              <Button className="flex-1" onClick={editableFields.handleSave} disabled={editableFields.isSaving}>
+                {editableFields.isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Save Changes
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={editableFields.cancelEditing} disabled={editableFields.isSaving}>
+                Cancel
+              </Button>
             </div>
-          </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {isVideoAsset && asset.fileUrl && (
+                <Button variant="secondary" className="w-full" onClick={() => setAudioToVideoOpen(true)}><Wand2 className="w-4 h-4 mr-2" />Create Video with This Audio</Button>
+              )}
+              <div className="flex gap-2">
+                {editableFields.canEdit && (
+                  <Button variant="outline" className="flex-1" onClick={editableFields.startEditing}>
+                    <Pencil className="w-4 h-4 mr-2" />Edit Details
+                  </Button>
+                )}
+                {asset.fileUrl && <Button variant="outline" className="flex-1" onClick={() => window.open(asset.fileUrl, '_blank')}><ExternalLink className="w-4 h-4 mr-2" />Open in Browser</Button>}
+                <Button className="flex-1" onClick={() => onPreview?.(asset)}>
+                  <Eye className="w-4 h-4 mr-2" />
+                  {isVideoAsset || isAudioAsset ? 'Play' : 'View Full Size'}
+                </Button>
+              </div>
+            </div>
+          )}
         </DrawerFooter>
       </DrawerContent>
       <AudioToVideoWorkflow isOpen={audioToVideoOpen} onClose={() => setAudioToVideoOpen(false)} preSelectedAudioSource={asset.fileUrl} />

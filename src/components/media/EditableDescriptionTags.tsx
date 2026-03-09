@@ -62,12 +62,6 @@ const EditableDescriptionTags: React.FC<EditableDescriptionTagsProps> = ({
         <div>
           <div className="flex items-center justify-between mb-2">
             <h4 className="font-semibold text-foreground">Title</h4>
-            {canEdit && !isEditing && (
-              <Button variant="ghost" size="sm" onClick={onStartEditing} className="h-7 px-2 text-xs">
-                <Pencil className="w-3 h-3 mr-1" />
-                Edit
-              </Button>
-            )}
           </div>
           {isEditing ? (
             <Input
@@ -88,12 +82,6 @@ const EditableDescriptionTags: React.FC<EditableDescriptionTagsProps> = ({
       <div>
         <div className="flex items-center justify-between mb-2">
           <h4 className="font-semibold text-foreground">Description</h4>
-          {canEdit && !isEditing && localTitle === undefined && (
-            <Button variant="ghost" size="sm" onClick={onStartEditing} className="h-7 px-2 text-xs">
-              <Pencil className="w-3 h-3 mr-1" />
-              Edit
-            </Button>
-          )}
         </div>
         {isEditing ? (
           <Textarea
@@ -197,18 +185,6 @@ const EditableDescriptionTags: React.FC<EditableDescriptionTagsProps> = ({
         )}
       </div>
 
-      {/* Save / Cancel */}
-      {isEditing && (
-        <div className="flex gap-2">
-          <Button size="sm" onClick={onSave} disabled={isSaving}>
-            {isSaving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
-            Save
-          </Button>
-          <Button variant="outline" size="sm" onClick={onCancelEditing} disabled={isSaving}>
-            Cancel
-          </Button>
-        </div>
-      )}
     </div>
   );
 };
