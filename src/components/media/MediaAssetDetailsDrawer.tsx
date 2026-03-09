@@ -248,11 +248,15 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
                 <Button variant="secondary" className="w-full" onClick={() => setAudioToVideoOpen(true)}><Wand2 className="w-4 h-4 mr-2" />Create Video with This Audio</Button>
               )}
               <div className="flex gap-2">
-                {editableFields.canEdit && (
-                  <Button variant="outline" className="flex-1" onClick={editableFields.startEditing}>
-                    <Pencil className="w-4 h-4 mr-2" />Edit Details
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={editableFields.startEditing}
+                  disabled={!editableFields.canEdit}
+                  title={!editableFields.canEdit ? 'This asset cannot be edited (external source)' : undefined}
+                >
+                  <Pencil className="w-4 h-4 mr-2" />Edit Details
+                </Button>
                 {asset.fileUrl && <Button variant="outline" className="flex-1" onClick={() => window.open(asset.fileUrl, '_blank')}><ExternalLink className="w-4 h-4 mr-2" />Open in Browser</Button>}
                 <Button className="flex-1" onClick={() => onPreview?.(asset)}>
                   <Eye className="w-4 h-4 mr-2" />

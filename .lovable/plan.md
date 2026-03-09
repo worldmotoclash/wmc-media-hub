@@ -1,37 +1,31 @@
 
 
-# Fix: Tag Editor Not Visible
+# Add Tag-Based Filtering to Media Library
 
-## Root Cause
+## Current State
+- Search scopes "All" and "Metadata" already match against tag names in the text search
+- But there's no way to filter by specific tags (e.g., pick "Racer Submission" from a list)
+- The `MediaFilterDrawer` has Category, Content Type, Location, and Mood filters — but no Tags section
 
-The "Edit Details" button only renders when `editableFields.canEdit` is `true` (line 251 of `MediaAssetDetailsDrawer.tsx`). `canEdit` is determined by checking if the asset ID is a valid UUID (line 57-60 of `useEditableAssetFields.ts`):
+## Plan
 
-```typescript
-const isValidUUID = (id?: string) =>
-  !!id?.match(/^[0-9a-f]{8}-[0-9a-f]{4}-...$/i);
-const canEdit = isValidUUID(assetId);
-```
+### 1. Add `tagIds` to `SearchFilters` type
+**File**: `src/services/unifiedMediaService.ts`
 
-If any assets have non-UUID IDs (e.g. Salesforce IDs or composite keys), the button is completely hidden with no indication why.
+Add an optional `tagIds?: string[]` field to the `SearchFilters` interface.
 
-## Fix
+### 2. Apply tag filter in the DB query
+**File**: `src/services/unifiedMediaService.ts`
 
-### 1. Always show the Edit Details button
-**File**: `src/components/media/MediaAssetDetailsDrawer.tsx` (line 251)
+When `filters.tagIds` is set, query `media_asset_tags` to get matching `media_asset_id` values, then filter the main query using `.in('id', matchingIds)`. This ensures only assets with ALL selected tags (or ANY — we can use ANY for better UX) are returned.
 
-Remove the `editableFields.canEdit &&` guard. Instead, always render the button but disable it when `canEdit` is false, with a tooltip explaining why:
+### 3. Add Tags section to `MediaFilterDrawer`
+**File**: `src/components/media/MediaFilterDrawer.tsx`
 
-```tsx
-<Button
-  variant="outline"
-  className="flex-1"
-  onClick={editableFields.startEditing}
-  disabled={!editableFields.canEdit}
-  title={!editableFields.canEdit ? 'This asset cannot be edited (external source)' : undefined}
->
-  <Pencil className="w-4 h-4 mr-2" />Edit Details
-</Button>
-```
+Add a new collapsible "Tags" section that loads available tags from the `media_tags` table (already fetched via `fetchMediaTags()`). Display them as checkboxes like the other filter sections. Pass `tags` as a prop from `UnifiedMediaLibrary`.
 
-This ensures users always see the button and understand why it may be unavailable, rather than wondering where the edit functionality went.
+### 4. Wire up in `UnifiedMediaLibrary`
+**File**: `src/components/media/UnifiedMediaLibrary.tsx`
+
+Pass the loaded `tags` array to `MediaFilterDrawer`. Handle `tagIds` filter changes alongside existing filters. Include tag count in the active filter badge.
 
