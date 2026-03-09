@@ -164,6 +164,17 @@ export const useEditableAssetFields = ({
       toast.success('Changes saved');
       setIsEditing(false);
       onAssetUpdated?.();
+
+      // Sync to Salesforce
+      try {
+        await supabase.functions.invoke('sync-asset-to-salesforce', {
+          body: { assetId },
+        });
+        toast.success('Synced to Salesforce');
+      } catch (syncErr) {
+        console.error('SFDC sync error:', syncErr);
+        toast.error('Saved locally but Salesforce sync failed');
+      }
     } catch (err: any) {
       console.error('Save error:', err);
       toast.error('Failed to save changes', { description: err.message });
