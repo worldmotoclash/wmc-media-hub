@@ -1,15 +1,20 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Pencil, Save, X, Plus, Loader2 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Pencil, Save, X, Plus, Loader2, ChevronDown } from 'lucide-react';
 import { MediaTag } from '@/services/unifiedMediaService';
 
 interface EditableDescriptionTagsProps {
+  localTitle?: string;
+  setLocalTitle?: (v: string) => void;
   localDescription: string;
   setLocalDescription: (v: string) => void;
   localTags: MediaTag[];
+  availableTags?: MediaTag[];
   isEditing: boolean;
   isSaving: boolean;
   newTagInput: string;
@@ -19,13 +24,17 @@ interface EditableDescriptionTagsProps {
   onCancelEditing: () => void;
   onRemoveTag: (tagId: string) => void;
   onAddTag: () => void;
+  onAddTagFromExisting?: (tag: MediaTag) => void;
   onSave: () => void;
 }
 
 const EditableDescriptionTags: React.FC<EditableDescriptionTagsProps> = ({
+  localTitle,
+  setLocalTitle,
   localDescription,
   setLocalDescription,
   localTags,
+  availableTags = [],
   isEditing,
   isSaving,
   newTagInput,
@@ -35,15 +44,51 @@ const EditableDescriptionTags: React.FC<EditableDescriptionTagsProps> = ({
   onCancelEditing,
   onRemoveTag,
   onAddTag,
+  onAddTagFromExisting,
   onSave,
 }) => {
+  const [tagPopoverOpen, setTagPopoverOpen] = useState(false);
+
+  // Tags not yet applied to this asset
+  const unusedTags = useMemo(() => {
+    const usedIds = new Set(localTags.map((t) => t.id));
+    return availableTags.filter((t) => !usedIds.has(t.id));
+  }, [availableTags, localTags]);
+
   return (
     <div className="space-y-4">
+      {/* Title */}
+      {localTitle !== undefined && setLocalTitle && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="font-semibold text-foreground">Title</h4>
+            {canEdit && !isEditing && (
+              <Button variant="ghost" size="sm" onClick={onStartEditing} className="h-7 px-2 text-xs">
+                <Pencil className="w-3 h-3 mr-1" />
+                Edit
+              </Button>
+            )}
+          </div>
+          {isEditing ? (
+            <Input
+              value={localTitle}
+              onChange={(e) => setLocalTitle(e.target.value)}
+              placeholder="Asset title..."
+              className="text-sm"
+            />
+          ) : (
+            <p className="text-foreground text-sm font-medium">
+              {localTitle || <span className="italic text-muted-foreground">Untitled</span>}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Description */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <h4 className="font-semibold text-foreground">Description</h4>
-          {canEdit && !isEditing && (
+          {canEdit && !isEditing && localTitle === undefined && (
             <Button variant="ghost" size="sm" onClick={onStartEditing} className="h-7 px-2 text-xs">
               <Pencil className="w-3 h-3 mr-1" />
               Edit
@@ -93,17 +138,61 @@ const EditableDescriptionTags: React.FC<EditableDescriptionTagsProps> = ({
         </div>
         {isEditing && (
           <div className="flex items-center gap-2 mt-2">
-            <Input
-              value={newTagInput}
-              onChange={(e) => setNewTagInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), onAddTag())}
-              placeholder="Add tag..."
-              className="h-8 text-sm flex-1 max-w-[200px]"
-            />
-            <Button variant="outline" size="sm" onClick={onAddTag} className="h-8">
-              <Plus className="w-3 h-3 mr-1" />
-              Add
-            </Button>
+            {/* Tag autocomplete popover */}
+            <Popover open={tagPopoverOpen} onOpenChange={setTagPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 text-sm gap-1">
+                  <Plus className="w-3 h-3" />
+                  Add Tag
+                  <ChevronDown className="w-3 h-3 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[250px] p-0" align="start">
+                <Command>
+                  <CommandInput
+                    placeholder="Search or create tag..."
+                    value={newTagInput}
+                    onValueChange={setNewTagInput}
+                  />
+                  <CommandList>
+                    <CommandEmpty>
+                      {newTagInput.trim() ? (
+                        <button
+                          className="w-full px-3 py-2 text-sm text-left hover:bg-accent flex items-center gap-2"
+                          onClick={() => {
+                            onAddTag();
+                            setTagPopoverOpen(false);
+                          }}
+                        >
+                          <Plus className="w-3 h-3" />
+                          Create "{newTagInput.trim()}"
+                        </button>
+                      ) : (
+                        <span className="text-muted-foreground text-xs p-2">Type to search…</span>
+                      )}
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {unusedTags.map((tag) => (
+                        <CommandItem
+                          key={tag.id}
+                          value={tag.name}
+                          onSelect={() => {
+                            onAddTagFromExisting?.(tag);
+                            setTagPopoverOpen(false);
+                          }}
+                        >
+                          <span
+                            className="w-2.5 h-2.5 rounded-full mr-2 shrink-0"
+                            style={{ backgroundColor: tag.color }}
+                          />
+                          {tag.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
         )}
       </div>
