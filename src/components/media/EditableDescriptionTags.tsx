@@ -185,18 +185,6 @@ const EditableDescriptionTags: React.FC<EditableDescriptionTagsProps> = ({
         )}
       </div>
 
-      {/* Save / Cancel */}
-      {isEditing && (
-        <div className="flex gap-2">
-          <Button size="sm" onClick={onSave} disabled={isSaving}>
-            {isSaving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
-            Save
-          </Button>
-          <Button variant="outline" size="sm" onClick={onCancelEditing} disabled={isSaving}>
-            Cancel
-          </Button>
-        </div>
-      )}
     </div>
   );
 };
