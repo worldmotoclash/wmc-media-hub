@@ -150,11 +150,13 @@ export const GLOBAL_DEFAULTS: SalesforceFieldDefaults = {
 export const CONTEXT_DEFAULTS: Record<string, Partial<SalesforceFieldDefaults>> = {
   'website': {
     contentClass: 'PROMO',
+    contentIntent: 'PROMO',
     aspectRatio: '16x9',
     scene: 'STUDIO',
   },
   'social': {
     contentClass: 'SOCIAL',
+    contentIntent: 'SOCIAL_CLIP',
     aspectRatio: '9x16',
     scene: 'STUDIO',
   },
