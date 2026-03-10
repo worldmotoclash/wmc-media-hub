@@ -141,6 +141,7 @@ export const GLOBAL_DEFAULTS: SalesforceFieldDefaults = {
   scene: 'STUDIO',
   contentType: 'VIDEO',
   generationMethod: 'AI',
+  contentIntent: 'PROMO',
   aspectRatio: '16x9',
   version: 'V1',
 };
