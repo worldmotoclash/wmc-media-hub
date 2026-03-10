@@ -116,6 +116,7 @@ export interface SalesforceFieldDefaults {
   scene: Scene;
   contentType: ContentType;
   generationMethod: GenerationMethod;
+  contentIntent: ContentIntent;
   aspectRatio: AspectRatio;
   version: Version;
 }
