@@ -103,6 +103,7 @@ export type ContentClass = typeof CONTENT_CLASSES[number];
 export type Scene = typeof SCENES[number];
 export type ContentType = typeof CONTENT_TYPES[number];
 export type GenerationMethod = typeof GENERATION_METHODS[number];
+export type ContentIntent = typeof CONTENT_INTENTS[number];
 export type AspectRatio = typeof ASPECT_RATIOS[number];
 export type Version = typeof VERSIONS[number];
 
