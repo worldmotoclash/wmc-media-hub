@@ -312,7 +312,7 @@ serve(async (req) => {
       success: boolean;
       salesforceId?: string;
       error?: string;
-      action?: 'found' | 'created' | 'failed';
+      action?: 'found' | 'created' | 'updated' | 'failed';
     }> = [];
 
     for (const asset of assets) {
