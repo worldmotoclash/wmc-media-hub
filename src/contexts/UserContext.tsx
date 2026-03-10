@@ -27,7 +27,23 @@ export interface UserContextType {
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUserState] = useState<User | null>(() => {
+    try {
+      const stored = localStorage.getItem('wmcUser');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const setUser = (newUser: User | null) => {
+    setUserState(newUser);
+    if (newUser) {
+      localStorage.setItem('wmcUser', JSON.stringify(newUser));
+    } else {
+      localStorage.removeItem('wmcUser');
+    }
+  };
 
   const isAdmin = () => user?.mediaHubAccess === 'Admin';
   const isEditor = () => user?.mediaHubAccess === 'Editor' || user?.mediaHubAccess === 'Admin';
