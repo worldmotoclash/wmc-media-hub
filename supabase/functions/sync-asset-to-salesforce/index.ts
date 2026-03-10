@@ -94,6 +94,46 @@ interface SfdcSyncMetadata {
   contentIntent?: string;
 }
 
+// Update an existing Salesforce Content record via w2x-engine
+async function updateSalesforceRecord(
+  salesforceId: string,
+  title: string,
+  metadata?: SfdcSyncMetadata
+): Promise<boolean> {
+  console.log(`Updating Salesforce record: ${salesforceId} → ${title}`);
+
+  try {
+    const formData = new FormData();
+    formData.append("retURL", "https://worldmotoclash.com");
+    formData.append("sObj", "ri1__Content__c");
+    formData.append("action", "update");
+    formData.append("Id", salesforceId);
+    formData.append("string_Name", title);
+
+    if (metadata?.description) {
+      formData.append("string_ri1__Description__c", metadata.description.substring(0, 32768));
+    }
+    if (metadata?.categories && metadata.categories.length > 0) {
+      formData.append("string_ri1__Categories__c", metadata.categories.join(";"));
+    }
+    if (metadata?.contentIntent) {
+      formData.append("string_ri1__Content_Intent__c", metadata.contentIntent);
+    }
+
+    const response = await fetch(W2X_ENGINE_URL, {
+      method: "POST",
+      body: formData,
+    });
+
+    const responseText = await response.text();
+    console.log(`w2x-engine update response: ${response.status} – ${responseText.substring(0, 300)}`);
+    return response.ok;
+  } catch (error) {
+    console.error("Error updating Salesforce record:", error);
+    return false;
+  }
+}
+
 // Create a new Salesforce Content record via w2x-engine with comprehensive fields
 async function createSalesforceRecord(
   title: string, 
