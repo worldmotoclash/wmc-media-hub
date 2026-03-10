@@ -123,7 +123,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
           </div>
         </DrawerHeader>
 
-        <ScrollArea className="flex-1 p-4 max-h-[60vh]">
+        <div className="flex-1 p-4 min-h-0 overflow-y-auto">
           <div className="space-y-6">
             {/* Thumbnail Preview */}
             {(asset.thumbnailUrl || asset.fileUrl) && (
