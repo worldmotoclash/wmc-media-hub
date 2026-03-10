@@ -241,7 +241,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
               </div>
             </div>
           </div>
-        </ScrollArea>
+        </div>
 
         <DrawerFooter className="border-t">
           {editableFields.isEditing ? (
