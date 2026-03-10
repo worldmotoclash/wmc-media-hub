@@ -175,6 +175,10 @@ async function createSalesforceRecord(
       formData.append("lookup_ri1__Contact__c", metadata.creatorContactId);
       console.log(`Linking content to creator Contact: ${metadata.creatorContactId}`);
     }
+    // Content Intent - workflow classification
+    if (metadata?.contentIntent) {
+      formData.append("string_ri1__Content_Intent__c", metadata.contentIntent);
+    }
     
     console.log("SFDC sync metadata fields:", {
       hasPrompt: !!metadata?.prompt,
