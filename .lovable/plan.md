@@ -1,37 +1,31 @@
 
 
-# Sync Tags to Salesforce as Categories
+# Add Tag-Based Filtering to Media Library
 
 ## Current State
-- **Description**: Synced via `ri1__Description__c` — working correctly.
-- **Tags**: NOT synced. The edge function never queries `media_asset_tags` or `media_tags`. The `categories` field exists in the SFDC mapping but only reads from `asset.metadata.categories`, which is rarely populated.
+- Search scopes "All" and "Metadata" already match against tag names in the text search
+- But there's no way to filter by specific tags (e.g., pick "Racer Submission" from a list)
+- The `MediaFilterDrawer` has Category, Content Type, Location, and Mood filters — but no Tags section
 
-## Fix
+## Plan
 
-### File: `supabase/functions/sync-asset-to-salesforce/index.ts`
+### 1. Add `tagIds` to `SearchFilters` type
+**File**: `src/services/unifiedMediaService.ts`
 
-After fetching each asset from `media_assets`, add a query to fetch its tags from the join table:
+Add an optional `tagIds?: string[]` field to the `SearchFilters` interface.
 
-```typescript
-// After fetching the asset, before building syncMetadata:
-const { data: tagRows } = await supabase
-  .from('media_asset_tags')
-  .select('tag_id, media_tags(name)')
-  .eq('media_asset_id', asset.id);
+### 2. Apply tag filter in the DB query
+**File**: `src/services/unifiedMediaService.ts`
 
-const tagNames = (tagRows || [])
-  .map((r: any) => r.media_tags?.name)
-  .filter(Boolean);
-```
+When `filters.tagIds` is set, query `media_asset_tags` to get matching `media_asset_id` values, then filter the main query using `.in('id', matchingIds)`. This ensures only assets with ALL selected tags (or ANY — we can use ANY for better UX) are returned.
 
-Then include `tagNames` in the `syncMetadata.categories` field:
+### 3. Add Tags section to `MediaFilterDrawer`
+**File**: `src/components/media/MediaFilterDrawer.tsx`
 
-```typescript
-categories: tagNames.length > 0 ? tagNames : assetMetadata.categories,
-```
+Add a new collapsible "Tags" section that loads available tags from the `media_tags` table (already fetched via `fetchMediaTags()`). Display them as checkboxes like the other filter sections. Pass `tags` as a prop from `UnifiedMediaLibrary`.
 
-This maps tags to `ri1__Categories__c` as a semicolon-delimited string (e.g. `"Racer Submission;Hero Shot;BTS"`), which the `createSalesforceRecord` function already handles via `.join(";")`.
+### 4. Wire up in `UnifiedMediaLibrary`
+**File**: `src/components/media/UnifiedMediaLibrary.tsx`
 
-### Single file change
-Only `supabase/functions/sync-asset-to-salesforce/index.ts` needs editing. No UI or schema changes required.
+Pass the loaded `tags` array to `MediaFilterDrawer`. Handle `tagIds` filter changes alongside existing filters. Include tag count in the active filter badge.
 
