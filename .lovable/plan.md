@@ -1,31 +1,26 @@
 
 
-# Add Tag-Based Filtering to Media Library
+# Fix: Drawer Content Not Scrollable
 
-## Current State
-- Search scopes "All" and "Metadata" already match against tag names in the text search
-- But there's no way to filter by specific tags (e.g., pick "Racer Submission" from a list)
-- The `MediaFilterDrawer` has Category, Content Type, Location, and Mood filters — but no Tags section
+## Problem
 
-## Plan
+The `ScrollArea` in `MediaAssetDetailsDrawer.tsx` (line 126) uses `className="flex-1 p-4 max-h-[60vh]"`, but `flex-1` only works inside a flex container. The `DrawerContent` is not set up as a flex column, so the ScrollArea doesn't get a constrained height and can't scroll. The large thumbnail image consumes most of the visible space, pushing the editable fields off-screen.
 
-### 1. Add `tagIds` to `SearchFilters` type
-**File**: `src/services/unifiedMediaService.ts`
+## Fix
 
-Add an optional `tagIds?: string[]` field to the `SearchFilters` interface.
+**File**: `src/components/media/MediaAssetDetailsDrawer.tsx`
 
-### 2. Apply tag filter in the DB query
-**File**: `src/services/unifiedMediaService.ts`
+Two changes:
 
-When `filters.tagIds` is set, query `media_asset_tags` to get matching `media_asset_id` values, then filter the main query using `.in('id', matchingIds)`. This ensures only assets with ALL selected tags (or ANY — we can use ANY for better UX) are returned.
+1. **Line 112** — Make `DrawerContent` a flex column so `flex-1` works:
+   ```
+   max-h-[85vh]  →  max-h-[85vh] flex flex-col
+   ```
 
-### 3. Add Tags section to `MediaFilterDrawer`
-**File**: `src/components/media/MediaFilterDrawer.tsx`
+2. **Line 126** — Replace the rigid `max-h-[60vh]` with `overflow-auto min-h-0` so the scroll area fills remaining space dynamically:
+   ```
+   flex-1 p-4 max-h-[60vh]  →  flex-1 p-4 min-h-0 overflow-y-auto
+   ```
 
-Add a new collapsible "Tags" section that loads available tags from the `media_tags` table (already fetched via `fetchMediaTags()`). Display them as checkboxes like the other filter sections. Pass `tags` as a prop from `UnifiedMediaLibrary`.
-
-### 4. Wire up in `UnifiedMediaLibrary`
-**File**: `src/components/media/UnifiedMediaLibrary.tsx`
-
-Pass the loaded `tags` array to `MediaFilterDrawer`. Handle `tagIds` filter changes alongside existing filters. Include tag count in the active filter badge.
+This ensures the header and footer stay fixed while the middle content area scrolls, regardless of screen size.
 
