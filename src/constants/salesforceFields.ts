@@ -203,6 +203,18 @@ export const FIELD_LABELS: Record<string, Record<string, string>> = {
     'STOCK': 'Stock Media',
     'LICENSED': 'Licensed Content',
   },
+  contentIntent: {
+    'RACE_HIGHLIGHT': 'Race Highlight',
+    'INTERVIEW': 'Interview',
+    'PROMO': 'Promo',
+    'SPONSOR_AD': 'Sponsor Ad',
+    'BEHIND_THE_SCENES': 'Behind the Scenes',
+    'SOCIAL_CLIP': 'Social Clip',
+    'ANNOUNCEMENT': 'Announcement',
+    'TUTORIAL': 'Tutorial',
+    'CROWD_MOMENT': 'Crowd Moment',
+    'TRACK_ACTION': 'Track Action',
+  },
   scene: {
     'STUDIO': 'Studio',
     'RACE_TRACK': 'Race Track',
