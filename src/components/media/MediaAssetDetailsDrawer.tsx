@@ -109,7 +109,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[85vh]">
+      <DrawerContent className="max-h-[85vh] flex flex-col">
         <DrawerHeader className="border-b">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
@@ -123,7 +123,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
           </div>
         </DrawerHeader>
 
-        <ScrollArea className="flex-1 p-4 max-h-[60vh]">
+        <div className="flex-1 p-4 min-h-0 overflow-y-auto">
           <div className="space-y-6">
             {/* Thumbnail Preview */}
             {(asset.thumbnailUrl || asset.fileUrl) && (
@@ -241,7 +241,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
               </div>
             </div>
           </div>
-        </ScrollArea>
+        </div>
 
         <DrawerFooter className="border-t">
           {editableFields.isEditing ? (
