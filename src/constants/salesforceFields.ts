@@ -68,6 +68,20 @@ export const GENERATION_METHODS = [
   'LICENSED'
 ] as const;
 
+// Content Intent picklist (workflow driver)
+export const CONTENT_INTENTS = [
+  'RACE_HIGHLIGHT',
+  'INTERVIEW',
+  'PROMO',
+  'SPONSOR_AD',
+  'BEHIND_THE_SCENES',
+  'SOCIAL_CLIP',
+  'ANNOUNCEMENT',
+  'TUTORIAL',
+  'CROWD_MOMENT',
+  'TRACK_ACTION',
+] as const;
+
 // Aspect Ratio picklist
 export const ASPECT_RATIOS = [
   '16x9',
@@ -89,6 +103,7 @@ export type ContentClass = typeof CONTENT_CLASSES[number];
 export type Scene = typeof SCENES[number];
 export type ContentType = typeof CONTENT_TYPES[number];
 export type GenerationMethod = typeof GENERATION_METHODS[number];
+export type ContentIntent = typeof CONTENT_INTENTS[number];
 export type AspectRatio = typeof ASPECT_RATIOS[number];
 export type Version = typeof VERSIONS[number];
 
@@ -101,6 +116,7 @@ export interface SalesforceFieldDefaults {
   scene: Scene;
   contentType: ContentType;
   generationMethod: GenerationMethod;
+  contentIntent: ContentIntent;
   aspectRatio: AspectRatio;
   version: Version;
 }
@@ -125,6 +141,7 @@ export const GLOBAL_DEFAULTS: SalesforceFieldDefaults = {
   scene: 'STUDIO',
   contentType: 'VIDEO',
   generationMethod: 'AI',
+  contentIntent: 'PROMO',
   aspectRatio: '16x9',
   version: 'V1',
 };
@@ -133,11 +150,13 @@ export const GLOBAL_DEFAULTS: SalesforceFieldDefaults = {
 export const CONTEXT_DEFAULTS: Record<string, Partial<SalesforceFieldDefaults>> = {
   'website': {
     contentClass: 'PROMO',
+    contentIntent: 'PROMO',
     aspectRatio: '16x9',
     scene: 'STUDIO',
   },
   'social': {
     contentClass: 'SOCIAL',
+    contentIntent: 'SOCIAL_CLIP',
     aspectRatio: '9x16',
     scene: 'STUDIO',
   },
@@ -183,6 +202,18 @@ export const FIELD_LABELS: Record<string, Record<string, string>> = {
     'COMPOSITE': 'Composite',
     'STOCK': 'Stock Media',
     'LICENSED': 'Licensed Content',
+  },
+  contentIntent: {
+    'RACE_HIGHLIGHT': 'Race Highlight',
+    'INTERVIEW': 'Interview',
+    'PROMO': 'Promo',
+    'SPONSOR_AD': 'Sponsor Ad',
+    'BEHIND_THE_SCENES': 'Behind the Scenes',
+    'SOCIAL_CLIP': 'Social Clip',
+    'ANNOUNCEMENT': 'Announcement',
+    'TUTORIAL': 'Tutorial',
+    'CROWD_MOMENT': 'Crowd Moment',
+    'TRACK_ACTION': 'Track Action',
   },
   scene: {
     'STUDIO': 'Studio',

@@ -91,6 +91,7 @@ interface SfdcSyncMetadata {
   extraConstraints?: string;
   negativeConstraints?: string[];
   creatorContactId?: string;
+  contentIntent?: string;
 }
 
 // Create a new Salesforce Content record via w2x-engine with comprehensive fields
@@ -173,6 +174,10 @@ async function createSalesforceRecord(
     if (metadata?.creatorContactId) {
       formData.append("lookup_ri1__Contact__c", metadata.creatorContactId);
       console.log(`Linking content to creator Contact: ${metadata.creatorContactId}`);
+    }
+    // Content Intent - workflow classification
+    if (metadata?.contentIntent) {
+      formData.append("string_ri1__Content_Intent__c", metadata.contentIntent);
     }
     
     console.log("SFDC sync metadata fields:", {
@@ -365,6 +370,7 @@ serve(async (req) => {
         negativeConstraints: assetMetadata.negativeConstraints,
         // Use creatorContactId from request, or fallback to stored metadata
         creatorContactId: creatorContactId || assetMetadata.creatorContactId,
+        contentIntent: assetMetadata.contentIntent,
       };
       
       const created = await createSalesforceRecord(asset.title, asset.file_url, contentType, syncMetadata);

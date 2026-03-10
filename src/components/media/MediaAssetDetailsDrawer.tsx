@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { 
   X, Video, Image, Music, MapPin, Sparkles, Clock,
   HardDrive, Calendar, ExternalLink, CheckCircle, AlertTriangle,
-  Gauge, Link2, Eye, Wand2, Mic, Pencil, Loader2
+  Gauge, Link2, Eye, Wand2, Mic, Pencil, Loader2, Target
 } from "lucide-react";
 import { Save } from "lucide-react";
 import { MediaAsset } from "@/services/unifiedMediaService";
@@ -21,6 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEditableAssetFields } from '@/hooks/useEditableAssetFields';
 import EditableDescriptionTags from './EditableDescriptionTags';
+import { getFieldLabel } from '@/constants/salesforceFields';
 
 interface MediaAssetDetailsDrawerProps {
   asset: MediaAsset | null;
@@ -156,6 +157,17 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
               onAddTagFromExisting={editableFields.addTagFromExisting}
               onSave={editableFields.handleSave}
             />
+
+            {/* Content Intent Badge */}
+            {asset.metadata?.contentIntent && (
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-primary" />
+                <span className="text-xs text-muted-foreground">Intent:</span>
+                <Badge variant="default" className="text-xs">
+                  {getFieldLabel('contentIntent', asset.metadata.contentIntent)}
+                </Badge>
+              </div>
+            )}
 
             <Separator />
 
