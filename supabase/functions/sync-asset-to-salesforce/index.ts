@@ -320,12 +320,33 @@ serve(async (req) => {
       console.log(`Title: ${asset.title}, URL: ${asset.file_url}`);
       
       if (asset.salesforce_id) {
-        console.log(`Asset already has Salesforce ID: ${asset.salesforce_id}`);
+        console.log(`Asset has Salesforce ID: ${asset.salesforce_id}, pushing update...`);
+
+        // Fetch tags for this asset
+        const { data: tagRows } = await supabase
+          .from('media_asset_tags')
+          .select('tag_id, media_tags(name)')
+          .eq('media_asset_id', asset.id);
+
+        const tagNames = (tagRows || [])
+          .map((r: any) => r.media_tags?.name)
+          .filter(Boolean);
+
+        const assetMetadata = asset.metadata || {};
+        const syncMetadata: SfdcSyncMetadata = {
+          description: asset.description,
+          categories: tagNames.length > 0 ? tagNames : assetMetadata.categories,
+          contentIntent: assetMetadata.contentIntent,
+        };
+
+        const updated = await updateSalesforceRecord(asset.salesforce_id, asset.title, syncMetadata);
+
         results.push({
           assetId: asset.id,
-          success: true,
+          success: updated,
           salesforceId: asset.salesforce_id,
-          action: 'found',
+          action: updated ? 'updated' : 'failed',
+          error: updated ? undefined : 'Failed to update Salesforce record',
         });
         continue;
       }
