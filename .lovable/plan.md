@@ -1,56 +1,31 @@
 
 
-# Fix: Title/Description/Tag Updates Not Pushing to SFDC
+# Add Tag-Based Filtering to Media Library
 
-## Root Cause
+## Current State
+- Search scopes "All" and "Metadata" already match against tag names in the text search
+- But there's no way to filter by specific tags (e.g., pick "Racer Submission" from a list)
+- The `MediaFilterDrawer` has Category, Content Type, Location, and Mood filters — but no Tags section
 
-In `sync-asset-to-salesforce/index.ts` (line 282-291), when an asset already has a `salesforce_id`, the function immediately skips it (`continue`). It never sends an update to the w2x-engine. This means edits to title, description, or tags on existing SFDC records are never pushed.
+## Plan
 
-## Fix
+### 1. Add `tagIds` to `SearchFilters` type
+**File**: `src/services/unifiedMediaService.ts`
 
-**File**: `supabase/functions/sync-asset-to-salesforce/index.ts`
+Add an optional `tagIds?: string[]` field to the `SearchFilters` interface.
 
-Replace the early-return block (lines 282-291) with an **update** call to w2x-engine when the asset already has a `salesforce_id`. The w2x-engine supports updates via `action=update` + `Id=[salesforce_id]` (same pattern used by the racer portal).
+### 2. Apply tag filter in the DB query
+**File**: `src/services/unifiedMediaService.ts`
 
-### Changes:
+When `filters.tagIds` is set, query `media_asset_tags` to get matching `media_asset_id` values, then filter the main query using `.in('id', matchingIds)`. This ensures only assets with ALL selected tags (or ANY — we can use ANY for better UX) are returned.
 
-1. **Add an `updateSalesforceRecord` function** that POSTs to w2x-engine with `action=update`, `sObj=ri1__Content__c`, `Id=<salesforceId>`, and the updated fields (title, description, categories/tags, content intent).
+### 3. Add Tags section to `MediaFilterDrawer`
+**File**: `src/components/media/MediaFilterDrawer.tsx`
 
-2. **Replace the skip block** (lines 282-291): Instead of `continue`, fetch tags for the asset, build sync metadata, and call `updateSalesforceRecord`. Report `action: 'updated'` in results.
+Add a new collapsible "Tags" section that loads available tags from the `media_tags` table (already fetched via `fetchMediaTags()`). Display them as checkboxes like the other filter sections. Pass `tags` as a prop from `UnifiedMediaLibrary`.
 
-3. **Add `'updated'` to the action type** in the results interface.
+### 4. Wire up in `UnifiedMediaLibrary`
+**File**: `src/components/media/UnifiedMediaLibrary.tsx`
 
-### New function signature:
-
-```typescript
-async function updateSalesforceRecord(
-  salesforceId: string,
-  title: string,
-  metadata?: SfdcSyncMetadata
-): Promise<boolean> {
-  const formData = new FormData();
-  formData.append("retURL", "https://worldmotoclash.com");
-  formData.append("sObj", "ri1__Content__c");
-  formData.append("action", "update");
-  formData.append("Id", salesforceId);
-  formData.append("string_Name", title);
-  // description, categories, content intent...
-  
-  const response = await fetch(W2X_ENGINE_URL, { method: "POST", body: formData });
-  return response.ok;
-}
-```
-
-### Updated skip block becomes:
-
-```typescript
-if (asset.salesforce_id) {
-  // Fetch tags and build metadata
-  // Call updateSalesforceRecord(asset.salesforce_id, asset.title, syncMetadata)
-  // Push result with action: 'updated'
-  continue;
-}
-```
-
-Single file change: `supabase/functions/sync-asset-to-salesforce/index.ts`
+Pass the loaded `tags` array to `MediaFilterDrawer`. Handle `tagIds` filter changes alongside existing filters. Include tag count in the active filter badge.
 
