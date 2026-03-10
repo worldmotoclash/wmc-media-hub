@@ -333,6 +333,16 @@ serve(async (req) => {
                           asset.file_url.split('.').pop()?.toUpperCase() || 
                           'JPG';
       
+      // Fetch tags from join table for this asset
+      const { data: tagRows } = await supabase
+        .from('media_asset_tags')
+        .select('tag_id, media_tags(name)')
+        .eq('media_asset_id', asset.id);
+
+      const tagNames = (tagRows || [])
+        .map((r: any) => r.media_tags?.name)
+        .filter(Boolean);
+
       // Extract metadata from asset for SFDC sync
       const assetMetadata = asset.metadata || {};
       const syncMetadata: SfdcSyncMetadata = {
@@ -346,7 +356,7 @@ serve(async (req) => {
         negativePrompt: assetMetadata.negativePrompt,
         creativityLevel: assetMetadata.creativity,
         apiOperationId: assetMetadata.apiOperationId,
-        categories: assetMetadata.categories,
+        categories: tagNames.length > 0 ? tagNames : assetMetadata.categories,
         location: assetMetadata.location,
         modelVendor: assetMetadata.modelVendor || assetMetadata.vendor,
         modelUsed: assetMetadata.modelUsed || assetMetadata.model,
