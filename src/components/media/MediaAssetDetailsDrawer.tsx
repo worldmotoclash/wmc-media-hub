@@ -109,7 +109,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[85vh]">
+      <DrawerContent className="max-h-[85vh] flex flex-col">
         <DrawerHeader className="border-b">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
