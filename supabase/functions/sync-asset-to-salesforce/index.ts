@@ -91,6 +91,7 @@ interface SfdcSyncMetadata {
   extraConstraints?: string;
   negativeConstraints?: string[];
   creatorContactId?: string;
+  contentIntent?: string;
 }
 
 // Create a new Salesforce Content record via w2x-engine with comprehensive fields
