@@ -68,6 +68,20 @@ export const GENERATION_METHODS = [
   'LICENSED'
 ] as const;
 
+// Content Intent picklist (workflow driver)
+export const CONTENT_INTENTS = [
+  'RACE_HIGHLIGHT',
+  'INTERVIEW',
+  'PROMO',
+  'SPONSOR_AD',
+  'BEHIND_THE_SCENES',
+  'SOCIAL_CLIP',
+  'ANNOUNCEMENT',
+  'TUTORIAL',
+  'CROWD_MOMENT',
+  'TRACK_ACTION',
+] as const;
+
 // Aspect Ratio picklist
 export const ASPECT_RATIOS = [
   '16x9',
