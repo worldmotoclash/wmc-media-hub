@@ -370,6 +370,7 @@ serve(async (req) => {
         negativeConstraints: assetMetadata.negativeConstraints,
         // Use creatorContactId from request, or fallback to stored metadata
         creatorContactId: creatorContactId || assetMetadata.creatorContactId,
+        contentIntent: assetMetadata.contentIntent,
       };
       
       const created = await createSalesforceRecord(asset.title, asset.file_url, contentType, syncMetadata);

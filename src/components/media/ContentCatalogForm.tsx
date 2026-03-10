@@ -129,6 +129,29 @@ export function ContentCatalogForm({
         </p>
       </div>
 
+      {/* Content Intent - TOP-LEVEL CLASSIFICATION */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Content Intent</Label>
+        <Select
+          value={fields.contentIntent}
+          onValueChange={(v) => handleFieldChange('contentIntent', v)}
+        >
+          <SelectTrigger className={cn(compact && "h-9")}>
+            <SelectValue placeholder="Select intent..." />
+          </SelectTrigger>
+          <SelectContent>
+            {CONTENT_INTENTS.map((intent) => (
+              <SelectItem key={intent} value={intent}>
+                {getFieldLabel('contentIntent', intent)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Why does this content exist? Drives automation workflows.
+        </p>
+      </div>
+
       {/* Content ID Preview Badge - READ ONLY */}
       <div className="bg-muted/50 rounded-lg p-3 border">
         <Label className="text-xs text-muted-foreground mb-1 block">

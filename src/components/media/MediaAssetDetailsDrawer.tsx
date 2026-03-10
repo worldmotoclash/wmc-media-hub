@@ -158,6 +158,17 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
               onSave={editableFields.handleSave}
             />
 
+            {/* Content Intent Badge */}
+            {asset.metadata?.contentIntent && (
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-primary" />
+                <span className="text-xs text-muted-foreground">Intent:</span>
+                <Badge variant="default" className="text-xs">
+                  {getFieldLabel('contentIntent', asset.metadata.contentIntent)}
+                </Badge>
+              </div>
+            )}
+
             <Separator />
 
             {/* Salesforce AI Analysis Section */}
