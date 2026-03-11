@@ -44,6 +44,8 @@ import MediaLibrary from "./pages/media/MediaLibrary";
 import SocialKit from "./pages/media/SocialKit";
 import CharacterLibrary from "./pages/media/CharacterLibrary";
 import UserGuide from "./pages/media/UserGuide";
+import DiaryDashboard from "./pages/media/DiaryDashboard";
+import DiaryDetail from "./pages/media/DiaryDetail";
 
 const queryClient = new QueryClient();
 
