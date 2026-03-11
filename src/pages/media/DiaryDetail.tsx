@@ -128,7 +128,7 @@ const DiaryDetail: React.FC = () => {
                 <span className="flex items-center gap-1"><Image className="h-4 w-4" /> {entry.image_count} Images</span>
                 <span className="flex items-center gap-1"><Music className="h-4 w-4" /> {entry.audio_count} Audio</span>
                 {entry.salesforce_synced && (
-                  <span className="text-xs bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-full">
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
                     Synced to Salesforce
                   </span>
                 )}
