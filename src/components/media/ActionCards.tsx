@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload, Sparkles, PlaySquare, Scissors, ListVideo, Layers } from 'lucide-react';
+import { Upload, Sparkles, PlaySquare, Scissors, ListVideo, Layers, BookOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const ActionCards: React.FC = () => {
@@ -51,8 +51,16 @@ const ActionCards: React.FC = () => {
       description: 'Generate platform-specific variants from master images',
       icon: Layers,
       href: '/admin/media/social-kit',
-      color: 'from-amber-500/20 to-amber-500/10',
-      iconColor: 'text-amber-500'
+      color: 'from-accent/20 to-accent/10',
+      iconColor: 'text-accent-foreground'
+    },
+    {
+      title: 'Content Diary',
+      description: 'Daily record of media uploads with Salesforce sync',
+      icon: BookOpen,
+      href: '/mediahub/diary',
+      color: 'from-primary/20 to-primary/10',
+      iconColor: 'text-primary'
     }
   ];
 
