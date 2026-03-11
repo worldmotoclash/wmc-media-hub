@@ -99,8 +99,8 @@ const DiaryDetail: React.FC = () => {
   const getAssetIcon = (type: string | null) => {
     switch ((type || '').toLowerCase()) {
       case 'video': return <Video className="h-5 w-5 text-primary" />;
-      case 'image': return <Image className="h-5 w-5 text-emerald-500" />;
-      case 'audio': return <Music className="h-5 w-5 text-amber-500" />;
+      case 'image': return <Image className="h-5 w-5 text-primary/70" />;
+      case 'audio': return <Music className="h-5 w-5 text-accent-foreground" />;
       default: return <FileText className="h-5 w-5 text-muted-foreground" />;
     }
   };
