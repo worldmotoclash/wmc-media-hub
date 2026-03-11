@@ -308,6 +308,48 @@ export type Database = {
           },
         ]
       }
+      media_diary_entries: {
+        Row: {
+          audio_count: number
+          content_items: Json
+          created_at: string
+          date: string
+          id: string
+          image_count: number
+          salesforce_synced: boolean
+          summary_text: string | null
+          updated_at: string
+          video_count: number
+          week_start: string | null
+        }
+        Insert: {
+          audio_count?: number
+          content_items?: Json
+          created_at?: string
+          date: string
+          id?: string
+          image_count?: number
+          salesforce_synced?: boolean
+          summary_text?: string | null
+          updated_at?: string
+          video_count?: number
+          week_start?: string | null
+        }
+        Update: {
+          audio_count?: number
+          content_items?: Json
+          created_at?: string
+          date?: string
+          id?: string
+          image_count?: number
+          salesforce_synced?: boolean
+          summary_text?: string | null
+          updated_at?: string
+          video_count?: number
+          week_start?: string | null
+        }
+        Relationships: []
+      }
       media_tags: {
         Row: {
           color: string | null
