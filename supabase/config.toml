@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.generate-presigned-upload-url]
 verify_jwt = false
+
+[functions.generate-diary-entry]
+verify_jwt = false

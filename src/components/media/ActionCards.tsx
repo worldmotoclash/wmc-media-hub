@@ -51,8 +51,16 @@ const ActionCards: React.FC = () => {
       description: 'Generate platform-specific variants from master images',
       icon: Layers,
       href: '/admin/media/social-kit',
-      color: 'from-amber-500/20 to-amber-500/10',
-      iconColor: 'text-amber-500'
+      color: 'from-accent/20 to-accent/10',
+      iconColor: 'text-accent-foreground'
+    },
+    {
+      title: 'Content Diary',
+      description: 'Daily record of media uploads with Salesforce sync',
+      icon: BookOpen,
+      href: '/mediahub/diary',
+      color: 'from-primary/20 to-primary/10',
+      iconColor: 'text-primary'
     }
   ];
 
