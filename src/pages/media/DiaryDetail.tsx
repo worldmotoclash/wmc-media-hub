@@ -85,7 +85,7 @@ const DiaryDetail: React.FC = () => {
       } else {
         setEntry({
           ...data,
-          content_items: (data.content_items as ContentItem[]) || [],
+          content_items: (data.content_items as unknown as ContentItem[]) || [],
         });
       }
       setLoading(false);
