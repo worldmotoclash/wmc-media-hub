@@ -1,5 +1,8 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
+import { useUser } from '@/contexts/UserContext';
+import { toast } from 'sonner';
 
 function highlightMatches(element: Element, query: string) {
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
