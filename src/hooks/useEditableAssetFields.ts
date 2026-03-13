@@ -8,6 +8,7 @@ interface UseEditableAssetFieldsOptions {
   initialTitle?: string;
   initialDescription?: string;
   initialTags: MediaTag[];
+  initialAlbumId?: string | null;
   onAssetUpdated?: () => void;
 }
 
@@ -16,11 +17,13 @@ export const useEditableAssetFields = ({
   initialTitle,
   initialDescription,
   initialTags,
+  initialAlbumId,
   onAssetUpdated,
 }: UseEditableAssetFieldsOptions) => {
   const [localTitle, setLocalTitle] = useState(initialTitle || '');
   const [localDescription, setLocalDescription] = useState(initialDescription || '');
   const [localTags, setLocalTags] = useState<MediaTag[]>(initialTags);
+  const [localAlbumId, setLocalAlbumId] = useState<string | null>(initialAlbumId || null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isCreatingLocal, setIsCreatingLocal] = useState(false);
@@ -33,8 +36,9 @@ export const useEditableAssetFields = ({
     setLocalTitle(initialTitle || '');
     setLocalDescription(initialDescription || '');
     setLocalTags(initialTags);
+    setLocalAlbumId(initialAlbumId || null);
     setLocalAssetId(assetId);
-  }, [initialTitle, initialDescription, initialTags]);
+  }, [initialTitle, initialDescription, initialTags, initialAlbumId]);
 
   // Fetch available tags on mount
   useEffect(() => {
@@ -68,6 +72,7 @@ export const useEditableAssetFields = ({
     setLocalTitle(initialTitle || '');
     setLocalDescription(initialDescription || '');
     setLocalTags(initialTags);
+    setLocalAlbumId(initialAlbumId || null);
     setNewTagInput('');
     setIsEditing(false);
   };
@@ -137,7 +142,7 @@ export const useEditableAssetFields = ({
       // Update title and description
       const { error: updateError } = await supabase
         .from('media_assets')
-        .update({ title: localTitle, description: localDescription })
+        .update({ title: localTitle, description: localDescription, album_id: localAlbumId })
         .eq('id', effectiveId);
 
       if (updateError) throw updateError;
@@ -267,6 +272,8 @@ export const useEditableAssetFields = ({
     setLocalDescription,
     localTags,
     availableTags,
+    localAlbumId,
+    setLocalAlbumId,
     isEditing,
     isSaving,
     isCreatingLocal,

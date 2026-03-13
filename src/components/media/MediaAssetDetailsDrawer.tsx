@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   X, Video, Image, Music, MapPin, Sparkles, Clock,
   HardDrive, Calendar, ExternalLink, CheckCircle, AlertTriangle,
@@ -47,12 +48,23 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   const [isPodcast, setIsPodcast] = useState(false);
   const [isSavingPodcast, setIsSavingPodcast] = useState(false);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
+  const [albums, setAlbums] = useState<{ id: string; name: string }[]>([]);
+
+  // Fetch albums on mount
+  useEffect(() => {
+    const fetchAlbums = async () => {
+      const { data } = await supabase.from('media_albums').select('id, name').order('name');
+      if (data) setAlbums(data);
+    };
+    fetchAlbums();
+  }, []);
 
   const editableFields = useEditableAssetFields({
     assetId: asset?.id,
     initialTitle: asset?.title,
     initialDescription: asset?.description,
     initialTags: asset?.tags || [],
+    initialAlbumId: asset?.album_id,
     onAssetUpdated,
   });
 
@@ -158,6 +170,31 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
               onAddTagFromExisting={editableFields.addTagFromExisting}
               onSave={editableFields.handleSave}
             />
+
+            {/* Album Assignment */}
+            <div>
+              <h4 className="font-semibold text-foreground mb-2">Album</h4>
+              {editableFields.isEditing ? (
+                <Select
+                  value={editableFields.localAlbumId || '__none__'}
+                  onValueChange={(v) => editableFields.setLocalAlbumId(v === '__none__' ? null : v)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="No album" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No album</SelectItem>
+                    {albums.map((album) => (
+                      <SelectItem key={album.id} value={album.id}>{album.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {albums.find((a) => a.id === asset.album_id)?.name || <span className="italic">No album</span>}
+                </p>
+              )}
+            </div>
 
             {/* Content Intent Badge */}
             {asset.metadata?.contentIntent && (
