@@ -48,6 +48,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   const [isPodcast, setIsPodcast] = useState(false);
   const [isSavingPodcast, setIsSavingPodcast] = useState(false);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
+  const [suggestTitleOnAnalyze, setSuggestTitleOnAnalyze] = useState(true);
   const [albums, setAlbums] = useState<{ id: string; name: string }[]>([]);
 
   // Fetch albums on mount
