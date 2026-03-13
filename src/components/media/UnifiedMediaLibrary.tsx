@@ -659,7 +659,12 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     <SelectContent className="bg-background border shadow-lg z-50">
                       <SelectItem value="all">All Albums</SelectItem>
                       {albums.map(a => (
-                        <SelectItem key={a.id} value={a.id}>{a.name} ({a.asset_count})</SelectItem>
+                        <SelectItem key={a.id} value={a.id}>
+                          <span className="flex items-center gap-1.5">
+                            {a.name} ({a.asset_count})
+                            {a.source === 'auto' && <Badge variant="outline" className="text-[10px] px-1 py-0 leading-tight">Auto</Badge>}
+                          </span>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

@@ -142,6 +142,24 @@ function getFolderPath(key: string): string {
   return parts.join('/');
 }
 
+const IGNORED_FOLDERS = new Set(['tmp', 'uploads', 'raw', 'cache', 'thumbnails']);
+
+function deriveAlbumName(key: string): string | null {
+  const parts = key.split('/');
+  parts.pop(); // Remove filename
+  // Filter out ignored folder names (case-insensitive)
+  const folders = parts.filter(p => p && !IGNORED_FOLDERS.has(p.toLowerCase()));
+  if (folders.length === 0) return null;
+  if (folders.length === 1) return folders[0];
+  // Use last two meaningful folders
+  return `${folders[folders.length - 2]} - ${folders[folders.length - 1]}`;
+}
+
+function deriveWasabiPath(key: string): string {
+  const idx = key.lastIndexOf('/');
+  return idx >= 0 ? key.substring(0, idx) : '';
+}
+
 interface ImageLookupMap {
   // Map of "folder/basename" -> full S3 key
   byPath: Map<string, string>;
