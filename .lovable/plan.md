@@ -1,31 +1,32 @@
 
 
-# Add Tag-Based Filtering to Media Library
+# Fix: Auto-Album Creation for Existing Assets
 
-## Current State
-- Search scopes "All" and "Metadata" already match against tag names in the text search
-- But there's no way to filter by specific tags (e.g., pick "Racer Submission" from a list)
-- The `MediaFilterDrawer` has Category, Content Type, Location, and Mood filters — but no Tags section
+## Problem
+The album auto-creation logic (line 560) only runs when `isNewAsset` is `true`. Since all your S3 files were already imported in prior scans before this feature was added, they match as existing assets via ETag comparison and are skipped. No new assets means no album creation triggers.
 
-## Plan
+## Solution
+Move the auto-album assignment logic so it runs for **all** assets (new and existing) that don't already have an `album_id`, not just newly imported ones.
 
-### 1. Add `tagIds` to `SearchFilters` type
-**File**: `src/services/unifiedMediaService.ts`
+### Changes
 
-Add an optional `tagIds?: string[]` field to the `SearchFilters` interface.
+**File: `supabase/functions/scan-s3-buckets/index.ts`**
 
-### 2. Apply tag filter in the DB query
-**File**: `src/services/unifiedMediaService.ts`
+1. Pre-fetch existing assets' `album_id` alongside their metadata (line ~419-430) so we know which ones are unassigned
+2. Change the album assignment condition from `if (assetId && isNewAsset)` to `if (assetId && !existingAlbumId)` — this ensures:
+   - New assets get albums (as before)
+   - Existing assets that were imported before the album feature also get assigned
+   - Assets already assigned to an album are left alone
+3. For skipped (ETag-unchanged) assets, still check if they need album assignment
 
-When `filters.tagIds` is set, query `media_asset_tags` to get matching `media_asset_id` values, then filter the main query using `.in('id', matchingIds)`. This ensures only assets with ALL selected tags (or ANY — we can use ANY for better UX) are returned.
+### Detailed changes
 
-### 3. Add Tags section to `MediaFilterDrawer`
-**File**: `src/components/media/MediaFilterDrawer.tsx`
+| Location | Change |
+|----------|--------|
+| Line ~419-422 | Add `album_id` to the existing assets SELECT query |
+| Line ~424-430 | Store `album_id` in the `existingAssetMap` entries |
+| Line ~459-464 | For ETag-skipped assets, still run album assignment if `album_id` is null |
+| Line ~560 | Change condition from `isNewAsset` to checking whether asset lacks an album |
 
-Add a new collapsible "Tags" section that loads available tags from the `media_tags` table (already fetched via `fetchMediaTags()`). Display them as checkboxes like the other filter sections. Pass `tags` as a prop from `UnifiedMediaLibrary`.
-
-### 4. Wire up in `UnifiedMediaLibrary`
-**File**: `src/components/media/UnifiedMediaLibrary.tsx`
-
-Pass the loaded `tags` array to `MediaFilterDrawer`. Handle `tagIds` filter changes alongside existing filters. Include tag count in the active filter badge.
+This is a single-file change. After deploying, re-running a scan will assign albums to all existing unassigned assets.
 
