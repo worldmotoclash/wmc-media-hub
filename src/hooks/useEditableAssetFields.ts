@@ -172,7 +172,7 @@ export const useEditableAssetFields = ({
       // Sync to Salesforce
       try {
         await supabase.functions.invoke('sync-asset-to-salesforce', {
-          body: { assetId },
+          body: { assetId: effectiveId },
         });
         toast.success('Synced to Salesforce');
       } catch (syncErr) {
