@@ -162,7 +162,7 @@ export const useEditableAssetFields = ({
       for (const tag of toAdd) {
         await supabase
           .from('media_asset_tags')
-          .insert({ media_asset_id: assetId, tag_id: tag.id });
+          .insert({ media_asset_id: effectiveId, tag_id: tag.id });
       }
 
       toast.success('Changes saved');
