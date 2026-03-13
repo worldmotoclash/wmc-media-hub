@@ -56,7 +56,7 @@ export const GuideSection: React.FC<GuideSectionProps> = ({
   const style = role ? roleStyles[role] : null;
 
   return (
-    <section id={id} className={cn("scroll-mt-24 mb-12", className)}>
+    <section id={id} data-section-id={id} className={cn("scroll-mt-24 mb-12", className)}>
       <div className={cn(
         "flex items-center gap-3 mb-6 pb-3 border-b",
         style ? style.border : "border-border"
