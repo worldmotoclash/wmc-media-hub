@@ -211,8 +211,62 @@ export const UnifiedMediaLibrary: React.FC = () => {
       toast.error('Failed to tag assets');
     }
   };
+  const handleBulkRename = async () => {
+    const taggableAssets = getTaggableAssets();
+    if (taggableAssets.length === 0) {
+      toast.error('No assets selected for renaming', {
+        description: 'Select local assets with valid URLs to AI-rename.'
+      });
+      return;
+    }
 
-  const handlePlayInBackground = (asset: MediaAsset) => {
+    setIsBulkRenaming(true);
+    setBulkRenameProgress({ current: 0, total: taggableAssets.length });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < taggableAssets.length; i++) {
+      const asset = taggableAssets[i];
+      setBulkRenameProgress({ current: i + 1, total: taggableAssets.length });
+
+      try {
+        const { data, error } = await supabase.functions.invoke('auto-tag-media-asset', {
+          body: {
+            assetId: asset.id,
+            mediaUrl: asset.fileUrl || asset.thumbnailUrl,
+            mediaType: asset.assetType === 'video' ? 'video' : 'image',
+            titleOnly: true,
+          }
+        });
+
+        if (error || !data?.success) {
+          console.error(`Failed to rename ${asset.title}:`, error || data?.error);
+          failCount++;
+        } else {
+          successCount++;
+        }
+      } catch (err) {
+        console.error(`Error renaming ${asset.title}:`, err);
+        failCount++;
+      }
+    }
+
+    setIsBulkRenaming(false);
+    setBulkRenameProgress({ current: 0, total: 0 });
+    clearSelection();
+
+    if (successCount > 0) {
+      toast.success(`Renamed ${successCount} asset${successCount > 1 ? 's' : ''}`, {
+        description: failCount > 0 ? `${failCount} failed` : undefined
+      });
+      loadAssets();
+    } else {
+      toast.error('Failed to rename assets');
+    }
+  };
+
+
     setMiniPlayer({
       isOpen: true,
       audioUrl: asset.fileUrl || '',
