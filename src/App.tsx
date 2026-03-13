@@ -46,6 +46,7 @@ import CharacterLibrary from "./pages/media/CharacterLibrary";
 import UserGuide from "./pages/media/UserGuide";
 import DiaryDashboard from "./pages/media/DiaryDashboard";
 import DiaryDetail from "./pages/media/DiaryDetail";
+import ReleaseNotes from "./pages/media/ReleaseNotes";
 
 const queryClient = new QueryClient();
 
