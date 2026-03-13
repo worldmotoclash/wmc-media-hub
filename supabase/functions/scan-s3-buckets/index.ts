@@ -582,7 +582,8 @@ serve(async (req) => {
               }
 
               // Auto-album assignment: assign to album based on folder structure
-              if (assetId && isNewAsset) {
+              const existingAlbumId = existingAsset?.album_id;
+              if (assetId && !existingAlbumId) {
                 const albumName = deriveAlbumName(obj.Key);
                 if (albumName) {
                   const albumKey = albumName.toLowerCase();
