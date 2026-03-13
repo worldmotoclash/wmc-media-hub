@@ -7,7 +7,7 @@ import { format, parseISO } from 'date-fns';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MediaNavigation } from '@/components/media/MediaNavigation';
-import { ArrowLeft, Video, Image, Music, Loader2, FileText } from 'lucide-react';
+import { ArrowLeft, Video, Image, Music, Loader2, FileText, Download } from 'lucide-react';
 
 interface ContentItem {
   id: string;
