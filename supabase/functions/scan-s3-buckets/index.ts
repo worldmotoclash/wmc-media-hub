@@ -336,6 +336,7 @@ serve(async (req) => {
       let skippedMedia = 0;
       let failedMedia = 0;
       let removedMedia = 0;
+      let albumsCreated = 0;
 
       try {
         console.log(`[SCAN] Starting for ${bucket.name} (${bucket.bucket_name}) @ ${bucket.endpoint_url}`);
