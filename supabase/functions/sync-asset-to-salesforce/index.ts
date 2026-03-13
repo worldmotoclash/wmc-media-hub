@@ -114,7 +114,7 @@ async function updateSalesforceRecord(
       formData.append("string_ri1__Description__c", metadata.description.substring(0, 32768));
     }
     if (metadata?.categories && metadata.categories.length > 0) {
-      formData.append("string_ri1__Categories__c", metadata.categories.join(";"));
+      formData.append("string_ri1__Tags__c", metadata.categories.join(";"));
     }
     if (metadata?.contentIntent) {
       formData.append("string_ri1__Content_Intent__c", metadata.contentIntent);
