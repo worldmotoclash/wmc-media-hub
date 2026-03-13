@@ -137,7 +137,7 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
           ri__Content_URL__c: isPlaylistResponse
             ? video.getElementsByTagName('contenturl')[0]?.textContent || ''
             : video.getElementsByTagName('url')[0]?.textContent || '',
-          ri__Thumbnail_URL__c: video.getElementsByTagName('thumbnail')[0]?.textContent?.trim() || '',
+          ri__Thumbnail_URL__c: video.getElementsByTagName('thumbnailurl')[0]?.textContent?.trim() || video.getElementsByTagName('thumbnail')[0]?.textContent?.trim() || '',
           ri__Status__c: video.getElementsByTagName('approved')[0]?.textContent || '',
           ri__Duration__c: video.getElementsByTagName('lengthinseconds')[0]?.textContent || '',
           ri__Upload_Date__c: '', // Not provided in API
@@ -403,23 +403,40 @@ const transformVideoData = (salesforceVideo: SalesforceVideo): VideoContent => {
     return url.includes('youtube.com') || url.includes('youtu.be');
   };
 
+  // Check if content is an image type based on content type or URL extension
+  const isImageContent = (contentType?: string, url?: string): boolean => {
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff', 'svg'];
+    if (contentType && imageExtensions.some(ext => contentType.toLowerCase().includes(ext))) return true;
+    if (url) {
+      const urlLower = url.toLowerCase();
+      return imageExtensions.some(ext => urlLower.endsWith(`.${ext}`) || urlLower.includes(`.${ext}?`));
+    }
+    return false;
+  };
+
   // Generate appropriate thumbnail
   const getThumbnail = (): string => {
-    // First priority: Salesforce provided thumbnail
+    const contentUrl = salesforceVideo.ri__Content_URL__c;
+    const isImage = isImageContent(salesforceVideo.ri__Content_Type__c, contentUrl);
+
+    // For image content, prefer the content URL itself as the thumbnail
+    if (isImage && contentUrl) {
+      return contentUrl;
+    }
+
+    // For non-image content: use SFDC-provided thumbnail if available
     if (salesforceVideo.ri__Thumbnail_URL__c) {
       return salesforceVideo.ri__Thumbnail_URL__c;
     }
     
-    // Second priority: Generate YouTube thumbnail from URL (even if contentType is empty/wrong)
-    if (salesforceVideo.ri__Content_URL__c && isYouTubeUrl(salesforceVideo.ri__Content_URL__c)) {
-      const youtubeThumbnail = generateYouTubeThumbnail(salesforceVideo.ri__Content_URL__c);
-      if (youtubeThumbnail) {
-        return youtubeThumbnail;
-      }
+    // Generate YouTube thumbnail from URL
+    if (contentUrl && isYouTubeUrl(contentUrl)) {
+      const youtubeThumbnail = generateYouTubeThumbnail(contentUrl);
+      if (youtubeThumbnail) return youtubeThumbnail;
     }
     
     // Fallback to placeholder images
-    return isYouTubeUrl(salesforceVideo.ri__Content_URL__c)
+    return isYouTubeUrl(contentUrl)
       ? '/lovable-uploads/wmc-sizzle-thumbnail.png' 
       : '/lovable-uploads/sponsor-primier-thumbnail.png';
   };

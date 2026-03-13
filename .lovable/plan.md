@@ -1,37 +1,31 @@
 
-Plan to fix both issues (image thumbnails + tag list scrolling) in a robust way:
 
-1) Fix thumbnail source selection at the data layer
-- File: `src/services/videoContentService.ts`
-- Update XML parsing to read both `thumbnailurl` and `thumbnail` (current parser only reads `thumbnail`, which misses many SFDC records).
-- Update thumbnail fallback rules:
-  - For image content types (jpg/jpeg/png/webp/etc), use `ri__Content_URL__c` as thumbnail when thumbnail is missing/generic.
-  - Keep YouTube/video-specific thumbnail behavior for video assets.
+# Add Tag-Based Filtering to Media Library
 
-2) Fix thumbnail source selection at the UI layer
-- Files:
-  - `src/components/media/UnifiedMediaLibrary.tsx`
-  - `src/components/media/MediaAssetDetailsDrawer.tsx`
-- Add a deterministic preview resolver used in both places:
-  - Image-like assets: prefer `fileUrl`, then `thumbnailUrl`.
-  - Video assets: prefer `thumbnailUrl`, then fallback handling.
-- Replace current “always prefer thumbnail first” behavior so SFDC placeholder thumbnails no longer override valid image files.
-- Improve `onError` fallback chain so if first URL fails it tries secondary URL before default placeholder (instead of jumping straight to placeholder).
+## Current State
+- Search scopes "All" and "Metadata" already match against tag names in the text search
+- But there's no way to filter by specific tags (e.g., pick "Racer Submission" from a list)
+- The `MediaFilterDrawer` has Category, Content Type, Location, and Mood filters — but no Tags section
 
-3) Prevent bad thumbnail persistence when creating local records
-- File: `src/hooks/useEditableAssetFields.ts`
-- In `createLocalRecord`, sanitize incoming thumbnail for image assets:
-  - If thumbnail is empty or known generic placeholder, store `file_url` as `thumbnail_url`.
-- This avoids reintroducing the same issue for newly localized SFDC assets.
+## Plan
 
-4) Make tag dropdown scrolling explicit and reliable
-- File: `src/components/media/EditableDescriptionTags.tsx`
-- Replace current implicit cmdk scroll behavior with an explicit fixed-height scroll region:
-  - Use a fixed list viewport (`h-64`) with `overflow-y-auto`/`overflow-y-scroll` and `overscroll-contain`.
-  - Add wheel event containment on the dropdown/list container so scroll input doesn’t get captured by the drawer behind it.
-- Keep search + select behavior unchanged.
+### 1. Add `tagIds` to `SearchFilters` type
+**File**: `src/services/unifiedMediaService.ts`
 
-5) Verification checklist (after implementation)
-- Open an image asset with SFDC ID and confirm card + drawer use the actual image URL (not sponsor placeholder) across reopen.
-- Open tag picker with many tags and confirm mouse wheel/trackpad scroll reaches all tags.
-- Confirm selecting/adding/removing tags still works and save behavior remains unchanged.
+Add an optional `tagIds?: string[]` field to the `SearchFilters` interface.
+
+### 2. Apply tag filter in the DB query
+**File**: `src/services/unifiedMediaService.ts`
+
+When `filters.tagIds` is set, query `media_asset_tags` to get matching `media_asset_id` values, then filter the main query using `.in('id', matchingIds)`. This ensures only assets with ALL selected tags (or ANY — we can use ANY for better UX) are returned.
+
+### 3. Add Tags section to `MediaFilterDrawer`
+**File**: `src/components/media/MediaFilterDrawer.tsx`
+
+Add a new collapsible "Tags" section that loads available tags from the `media_tags` table (already fetched via `fetchMediaTags()`). Display them as checkboxes like the other filter sections. Pass `tags` as a prop from `UnifiedMediaLibrary`.
+
+### 4. Wire up in `UnifiedMediaLibrary`
+**File**: `src/components/media/UnifiedMediaLibrary.tsx`
+
+Pass the loaded `tags` array to `MediaFilterDrawer`. Handle `tagIds` filter changes alongside existing filters. Include tag count in the active filter badge.
+

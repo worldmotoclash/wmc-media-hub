@@ -219,6 +219,13 @@ export const useEditableAssetFields = ({
     setIsCreatingLocal(true);
     try {
       const salesforceId = sfAsset.id.startsWith('sf_') ? sfAsset.id.slice(3) : sfAsset.salesforceId;
+      // For image assets, use fileUrl as thumbnail if thumbnailUrl is missing or a generic placeholder
+      const imageTypes = ['image', 'master_image', 'image_variant', 'generation_master', 'grid_variant'];
+      const isImage = imageTypes.includes(sfAsset.assetType || '');
+      const genericPlaceholders = ['sponsor-primier-thumbnail.png', 'wmc-sizzle-thumbnail.png', 'placeholder.svg'];
+      const thumbnailIsGeneric = !sfAsset.thumbnailUrl || genericPlaceholders.some(p => (sfAsset.thumbnailUrl || '').includes(p));
+      const effectiveThumbnail = (isImage && thumbnailIsGeneric && sfAsset.fileUrl) ? sfAsset.fileUrl : (sfAsset.thumbnailUrl || null);
+
       const { data, error } = await supabase
         .from('media_assets')
         .insert({
@@ -226,7 +233,7 @@ export const useEditableAssetFields = ({
           description: sfAsset.description || null,
           source: sfAsset.source || 'salesforce',
           file_url: sfAsset.fileUrl || null,
-          thumbnail_url: sfAsset.thumbnailUrl || null,
+          thumbnail_url: effectiveThumbnail,
           salesforce_id: salesforceId || null,
           asset_type: sfAsset.assetType || null,
           file_format: sfAsset.fileFormat || null,

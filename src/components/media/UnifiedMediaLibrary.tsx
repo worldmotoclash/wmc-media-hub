@@ -1211,12 +1211,14 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     </div>
                   ) : (asset.thumbnailUrl && asset.thumbnailUrl.trim() !== '') || asset.fileUrl ? (
                     <div className="relative">
-                      <img
+                    <img
                         src={brokenThumbnails.has(asset.id) 
                           ? '/placeholder.svg' 
-                          : (asset.thumbnailUrl && asset.thumbnailUrl.trim() !== '' 
-                              ? asset.thumbnailUrl 
-                              : asset.fileUrl)}
+                          : isImageType(asset.assetType)
+                            ? (asset.fileUrl || asset.thumbnailUrl || '/placeholder.svg')
+                            : (asset.thumbnailUrl && asset.thumbnailUrl.trim() !== '' 
+                                ? asset.thumbnailUrl 
+                                : asset.fileUrl)}
                         alt={asset.title}
                         className="w-full h-48 object-cover rounded-t-lg"
                         onError={(e) => {

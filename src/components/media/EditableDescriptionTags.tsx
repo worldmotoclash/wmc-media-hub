@@ -135,14 +135,17 @@ const EditableDescriptionTags: React.FC<EditableDescriptionTagsProps> = ({
                   <ChevronDown className="w-3 h-3 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[250px] p-0" align="start">
+              <PopoverContent className="w-[280px] p-0" align="start">
                 <Command>
                   <CommandInput
                     placeholder="Search or create tag..."
                     value={newTagInput}
                     onValueChange={setNewTagInput}
                   />
-                  <CommandList className="max-h-[300px] overflow-y-auto">
+                  <CommandList
+                    className="max-h-64 overflow-y-scroll overscroll-contain"
+                    onWheel={(e) => e.stopPropagation()}
+                  >
                     <CommandEmpty>
                       {newTagInput.trim() ? (
                         <button
