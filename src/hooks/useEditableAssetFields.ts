@@ -36,8 +36,9 @@ export const useEditableAssetFields = ({
     setLocalTitle(initialTitle || '');
     setLocalDescription(initialDescription || '');
     setLocalTags(initialTags);
+    setLocalAlbumId(initialAlbumId || null);
     setLocalAssetId(assetId);
-  }, [initialTitle, initialDescription, initialTags]);
+  }, [initialTitle, initialDescription, initialTags, initialAlbumId]);
 
   // Fetch available tags on mount
   useEffect(() => {
