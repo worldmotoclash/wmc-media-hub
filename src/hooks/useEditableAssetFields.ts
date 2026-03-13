@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { MediaTag } from '@/services/unifiedMediaService';
+import { MediaTag, MediaAsset } from '@/services/unifiedMediaService';
 
 interface UseEditableAssetFieldsOptions {
   assetId: string | undefined;
@@ -23,14 +23,17 @@ export const useEditableAssetFields = ({
   const [localTags, setLocalTags] = useState<MediaTag[]>(initialTags);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCreatingLocal, setIsCreatingLocal] = useState(false);
   const [newTagInput, setNewTagInput] = useState('');
   const [availableTags, setAvailableTags] = useState<MediaTag[]>([]);
+  const [localAssetId, setLocalAssetId] = useState(assetId);
 
   // Sync from props when asset changes
   useEffect(() => {
     setLocalTitle(initialTitle || '');
     setLocalDescription(initialDescription || '');
     setLocalTags(initialTags);
+    setLocalAssetId(assetId);
   }, [initialTitle, initialDescription, initialTags]);
 
   // Fetch available tags on mount
@@ -57,7 +60,7 @@ export const useEditableAssetFields = ({
   const isValidUUID = (id?: string) =>
     !!id?.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
 
-  const canEdit = isValidUUID(assetId);
+  const canEdit = isValidUUID(localAssetId);
 
   const startEditing = () => setIsEditing(true);
 
@@ -126,7 +129,8 @@ export const useEditableAssetFields = ({
   };
 
   const handleSave = async () => {
-    if (!assetId || !canEdit) return;
+    const effectiveId = localAssetId;
+    if (!effectiveId || !isValidUUID(effectiveId)) return;
     setIsSaving(true);
 
     try {
@@ -134,7 +138,7 @@ export const useEditableAssetFields = ({
       const { error: updateError } = await supabase
         .from('media_assets')
         .update({ title: localTitle, description: localDescription })
-        .eq('id', assetId);
+        .eq('id', effectiveId);
 
       if (updateError) throw updateError;
 
@@ -150,7 +154,7 @@ export const useEditableAssetFields = ({
         await supabase
           .from('media_asset_tags')
           .delete()
-          .eq('media_asset_id', assetId)
+          .eq('media_asset_id', effectiveId)
           .eq('tag_id', tag.id);
       }
 
@@ -158,7 +162,7 @@ export const useEditableAssetFields = ({
       for (const tag of toAdd) {
         await supabase
           .from('media_asset_tags')
-          .insert({ media_asset_id: assetId, tag_id: tag.id });
+          .insert({ media_asset_id: effectiveId, tag_id: tag.id });
       }
 
       toast.success('Changes saved');
@@ -168,7 +172,7 @@ export const useEditableAssetFields = ({
       // Sync to Salesforce
       try {
         await supabase.functions.invoke('sync-asset-to-salesforce', {
-          body: { assetId },
+          body: { assetId: effectiveId },
         });
         toast.success('Synced to Salesforce');
       } catch (syncErr) {
@@ -209,7 +213,45 @@ export const useEditableAssetFields = ({
         .map((t: any) => ({ id: t.id, name: t.name, description: t.description || '', color: t.color || '#6366f1' }));
       setLocalTags(tags);
     }
-  }, [assetId]);
+  }, [localAssetId]);
+
+  const createLocalRecord = useCallback(async (sfAsset: MediaAsset) => {
+    setIsCreatingLocal(true);
+    try {
+      const salesforceId = sfAsset.id.startsWith('sf_') ? sfAsset.id.slice(3) : sfAsset.salesforceId;
+      const { data, error } = await supabase
+        .from('media_assets')
+        .insert({
+          title: sfAsset.title || 'Untitled',
+          description: sfAsset.description || null,
+          source: sfAsset.source || 'salesforce',
+          file_url: sfAsset.fileUrl || null,
+          thumbnail_url: sfAsset.thumbnailUrl || null,
+          salesforce_id: salesforceId || null,
+          asset_type: sfAsset.assetType || null,
+          file_format: sfAsset.fileFormat || null,
+          file_size: sfAsset.fileSize || null,
+          duration: sfAsset.duration || null,
+          resolution: sfAsset.resolution || null,
+          metadata: sfAsset.metadata || {},
+          status: sfAsset.status || 'pending',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setLocalAssetId(data.id);
+      toast.success('Local record created — you can now edit this asset');
+      setIsEditing(true);
+      onAssetUpdated?.();
+    } catch (err: any) {
+      console.error('Failed to create local record:', err);
+      toast.error('Failed to create local record', { description: err.message });
+    } finally {
+      setIsCreatingLocal(false);
+    }
+  }, [onAssetUpdated]);
 
   return {
     localTitle,
@@ -220,6 +262,7 @@ export const useEditableAssetFields = ({
     availableTags,
     isEditing,
     isSaving,
+    isCreatingLocal,
     newTagInput,
     setNewTagInput,
     canEdit,
@@ -230,5 +273,6 @@ export const useEditableAssetFields = ({
     addTagFromExisting,
     handleSave,
     refreshFromDB,
+    createLocalRecord,
   };
 };

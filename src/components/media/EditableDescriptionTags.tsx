@@ -142,7 +142,7 @@ const EditableDescriptionTags: React.FC<EditableDescriptionTagsProps> = ({
                     value={newTagInput}
                     onValueChange={setNewTagInput}
                   />
-                  <CommandList>
+                  <CommandList className="max-h-[200px]">
                     <CommandEmpty>
                       {newTagInput.trim() ? (
                         <button
