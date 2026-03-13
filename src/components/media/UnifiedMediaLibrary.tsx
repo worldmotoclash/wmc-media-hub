@@ -88,7 +88,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
   // Bulk selection state
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
   const [isBulkTagging, setIsBulkTagging] = useState(false);
+  const [isBulkRenaming, setIsBulkRenaming] = useState(false);
   const [bulkTagProgress, setBulkTagProgress] = useState({ current: 0, total: 0 });
+  const [bulkRenameProgress, setBulkRenameProgress] = useState({ current: 0, total: 0 });
   
   // Details drawer state
   const [detailsAsset, setDetailsAsset] = useState<MediaAsset | null>(null);
