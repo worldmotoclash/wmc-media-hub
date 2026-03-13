@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@/contexts/UserContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, startOfWeek, endOfWeek, parseISO } from 'date-fns';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MediaNavigation } from '@/components/media/MediaNavigation';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { CalendarDays, Video, Image, Music, Loader2, RefreshCw, BookOpen } from 'lucide-react';
 
 interface DiaryEntry {
@@ -18,6 +20,17 @@ interface DiaryEntry {
   summary_text: string | null;
   salesforce_synced: boolean;
   created_at: string;
+  week_start: string | null;
+}
+
+interface WeeklyGroup {
+  weekStart: string;
+  entries: DiaryEntry[];
+  totalVideos: number;
+  totalImages: number;
+  totalAudio: number;
+  totalItems: number;
+  activeDays: number;
 }
 
 const DiaryDashboard: React.FC = () => {
@@ -68,16 +81,37 @@ const DiaryDashboard: React.FC = () => {
     }
   };
 
+  // Weekly grouping
+  const weeklyGroups = useMemo<WeeklyGroup[]>(() => {
+    const groups: Record<string, DiaryEntry[]> = {};
+    for (const entry of entries) {
+      const key = entry.week_start || entry.date;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(entry);
+    }
+    return Object.entries(groups)
+      .map(([weekStart, weekEntries]) => ({
+        weekStart,
+        entries: weekEntries.sort((a, b) => b.date.localeCompare(a.date)),
+        totalVideos: weekEntries.reduce((s, e) => s + e.video_count, 0),
+        totalImages: weekEntries.reduce((s, e) => s + e.image_count, 0),
+        totalAudio: weekEntries.reduce((s, e) => s + e.audio_count, 0),
+        totalItems: weekEntries.reduce((s, e) => s + e.video_count + e.image_count + e.audio_count, 0),
+        activeDays: weekEntries.length,
+      }))
+      .sort((a, b) => b.weekStart.localeCompare(a.weekStart));
+  }, [entries]);
+
   // Admin metrics
   const totalEntries = entries.length;
   const lastUpdate = entries[0]?.date || null;
   const now = new Date();
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+  const weekStartDate = startOfWeek(now, { weekStartsOn: 1 });
+  const weekEndDate = endOfWeek(now, { weekStartsOn: 1 });
   const thisWeekItems = entries
     .filter((e) => {
       const d = parseISO(e.date);
-      return d >= weekStart && d <= weekEnd;
+      return d >= weekStartDate && d <= weekEndDate;
     })
     .reduce((sum, e) => sum + e.video_count + e.image_count + e.audio_count, 0);
 
@@ -125,7 +159,7 @@ const DiaryDashboard: React.FC = () => {
           </Card>
         </div>
 
-        {/* Entries List */}
+        {/* Tabbed Views */}
         {loading ? (
           <div className="flex justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -139,41 +173,114 @@ const DiaryDashboard: React.FC = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-3">
-            {entries.map((entry) => {
-              const total = entry.video_count + entry.image_count + entry.audio_count;
-              return (
-                <Card
-                  key={entry.id}
-                  className="cursor-pointer hover:border-primary/30 transition-colors"
-                  onClick={() => navigate(`/mediahub/diary/${entry.date}`)}
-                >
-                  <CardContent className="p-5 flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground">
-                        {format(parseISO(entry.date), 'MMMM d, yyyy')}
-                      </h3>
-                      <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Video className="h-3.5 w-3.5" /> {entry.video_count} Videos
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Image className="h-3.5 w-3.5" /> {entry.image_count} Images
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Music className="h-3.5 w-3.5" /> {entry.audio_count} Audio
-                        </span>
+          <Tabs defaultValue="daily">
+            <TabsList className="mb-6">
+              <TabsTrigger value="daily">Daily</TabsTrigger>
+              <TabsTrigger value="weekly">Weekly</TabsTrigger>
+            </TabsList>
+
+            {/* Daily View */}
+            <TabsContent value="daily">
+              <div className="space-y-3">
+                {entries.map((entry) => {
+                  const total = entry.video_count + entry.image_count + entry.audio_count;
+                  return (
+                    <Card
+                      key={entry.id}
+                      className="cursor-pointer hover:border-primary/30 transition-colors"
+                      onClick={() => navigate(`/mediahub/diary/${entry.date}`)}
+                    >
+                      <CardContent className="p-5 flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-semibold text-foreground">
+                            {format(parseISO(entry.date), 'MMMM d, yyyy')}
+                          </h3>
+                          <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Video className="h-3.5 w-3.5" /> {entry.video_count} Videos
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Image className="h-3.5 w-3.5" /> {entry.image_count} Images
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Music className="h-3.5 w-3.5" /> {entry.audio_count} Audio
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-2xl font-bold text-primary">{total}</span>
+                          <p className="text-xs text-muted-foreground">items</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </TabsContent>
+
+            {/* Weekly View */}
+            <TabsContent value="weekly">
+              <Accordion type="multiple" className="space-y-3">
+                {weeklyGroups.map((week) => (
+                  <AccordionItem key={week.weekStart} value={week.weekStart} className="border rounded-lg bg-card">
+                    <AccordionTrigger className="px-5 py-4 hover:no-underline">
+                      <div className="flex items-center justify-between w-full mr-4">
+                        <div className="text-left">
+                          <h3 className="text-lg font-semibold text-foreground">
+                            Week of {format(parseISO(week.weekStart), 'MMM d, yyyy')}
+                          </h3>
+                          <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Video className="h-3.5 w-3.5" /> {week.totalVideos}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Image className="h-3.5 w-3.5" /> {week.totalImages}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Music className="h-3.5 w-3.5" /> {week.totalAudio}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <CalendarDays className="h-3.5 w-3.5" /> {week.activeDays} days
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-2xl font-bold text-primary">{week.totalItems}</span>
+                          <p className="text-xs text-muted-foreground">items</p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-2xl font-bold text-primary">{total}</span>
-                      <p className="text-xs text-muted-foreground">items</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-5 pb-4">
+                      <div className="space-y-2 pt-2 border-t border-border">
+                        {week.entries.map((entry) => {
+                          const total = entry.video_count + entry.image_count + entry.audio_count;
+                          return (
+                            <div
+                              key={entry.id}
+                              className="flex items-center justify-between p-3 rounded-md hover:bg-muted/50 cursor-pointer transition-colors"
+                              onClick={() => navigate(`/mediahub/diary/${entry.date}`)}
+                            >
+                              <div>
+                                <p className="font-medium text-foreground">
+                                  {format(parseISO(entry.date), 'EEEE, MMM d')}
+                                </p>
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                                  <span>{entry.video_count}V</span>
+                                  <span>{entry.image_count}I</span>
+                                  <span>{entry.audio_count}A</span>
+                                </div>
+                              </div>
+                              <span className="text-lg font-semibold text-primary">{total}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </div>
