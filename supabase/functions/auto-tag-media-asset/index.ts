@@ -155,6 +155,10 @@ Return the classification using the analyze_media_for_salesforce function.`;
             type: 'string', 
             description: '1-3 sentence factual description. No AI/model mentions. Describe subject, action, setting.' 
           },
+          suggestedTitle: {
+            type: 'string',
+            description: 'A concise, descriptive title for this media (3-8 words). Replace raw filenames like "20260307_115304" with meaningful names like "Daytona Pit Lane Aerial View". Use Title Case.'
+          },
           categories: { 
             type: 'array', 
             items: { type: 'string', enum: APPROVED_CATEGORIES },
@@ -183,7 +187,7 @@ Return the classification using the analyze_media_for_salesforce function.`;
             description: 'Confidence 0-100 in classification accuracy. Use safer defaults if <80.'
           }
         },
-        required: ['description', 'categories', 'contentType', 'location', 'mood', 'confidence']
+        required: ['description', 'suggestedTitle', 'categories', 'contentType', 'location', 'mood', 'confidence']
       }
     }
   }];
