@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { MediaTag } from '@/services/unifiedMediaService';
+import { MediaTag, MediaAsset } from '@/services/unifiedMediaService';
 
 interface UseEditableAssetFieldsOptions {
   assetId: string | undefined;

@@ -263,17 +263,19 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
                 <Button
                   variant="default"
                   className="flex-1"
-                  onClick={editableFields.startEditing}
-                  disabled={!editableFields.canEdit}
-                  title={!editableFields.canEdit ? 'This asset cannot be edited (external source)' : undefined}
+                  onClick={async () => {
+                    if (!editableFields.canEdit && asset.id.startsWith('sf_')) {
+                      await editableFields.createLocalRecord(asset);
+                    } else {
+                      editableFields.startEditing();
+                    }
+                  }}
+                  disabled={editableFields.isCreatingLocal}
                 >
-                  <Pencil className="w-4 h-4 mr-2" />Edit Details
+                  {editableFields.isCreatingLocal ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Pencil className="w-4 h-4 mr-2" />}
+                  Edit Details
                 </Button>
                 {asset.fileUrl && <Button variant="outline" className="flex-1" onClick={() => window.open(asset.fileUrl, '_blank')}><ExternalLink className="w-4 h-4 mr-2" />Open in Browser</Button>}
-                <Button className="flex-1" onClick={() => onPreview?.(asset)}>
-                  <Eye className="w-4 h-4 mr-2" />
-                  {isVideoAsset || isAudioAsset ? 'Play' : 'View Full Size'}
-                </Button>
               </div>
             </div>
           )}
