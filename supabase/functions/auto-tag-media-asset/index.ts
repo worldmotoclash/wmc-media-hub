@@ -653,6 +653,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         assetId,
+        suggestedTitle: analysis.suggestedTitle || null,
         tagsApplied: tagNames,
         tagCount: tagIds.length,
         sfdcMapping: {
