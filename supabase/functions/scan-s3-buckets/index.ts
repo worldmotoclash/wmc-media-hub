@@ -624,6 +624,7 @@ serve(async (req) => {
           removedMedia,
           skippedMedia,
           failedMedia,
+          albumsCreated,
           scannedAt: finishedAt,
         };
 
