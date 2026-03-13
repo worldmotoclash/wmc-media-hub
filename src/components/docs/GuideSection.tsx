@@ -111,7 +111,7 @@ export const RoleCategoryHeader: React.FC<RoleCategoryHeaderProps> = ({
   const style = roleStyles[role];
 
   return (
-    <div id={id} className={cn(
+    <div id={id} data-category-id={id} className={cn(
       "scroll-mt-24 mb-8 p-6 rounded-xl border-2",
       style.border,
       style.bg
