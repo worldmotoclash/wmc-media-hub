@@ -246,6 +246,8 @@ const UserGuide: React.FC = () => {
     return visibleSections.has(item.id);
   });
 
+  if (!user) return null;
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}

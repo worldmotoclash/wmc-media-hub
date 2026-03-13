@@ -223,6 +223,8 @@ export default function CharacterLibrary() {
     return details.length > 0 ? details : null;
   };
 
+  if (!user) return null;
+
   return (
     <div className="min-h-screen bg-background">
       <MediaNavigation />
