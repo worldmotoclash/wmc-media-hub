@@ -1701,6 +1701,15 @@ export const UnifiedMediaLibrary: React.FC = () => {
                           <Tag className="w-4 h-4" />
                         </Button>
                       )}
+                      {asset.fileUrl && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => window.open(asset.fileUrl, '_blank')}
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
