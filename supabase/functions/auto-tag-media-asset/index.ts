@@ -524,6 +524,29 @@ serve(async (req) => {
     console.log('[Step 1] Performing Salesforce-mapped AI analysis...');
     const analysis = await performSalesforceAnalysis(mediaUrl, mediaType, LOVABLE_API_KEY, isPodcast);
 
+    // If titleOnly mode, just update the title and return
+    if (titleOnly) {
+      const newTitle = analysis.suggestedTitle;
+      if (newTitle) {
+        const { error: titleError } = await supabase
+          .from('media_assets')
+          .update({ title: newTitle, updated_at: new Date().toISOString() })
+          .eq('id', assetId);
+        if (titleError) console.error('[Asset] Failed to update title:', titleError);
+      }
+
+      await supabase.from('content_review_activities').insert({
+        media_asset_id: assetId,
+        action: 'ai_renamed',
+        details: { suggestedTitle: newTitle, processingTimeMs: Date.now() - startTime },
+      });
+
+      return new Response(
+        JSON.stringify({ success: true, assetId, suggestedTitle: newTitle, processingTimeMs: Date.now() - startTime }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Step 2: Extract tag names from analysis
     console.log('[Step 2] Extracting tags from analysis...');
     const tagNames = extractTagsFromAnalysis(analysis);
@@ -569,26 +592,33 @@ serve(async (req) => {
 
     // Step 6: Update asset metadata with Salesforce-mapped analysis
     console.log('[Step 6] Updating asset metadata with SFDC-mapped analysis...');
+    const updatePayload: Record<string, unknown> = {
+      description: analysis.description || undefined,
+      metadata: {
+        sfdcAnalysis: {
+          description: analysis.description,
+          categories: analysis.categories,
+          contentType: analysis.contentType,
+          location: analysis.location,
+          mood: analysis.mood,
+          confidence: analysis.confidence,
+        },
+        analyzedAt: new Date().toISOString(),
+        autoTagged: true,
+        autoTaggedAt: new Date().toISOString(),
+      },
+      status: 'ready',
+      updated_at: new Date().toISOString(),
+    };
+
+    // Also update title if suggestTitle was requested and AI produced one
+    if (suggestTitle && analysis.suggestedTitle) {
+      updatePayload.title = analysis.suggestedTitle;
+    }
+
     const { error: updateError } = await supabase
       .from('media_assets')
-      .update({
-        description: analysis.description || undefined,
-        metadata: {
-          sfdcAnalysis: {
-            description: analysis.description,
-            categories: analysis.categories,
-            contentType: analysis.contentType,
-            location: analysis.location,
-            mood: analysis.mood,
-            confidence: analysis.confidence,
-          },
-          analyzedAt: new Date().toISOString(),
-          autoTagged: true,
-          autoTaggedAt: new Date().toISOString(),
-        },
-        status: 'ready',
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', assetId);
 
     if (updateError) {
