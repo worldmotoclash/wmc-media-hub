@@ -154,7 +154,7 @@ export const useEditableAssetFields = ({
         await supabase
           .from('media_asset_tags')
           .delete()
-          .eq('media_asset_id', assetId)
+          .eq('media_asset_id', effectiveId)
           .eq('tag_id', tag.id);
       }
 
