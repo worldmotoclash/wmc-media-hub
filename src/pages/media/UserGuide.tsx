@@ -312,7 +312,7 @@ const UserGuide: React.FC = () => {
                 </div>
               )}
               {/* Hero */}
-              <div className="mb-12 p-8 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/20">
+              <div data-guide-hero="true" className="mb-12 p-8 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/20">
                 <h2 className="text-3xl font-bold text-foreground mb-4">
                   Welcome to the WMC Media Hub
                 </h2>
