@@ -20,12 +20,17 @@ import {
   scanS3Bucket,
   fetchVariantCounts,
   fetchVariantsForMaster,
+  deleteMediaAssets,
   MediaAsset,
   MediaTag,
   S3BucketConfig,
   SearchFilters,
   SortOption,
 } from "@/services/unifiedMediaService";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { MediaFilterDrawer } from "./MediaFilterDrawer";
 import { getMediaSourceStats, MediaSourceStats } from "@/services/mediaSourceStatsService";
 import { ASPECT_RATIOS } from "@/constants/salesforceFields";
