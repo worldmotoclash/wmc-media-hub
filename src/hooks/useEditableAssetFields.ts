@@ -23,8 +23,10 @@ export const useEditableAssetFields = ({
   const [localTags, setLocalTags] = useState<MediaTag[]>(initialTags);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCreatingLocal, setIsCreatingLocal] = useState(false);
   const [newTagInput, setNewTagInput] = useState('');
   const [availableTags, setAvailableTags] = useState<MediaTag[]>([]);
+  const [localAssetId, setLocalAssetId] = useState(assetId);
 
   // Sync from props when asset changes
   useEffect(() => {
