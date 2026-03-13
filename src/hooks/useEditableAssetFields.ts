@@ -33,6 +33,7 @@ export const useEditableAssetFields = ({
     setLocalTitle(initialTitle || '');
     setLocalDescription(initialDescription || '');
     setLocalTags(initialTags);
+    setLocalAssetId(assetId);
   }, [initialTitle, initialDescription, initialTags]);
 
   // Fetch available tags on mount
