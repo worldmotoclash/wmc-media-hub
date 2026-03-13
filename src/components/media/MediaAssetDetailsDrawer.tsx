@@ -46,6 +46,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   const [audioToVideoOpen, setAudioToVideoOpen] = useState(false);
   const [isPodcast, setIsPodcast] = useState(false);
   const [isSavingPodcast, setIsSavingPodcast] = useState(false);
+  const [isReanalyzing, setIsReanalyzing] = useState(false);
 
   const editableFields = useEditableAssetFields({
     assetId: asset?.id,
@@ -115,7 +116,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-primary/10 text-primary">{getAssetIcon()}</div>
               <div>
-                <DrawerTitle className="text-left">{editableFields.isEditing ? editableFields.localTitle : asset.title}</DrawerTitle>
+                <DrawerTitle className="text-left">{editableFields.localTitle || asset.title}</DrawerTitle>
                 <DrawerDescription className="text-left">{asset.assetType || 'Media'} • {asset.source.replace('_', ' ')}</DrawerDescription>
               </div>
             </div>
@@ -258,6 +259,36 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
             <div className="flex flex-col gap-2">
               {isVideoAsset && asset.fileUrl && (
                 <Button variant="secondary" className="w-full" onClick={() => setAudioToVideoOpen(true)}><Wand2 className="w-4 h-4 mr-2" />Create Video with This Audio</Button>
+              )}
+              {editableFields.canEdit && (
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  disabled={isReanalyzing}
+                  onClick={async () => {
+                    setIsReanalyzing(true);
+                    try {
+                      const { data, error } = await supabase.functions.invoke('auto-tag-media-asset', {
+                        body: {
+                          assetId: asset.id,
+                          mediaUrl: asset.fileUrl || asset.thumbnailUrl,
+                          mediaType: asset.assetType === 'video' ? 'video' : 'image',
+                        }
+                      });
+                      if (error || !data?.success) throw error || new Error(data?.error || 'Failed');
+                      toast.success('AI analysis complete');
+                      onAssetUpdated?.();
+                      editableFields.refreshFromDB();
+                    } catch (err: any) {
+                      toast.error('AI analysis failed', { description: err.message });
+                    } finally {
+                      setIsReanalyzing(false);
+                    }
+                  }}
+                >
+                  {isReanalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                  Reanalyze with AI
+                </Button>
               )}
               <div className="flex gap-2">
                 <Button
