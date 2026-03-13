@@ -1,31 +1,46 @@
 
 
-# Add Tag-Based Filtering to Media Library
+# Fix Editing: RLS Blocking All Writes
 
-## Current State
-- Search scopes "All" and "Metadata" already match against tag names in the text search
-- But there's no way to filter by specific tags (e.g., pick "Racer Submission" from a list)
-- The `MediaFilterDrawer` has Category, Content Type, Location, and Mood filters — but no Tags section
+## Root Cause
 
-## Plan
+The `media_assets`, `media_asset_tags`, and `media_tags` tables have RLS policies requiring `auth.uid() IS NOT NULL` for INSERT, UPDATE, and DELETE. This project uses **Salesforce-based authentication** (not Supabase Auth), so `auth.uid()` is always `null`. Every write operation silently fails.
 
-### 1. Add `tagIds` to `SearchFilters` type
-**File**: `src/services/unifiedMediaService.ts`
+This affects:
+- Saving title/description edits
+- Adding/removing tags
+- Creating local records for Salesforce-only assets
+- Updating podcast status
 
-Add an optional `tagIds?: string[]` field to the `SearchFilters` interface.
+## Three-Source Architecture (Confirmed)
 
-### 2. Apply tag filter in the DB query
-**File**: `src/services/unifiedMediaService.ts`
+| Source | How it works | Editable? |
+|--------|-------------|-----------|
+| **Salesforce API** | Live fetch via Real Intelligence; synthetic `sf_*` IDs | Not directly — no local DB row |
+| **Wasabi S3 scan** | `scan-s3-buckets` edge function upserts into `media_assets` | Should be, but RLS blocks writes |
+| **Supabase `media_assets`** | Local DB for uploads, generations, S3-synced | Should be, but RLS blocks writes |
 
-When `filters.tagIds` is set, query `media_asset_tags` to get matching `media_asset_id` values, then filter the main query using `.in('id', matchingIds)`. This ensures only assets with ALL selected tags (or ANY — we can use ANY for better UX) are returned.
+Deduplication merges sources 1+2+3, preferring local DB records. When dedup misses (no `salesforce_id` match or URL mismatch), Salesforce assets appear as `sf_*` entries that can't be edited.
 
-### 3. Add Tags section to `MediaFilterDrawer`
-**File**: `src/components/media/MediaFilterDrawer.tsx`
+## Fix Plan
 
-Add a new collapsible "Tags" section that loads available tags from the `media_tags` table (already fetched via `fetchMediaTags()`). Display them as checkboxes like the other filter sections. Pass `tags` as a prop from `UnifiedMediaLibrary`.
+### 1. Update RLS policies to allow anonymous writes (3 tables)
 
-### 4. Wire up in `UnifiedMediaLibrary`
-**File**: `src/components/media/UnifiedMediaLibrary.tsx`
+Per the existing memory note on RLS, this project requires open policies because `auth.uid()` is always null. The `media_albums` table already has correct open policies (`WITH CHECK (true)` / `USING (true)`). Apply the same pattern to:
 
-Pass the loaded `tags` array to `MediaFilterDrawer`. Handle `tagIds` filter changes alongside existing filters. Include tag count in the active filter badge.
+- **`media_assets`** — change INSERT, UPDATE, DELETE policies from `auth.uid() IS NOT NULL` to `true`
+- **`media_asset_tags`** — change the ALL policy from `auth.uid() IS NOT NULL` to `true`  
+- **`media_tags`** — change the ALL policy from `auth.uid() IS NOT NULL` to `true`
+
+This is a single SQL migration with DROP + CREATE for each policy.
+
+### 2. No code changes needed
+
+The `useEditableAssetFields` hook, `createLocalRecord`, `handleSave`, and `handlePodcastToggle` functions are all correctly written — they just fail silently because the database rejects the writes. Once RLS is fixed, editing will work.
+
+## Files
+
+| Target | Change |
+|--------|--------|
+| SQL Migration | Update 6 RLS policies across 3 tables to allow anonymous access |
 
