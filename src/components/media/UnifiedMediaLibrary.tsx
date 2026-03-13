@@ -1253,11 +1253,23 @@ export const UnifiedMediaLibrary: React.FC = () => {
                 </>
               )}
             </Button>
+            {isEditor() && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowBulkDeleteConfirm(true)}
+                disabled={isBulkTagging || isBulkRenaming || isBulkDeleting}
+                className="flex items-center gap-2 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete ({selectedAssetIds.size})
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
               onClick={clearSelection}
-              disabled={isBulkTagging || isBulkRenaming}
+              disabled={isBulkTagging || isBulkRenaming || isBulkDeleting}
               className="text-primary-foreground hover:bg-primary-foreground/20"
             >
               Clear
