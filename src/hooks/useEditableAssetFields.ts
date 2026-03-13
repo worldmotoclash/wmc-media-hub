@@ -213,7 +213,45 @@ export const useEditableAssetFields = ({
         .map((t: any) => ({ id: t.id, name: t.name, description: t.description || '', color: t.color || '#6366f1' }));
       setLocalTags(tags);
     }
-  }, [assetId]);
+  }, [localAssetId]);
+
+  const createLocalRecord = useCallback(async (sfAsset: MediaAsset) => {
+    setIsCreatingLocal(true);
+    try {
+      const salesforceId = sfAsset.id.startsWith('sf_') ? sfAsset.id.slice(3) : sfAsset.salesforceId;
+      const { data, error } = await supabase
+        .from('media_assets')
+        .insert({
+          title: sfAsset.title || 'Untitled',
+          description: sfAsset.description || null,
+          source: sfAsset.source || 'salesforce',
+          file_url: sfAsset.fileUrl || null,
+          thumbnail_url: sfAsset.thumbnailUrl || null,
+          salesforce_id: salesforceId || null,
+          asset_type: sfAsset.assetType || null,
+          file_format: sfAsset.fileFormat || null,
+          file_size: sfAsset.fileSize || null,
+          duration: sfAsset.duration || null,
+          resolution: sfAsset.resolution || null,
+          metadata: sfAsset.metadata || {},
+          status: sfAsset.status || 'pending',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setLocalAssetId(data.id);
+      toast.success('Local record created — you can now edit this asset');
+      setIsEditing(true);
+      onAssetUpdated?.();
+    } catch (err: any) {
+      console.error('Failed to create local record:', err);
+      toast.error('Failed to create local record', { description: err.message });
+    } finally {
+      setIsCreatingLocal(false);
+    }
+  }, [onAssetUpdated]);
 
   return {
     localTitle,
@@ -224,6 +262,7 @@ export const useEditableAssetFields = ({
     availableTags,
     isEditing,
     isSaving,
+    isCreatingLocal,
     newTagInput,
     setNewTagInput,
     canEdit,
@@ -234,5 +273,6 @@ export const useEditableAssetFields = ({
     addTagFromExisting,
     handleSave,
     refreshFromDB,
+    createLocalRecord,
   };
 };
