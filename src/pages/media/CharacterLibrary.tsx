@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useUser } from "@/contexts/UserContext";
 import { supabase } from "@/integrations/supabase/client";
 import { MediaNavigation } from "@/components/media/MediaNavigation";
 import { Button } from "@/components/ui/button";
