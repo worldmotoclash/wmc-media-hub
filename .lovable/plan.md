@@ -1,31 +1,27 @@
 
 
-# Add Tag-Based Filtering to Media Library
+# Weekly Summary View for Content Diary
 
-## Current State
-- Search scopes "All" and "Metadata" already match against tag names in the text search
-- But there's no way to filter by specific tags (e.g., pick "Racer Submission" from a list)
-- The `MediaFilterDrawer` has Category, Content Type, Location, and Mood filters — but no Tags section
+## Approach
+Add a tabbed interface to the existing `DiaryDashboard` with "Daily" and "Weekly" views. The weekly view groups entries by `week_start` (already stored in the DB) and shows aggregate totals per week. Pure client-side grouping -- no DB or edge function changes needed.
 
-## Plan
+## Changes
 
-### 1. Add `tagIds` to `SearchFilters` type
-**File**: `src/services/unifiedMediaService.ts`
+### File: `src/pages/media/DiaryDashboard.tsx`
 
-Add an optional `tagIds?: string[]` field to the `SearchFilters` interface.
+1. **Add Tabs** (`Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`) to toggle between "Daily" (current list) and "Weekly" views
+2. **Compute weekly groups** from the fetched entries: group by `week_start`, sum `video_count`, `image_count`, `audio_count` per group, count days with entries
+3. **Weekly view UI**: Accordion-style cards, one per week, showing:
+   - Week label: "Week of Mar 10, 2026"
+   - Aggregate video/image/audio counts and total items
+   - Number of active days that week
+   - Click to expand and show individual daily entries within that week (each clickable to navigate to `/mediahub/diary/:date`)
 
-### 2. Apply tag filter in the DB query
-**File**: `src/services/unifiedMediaService.ts`
+### Data flow
+- `week_start` column already exists on `media_diary_entries` and is populated by `generate-diary-entry`
+- Group client-side: `Object.groupBy` or reduce into a `Map<string, DiaryEntry[]>` keyed by `week_start`
+- Sort weeks descending
 
-When `filters.tagIds` is set, query `media_asset_tags` to get matching `media_asset_id` values, then filter the main query using `.in('id', matchingIds)`. This ensures only assets with ALL selected tags (or ANY — we can use ANY for better UX) are returned.
-
-### 3. Add Tags section to `MediaFilterDrawer`
-**File**: `src/components/media/MediaFilterDrawer.tsx`
-
-Add a new collapsible "Tags" section that loads available tags from the `media_tags` table (already fetched via `fetchMediaTags()`). Display them as checkboxes like the other filter sections. Pass `tags` as a prop from `UnifiedMediaLibrary`.
-
-### 4. Wire up in `UnifiedMediaLibrary`
-**File**: `src/components/media/UnifiedMediaLibrary.tsx`
-
-Pass the loaded `tags` array to `MediaFilterDrawer`. Handle `tagIds` filter changes alongside existing filters. Include tag count in the active filter badge.
+### No other files affected
+Single-file UI change within `DiaryDashboard.tsx`.
 
