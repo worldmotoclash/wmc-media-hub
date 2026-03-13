@@ -497,7 +497,7 @@ serve(async (req) => {
   const startTime = Date.now();
 
   try {
-    const { assetId, mediaUrl, mediaType, skipSalesforce, isPodcast } = await req.json() as AutoTagRequest;
+    const { assetId, mediaUrl, mediaType, skipSalesforce, isPodcast, suggestTitle, titleOnly } = await req.json() as AutoTagRequest;
 
     if (!assetId || !mediaUrl || !mediaType) {
       return new Response(
