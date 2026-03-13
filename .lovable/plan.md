@@ -1,67 +1,31 @@
-# Make User Guide Searchable + Add Release Notes Page
-
-## 1. Searchable User Guide
-
-Add a search bar to the User Guide header that filters sections in real-time.
-
-### How it works
-
-- Add a search input in the header bar (next to the Print/PDF button)
-- Convert `UserGuide` to use state: `searchQuery` string
-- Pass `searchQuery` down to each `GuideSection` / `RoleCategoryHeader`
-- When a query is active, hide sections whose title/content text doesn't match (case-insensitive)
-- Highlight matching text within visible sections using a `<mark>` wrapper
-- Clear button to reset search; show "No results" message when nothing matches
-- TOC items also filter to only show matching sections
-
-### Files to edit
 
 
-| File                                   | Change                                                                                      |
-| -------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `src/pages/media/UserGuide.tsx`        | Add search state, search input in header, pass query to sections, filter `tocItems`         |
-| `src/components/docs/GuideSection.tsx` | Accept optional `searchQuery` prop, hide sections that don't match, highlight matching text |
-| `src/components/docs/GuideTOC.tsx`     | Accept optional `filteredIds` prop to only show matching TOC entries                        |
+# Add Tag-Based Filtering to Media Library
 
+## Current State
+- Search scopes "All" and "Metadata" already match against tag names in the text search
+- But there's no way to filter by specific tags (e.g., pick "Racer Submission" from a list)
+- The `MediaFilterDrawer` has Category, Content Type, Location, and Mood filters — but no Tags section
 
----
+## Plan
 
-## 2. Release Notes Page
+### 1. Add `tagIds` to `SearchFilters` type
+**File**: `src/services/unifiedMediaService.ts`
 
-Create a dedicated Release Notes page listing new features by date. Available from the USer guide.
+Add an optional `tagIds?: string[]` field to the `SearchFilters` interface.
 
-### Data structure
+### 2. Apply tag filter in the DB query
+**File**: `src/services/unifiedMediaService.ts`
 
-- New file `src/data/releaseNotes.ts` with a typed array of releases:
-  ```ts
-  interface ReleaseNote {
-    version: string;       // e.g. "1.4.0"
-    date: string;          // e.g. "Mar 13, 2026"
-    title: string;         // e.g. "Tag Deduplication & AI Rename"
-    highlights: string[];  // bullet points
-    category: 'feature' | 'improvement' | 'fix';
-  }
-  ```
-- Seed with recent features (tag dedup, AI rename, bulk delete, etc.)
+When `filters.tagIds` is set, query `media_asset_tags` to get matching `media_asset_id` values, then filter the main query using `.in('id', matchingIds)`. This ensures only assets with ALL selected tags (or ANY — we can use ANY for better UX) are returned.
 
-### Page: `src/pages/media/ReleaseNotes.tsx`
+### 3. Add Tags section to `MediaFilterDrawer`
+**File**: `src/components/media/MediaFilterDrawer.tsx`
 
-- Header with back nav (same style as UserGuide)
-- Timeline-style layout: each release is a card with version badge, date, title, and bullet list
-- Category filter chips (Feature / Improvement / Fix)
-- Link from Media Hub dashboard and User Guide
+Add a new collapsible "Tags" section that loads available tags from the `media_tags` table (already fetched via `fetchMediaTags()`). Display them as checkboxes like the other filter sections. Pass `tags` as a prop from `UnifiedMediaLibrary`.
 
-### Routing & Navigation
+### 4. Wire up in `UnifiedMediaLibrary`
+**File**: `src/components/media/UnifiedMediaLibrary.tsx`
 
-- Add route `/admin/media/releases` in `App.tsx`
-- Add a "What's New" link/card in the Media Hub ActionCards or header
+Pass the loaded `tags` array to `MediaFilterDrawer`. Handle `tagIds` filter changes alongside existing filters. Include tag count in the active filter badge.
 
-### Files to create/edit
-
-
-| File                                   | Change                                    |
-| -------------------------------------- | ----------------------------------------- |
-| `src/data/releaseNotes.ts`             | New — release data + types                |
-| `src/pages/media/ReleaseNotes.tsx`     | New — release notes page                  |
-| `src/App.tsx`                          | Add route for `/admin/media/releases`     |
-| `src/components/media/ActionCards.tsx` | Add "What's New" card linking to releases |

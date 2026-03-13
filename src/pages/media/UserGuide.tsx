@@ -1,4 +1,36 @@
 import React from 'react';
+import { Input } from '@/components/ui/input';
+
+function highlightMatches(element: Element, query: string) {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    if (node.parentElement?.tagName === 'MARK' || node.parentElement?.tagName === 'SCRIPT' || node.parentElement?.tagName === 'STYLE') continue;
+    if (node.textContent && node.textContent.toLowerCase().includes(query.toLowerCase())) {
+      textNodes.push(node as Text);
+    }
+  }
+  textNodes.forEach(textNode => {
+    const text = textNode.textContent || '';
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+    if (parts.length <= 1) return;
+    const fragment = document.createDocumentFragment();
+    parts.forEach(part => {
+      if (part.toLowerCase() === query.toLowerCase()) {
+        const mark = document.createElement('mark');
+        mark.setAttribute('data-search-highlight', 'true');
+        mark.className = 'bg-yellow-300 dark:bg-yellow-500/40 text-foreground rounded-sm px-0.5';
+        mark.textContent = part;
+        fragment.appendChild(mark);
+      } else {
+        fragment.appendChild(document.createTextNode(part));
+      }
+    });
+    textNode.parentNode?.replaceChild(fragment, textNode);
+  });
+}
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { 
@@ -61,7 +93,8 @@ import {
   UserCircle,
   Crown,
   Music,
-  Mic
+  Mic,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -110,6 +143,96 @@ const tocItems = [
 ];
 
 const UserGuide: React.FC = () => {
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const [visibleSections, setVisibleSections] = React.useState<Set<string>>(new Set(tocItems.map(i => i.id)));
+
+  React.useEffect(() => {
+    if (!searchQuery.trim()) {
+      setVisibleSections(new Set(tocItems.map(i => i.id)));
+      // Remove all highlights
+      contentRef.current?.querySelectorAll('mark[data-search-highlight]').forEach(mark => {
+        const parent = mark.parentNode;
+        if (parent) {
+          parent.replaceChild(document.createTextNode(mark.textContent || ''), mark);
+          parent.normalize();
+        }
+      });
+      return;
+    }
+
+    const query = searchQuery.toLowerCase();
+    const visible = new Set<string>();
+    const sections = contentRef.current?.querySelectorAll('[data-section-id]');
+    
+    // Remove previous highlights
+    contentRef.current?.querySelectorAll('mark[data-search-highlight]').forEach(mark => {
+      const parent = mark.parentNode;
+      if (parent) {
+        parent.replaceChild(document.createTextNode(mark.textContent || ''), mark);
+        parent.normalize();
+      }
+    });
+
+    sections?.forEach(section => {
+      const sectionId = section.getAttribute('data-section-id');
+      const textContent = section.textContent?.toLowerCase() || '';
+      if (textContent.includes(query) && sectionId) {
+        visible.add(sectionId);
+        // Also make the parent category visible
+        const categoryItem = tocItems.find(i => i.isCategory && tocItems.indexOf(i) < tocItems.findIndex(t => t.id === sectionId));
+        // Find the category this section belongs to
+        for (let idx = tocItems.findIndex(t => t.id === sectionId); idx >= 0; idx--) {
+          if (tocItems[idx].isCategory) {
+            visible.add(tocItems[idx].id);
+            break;
+          }
+        }
+        // Highlight matching text in text nodes
+        highlightMatches(section, searchQuery);
+      }
+    });
+
+    // Also check category headers
+    const categoryHeaders = contentRef.current?.querySelectorAll('[data-category-id]');
+    categoryHeaders?.forEach(header => {
+      const catId = header.getAttribute('data-category-id');
+      if (catId) {
+        const textContent = header.textContent?.toLowerCase() || '';
+        if (textContent.includes(query)) {
+          visible.add(catId);
+        }
+      }
+    });
+
+    setVisibleSections(visible);
+  }, [searchQuery]);
+
+  // Hide/show sections based on search
+  React.useEffect(() => {
+    if (!contentRef.current) return;
+    const allSections = contentRef.current.querySelectorAll('[data-section-id]');
+    allSections.forEach(el => {
+      const id = el.getAttribute('data-section-id');
+      (el as HTMLElement).style.display = id && visibleSections.has(id) ? '' : 'none';
+    });
+    const allCategories = contentRef.current.querySelectorAll('[data-category-id]');
+    allCategories.forEach(el => {
+      const id = el.getAttribute('data-category-id');
+      (el as HTMLElement).style.display = id && visibleSections.has(id) ? '' : 'none';
+    });
+    // Hide hero when searching
+    const hero = contentRef.current.querySelector('[data-guide-hero]');
+    if (hero) {
+      (hero as HTMLElement).style.display = searchQuery.trim() ? 'none' : '';
+    }
+  }, [visibleSections, searchQuery]);
+
+  const filteredTocItems = tocItems.filter(item => {
+    if (!searchQuery.trim()) return true;
+    return visibleSections.has(item.id);
+  });
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -132,15 +255,39 @@ const UserGuide: React.FC = () => {
               </div>
             </div>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="print:hidden"
-            onClick={() => window.print()}
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Print / PDF
-          </Button>
+          <div className="flex items-center gap-3 print:hidden">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search guide..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 w-48 md:w-64 h-9 text-sm"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <Link to="/admin/media/releases">
+              <Button variant="outline" size="sm">
+                <Sparkles className="w-4 h-4 mr-2" />
+                What's New
+              </Button>
+            </Link>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => window.print()}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Print / PDF
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -148,17 +295,24 @@ const UserGuide: React.FC = () => {
       <div className="container mx-auto px-6 py-8">
         <div className="flex gap-8">
           {/* Table of Contents */}
-          <GuideTOC items={tocItems} />
+          <GuideTOC items={filteredTocItems} />
 
           {/* Content */}
-          <main className="flex-1 max-w-4xl">
+          <main className="flex-1 max-w-4xl" ref={contentRef}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
+              {searchQuery && visibleSections.size === 0 && (
+                <div className="text-center py-16">
+                  <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No results found</h3>
+                  <p className="text-muted-foreground">No sections match "{searchQuery}". Try a different search term.</p>
+                </div>
+              )}
               {/* Hero */}
-              <div className="mb-12 p-8 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/20">
+              <div data-guide-hero="true" className="mb-12 p-8 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/20">
                 <h2 className="text-3xl font-bold text-foreground mb-4">
                   Welcome to the WMC Media Hub
                 </h2>
