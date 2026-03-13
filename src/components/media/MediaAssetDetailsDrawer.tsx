@@ -171,6 +171,31 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
               onSave={editableFields.handleSave}
             />
 
+            {/* Album Assignment */}
+            <div>
+              <h4 className="font-semibold text-foreground mb-2">Album</h4>
+              {editableFields.isEditing ? (
+                <Select
+                  value={editableFields.localAlbumId || '__none__'}
+                  onValueChange={(v) => editableFields.setLocalAlbumId(v === '__none__' ? null : v)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="No album" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No album</SelectItem>
+                    {albums.map((album) => (
+                      <SelectItem key={album.id} value={album.id}>{album.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {albums.find((a) => a.id === asset.album_id)?.name || <span className="italic">No album</span>}
+                </p>
+              )}
+            </div>
+
             {/* Content Intent Badge */}
             {asset.metadata?.contentIntent && (
               <div className="flex items-center gap-2">
