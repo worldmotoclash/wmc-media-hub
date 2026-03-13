@@ -1,31 +1,38 @@
 
 
-# Add Tag-Based Filtering to Media Library
+# Fix Media Asset Drawer: 7 Issues
 
-## Current State
-- Search scopes "All" and "Metadata" already match against tag names in the text search
-- But there's no way to filter by specific tags (e.g., pick "Racer Submission" from a list)
-- The `MediaFilterDrawer` has Category, Content Type, Location, and Mood filters — but no Tags section
+## Issues Identified
+
+1. **Missing thumbnail on cards/drawer**: Salesforce image assets have a valid `fileUrl` (the actual image) but no `thumbnailUrl`. The card grid doesn't fall back to `fileUrl` for the thumbnail display.
+
+2. **Drawer header doesn't update after save**: After saving, `isEditing` becomes `false`, so `DrawerTitle` falls back to `asset.title` (the stale prop from the parent). The parent refetch hasn't completed yet or the drawer still holds the old `asset` reference.
+
+3. **"Reanalyze with AI" button is missing**: No such button exists in the drawer code. Needs to be added — it should invoke the `auto-tag-media-asset` edge function.
+
+4. **Tags sync to wrong SFDC field**: The `sync-asset-to-salesforce` edge function maps tags to `ri1__Categories__c` (lines 117, 191, 338, 425). User says tags should map to `ri1__Tags__c`.
 
 ## Plan
 
-### 1. Add `tagIds` to `SearchFilters` type
-**File**: `src/services/unifiedMediaService.ts`
+### 1. Fix thumbnail fallback (UnifiedMediaLibrary + Drawer)
+- In the grid card thumbnail `<img>`, use `asset.thumbnailUrl || asset.fileUrl` (the drawer already does this, but the card grid may not for all cases)
+- Verify the card grid code uses proper fallback
 
-Add an optional `tagIds?: string[]` field to the `SearchFilters` interface.
+### 2. Fix drawer header stale after save
+- In `MediaAssetDetailsDrawer`, make `DrawerTitle` always use `editableFields.localTitle` instead of conditionally falling back to `asset.title`. The `localTitle` is already synced from `asset.title` on mount and updated during editing, so it's always the most current value.
 
-### 2. Apply tag filter in the DB query
-**File**: `src/services/unifiedMediaService.ts`
+### 3. Add "Reanalyze with AI" button
+- Add a button in the drawer footer (next to Edit Details) that invokes the `auto-tag-media-asset` edge function with the asset ID
+- Only show for assets with a valid UUID (local DB record)
 
-When `filters.tagIds` is set, query `media_asset_tags` to get matching `media_asset_id` values, then filter the main query using `.in('id', matchingIds)`. This ensures only assets with ALL selected tags (or ANY — we can use ANY for better UX) are returned.
+### 4. Fix SFDC tag field mapping
+- In `sync-asset-to-salesforce/index.ts`, change `ri1__Categories__c` to `ri1__Tags__c` in both `updateSalesforceRecord` and `createSalesforceRecord`
 
-### 3. Add Tags section to `MediaFilterDrawer`
-**File**: `src/components/media/MediaFilterDrawer.tsx`
+## Files to Edit
 
-Add a new collapsible "Tags" section that loads available tags from the `media_tags` table (already fetched via `fetchMediaTags()`). Display them as checkboxes like the other filter sections. Pass `tags` as a prop from `UnifiedMediaLibrary`.
-
-### 4. Wire up in `UnifiedMediaLibrary`
-**File**: `src/components/media/UnifiedMediaLibrary.tsx`
-
-Pass the loaded `tags` array to `MediaFilterDrawer`. Handle `tagIds` filter changes alongside existing filters. Include tag count in the active filter badge.
+| File | Change |
+|------|--------|
+| `src/components/media/MediaAssetDetailsDrawer.tsx` | Fix header to use `localTitle` always; add "Reanalyze with AI" button |
+| `src/components/media/UnifiedMediaLibrary.tsx` | Verify thumbnail fallback uses `thumbnailUrl \|\| fileUrl` |
+| `supabase/functions/sync-asset-to-salesforce/index.ts` | Change `ri1__Categories__c` → `ri1__Tags__c` |
 
