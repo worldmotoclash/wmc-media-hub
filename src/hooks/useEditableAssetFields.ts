@@ -72,6 +72,7 @@ export const useEditableAssetFields = ({
     setLocalTitle(initialTitle || '');
     setLocalDescription(initialDescription || '');
     setLocalTags(initialTags);
+    setLocalAlbumId(initialAlbumId || null);
     setNewTagInput('');
     setIsEditing(false);
   };
