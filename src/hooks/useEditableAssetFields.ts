@@ -8,6 +8,7 @@ interface UseEditableAssetFieldsOptions {
   initialTitle?: string;
   initialDescription?: string;
   initialTags: MediaTag[];
+  initialAlbumId?: string | null;
   onAssetUpdated?: () => void;
 }
 
