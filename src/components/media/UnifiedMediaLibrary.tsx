@@ -1209,7 +1209,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                         </Badge>
                       )}
                     </div>
-                  ) : (asset.thumbnailUrl && asset.thumbnailUrl.trim() !== '') || (isImageType(asset.assetType) && asset.fileUrl) ? (
+                  ) : (asset.thumbnailUrl && asset.thumbnailUrl.trim() !== '') || asset.fileUrl ? (
                     <div className="relative">
                       <img
                         src={brokenThumbnails.has(asset.id) 

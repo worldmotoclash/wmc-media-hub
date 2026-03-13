@@ -46,6 +46,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   const [audioToVideoOpen, setAudioToVideoOpen] = useState(false);
   const [isPodcast, setIsPodcast] = useState(false);
   const [isSavingPodcast, setIsSavingPodcast] = useState(false);
+  const [isReanalyzing, setIsReanalyzing] = useState(false);
 
   const editableFields = useEditableAssetFields({
     assetId: asset?.id,
