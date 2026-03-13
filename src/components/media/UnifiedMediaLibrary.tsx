@@ -1163,7 +1163,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
               transition={{ delay: index * 0.05 }}
             >
               <Card className={`group hover:shadow-lg transition-all duration-200 cursor-pointer ${selectedAssetIds.has(asset.id) ? 'ring-2 ring-primary' : ''}`}>
-                <div className="relative cursor-pointer" onClick={() => setSelectedAsset(asset)}>
+                <div className="relative cursor-pointer" onClick={() => { setDetailsAsset(asset); setShowDetailsDrawer(true); }}>
                   {/* Selection Checkbox */}
                   <div 
                     className={`absolute top-2 left-2 z-10 transition-opacity ${selectedAssetIds.size > 0 || 'opacity-0 group-hover:opacity-100'}`}
