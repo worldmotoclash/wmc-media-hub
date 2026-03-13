@@ -109,6 +109,26 @@ export const useEditableAssetFields = ({
       return;
     }
 
+    // Case-insensitive check in DB before creating
+    const { data: existingRow } = await supabase
+      .from('media_tags')
+      .select('*')
+      .ilike('name', name)
+      .maybeSingle();
+
+    if (existingRow) {
+      const foundTag: MediaTag = {
+        id: existingRow.id,
+        name: existingRow.name,
+        description: existingRow.description || '',
+        color: existingRow.color || '#6366f1',
+      };
+      setLocalTags((prev) => [...prev, foundTag]);
+      setAvailableTags((prev) => [...prev, foundTag]);
+      setNewTagInput('');
+      return;
+    }
+
     // Create in DB
     const { data: created, error } = await supabase
       .from('media_tags')

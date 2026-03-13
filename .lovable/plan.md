@@ -1,46 +1,31 @@
 
 
-# Prevent Tag Duplication in MediaHub
+# Add Tag-Based Filtering to Media Library
 
-## Problem
-Tags like "Behind the Scenes" and "behind-the-scenes" can coexist because there's no case-insensitive uniqueness constraint on `media_tags.name`. Some code paths (auto-tag, upload-master) use `.ilike()` to check before inserting, but `useEditableAssetFields.ts` does not — it inserts directly.
+## Current State
+- Search scopes "All" and "Metadata" already match against tag names in the text search
+- But there's no way to filter by specific tags (e.g., pick "Racer Submission" from a list)
+- The `MediaFilterDrawer` has Category, Content Type, Location, and Mood filters — but no Tags section
 
-## Changes
+## Plan
 
-### 1. Database Migration
-- Add a unique index on `lower(name)` to `media_tags` to enforce case-insensitive uniqueness at the DB level
-- Run a deduplication query first: merge duplicate tags (keeping the oldest), reassign `media_asset_tags` references, then delete duplicates
+### 1. Add `tagIds` to `SearchFilters` type
+**File**: `src/services/unifiedMediaService.ts`
 
-```sql
--- Deduplicate existing tags: reassign references to the earliest tag per lowercase name, delete dupes
-WITH ranked AS (
-  SELECT id, name, lower(name) as lname,
-    ROW_NUMBER() OVER (PARTITION BY lower(name) ORDER BY created_at ASC) as rn
-  FROM media_tags
-),
-canonical AS (SELECT id, lname FROM ranked WHERE rn = 1),
-dupes AS (SELECT r.id as dupe_id, c.id as canon_id FROM ranked r JOIN canonical c ON r.lname = c.lname WHERE r.rn > 1)
-UPDATE media_asset_tags SET tag_id = d.canon_id FROM dupes d WHERE media_asset_tags.tag_id = d.dupe_id;
+Add an optional `tagIds?: string[]` field to the `SearchFilters` interface.
 
-DELETE FROM media_tags WHERE id IN (
-  SELECT id FROM (
-    SELECT id, ROW_NUMBER() OVER (PARTITION BY lower(name) ORDER BY created_at ASC) as rn FROM media_tags
-  ) sub WHERE rn > 1
-);
+### 2. Apply tag filter in the DB query
+**File**: `src/services/unifiedMediaService.ts`
 
-CREATE UNIQUE INDEX media_tags_name_lower_unique ON media_tags (lower(name));
-```
+When `filters.tagIds` is set, query `media_asset_tags` to get matching `media_asset_id` values, then filter the main query using `.in('id', matchingIds)`. This ensures only assets with ALL selected tags (or ANY — we can use ANY for better UX) are returned.
 
-### 2. `src/hooks/useEditableAssetFields.ts`
-In the `addTag` function (~line 100-120): before inserting a new tag, query with `.ilike('name', name)` to find an existing match (same pattern used in `auto-tag-media-asset` and `upload-master-to-s3`). If found, use that tag instead of creating a duplicate.
+### 3. Add Tags section to `MediaFilterDrawer`
+**File**: `src/components/media/MediaFilterDrawer.tsx`
 
-### 3. `src/services/unifiedMediaService.ts`
-In `createMediaTag`: add an `.ilike()` check before insert for the same protection at the service layer.
+Add a new collapsible "Tags" section that loads available tags from the `media_tags` table (already fetched via `fetchMediaTags()`). Display them as checkboxes like the other filter sections. Pass `tags` as a prop from `UnifiedMediaLibrary`.
 
-## Files to Edit
-| File | Change |
-|------|--------|
-| Migration SQL | Deduplicate + add unique index |
-| `src/hooks/useEditableAssetFields.ts` | Add `.ilike()` lookup before insert in `addTag` |
-| `src/services/unifiedMediaService.ts` | Add `.ilike()` lookup in `createMediaTag` |
+### 4. Wire up in `UnifiedMediaLibrary`
+**File**: `src/components/media/UnifiedMediaLibrary.tsx`
+
+Pass the loaded `tags` array to `MediaFilterDrawer`. Handle `tagIds` filter changes alongside existing filters. Include tag count in the active filter badge.
 

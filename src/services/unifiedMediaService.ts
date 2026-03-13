@@ -527,8 +527,19 @@ export async function fetchMediaTags(): Promise<MediaTag[]> {
   return data || [];
 }
 
-// Create a new tag
+// Create a new tag (case-insensitive dedup: reuse existing if name matches)
 export async function createMediaTag(tag: Omit<MediaTag, 'id'>): Promise<MediaTag> {
+  // Check for existing tag with same name (case-insensitive)
+  const { data: existing } = await supabase
+    .from('media_tags')
+    .select('*')
+    .ilike('name', tag.name)
+    .maybeSingle();
+
+  if (existing) {
+    return existing;
+  }
+
   const { data, error } = await supabase
     .from('media_tags')
     .insert(tag)
