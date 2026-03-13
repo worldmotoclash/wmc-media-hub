@@ -382,6 +382,8 @@ const SceneDetectionPage = () => {
     setClipRange([clipRange[0], timestamp]);
   };
 
+  if (!user) return null;
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="mb-6">

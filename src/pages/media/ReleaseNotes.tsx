@@ -32,6 +32,8 @@ const ReleaseNotesPage: React.FC = () => {
 
   const filtered = filter === 'all' ? releaseNotes : releaseNotes.filter(r => r.category === filter);
 
+  if (!user) return null;
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
