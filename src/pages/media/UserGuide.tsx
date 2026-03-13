@@ -110,6 +110,76 @@ const tocItems = [
 ];
 
 const UserGuide: React.FC = () => {
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const [visibleSections, setVisibleSections] = React.useState<Set<string>>(new Set(tocItems.map(i => i.id)));
+
+  React.useEffect(() => {
+    if (!searchQuery.trim()) {
+      setVisibleSections(new Set(tocItems.map(i => i.id)));
+      // Remove all highlights
+      contentRef.current?.querySelectorAll('mark[data-search-highlight]').forEach(mark => {
+        const parent = mark.parentNode;
+        if (parent) {
+          parent.replaceChild(document.createTextNode(mark.textContent || ''), mark);
+          parent.normalize();
+        }
+      });
+      return;
+    }
+
+    const query = searchQuery.toLowerCase();
+    const visible = new Set<string>();
+    const sections = contentRef.current?.querySelectorAll('[data-section-id]');
+    
+    // Remove previous highlights
+    contentRef.current?.querySelectorAll('mark[data-search-highlight]').forEach(mark => {
+      const parent = mark.parentNode;
+      if (parent) {
+        parent.replaceChild(document.createTextNode(mark.textContent || ''), mark);
+        parent.normalize();
+      }
+    });
+
+    sections?.forEach(section => {
+      const sectionId = section.getAttribute('data-section-id');
+      const textContent = section.textContent?.toLowerCase() || '';
+      if (textContent.includes(query) && sectionId) {
+        visible.add(sectionId);
+        // Also make the parent category visible
+        const categoryItem = tocItems.find(i => i.isCategory && tocItems.indexOf(i) < tocItems.findIndex(t => t.id === sectionId));
+        // Find the category this section belongs to
+        for (let idx = tocItems.findIndex(t => t.id === sectionId); idx >= 0; idx--) {
+          if (tocItems[idx].isCategory) {
+            visible.add(tocItems[idx].id);
+            break;
+          }
+        }
+        // Highlight matching text in text nodes
+        highlightMatches(section, searchQuery);
+      }
+    });
+
+    // Also check category headers
+    const categoryHeaders = contentRef.current?.querySelectorAll('[data-category-id]');
+    categoryHeaders?.forEach(header => {
+      const catId = header.getAttribute('data-category-id');
+      if (catId) {
+        const textContent = header.textContent?.toLowerCase() || '';
+        if (textContent.includes(query)) {
+          visible.add(catId);
+        }
+      }
+    });
+
+    setVisibleSections(visible);
+  }, [searchQuery]);
+
+  const filteredTocItems = tocItems.filter(item => {
+    if (!searchQuery.trim()) return true;
+    return visibleSections.has(item.id);
+  });
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
