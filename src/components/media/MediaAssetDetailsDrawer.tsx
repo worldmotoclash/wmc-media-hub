@@ -129,7 +129,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
             {/* Thumbnail Preview */}
             {(asset.thumbnailUrl || asset.fileUrl) && (
               <div className="relative aspect-video w-full max-w-md mx-auto rounded-lg overflow-hidden bg-muted">
-                <img src={asset.thumbnailUrl || asset.fileUrl} alt={asset.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg'; }} />
+                <img src={(['image', 'master_image', 'image_variant', 'generation_master', 'grid_variant'].includes(asset.assetType || '') ? (asset.fileUrl || asset.thumbnailUrl) : (asset.thumbnailUrl || asset.fileUrl)) || '/placeholder.svg'} alt={asset.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg'; }} />
                 {asset.assetType === 'video' && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                     <Button size="sm" variant="secondary" onClick={() => onPreview?.(asset)}><Eye className="w-4 h-4 mr-2" />Preview Video</Button>
