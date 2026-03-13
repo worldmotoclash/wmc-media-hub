@@ -7,7 +7,7 @@ import { format, parseISO } from 'date-fns';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MediaNavigation } from '@/components/media/MediaNavigation';
-import { ArrowLeft, Video, Image, Music, Loader2, FileText } from 'lucide-react';
+import { ArrowLeft, Video, Image, Music, Loader2, FileText, Download } from 'lucide-react';
 
 interface ContentItem {
   id: string;
@@ -170,7 +170,18 @@ const DiaryDetail: React.FC = () => {
                     <CardContent className="p-3">
                       <div className="flex items-center gap-2">
                         {getAssetIcon(item.asset_type)}
-                        <p className="text-sm font-medium text-foreground truncate">{item.title}</p>
+                        <p className="text-sm font-medium text-foreground truncate flex-1">{item.title}</p>
+                        {item.file_url && (
+                          <a
+                            href={item.file_url}
+                            download={item.title + (item.file_format ? `.${item.file_format}` : '')}
+                            onClick={(e) => e.stopPropagation()}
+                            className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                            title="Download"
+                          >
+                            <Download className="h-4 w-4" />
+                          </a>
+                        )}
                       </div>
                       {item.file_format && (
                         <p className="text-xs text-muted-foreground mt-1 uppercase">{item.file_format}</p>
