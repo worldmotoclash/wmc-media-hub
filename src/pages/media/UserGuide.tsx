@@ -1,4 +1,36 @@
 import React from 'react';
+import { Input } from '@/components/ui/input';
+
+function highlightMatches(element: Element, query: string) {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    if (node.parentElement?.tagName === 'MARK' || node.parentElement?.tagName === 'SCRIPT' || node.parentElement?.tagName === 'STYLE') continue;
+    if (node.textContent && node.textContent.toLowerCase().includes(query.toLowerCase())) {
+      textNodes.push(node as Text);
+    }
+  }
+  textNodes.forEach(textNode => {
+    const text = textNode.textContent || '';
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+    if (parts.length <= 1) return;
+    const fragment = document.createDocumentFragment();
+    parts.forEach(part => {
+      if (part.toLowerCase() === query.toLowerCase()) {
+        const mark = document.createElement('mark');
+        mark.setAttribute('data-search-highlight', 'true');
+        mark.className = 'bg-yellow-300 dark:bg-yellow-500/40 text-foreground rounded-sm px-0.5';
+        mark.textContent = part;
+        fragment.appendChild(mark);
+      } else {
+        fragment.appendChild(document.createTextNode(part));
+      }
+    });
+    textNode.parentNode?.replaceChild(fragment, textNode);
+  });
+}
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { 
