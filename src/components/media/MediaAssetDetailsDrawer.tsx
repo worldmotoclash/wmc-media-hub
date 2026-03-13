@@ -261,7 +261,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
               )}
               <div className="flex gap-2">
                 <Button
-                  variant="outline"
+                  variant="default"
                   className="flex-1"
                   onClick={editableFields.startEditing}
                   disabled={!editableFields.canEdit}
