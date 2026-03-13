@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useUser } from "@/contexts/UserContext";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,16 @@ import { ArrowLeft, ImagePlus, Search, Image as ImageIcon, Layers, Upload, Trash
 import { toast } from "sonner";
 
 export default function SocialKit() {
+  const { user } = useUser();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) {
+      toast.error('Please log in to access this page');
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
   const [assets, setAssets] = useState<MasterImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -103,6 +114,8 @@ export default function SocialKit() {
       setAssetToDelete(null);
     }
   };
+
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-background">

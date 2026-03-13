@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useUser } from "@/contexts/UserContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -32,6 +34,16 @@ interface SceneDetection {
 }
 
 const SceneDetectionPage = () => {
+  const { user } = useUser();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) {
+      toast.error('Please log in to access this page');
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
   const [selectedVideo, setSelectedVideo] = useState<{
     type: 'file' | 'asset' | 'url';
     file?: File;
@@ -369,6 +381,8 @@ const SceneDetectionPage = () => {
   const handleSetOutPoint = (timestamp: number) => {
     setClipRange([clipRange[0], timestamp]);
   };
+
+  if (!user) return null;
 
   return (
     <div className="container mx-auto p-6 space-y-6">

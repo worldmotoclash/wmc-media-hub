@@ -1,5 +1,8 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
+import { useUser } from '@/contexts/UserContext';
+import { toast } from 'sonner';
 
 function highlightMatches(element: Element, query: string) {
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
@@ -143,6 +146,16 @@ const tocItems = [
 ];
 
 const UserGuide: React.FC = () => {
+  const { user } = useUser();
+  const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (!user) {
+      toast.error('Please log in to access this page');
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
   const [searchQuery, setSearchQuery] = React.useState('');
   const contentRef = React.useRef<HTMLDivElement>(null);
   const [visibleSections, setVisibleSections] = React.useState<Set<string>>(new Set(tocItems.map(i => i.id)));
@@ -232,6 +245,8 @@ const UserGuide: React.FC = () => {
     if (!searchQuery.trim()) return true;
     return visibleSections.has(item.id);
   });
+
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-background">

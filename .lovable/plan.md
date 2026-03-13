@@ -1,32 +1,31 @@
 
 
-# Protect Media Hub Pages Behind Authentication
+# Add Tag-Based Filtering to Media Library
 
-## Problem
-Five media pages have no auth guards and are accessible without logging in:
-- Scene Detection (`/admin/media/scene-detection`)
-- Social Kit (`/admin/media/social-kit`)
-- Character Library (`/admin/media/characters`)
-- User Guide (`/admin/media/user-guide`)
-- Release Notes (`/admin/media/releases`)
+## Current State
+- Search scopes "All" and "Metadata" already match against tag names in the text search
+- But there's no way to filter by specific tags (e.g., pick "Racer Submission" from a list)
+- The `MediaFilterDrawer` has Category, Content Type, Location, and Mood filters — but no Tags section
 
-The profile dropdown correctly hides links when logged out, but direct URL access is unprotected.
+## Plan
 
-## Solution
-Add the same auth guard pattern used by other media pages to each of these five files:
+### 1. Add `tagIds` to `SearchFilters` type
+**File**: `src/services/unifiedMediaService.ts`
 
-1. Import `useUser` and `useNavigate`
-2. Add `useEffect` that redirects to `/login` with a toast when `!user`
-3. Return `null` while redirecting
+Add an optional `tagIds?: string[]` field to the `SearchFilters` interface.
 
-Each file gets the same ~10-line addition — no other changes needed.
+### 2. Apply tag filter in the DB query
+**File**: `src/services/unifiedMediaService.ts`
 
-## Files to Edit
-| File | Change |
-|------|--------|
-| `src/pages/media/SceneDetection.tsx` | Add auth guard |
-| `src/pages/media/SocialKit.tsx` | Add auth guard |
-| `src/pages/media/CharacterLibrary.tsx` | Add auth guard |
-| `src/pages/media/UserGuide.tsx` | Add auth guard |
-| `src/pages/media/ReleaseNotes.tsx` | Add auth guard |
+When `filters.tagIds` is set, query `media_asset_tags` to get matching `media_asset_id` values, then filter the main query using `.in('id', matchingIds)`. This ensures only assets with ALL selected tags (or ANY — we can use ANY for better UX) are returned.
+
+### 3. Add Tags section to `MediaFilterDrawer`
+**File**: `src/components/media/MediaFilterDrawer.tsx`
+
+Add a new collapsible "Tags" section that loads available tags from the `media_tags` table (already fetched via `fetchMediaTags()`). Display them as checkboxes like the other filter sections. Pass `tags` as a prop from `UnifiedMediaLibrary`.
+
+### 4. Wire up in `UnifiedMediaLibrary`
+**File**: `src/components/media/UnifiedMediaLibrary.tsx`
+
+Pass the loaded `tags` array to `MediaFilterDrawer`. Handle `tagIds` filter changes alongside existing filters. Include tag count in the active filter badge.
 

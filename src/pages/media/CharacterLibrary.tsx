@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useUser } from "@/contexts/UserContext";
 import { supabase } from "@/integrations/supabase/client";
 import { MediaNavigation } from "@/components/media/MediaNavigation";
 import { Button } from "@/components/ui/button";
@@ -81,7 +82,16 @@ const elementTypeColors: Record<string, string> = {
 };
 
 export default function CharacterLibrary() {
+  const { user } = useUser();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) {
+      toast.error('Please log in to access this page');
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
   const [characters, setCharacters] = useState<CharacterItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -212,6 +222,8 @@ export default function CharacterLibrary() {
     if (p.distinguishingFeatures) details.push(`Features: ${p.distinguishingFeatures}`);
     return details.length > 0 ? details : null;
   };
+
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-background">

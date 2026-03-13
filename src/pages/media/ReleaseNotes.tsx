@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useUser } from '@/contexts/UserContext';
+import { toast } from 'sonner';
 import { ArrowLeft, Sparkles, Rocket, Wrench, Bug, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,9 +18,21 @@ const categoryConfig: Record<ReleaseNote['category'], { label: string; icon: Rea
 };
 
 const ReleaseNotesPage: React.FC = () => {
+  const { user } = useUser();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) {
+      toast.error('Please log in to access this page');
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
   const [filter, setFilter] = useState<CategoryFilter>('all');
 
   const filtered = filter === 'all' ? releaseNotes : releaseNotes.filter(r => r.category === filter);
+
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-background">
