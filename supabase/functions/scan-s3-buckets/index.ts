@@ -418,14 +418,14 @@ serve(async (req) => {
         // Pre-fetch existing assets for ETag comparison to skip unchanged files faster
         const { data: existingAssetsWithMetadata } = await supabase
           .from('media_assets')
-          .select('id, source_id, metadata')
+          .select('id, source_id, metadata, album_id')
           .eq('source', 's3_bucket');
         
-        const existingAssetMap = new Map<string, { id: string; etag?: string }>();
+        const existingAssetMap = new Map<string, { id: string; etag?: string; album_id?: string | null }>();
         if (existingAssetsWithMetadata) {
           for (const asset of existingAssetsWithMetadata) {
             const etag = (asset.metadata as any)?.etag;
-            existingAssetMap.set(asset.source_id, { id: asset.id, etag });
+            existingAssetMap.set(asset.source_id, { id: asset.id, etag, album_id: asset.album_id });
           }
         }
         console.log(`[SCAN] Pre-loaded ${existingAssetMap.size} existing assets for ETag comparison`);
@@ -459,8 +459,33 @@ serve(async (req) => {
             // Fast ETag check - skip if file hasn't changed
             const existingAsset = existingAssetMap.get(obj.Key);
             if (existingAsset && existingAsset.etag && existingAsset.etag === obj.ETag) {
+              // File unchanged, but still check if it needs album assignment
+              if (!existingAsset.album_id) {
+                const albumName = deriveAlbumName(obj.Key);
+                if (albumName) {
+                  const albumKey = albumName.toLowerCase();
+                  let albumId = albumCache.get(albumKey);
+                  if (!albumId) {
+                    const wasabiPath = deriveWasabiPath(obj.Key);
+                    const { data: newAlbum, error: albumErr } = await supabase
+                      .from('media_albums')
+                      .insert({ name: albumName, source: 'auto', wasabi_path: wasabiPath })
+                      .select('id')
+                      .single();
+                    if (!albumErr && newAlbum) {
+                      albumId = newAlbum.id;
+                      albumCache.set(albumKey, albumId);
+                      albumsCreated++;
+                      console.log(`[Album] Created auto album: ${albumName}`);
+                    }
+                  }
+                  if (albumId) {
+                    await supabase.from('media_assets').update({ album_id: albumId }).eq('id', existingAsset.id);
+                  }
+                }
+              }
               skippedMedia++;
-              continue; // File unchanged, skip entirely
+              continue;
             }
 
             const title = extractTitleFromKey(obj.Key);
@@ -557,7 +582,8 @@ serve(async (req) => {
               }
 
               // Auto-album assignment: assign to album based on folder structure
-              if (assetId && isNewAsset) {
+              const existingAlbumId = existingAsset?.album_id;
+              if (assetId && !existingAlbumId) {
                 const albumName = deriveAlbumName(obj.Key);
                 if (albumName) {
                   const albumKey = albumName.toLowerCase();
