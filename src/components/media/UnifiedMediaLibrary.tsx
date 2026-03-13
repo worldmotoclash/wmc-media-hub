@@ -118,7 +118,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [loadingVariants, setLoadingVariants] = useState<Set<string>>(new Set());
   
   const pageSize = 20;
-  const { user } = useUser();
+  const { user, isEditor } = useUser();
   useSupabaseAuth(); // Ensure Supabase auth when user is logged in
   const navigate = useNavigate();
 
