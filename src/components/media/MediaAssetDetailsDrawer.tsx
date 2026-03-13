@@ -115,7 +115,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-primary/10 text-primary">{getAssetIcon()}</div>
               <div>
-                <DrawerTitle className="text-left">{editableFields.isEditing ? editableFields.localTitle : asset.title}</DrawerTitle>
+                <DrawerTitle className="text-left">{editableFields.localTitle || asset.title}</DrawerTitle>
                 <DrawerDescription className="text-left">{asset.assetType || 'Media'} • {asset.source.replace('_', ' ')}</DrawerDescription>
               </div>
             </div>
