@@ -903,13 +903,24 @@ export async function fetchVariantsForMaster(masterId: string, salesforceId?: st
 }
 
 /**
- * Delete a single media asset and its associated tags
+ * Delete a single media asset, its S3 file, Salesforce record, and DB rows
  */
 export async function deleteMediaAsset(assetId: string): Promise<void> {
-  // Delete associated tags first
-  await supabase.from('media_asset_tags').delete().eq('media_asset_id', assetId);
-  // Delete the asset
-  const { error } = await supabase.from('media_assets').delete().eq('id', assetId);
+  // Fetch s3_key and salesforce_id before deletion
+  const { data: asset } = await supabase
+    .from('media_assets')
+    .select('s3_key, salesforce_id')
+    .eq('id', assetId)
+    .single();
+
+  const { error } = await supabase.functions.invoke('delete-media-asset', {
+    body: {
+      assetId,
+      s3Key: asset?.s3_key || null,
+      salesforceId: asset?.salesforce_id || null,
+    },
+  });
+
   if (error) throw error;
 }
 

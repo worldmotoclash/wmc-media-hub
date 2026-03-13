@@ -1,48 +1,31 @@
 
 
-# Complete Delete: S3 + Salesforce via w2x-engine
+# Add Tag-Based Filtering to Media Library
 
 ## Current State
-`deleteMediaAsset()` only removes Supabase DB records. S3 files and Salesforce records are orphaned.
+- Search scopes "All" and "Metadata" already match against tag names in the text search
+- But there's no way to filter by specific tags (e.g., pick "Racer Submission" from a list)
+- The `MediaFilterDrawer` has Category, Content Type, Location, and Mood filters — but no Tags section
 
 ## Plan
 
-### 1. New Edge Function: `delete-media-asset`
-**File**: `supabase/functions/delete-media-asset/index.ts`
-
-Accepts `{ assetId, s3Key?, salesforceId? }` and performs three cleanup steps:
-
-1. **S3 deletion** — If `s3Key` provided, delete from Wasabi using `aws4fetch` + shared `s3Config` (same pattern as `delete-master-image`)
-2. **Salesforce deletion** — If `salesforceId` provided, POST to w2x-engine with `action=delete`, `sObj=ri1__Content__c`, `Id={salesforceId}` (mirrors the existing `action=update` pattern)
-3. **DB cleanup** — Delete `media_asset_tags` join records, then delete the `media_assets` row
-
-```text
-w2x-engine delete call:
-  FormData:
-    retURL  = "https://worldmotoclash.com"
-    sObj    = "ri1__Content__c"
-    action  = "delete"
-    Id      = {salesforceId}
-```
-
-### 2. Update client-side service
+### 1. Add `tagIds` to `SearchFilters` type
 **File**: `src/services/unifiedMediaService.ts`
 
-Replace direct DB deletes in `deleteMediaAsset` with:
-- Fetch asset's `s3_key` and `salesforce_id` first
-- Call `supabase.functions.invoke('delete-media-asset', { body: { assetId, s3Key, salesforceId } })`
-- `deleteMediaAssets` continues to loop over `deleteMediaAsset`
+Add an optional `tagIds?: string[]` field to the `SearchFilters` interface.
 
-### 3. Register in config
-**File**: `supabase/config.toml`
+### 2. Apply tag filter in the DB query
+**File**: `src/services/unifiedMediaService.ts`
 
-Add `[functions.delete-media-asset]` with `verify_jwt = false`.
+When `filters.tagIds` is set, query `media_asset_tags` to get matching `media_asset_id` values, then filter the main query using `.in('id', matchingIds)`. This ensures only assets with ALL selected tags (or ANY — we can use ANY for better UX) are returned.
 
-### Files
+### 3. Add Tags section to `MediaFilterDrawer`
+**File**: `src/components/media/MediaFilterDrawer.tsx`
 
-| File | Change |
-|------|--------|
-| `supabase/functions/delete-media-asset/index.ts` | New — S3 + w2x-engine delete + DB cleanup |
-| `src/services/unifiedMediaService.ts` | Invoke edge function instead of direct DB delete |
-| `supabase/config.toml` | Register new function |
+Add a new collapsible "Tags" section that loads available tags from the `media_tags` table (already fetched via `fetchMediaTags()`). Display them as checkboxes like the other filter sections. Pass `tags` as a prop from `UnifiedMediaLibrary`.
+
+### 4. Wire up in `UnifiedMediaLibrary`
+**File**: `src/components/media/UnifiedMediaLibrary.tsx`
+
+Pass the loaded `tags` array to `MediaFilterDrawer`. Handle `tagIds` filter changes alongside existing filters. Include tag count in the active filter badge.
 
