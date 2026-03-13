@@ -418,14 +418,14 @@ serve(async (req) => {
         // Pre-fetch existing assets for ETag comparison to skip unchanged files faster
         const { data: existingAssetsWithMetadata } = await supabase
           .from('media_assets')
-          .select('id, source_id, metadata')
+          .select('id, source_id, metadata, album_id')
           .eq('source', 's3_bucket');
         
-        const existingAssetMap = new Map<string, { id: string; etag?: string }>();
+        const existingAssetMap = new Map<string, { id: string; etag?: string; album_id?: string | null }>();
         if (existingAssetsWithMetadata) {
           for (const asset of existingAssetsWithMetadata) {
             const etag = (asset.metadata as any)?.etag;
-            existingAssetMap.set(asset.source_id, { id: asset.id, etag });
+            existingAssetMap.set(asset.source_id, { id: asset.id, etag, album_id: asset.album_id });
           }
         }
         console.log(`[SCAN] Pre-loaded ${existingAssetMap.size} existing assets for ETag comparison`);
