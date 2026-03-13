@@ -1394,22 +1394,14 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => setSelectedAsset(asset)}
-                      className="flex-1"
-                    >
-                      <Eye className="w-3 h-3 mr-1" />
-                      Preview
-                    </Button>
-                    
-                    <Button
-                      size="sm"
-                      variant="outline"
                       onClick={() => {
                         setDetailsAsset(asset);
                         setShowDetailsDrawer(true);
                       }}
+                      className="flex-1"
                     >
-                      <Info className="w-3 h-3" />
+                      <Eye className="w-3 h-3 mr-1" />
+                      View Details
                     </Button>
                     
                     {asset.status === 'pending' && (
@@ -1422,16 +1414,6 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       >
                         <Tag className="w-3 h-3 mr-1" />
                         Review
-                      </Button>
-                    )}
-                    
-                    {asset.fileUrl && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => window.open(asset.fileUrl, '_blank')}
-                      >
-                        <ExternalLink className="w-3 h-3" />
                       </Button>
                     )}
                   </div>
