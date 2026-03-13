@@ -104,6 +104,22 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
     } finally { setIsSavingPodcast(false); }
   };
 
+  const handleDelete = async () => {
+    if (!asset) return;
+    setIsDeleting(true);
+    try {
+      await deleteMediaAsset(asset.id);
+      toast.success(`"${asset.title}" deleted`);
+      setShowDeleteConfirm(false);
+      onOpenChange(false);
+      onAssetUpdated?.();
+    } catch (err: any) {
+      toast.error('Failed to delete asset', { description: err.message });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return '–';
     const mb = bytes / (1024 * 1024);
