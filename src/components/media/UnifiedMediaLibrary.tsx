@@ -1176,7 +1176,12 @@ export const UnifiedMediaLibrary: React.FC = () => {
             </span>
             {isBulkTagging && (
               <span className="text-sm opacity-80">
-                Processing {bulkTagProgress.current}/{bulkTagProgress.total}...
+                Tagging {bulkTagProgress.current}/{bulkTagProgress.total}...
+              </span>
+            )}
+            {isBulkRenaming && (
+              <span className="text-sm opacity-80">
+                Renaming {bulkRenameProgress.current}/{bulkRenameProgress.total}...
               </span>
             )}
           </div>
@@ -1185,7 +1190,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
               variant="secondary"
               size="sm"
               onClick={handleBulkAutoTag}
-              disabled={isBulkTagging || getTaggableAssets().length === 0}
+              disabled={isBulkTagging || isBulkRenaming || getTaggableAssets().length === 0}
               className="flex items-center gap-2"
             >
               {isBulkTagging ? (
@@ -1201,10 +1206,29 @@ export const UnifiedMediaLibrary: React.FC = () => {
               )}
             </Button>
             <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleBulkRename}
+              disabled={isBulkTagging || isBulkRenaming || getTaggableAssets().length === 0}
+              className="flex items-center gap-2"
+            >
+              {isBulkRenaming ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Renaming...
+                </>
+              ) : (
+                <>
+                  <Pencil className="w-4 h-4" />
+                  AI Rename ({getTaggableAssets().length})
+                </>
+              )}
+            </Button>
+            <Button
               variant="ghost"
               size="sm"
               onClick={clearSelection}
-              disabled={isBulkTagging}
+              disabled={isBulkTagging || isBulkRenaming}
               className="text-primary-foreground hover:bg-primary-foreground/20"
             >
               Clear
