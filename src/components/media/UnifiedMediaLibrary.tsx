@@ -273,6 +273,28 @@ export const UnifiedMediaLibrary: React.FC = () => {
     }
   };
 
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedAssetIds);
+    setIsBulkDeleting(true);
+    try {
+      const { successCount, failCount } = await deleteMediaAssets(ids);
+      if (successCount > 0) {
+        toast.success(`Deleted ${successCount} asset${successCount > 1 ? 's' : ''}`, {
+          description: failCount > 0 ? `${failCount} failed` : undefined
+        });
+        loadAssets();
+      } else {
+        toast.error('Failed to delete assets');
+      }
+    } catch {
+      toast.error('Failed to delete assets');
+    } finally {
+      setIsBulkDeleting(false);
+      setShowBulkDeleteConfirm(false);
+      clearSelection();
+    }
+  };
+
   const handlePlayInBackground = (asset: MediaAsset) => {
     setMiniPlayer({
       isOpen: true,
