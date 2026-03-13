@@ -386,11 +386,40 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
                 </Button>
                 {asset.fileUrl && <Button variant="outline" className="flex-1" onClick={() => window.open(asset.fileUrl, '_blank')}><ExternalLink className="w-4 h-4 mr-2" />Open in Browser</Button>}
               </div>
+              {isEditor() && (
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Asset
+                </Button>
+              )}
             </div>
           )}
         </DrawerFooter>
       </DrawerContent>
       <AudioToVideoWorkflow isOpen={audioToVideoOpen} onClose={() => setAudioToVideoOpen(false)} preSelectedAudioSource={asset.fileUrl} />
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{asset.title}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The asset and its tag associations will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Drawer>
   );
 };
