@@ -129,7 +129,8 @@ export const useEditableAssetFields = ({
   };
 
   const handleSave = async () => {
-    if (!assetId || !canEdit) return;
+    const effectiveId = localAssetId;
+    if (!effectiveId || !isValidUUID(effectiveId)) return;
     setIsSaving(true);
 
     try {
