@@ -61,6 +61,14 @@ const ActionCards: React.FC = () => {
       href: '/mediahub/diary',
       color: 'from-primary/20 to-primary/10',
       iconColor: 'text-primary'
+    },
+    {
+      title: "What's New",
+      description: 'Latest features, improvements, and release notes',
+      icon: Megaphone,
+      href: '/admin/media/releases',
+      color: 'from-rose-500/20 to-rose-500/10',
+      iconColor: 'text-rose-500'
     }
   ];
 

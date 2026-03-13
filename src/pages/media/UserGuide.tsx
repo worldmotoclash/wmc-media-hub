@@ -277,12 +277,19 @@ const UserGuide: React.FC = () => {
           <GuideTOC items={filteredTocItems} />
 
           {/* Content */}
-          <main className="flex-1 max-w-4xl">
+          <main className="flex-1 max-w-4xl" ref={contentRef}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
+              {searchQuery && visibleSections.size === 0 && (
+                <div className="text-center py-16">
+                  <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No results found</h3>
+                  <p className="text-muted-foreground">No sections match "{searchQuery}". Try a different search term.</p>
+                </div>
+              )}
               {/* Hero */}
               <div className="mb-12 p-8 rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/20">
                 <h2 className="text-3xl font-bold text-foreground mb-4">

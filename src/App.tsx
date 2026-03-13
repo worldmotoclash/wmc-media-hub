@@ -100,6 +100,7 @@ const App = () => (
                 <Route path="/admin/media/social-kit" element={<SocialKit />} />
                 <Route path="/admin/media/characters" element={<CharacterLibrary />} />
                 <Route path="/admin/media/user-guide" element={<UserGuide />} />
+                <Route path="/admin/media/releases" element={<ReleaseNotes />} />
                 <Route path="/mediahub/diary" element={<DiaryDashboard />} />
                 <Route path="/mediahub/diary/:date" element={<DiaryDetail />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
