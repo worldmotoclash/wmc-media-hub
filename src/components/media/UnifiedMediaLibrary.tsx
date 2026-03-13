@@ -1163,7 +1163,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
               transition={{ delay: index * 0.05 }}
             >
               <Card className={`group hover:shadow-lg transition-all duration-200 cursor-pointer ${selectedAssetIds.has(asset.id) ? 'ring-2 ring-primary' : ''}`}>
-                <div className="relative cursor-pointer" onClick={() => setSelectedAsset(asset)}>
+                <div className="relative cursor-pointer" onClick={() => { setDetailsAsset(asset); setShowDetailsDrawer(true); }}>
                   {/* Selection Checkbox */}
                   <div 
                     className={`absolute top-2 left-2 z-10 transition-opacity ${selectedAssetIds.size > 0 || 'opacity-0 group-hover:opacity-100'}`}
@@ -1394,22 +1394,14 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => setSelectedAsset(asset)}
-                      className="flex-1"
-                    >
-                      <Eye className="w-3 h-3 mr-1" />
-                      Preview
-                    </Button>
-                    
-                    <Button
-                      size="sm"
-                      variant="outline"
                       onClick={() => {
                         setDetailsAsset(asset);
                         setShowDetailsDrawer(true);
                       }}
+                      className="flex-1"
                     >
-                      <Info className="w-3 h-3" />
+                      <Eye className="w-3 h-3 mr-1" />
+                      View Details
                     </Button>
                     
                     {asset.status === 'pending' && (
@@ -1422,16 +1414,6 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       >
                         <Tag className="w-3 h-3 mr-1" />
                         Review
-                      </Button>
-                    )}
-                    
-                    {asset.fileUrl && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => window.open(asset.fileUrl, '_blank')}
-                      >
-                        <ExternalLink className="w-3 h-3" />
                       </Button>
                     )}
                   </div>
@@ -1690,19 +1672,12 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => setSelectedAsset(asset)}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
                         onClick={() => {
                           setDetailsAsset(asset);
                           setShowDetailsDrawer(true);
                         }}
                       >
-                        <Info className="w-4 h-4" />
+                        <Eye className="w-4 h-4" />
                       </Button>
                       {asset.status === 'pending' && (
                         <Button
@@ -1714,15 +1689,6 @@ export const UnifiedMediaLibrary: React.FC = () => {
                           }}
                         >
                           <Tag className="w-4 h-4" />
-                        </Button>
-                      )}
-                      {asset.fileUrl && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => window.open(asset.fileUrl, '_blank')}
-                        >
-                          <ExternalLink className="w-4 h-4" />
                         </Button>
                       )}
                     </div>

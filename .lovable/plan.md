@@ -1,41 +1,31 @@
 
 
-# Consolidate Media Asset Actions
+# Add Tag-Based Filtering to Media Library
 
-## Problem
+## Current State
+- Search scopes "All" and "Metadata" already match against tag names in the text search
+- But there's no way to filter by specific tags (e.g., pick "Racer Submission" from a list)
+- The `MediaFilterDrawer` has Category, Content Type, Location, and Mood filters — but no Tags section
 
-Three icon buttons (Preview, Info, Open in Browser) are unclear. Users cannot tell which one allows editing. The "Info" drawer duplicates preview functionality with its own "Preview Video" button inside.
+## Plan
 
-## Solution
+### 1. Add `tagIds` to `SearchFilters` type
+**File**: `src/services/unifiedMediaService.ts`
 
-Merge Preview and Info into a single **unified detail view**. Clicking any asset (or one primary button) opens the Details Drawer, which already contains a media preview area at the top plus editing controls. Remove the separate Preview button and the standalone ExternalLink button from the card actions.
+Add an optional `tagIds?: string[]` field to the `SearchFilters` interface.
 
-## Changes
+### 2. Apply tag filter in the DB query
+**File**: `src/services/unifiedMediaService.ts`
 
-### 1. `UnifiedMediaLibrary.tsx` — Simplify action buttons
+When `filters.tagIds` is set, query `media_asset_tags` to get matching `media_asset_id` values, then filter the main query using `.in('id', matchingIds)`. This ensures only assets with ALL selected tags (or ANY — we can use ANY for better UX) are returned.
 
-**Grid view** (around line 1393-1436): Replace the three buttons with:
-- **One primary button**: "View Details" (Eye icon) → opens the Details Drawer
-- Remove standalone Preview button and ExternalLink button from the card
+### 3. Add Tags section to `MediaFilterDrawer`
+**File**: `src/components/media/MediaFilterDrawer.tsx`
 
-**List view** (around line 1688-1728): Same consolidation — single "View Details" icon button per row.
+Add a new collapsible "Tags" section that loads available tags from the `media_tags` table (already fetched via `fetchMediaTags()`). Display them as checkboxes like the other filter sections. Pass `tags` as a prop from `UnifiedMediaLibrary`.
 
-### 2. `MediaAssetDetailsDrawer.tsx` — Enhance as the single entry point
+### 4. Wire up in `UnifiedMediaLibrary`
+**File**: `src/components/media/UnifiedMediaLibrary.tsx`
 
-- Keep the existing thumbnail/preview area at the top (already shows video play overlay)
-- Keep the "Edit Details" / "Save Changes" toggle in the footer
-- Keep "Open in Browser" as a secondary action in the footer (it's useful, just shouldn't be a top-level card action)
-- Add a prominent inline media player: clicking the preview area opens the full preview modal (already wired via `onPreview`)
-- Make the "Edit Details" button more visually prominent (e.g., primary variant instead of outline) so editing is clearly discoverable
-
-### 3. Card click-to-open
-
-Make the entire card thumbnail area clickable to open the Details Drawer, matching common UX patterns. The single remaining button serves as an explicit affordance.
-
-## Files to edit
-
-| File | Change |
-|------|--------|
-| `src/components/media/UnifiedMediaLibrary.tsx` | Remove Preview + ExternalLink buttons; single "View Details" button; make thumbnail clickable to open drawer |
-| `src/components/media/MediaAssetDetailsDrawer.tsx` | Make "Edit Details" button more prominent; ensure preview click opens full modal |
+Pass the loaded `tags` array to `MediaFilterDrawer`. Handle `tagIds` filter changes alongside existing filters. Include tag count in the active filter badge.
 
