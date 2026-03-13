@@ -17,11 +17,13 @@ export const useEditableAssetFields = ({
   initialTitle,
   initialDescription,
   initialTags,
+  initialAlbumId,
   onAssetUpdated,
 }: UseEditableAssetFieldsOptions) => {
   const [localTitle, setLocalTitle] = useState(initialTitle || '');
   const [localDescription, setLocalDescription] = useState(initialDescription || '');
   const [localTags, setLocalTags] = useState<MediaTag[]>(initialTags);
+  const [localAlbumId, setLocalAlbumId] = useState<string | null>(initialAlbumId || null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isCreatingLocal, setIsCreatingLocal] = useState(false);
