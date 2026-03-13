@@ -272,6 +272,8 @@ export const useEditableAssetFields = ({
     setLocalDescription,
     localTags,
     availableTags,
+    localAlbumId,
+    setLocalAlbumId,
     isEditing,
     isSaving,
     isCreatingLocal,
