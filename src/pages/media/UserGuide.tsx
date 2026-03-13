@@ -208,6 +208,26 @@ const UserGuide: React.FC = () => {
     setVisibleSections(visible);
   }, [searchQuery]);
 
+  // Hide/show sections based on search
+  React.useEffect(() => {
+    if (!contentRef.current) return;
+    const allSections = contentRef.current.querySelectorAll('[data-section-id]');
+    allSections.forEach(el => {
+      const id = el.getAttribute('data-section-id');
+      (el as HTMLElement).style.display = id && visibleSections.has(id) ? '' : 'none';
+    });
+    const allCategories = contentRef.current.querySelectorAll('[data-category-id]');
+    allCategories.forEach(el => {
+      const id = el.getAttribute('data-category-id');
+      (el as HTMLElement).style.display = id && visibleSections.has(id) ? '' : 'none';
+    });
+    // Hide hero when searching
+    const hero = contentRef.current.querySelector('[data-guide-hero]');
+    if (hero) {
+      (hero as HTMLElement).style.display = searchQuery.trim() ? 'none' : '';
+    }
+  }, [visibleSections, searchQuery]);
+
   const filteredTocItems = tocItems.filter(item => {
     if (!searchQuery.trim()) return true;
     return visibleSections.has(item.id);
