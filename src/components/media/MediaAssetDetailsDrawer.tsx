@@ -57,6 +57,9 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   const [isReanalyzing, setIsReanalyzing] = useState(false);
   const [suggestTitleOnAnalyze, setSuggestTitleOnAnalyze] = useState(true);
   const [albums, setAlbums] = useState<{ id: string; name: string }[]>([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { isEditor } = useUser();
 
   // Fetch albums on mount
   useEffect(() => {
