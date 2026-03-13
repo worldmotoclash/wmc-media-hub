@@ -28,6 +28,16 @@ import { ArrowLeft, ImagePlus, Search, Image as ImageIcon, Layers, Upload, Trash
 import { toast } from "sonner";
 
 export default function SocialKit() {
+  const { user } = useUser();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) {
+      toast.error('Please log in to access this page');
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
   const [assets, setAssets] = useState<MasterImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");

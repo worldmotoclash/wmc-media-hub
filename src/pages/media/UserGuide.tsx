@@ -146,6 +146,16 @@ const tocItems = [
 ];
 
 const UserGuide: React.FC = () => {
+  const { user } = useUser();
+  const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (!user) {
+      toast.error('Please log in to access this page');
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
   const [searchQuery, setSearchQuery] = React.useState('');
   const contentRef = React.useRef<HTMLDivElement>(null);
   const [visibleSections, setVisibleSections] = React.useState<Set<string>>(new Set(tocItems.map(i => i.id)));

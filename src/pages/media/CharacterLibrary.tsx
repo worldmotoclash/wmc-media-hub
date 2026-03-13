@@ -82,7 +82,16 @@ const elementTypeColors: Record<string, string> = {
 };
 
 export default function CharacterLibrary() {
+  const { user } = useUser();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) {
+      toast.error('Please log in to access this page');
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
   const [characters, setCharacters] = useState<CharacterItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");

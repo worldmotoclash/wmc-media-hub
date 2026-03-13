@@ -34,6 +34,16 @@ interface SceneDetection {
 }
 
 const SceneDetectionPage = () => {
+  const { user } = useUser();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) {
+      toast.error('Please log in to access this page');
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
   const [selectedVideo, setSelectedVideo] = useState<{
     type: 'file' | 'asset' | 'url';
     file?: File;

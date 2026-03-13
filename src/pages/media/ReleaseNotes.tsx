@@ -18,6 +18,16 @@ const categoryConfig: Record<ReleaseNote['category'], { label: string; icon: Rea
 };
 
 const ReleaseNotesPage: React.FC = () => {
+  const { user } = useUser();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) {
+      toast.error('Please log in to access this page');
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
   const [filter, setFilter] = useState<CategoryFilter>('all');
 
   const filtered = filter === 'all' ? releaseNotes : releaseNotes.filter(r => r.category === filter);
