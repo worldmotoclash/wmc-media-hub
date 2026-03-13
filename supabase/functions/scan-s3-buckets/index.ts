@@ -429,6 +429,18 @@ serve(async (req) => {
           }
         }
         console.log(`[SCAN] Pre-loaded ${existingAssetMap.size} existing assets for ETag comparison`);
+
+        // Pre-fetch album cache for auto-album assignment (name lowercase -> id)
+        const albumCache = new Map<string, string>();
+        const { data: existingAlbums } = await supabase
+          .from('media_albums')
+          .select('id, name');
+        if (existingAlbums) {
+          for (const a of existingAlbums) {
+            albumCache.set(a.name.toLowerCase(), a.id);
+          }
+        }
+        console.log(`[SCAN] Album cache loaded with ${albumCache.size} albums`);
         
         // Filter to only media files first
         const mediaObjects = objects.filter(obj => isMediaFile(obj.Key));
