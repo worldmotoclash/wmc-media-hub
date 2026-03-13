@@ -234,15 +234,39 @@ const UserGuide: React.FC = () => {
               </div>
             </div>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="print:hidden"
-            onClick={() => window.print()}
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Print / PDF
-          </Button>
+          <div className="flex items-center gap-3 print:hidden">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search guide..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 w-48 md:w-64 h-9 text-sm"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <Link to="/admin/media/releases">
+              <Button variant="outline" size="sm">
+                <Sparkles className="w-4 h-4 mr-2" />
+                What's New
+              </Button>
+            </Link>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => window.print()}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Print / PDF
+            </Button>
+          </div>
         </div>
       </header>
 
