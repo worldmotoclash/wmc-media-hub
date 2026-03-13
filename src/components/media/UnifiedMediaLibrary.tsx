@@ -256,7 +256,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
     try {
       const { data } = await supabase
         .from('media_albums')
-        .select('id, name, asset_count')
+        .select('id, name, asset_count, source')
         .order('created_at', { ascending: false });
       setAlbums(data || []);
     } catch (error) {
