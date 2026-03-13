@@ -554,7 +554,41 @@ serve(async (req) => {
               // Auto-tagging can be done as a separate scheduled job
               if (isNewAsset && assetId && assetType === 'image') {
                 console.log(`[AutoTag] Queued for batch tagging: ${assetId} (${obj.Key})`);
-                // Future: Store assetId in a queue table for batch processing
+              }
+
+              // Auto-album assignment: assign to album based on folder structure
+              if (assetId && isNewAsset) {
+                const albumName = deriveAlbumName(obj.Key);
+                if (albumName) {
+                  const albumKey = albumName.toLowerCase();
+                  let albumId = albumCache.get(albumKey);
+
+                  if (!albumId) {
+                    // Create album
+                    const wasabiPath = deriveWasabiPath(obj.Key);
+                    const { data: newAlbum, error: albumErr } = await supabase
+                      .from('media_albums')
+                      .insert({ name: albumName, source: 'auto', wasabi_path: wasabiPath })
+                      .select('id')
+                      .single();
+
+                    if (!albumErr && newAlbum) {
+                      albumId = newAlbum.id;
+                      albumCache.set(albumKey, albumId);
+                      albumsCreated++;
+                      console.log(`[Album] Created auto album: ${albumName}`);
+                    } else {
+                      console.error(`[Album] Failed to create album ${albumName}:`, albumErr?.message);
+                    }
+                  }
+
+                  if (albumId) {
+                    await supabase
+                      .from('media_assets')
+                      .update({ album_id: albumId })
+                      .eq('id', assetId);
+                  }
+                }
               }
             } catch (dbError: any) {
               console.error(`[SCAN] Error processing ${obj.Key}:`, dbError?.message || dbError);
