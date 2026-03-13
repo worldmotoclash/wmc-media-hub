@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music, Info, SlidersHorizontal, ChevronDown, ChevronUp, Layers, Grid3x3, Mic, Pencil } from "lucide-react";
+import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music, Info, SlidersHorizontal, ChevronDown, ChevronUp, Layers, Grid3x3, Mic, Pencil, Trash2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -20,12 +20,17 @@ import {
   scanS3Bucket,
   fetchVariantCounts,
   fetchVariantsForMaster,
+  deleteMediaAssets,
   MediaAsset,
   MediaTag,
   S3BucketConfig,
   SearchFilters,
   SortOption,
 } from "@/services/unifiedMediaService";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { MediaFilterDrawer } from "./MediaFilterDrawer";
 import { getMediaSourceStats, MediaSourceStats } from "@/services/mediaSourceStatsService";
 import { ASPECT_RATIOS } from "@/constants/salesforceFields";
@@ -89,6 +94,8 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
   const [isBulkTagging, setIsBulkTagging] = useState(false);
   const [isBulkRenaming, setIsBulkRenaming] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [bulkTagProgress, setBulkTagProgress] = useState({ current: 0, total: 0 });
   const [bulkRenameProgress, setBulkRenameProgress] = useState({ current: 0, total: 0 });
   
@@ -111,7 +118,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [loadingVariants, setLoadingVariants] = useState<Set<string>>(new Set());
   
   const pageSize = 20;
-  const { user } = useUser();
+  const { user, isEditor } = useUser();
   useSupabaseAuth(); // Ensure Supabase auth when user is logged in
   const navigate = useNavigate();
 
@@ -263,6 +270,28 @@ export const UnifiedMediaLibrary: React.FC = () => {
       loadAssets();
     } else {
       toast.error('Failed to rename assets');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedAssetIds);
+    setIsBulkDeleting(true);
+    try {
+      const { successCount, failCount } = await deleteMediaAssets(ids);
+      if (successCount > 0) {
+        toast.success(`Deleted ${successCount} asset${successCount > 1 ? 's' : ''}`, {
+          description: failCount > 0 ? `${failCount} failed` : undefined
+        });
+        loadAssets();
+      } else {
+        toast.error('Failed to delete assets');
+      }
+    } catch {
+      toast.error('Failed to delete assets');
+    } finally {
+      setIsBulkDeleting(false);
+      setShowBulkDeleteConfirm(false);
+      clearSelection();
     }
   };
 
@@ -1224,11 +1253,23 @@ export const UnifiedMediaLibrary: React.FC = () => {
                 </>
               )}
             </Button>
+            {isEditor() && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowBulkDeleteConfirm(true)}
+                disabled={isBulkTagging || isBulkRenaming || isBulkDeleting}
+                className="flex items-center gap-2 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete ({selectedAssetIds.size})
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
               onClick={clearSelection}
-              disabled={isBulkTagging || isBulkRenaming}
+              disabled={isBulkTagging || isBulkRenaming || isBulkDeleting}
               className="text-primary-foreground hover:bg-primary-foreground/20"
             >
               Clear
@@ -1992,6 +2033,25 @@ export const UnifiedMediaLibrary: React.FC = () => {
         onFilterChange={handleBatchFilterChange}
         availableTags={tags}
       />
+
+      {/* Bulk Delete Confirmation */}
+      <AlertDialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedAssetIds.size} asset{selectedAssetIds.size > 1 ? 's' : ''}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. All selected assets and their tag associations will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} disabled={isBulkDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {isBulkDeleting ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
     </div>
   );

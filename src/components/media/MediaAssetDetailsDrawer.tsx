@@ -14,9 +14,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   X, Video, Image, Music, MapPin, Sparkles, Clock,
   HardDrive, Calendar, ExternalLink, CheckCircle, AlertTriangle,
-  Gauge, Link2, Eye, Wand2, Mic, Pencil, Loader2, Target
+  Gauge, Link2, Eye, Wand2, Mic, Pencil, Loader2, Target, Trash2
 } from "lucide-react";
 import { Save } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { deleteMediaAsset } from "@/services/unifiedMediaService";
+import { useUser } from "@/contexts/UserContext";
 import { MediaAsset } from "@/services/unifiedMediaService";
 import { AudioToVideoWorkflow } from "./AudioToVideoWorkflow";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,6 +57,9 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   const [isReanalyzing, setIsReanalyzing] = useState(false);
   const [suggestTitleOnAnalyze, setSuggestTitleOnAnalyze] = useState(true);
   const [albums, setAlbums] = useState<{ id: string; name: string }[]>([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { isEditor } = useUser();
 
   // Fetch albums on mount
   useEffect(() => {
@@ -93,6 +102,22 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
       toast.error('Failed to update podcast status');
       setIsPodcast(!checked);
     } finally { setIsSavingPodcast(false); }
+  };
+
+  const handleDelete = async () => {
+    if (!asset) return;
+    setIsDeleting(true);
+    try {
+      await deleteMediaAsset(asset.id);
+      toast.success(`"${asset.title}" deleted`);
+      setShowDeleteConfirm(false);
+      onOpenChange(false);
+      onAssetUpdated?.();
+    } catch (err: any) {
+      toast.error('Failed to delete asset', { description: err.message });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const formatFileSize = (bytes?: number) => {
@@ -361,11 +386,40 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
                 </Button>
                 {asset.fileUrl && <Button variant="outline" className="flex-1" onClick={() => window.open(asset.fileUrl, '_blank')}><ExternalLink className="w-4 h-4 mr-2" />Open in Browser</Button>}
               </div>
+              {isEditor() && (
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Asset
+                </Button>
+              )}
             </div>
           )}
         </DrawerFooter>
       </DrawerContent>
       <AudioToVideoWorkflow isOpen={audioToVideoOpen} onClose={() => setAudioToVideoOpen(false)} preSelectedAudioSource={asset.fileUrl} />
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{asset.title}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The asset and its tag associations will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Drawer>
   );
 };
