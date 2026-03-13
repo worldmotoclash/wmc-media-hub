@@ -48,6 +48,8 @@ interface AutoTagRequest {
   mediaType: 'image' | 'video' | 'audio';
   skipSalesforce?: boolean;
   isPodcast?: boolean;
+  suggestTitle?: boolean;
+  titleOnly?: boolean;
 }
 
 interface SalesforceAnalysisResult {
