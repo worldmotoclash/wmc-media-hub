@@ -253,6 +253,7 @@ Return the classification using the analyze_media_for_salesforce function.`;
     location: useSafeDefaults ? (result.location || 'Unknown / Unclassified') : (result.location || 'Unknown / Unclassified'),
     mood: useSafeDefaults ? 'Neutral' : (result.mood || 'Neutral'),
     confidence,
+    suggestedTitle: result.suggestedTitle || undefined,
   };
 }
 
