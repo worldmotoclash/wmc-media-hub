@@ -14,9 +14,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   X, Video, Image, Music, MapPin, Sparkles, Clock,
   HardDrive, Calendar, ExternalLink, CheckCircle, AlertTriangle,
-  Gauge, Link2, Eye, Wand2, Mic, Pencil, Loader2, Target
+  Gauge, Link2, Eye, Wand2, Mic, Pencil, Loader2, Target, Trash2
 } from "lucide-react";
 import { Save } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { deleteMediaAsset } from "@/services/unifiedMediaService";
+import { useUser } from "@/contexts/UserContext";
 import { MediaAsset } from "@/services/unifiedMediaService";
 import { AudioToVideoWorkflow } from "./AudioToVideoWorkflow";
 import { supabase } from "@/integrations/supabase/client";

@@ -901,3 +901,31 @@ export async function fetchVariantsForMaster(masterId: string, salesforceId?: st
     return [];
   }
 }
+
+/**
+ * Delete a single media asset and its associated tags
+ */
+export async function deleteMediaAsset(assetId: string): Promise<void> {
+  // Delete associated tags first
+  await supabase.from('media_asset_tags').delete().eq('media_asset_id', assetId);
+  // Delete the asset
+  const { error } = await supabase.from('media_assets').delete().eq('id', assetId);
+  if (error) throw error;
+}
+
+/**
+ * Delete multiple media assets and their associated tags
+ */
+export async function deleteMediaAssets(assetIds: string[]): Promise<{ successCount: number; failCount: number }> {
+  let successCount = 0;
+  let failCount = 0;
+  for (const id of assetIds) {
+    try {
+      await deleteMediaAsset(id);
+      successCount++;
+    } catch {
+      failCount++;
+    }
+  }
+  return { successCount, failCount };
+}
