@@ -59,6 +59,7 @@ interface SalesforceAnalysisResult {
   location: string;
   mood: string;
   confidence: number;
+  suggestedTitle?: string;
 }
 
 // ========== KNEWTV AI CONTRACT PROMPT ==========
