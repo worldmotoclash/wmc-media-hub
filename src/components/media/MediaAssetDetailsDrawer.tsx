@@ -64,6 +64,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
     initialTitle: asset?.title,
     initialDescription: asset?.description,
     initialTags: asset?.tags || [],
+    initialAlbumId: asset?.album_id,
     onAssetUpdated,
   });
 
