@@ -98,7 +98,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   
   // Album filter state
-  const [albums, setAlbums] = useState<{ id: string; name: string; asset_count: number }[]>([]);
+  const [albums, setAlbums] = useState<{ id: string; name: string; asset_count: number; source?: string }[]>([]);
   const [selectedAlbumId, setSelectedAlbumId] = useState<string>('all');
   
   // Variant expansion state
@@ -256,7 +256,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
     try {
       const { data } = await supabase
         .from('media_albums')
-        .select('id, name, asset_count')
+        .select('id, name, asset_count, source')
         .order('created_at', { ascending: false });
       setAlbums(data || []);
     } catch (error) {
@@ -659,7 +659,12 @@ export const UnifiedMediaLibrary: React.FC = () => {
                     <SelectContent className="bg-background border shadow-lg z-50">
                       <SelectItem value="all">All Albums</SelectItem>
                       {albums.map(a => (
-                        <SelectItem key={a.id} value={a.id}>{a.name} ({a.asset_count})</SelectItem>
+                        <SelectItem key={a.id} value={a.id}>
+                          <span className="flex items-center gap-1.5">
+                            {a.name} ({a.asset_count})
+                            {a.source === 'auto' && <Badge variant="outline" className="text-[10px] px-1 py-0 leading-tight">Auto</Badge>}
+                          </span>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

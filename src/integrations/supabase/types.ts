@@ -156,7 +156,9 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          source: string
           updated_at: string
+          wasabi_path: string | null
         }
         Insert: {
           asset_count?: number
@@ -166,7 +168,9 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          source?: string
           updated_at?: string
+          wasabi_path?: string | null
         }
         Update: {
           asset_count?: number
@@ -176,7 +180,9 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          source?: string
           updated_at?: string
+          wasabi_path?: string | null
         }
         Relationships: []
       }

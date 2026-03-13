@@ -142,6 +142,24 @@ function getFolderPath(key: string): string {
   return parts.join('/');
 }
 
+const IGNORED_FOLDERS = new Set(['tmp', 'uploads', 'raw', 'cache', 'thumbnails']);
+
+function deriveAlbumName(key: string): string | null {
+  const parts = key.split('/');
+  parts.pop(); // Remove filename
+  // Filter out ignored folder names (case-insensitive)
+  const folders = parts.filter(p => p && !IGNORED_FOLDERS.has(p.toLowerCase()));
+  if (folders.length === 0) return null;
+  if (folders.length === 1) return folders[0];
+  // Use last two meaningful folders
+  return `${folders[folders.length - 2]} - ${folders[folders.length - 1]}`;
+}
+
+function deriveWasabiPath(key: string): string {
+  const idx = key.lastIndexOf('/');
+  return idx >= 0 ? key.substring(0, idx) : '';
+}
+
 interface ImageLookupMap {
   // Map of "folder/basename" -> full S3 key
   byPath: Map<string, string>;
@@ -318,6 +336,7 @@ serve(async (req) => {
       let skippedMedia = 0;
       let failedMedia = 0;
       let removedMedia = 0;
+      let albumsCreated = 0;
 
       try {
         console.log(`[SCAN] Starting for ${bucket.name} (${bucket.bucket_name}) @ ${bucket.endpoint_url}`);
@@ -410,6 +429,18 @@ serve(async (req) => {
           }
         }
         console.log(`[SCAN] Pre-loaded ${existingAssetMap.size} existing assets for ETag comparison`);
+
+        // Pre-fetch album cache for auto-album assignment (name lowercase -> id)
+        const albumCache = new Map<string, string>();
+        const { data: existingAlbums } = await supabase
+          .from('media_albums')
+          .select('id, name');
+        if (existingAlbums) {
+          for (const a of existingAlbums) {
+            albumCache.set(a.name.toLowerCase(), a.id);
+          }
+        }
+        console.log(`[SCAN] Album cache loaded with ${albumCache.size} albums`);
         
         // Filter to only media files first
         const mediaObjects = objects.filter(obj => isMediaFile(obj.Key));
@@ -523,7 +554,41 @@ serve(async (req) => {
               // Auto-tagging can be done as a separate scheduled job
               if (isNewAsset && assetId && assetType === 'image') {
                 console.log(`[AutoTag] Queued for batch tagging: ${assetId} (${obj.Key})`);
-                // Future: Store assetId in a queue table for batch processing
+              }
+
+              // Auto-album assignment: assign to album based on folder structure
+              if (assetId && isNewAsset) {
+                const albumName = deriveAlbumName(obj.Key);
+                if (albumName) {
+                  const albumKey = albumName.toLowerCase();
+                  let albumId = albumCache.get(albumKey);
+
+                  if (!albumId) {
+                    // Create album
+                    const wasabiPath = deriveWasabiPath(obj.Key);
+                    const { data: newAlbum, error: albumErr } = await supabase
+                      .from('media_albums')
+                      .insert({ name: albumName, source: 'auto', wasabi_path: wasabiPath })
+                      .select('id')
+                      .single();
+
+                    if (!albumErr && newAlbum) {
+                      albumId = newAlbum.id;
+                      albumCache.set(albumKey, albumId);
+                      albumsCreated++;
+                      console.log(`[Album] Created auto album: ${albumName}`);
+                    } else {
+                      console.error(`[Album] Failed to create album ${albumName}:`, albumErr?.message);
+                    }
+                  }
+
+                  if (albumId) {
+                    await supabase
+                      .from('media_assets')
+                      .update({ album_id: albumId })
+                      .eq('id', assetId);
+                  }
+                }
               }
             } catch (dbError: any) {
               console.error(`[SCAN] Error processing ${obj.Key}:`, dbError?.message || dbError);
@@ -559,6 +624,7 @@ serve(async (req) => {
           removedMedia,
           skippedMedia,
           failedMedia,
+          albumsCreated,
           scannedAt: finishedAt,
         };
 
