@@ -98,7 +98,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   
   // Album filter state
-  const [albums, setAlbums] = useState<{ id: string; name: string; asset_count: number }[]>([]);
+  const [albums, setAlbums] = useState<{ id: string; name: string; asset_count: number; source?: string }[]>([]);
   const [selectedAlbumId, setSelectedAlbumId] = useState<string>('all');
   
   // Variant expansion state
