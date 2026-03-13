@@ -137,7 +137,7 @@ export const fetchVideoContent = async (playlistId?: string, searchQuery?: strin
           ri__Content_URL__c: isPlaylistResponse
             ? video.getElementsByTagName('contenturl')[0]?.textContent || ''
             : video.getElementsByTagName('url')[0]?.textContent || '',
-          ri__Thumbnail_URL__c: video.getElementsByTagName('thumbnail')[0]?.textContent?.trim() || '',
+          ri__Thumbnail_URL__c: video.getElementsByTagName('thumbnailurl')[0]?.textContent?.trim() || video.getElementsByTagName('thumbnail')[0]?.textContent?.trim() || '',
           ri__Status__c: video.getElementsByTagName('approved')[0]?.textContent || '',
           ri__Duration__c: video.getElementsByTagName('lengthinseconds')[0]?.textContent || '',
           ri__Upload_Date__c: '', // Not provided in API
