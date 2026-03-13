@@ -1416,6 +1416,16 @@ export const UnifiedMediaLibrary: React.FC = () => {
                         Review
                       </Button>
                     )}
+                    
+                    {asset.fileUrl && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(asset.fileUrl, '_blank')}
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </Button>
+                    )}
                   </div>
                   
                   {/* Expand/Collapse Variants Button */}
