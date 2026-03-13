@@ -138,7 +138,7 @@ export const useEditableAssetFields = ({
       const { error: updateError } = await supabase
         .from('media_assets')
         .update({ title: localTitle, description: localDescription })
-        .eq('id', assetId);
+        .eq('id', effectiveId);
 
       if (updateError) throw updateError;
 
