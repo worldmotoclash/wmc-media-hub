@@ -8,6 +8,17 @@ export interface ReleaseNote {
 
 export const releaseNotes: ReleaseNote[] = [
   {
+    version: '1.7.0',
+    date: 'Mar 13, 2026',
+    title: 'Complete Delete: S3 + Salesforce Cleanup',
+    highlights: [
+      'Deleting an asset now removes the file from Wasabi/S3 and the Salesforce ri1__Content__c record',
+      'Salesforce deletion uses the w2x-engine delete action for consistency with other integrations',
+      'All protected Media Hub pages (Scene Detection, Social Kit, Characters, User Guide, Release Notes) now require login',
+    ],
+    category: 'feature',
+  },
+  {
     version: '1.6.0',
     date: 'Mar 13, 2026',
     title: 'Searchable User Guide & Release Notes',

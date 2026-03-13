@@ -972,7 +972,7 @@ const UserGuide: React.FC = () => {
                       ['Edit Metadata', 'Update title, description', 'Click edit icon on asset'],
                       ['Manage Tags', 'Add or remove tags', 'In edit mode or quick-tag button'],
                       ['Bulk Actions', 'Apply actions to multiple assets', 'Select multiple, use toolbar'],
-                      ['Delete Assets', 'Remove unwanted content', 'Click delete (requires confirmation)'],
+                      ['Delete Assets', 'Permanently remove content from the database, Wasabi/S3, and Salesforce', 'Click delete (requires confirmation)'],
                     ]}
                   />
                 </GuideSubSection>
