@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music, Info, SlidersHorizontal, ChevronDown, ChevronUp, Layers, Grid3x3, Mic } from "lucide-react";
+import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music, Info, SlidersHorizontal, ChevronDown, ChevronUp, Layers, Grid3x3, Mic, Pencil } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -88,7 +88,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
   // Bulk selection state
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
   const [isBulkTagging, setIsBulkTagging] = useState(false);
+  const [isBulkRenaming, setIsBulkRenaming] = useState(false);
   const [bulkTagProgress, setBulkTagProgress] = useState({ current: 0, total: 0 });
+  const [bulkRenameProgress, setBulkRenameProgress] = useState({ current: 0, total: 0 });
   
   // Details drawer state
   const [detailsAsset, setDetailsAsset] = useState<MediaAsset | null>(null);
@@ -207,6 +209,60 @@ export const UnifiedMediaLibrary: React.FC = () => {
       loadAssets();
     } else {
       toast.error('Failed to tag assets');
+    }
+  };
+  const handleBulkRename = async () => {
+    const taggableAssets = getTaggableAssets();
+    if (taggableAssets.length === 0) {
+      toast.error('No assets selected for renaming', {
+        description: 'Select local assets with valid URLs to AI-rename.'
+      });
+      return;
+    }
+
+    setIsBulkRenaming(true);
+    setBulkRenameProgress({ current: 0, total: taggableAssets.length });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < taggableAssets.length; i++) {
+      const asset = taggableAssets[i];
+      setBulkRenameProgress({ current: i + 1, total: taggableAssets.length });
+
+      try {
+        const { data, error } = await supabase.functions.invoke('auto-tag-media-asset', {
+          body: {
+            assetId: asset.id,
+            mediaUrl: asset.fileUrl || asset.thumbnailUrl,
+            mediaType: asset.assetType === 'video' ? 'video' : 'image',
+            titleOnly: true,
+          }
+        });
+
+        if (error || !data?.success) {
+          console.error(`Failed to rename ${asset.title}:`, error || data?.error);
+          failCount++;
+        } else {
+          successCount++;
+        }
+      } catch (err) {
+        console.error(`Error renaming ${asset.title}:`, err);
+        failCount++;
+      }
+    }
+
+    setIsBulkRenaming(false);
+    setBulkRenameProgress({ current: 0, total: 0 });
+    clearSelection();
+
+    if (successCount > 0) {
+      toast.success(`Renamed ${successCount} asset${successCount > 1 ? 's' : ''}`, {
+        description: failCount > 0 ? `${failCount} failed` : undefined
+      });
+      loadAssets();
+    } else {
+      toast.error('Failed to rename assets');
     }
   };
 
@@ -1120,7 +1176,12 @@ export const UnifiedMediaLibrary: React.FC = () => {
             </span>
             {isBulkTagging && (
               <span className="text-sm opacity-80">
-                Processing {bulkTagProgress.current}/{bulkTagProgress.total}...
+                Tagging {bulkTagProgress.current}/{bulkTagProgress.total}...
+              </span>
+            )}
+            {isBulkRenaming && (
+              <span className="text-sm opacity-80">
+                Renaming {bulkRenameProgress.current}/{bulkRenameProgress.total}...
               </span>
             )}
           </div>
@@ -1129,7 +1190,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
               variant="secondary"
               size="sm"
               onClick={handleBulkAutoTag}
-              disabled={isBulkTagging || getTaggableAssets().length === 0}
+              disabled={isBulkTagging || isBulkRenaming || getTaggableAssets().length === 0}
               className="flex items-center gap-2"
             >
               {isBulkTagging ? (
@@ -1145,10 +1206,29 @@ export const UnifiedMediaLibrary: React.FC = () => {
               )}
             </Button>
             <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleBulkRename}
+              disabled={isBulkTagging || isBulkRenaming || getTaggableAssets().length === 0}
+              className="flex items-center gap-2"
+            >
+              {isBulkRenaming ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Renaming...
+                </>
+              ) : (
+                <>
+                  <Pencil className="w-4 h-4" />
+                  AI Rename ({getTaggableAssets().length})
+                </>
+              )}
+            </Button>
+            <Button
               variant="ghost"
               size="sm"
               onClick={clearSelection}
-              disabled={isBulkTagging}
+              disabled={isBulkTagging || isBulkRenaming}
               className="text-primary-foreground hover:bg-primary-foreground/20"
             >
               Clear

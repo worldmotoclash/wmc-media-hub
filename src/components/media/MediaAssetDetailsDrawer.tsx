@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -48,6 +49,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   const [isPodcast, setIsPodcast] = useState(false);
   const [isSavingPodcast, setIsSavingPodcast] = useState(false);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
+  const [suggestTitleOnAnalyze, setSuggestTitleOnAnalyze] = useState(true);
   const [albums, setAlbums] = useState<{ id: string; name: string }[]>([]);
 
   // Fetch albums on mount
@@ -298,34 +300,48 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
                 <Button variant="secondary" className="w-full" onClick={() => setAudioToVideoOpen(true)}><Wand2 className="w-4 h-4 mr-2" />Create Video with This Audio</Button>
               )}
               {editableFields.canEdit && (
-                <Button
-                  variant="secondary"
-                  className="w-full"
-                  disabled={isReanalyzing}
-                  onClick={async () => {
-                    setIsReanalyzing(true);
-                    try {
-                      const { data, error } = await supabase.functions.invoke('auto-tag-media-asset', {
-                        body: {
-                          assetId: asset.id,
-                          mediaUrl: asset.fileUrl || asset.thumbnailUrl,
-                          mediaType: asset.assetType === 'video' ? 'video' : 'image',
-                        }
-                      });
-                      if (error || !data?.success) throw error || new Error(data?.error || 'Failed');
-                      toast.success('AI analysis complete');
-                      onAssetUpdated?.();
-                      editableFields.refreshFromDB();
-                    } catch (err: any) {
-                      toast.error('AI analysis failed', { description: err.message });
-                    } finally {
-                      setIsReanalyzing(false);
-                    }
-                  }}
-                >
-                  {isReanalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-                  Reanalyze with AI
-                </Button>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="suggest-title"
+                      checked={suggestTitleOnAnalyze}
+                      onCheckedChange={(checked) => setSuggestTitleOnAnalyze(!!checked)}
+                    />
+                    <Label htmlFor="suggest-title" className="text-sm cursor-pointer">Also suggest a descriptive title</Label>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    disabled={isReanalyzing}
+                    onClick={async () => {
+                      setIsReanalyzing(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke('auto-tag-media-asset', {
+                          body: {
+                            assetId: asset.id,
+                            mediaUrl: asset.fileUrl || asset.thumbnailUrl,
+                            mediaType: asset.assetType === 'video' ? 'video' : 'image',
+                            suggestTitle: suggestTitleOnAnalyze,
+                          }
+                        });
+                        if (error || !data?.success) throw error || new Error(data?.error || 'Failed');
+                        const msg = data.suggestedTitle && suggestTitleOnAnalyze
+                          ? `AI analysis complete — renamed to "${data.suggestedTitle}"`
+                          : 'AI analysis complete';
+                        toast.success(msg);
+                        onAssetUpdated?.();
+                        editableFields.refreshFromDB();
+                      } catch (err: any) {
+                        toast.error('AI analysis failed', { description: err.message });
+                      } finally {
+                        setIsReanalyzing(false);
+                      }
+                    }}
+                  >
+                    {isReanalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                    Reanalyze with AI
+                  </Button>
+                </div>
               )}
               <div className="flex gap-2">
                 <Button

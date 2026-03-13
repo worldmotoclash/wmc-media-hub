@@ -48,6 +48,8 @@ interface AutoTagRequest {
   mediaType: 'image' | 'video' | 'audio';
   skipSalesforce?: boolean;
   isPodcast?: boolean;
+  suggestTitle?: boolean;
+  titleOnly?: boolean;
 }
 
 interface SalesforceAnalysisResult {
@@ -57,6 +59,7 @@ interface SalesforceAnalysisResult {
   location: string;
   mood: string;
   confidence: number;
+  suggestedTitle?: string;
 }
 
 // ========== KNEWTV AI CONTRACT PROMPT ==========
@@ -152,6 +155,10 @@ Return the classification using the analyze_media_for_salesforce function.`;
             type: 'string', 
             description: '1-3 sentence factual description. No AI/model mentions. Describe subject, action, setting.' 
           },
+          suggestedTitle: {
+            type: 'string',
+            description: 'A concise, descriptive title for this media (3-8 words). Replace raw filenames like "20260307_115304" with meaningful names like "Daytona Pit Lane Aerial View". Use Title Case.'
+          },
           categories: { 
             type: 'array', 
             items: { type: 'string', enum: APPROVED_CATEGORIES },
@@ -180,7 +187,7 @@ Return the classification using the analyze_media_for_salesforce function.`;
             description: 'Confidence 0-100 in classification accuracy. Use safer defaults if <80.'
           }
         },
-        required: ['description', 'categories', 'contentType', 'location', 'mood', 'confidence']
+        required: ['description', 'suggestedTitle', 'categories', 'contentType', 'location', 'mood', 'confidence']
       }
     }
   }];
@@ -246,6 +253,7 @@ Return the classification using the analyze_media_for_salesforce function.`;
     location: useSafeDefaults ? (result.location || 'Unknown / Unclassified') : (result.location || 'Unknown / Unclassified'),
     mood: useSafeDefaults ? 'Neutral' : (result.mood || 'Neutral'),
     confidence,
+    suggestedTitle: result.suggestedTitle || undefined,
   };
 }
 
@@ -489,7 +497,7 @@ serve(async (req) => {
   const startTime = Date.now();
 
   try {
-    const { assetId, mediaUrl, mediaType, skipSalesforce, isPodcast } = await req.json() as AutoTagRequest;
+    const { assetId, mediaUrl, mediaType, skipSalesforce, isPodcast, suggestTitle, titleOnly } = await req.json() as AutoTagRequest;
 
     if (!assetId || !mediaUrl || !mediaType) {
       return new Response(
@@ -515,6 +523,29 @@ serve(async (req) => {
     // Step 1: Perform Salesforce-mapped AI analysis
     console.log('[Step 1] Performing Salesforce-mapped AI analysis...');
     const analysis = await performSalesforceAnalysis(mediaUrl, mediaType, LOVABLE_API_KEY, isPodcast);
+
+    // If titleOnly mode, just update the title and return
+    if (titleOnly) {
+      const newTitle = analysis.suggestedTitle;
+      if (newTitle) {
+        const { error: titleError } = await supabase
+          .from('media_assets')
+          .update({ title: newTitle, updated_at: new Date().toISOString() })
+          .eq('id', assetId);
+        if (titleError) console.error('[Asset] Failed to update title:', titleError);
+      }
+
+      await supabase.from('content_review_activities').insert({
+        media_asset_id: assetId,
+        action: 'ai_renamed',
+        details: { suggestedTitle: newTitle, processingTimeMs: Date.now() - startTime },
+      });
+
+      return new Response(
+        JSON.stringify({ success: true, assetId, suggestedTitle: newTitle, processingTimeMs: Date.now() - startTime }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Step 2: Extract tag names from analysis
     console.log('[Step 2] Extracting tags from analysis...');
@@ -561,26 +592,33 @@ serve(async (req) => {
 
     // Step 6: Update asset metadata with Salesforce-mapped analysis
     console.log('[Step 6] Updating asset metadata with SFDC-mapped analysis...');
+    const updatePayload: Record<string, unknown> = {
+      description: analysis.description || undefined,
+      metadata: {
+        sfdcAnalysis: {
+          description: analysis.description,
+          categories: analysis.categories,
+          contentType: analysis.contentType,
+          location: analysis.location,
+          mood: analysis.mood,
+          confidence: analysis.confidence,
+        },
+        analyzedAt: new Date().toISOString(),
+        autoTagged: true,
+        autoTaggedAt: new Date().toISOString(),
+      },
+      status: 'ready',
+      updated_at: new Date().toISOString(),
+    };
+
+    // Also update title if suggestTitle was requested and AI produced one
+    if (suggestTitle && analysis.suggestedTitle) {
+      updatePayload.title = analysis.suggestedTitle;
+    }
+
     const { error: updateError } = await supabase
       .from('media_assets')
-      .update({
-        description: analysis.description || undefined,
-        metadata: {
-          sfdcAnalysis: {
-            description: analysis.description,
-            categories: analysis.categories,
-            contentType: analysis.contentType,
-            location: analysis.location,
-            mood: analysis.mood,
-            confidence: analysis.confidence,
-          },
-          analyzedAt: new Date().toISOString(),
-          autoTagged: true,
-          autoTaggedAt: new Date().toISOString(),
-        },
-        status: 'ready',
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', assetId);
 
     if (updateError) {
@@ -615,6 +653,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         assetId,
+        suggestedTitle: analysis.suggestedTitle || null,
         tagsApplied: tagNames,
         tagCount: tagIds.length,
         sfdcMapping: {
