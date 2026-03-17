@@ -57,6 +57,8 @@ import { DefaultModelService } from "@/services/defaultModelService";
 import { ImageDefaultModelService } from "@/services/imageDefaultModelService";
 import { AIModel } from "@/services/modelRegistry";
 import { PricingService, GenerationSettings } from "@/services/pricingService";
+import { useCreatorGuard } from "@/hooks/useCreatorGuard";
+import { PricingService, GenerationSettings } from "@/services/pricingService";
 
 interface SalesforceData {
   title: string;

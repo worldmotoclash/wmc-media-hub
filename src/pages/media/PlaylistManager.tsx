@@ -18,12 +18,15 @@ const PlaylistManager: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Redirect if no user is logged in
     if (!user) {
       toast.error('Please log in to access the playlist manager');
       navigate('/login');
     }
   }, [user, navigate]);
+
+  const creatorBlocked = useCreatorGuard();
+
+  if (!user || creatorBlocked) return null;
 
   // Fetch playlists on component mount
   useEffect(() => {

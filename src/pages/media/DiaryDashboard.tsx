@@ -41,6 +41,7 @@ const DiaryDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
 
+  const creatorBlocked = useCreatorGuard();
   useEffect(() => {
     if (!user) {
       toast.error('Please log in to access the Content Diary');
@@ -49,6 +50,8 @@ const DiaryDashboard: React.FC = () => {
     }
     fetchEntries();
   }, [user, navigate]);
+
+  if (!user || creatorBlocked) return null;
 
   const fetchEntries = async () => {
     setLoading(true);

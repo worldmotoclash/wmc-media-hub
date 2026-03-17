@@ -60,7 +60,7 @@ const ModelMarketplace: React.FC = () => {
     availability: []
   });
 
-  // Check authentication
+  const creatorBlocked = useCreatorGuard();
   useEffect(() => {
     if (!user) {
       toast({
@@ -71,6 +71,8 @@ const ModelMarketplace: React.FC = () => {
       navigate('/login');
     }
   }, [user, navigate, toast]);
+
+  if (!user || creatorBlocked) return null;
 
   // Generate settings for pricing calculations
   const generationSettings: GenerationSettings = useMemo(() => ({

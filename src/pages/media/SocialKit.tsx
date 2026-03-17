@@ -39,6 +39,10 @@ export default function SocialKit() {
     }
   }, [user, navigate]);
 
+  const creatorBlocked = useCreatorGuard();
+
+  if (!user || creatorBlocked) return null;
+
   const [assets, setAssets] = useState<MasterImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
