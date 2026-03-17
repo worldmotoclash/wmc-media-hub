@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Sparkles, Wand2, Image } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
+import { useCreatorGuard } from "@/hooks/useCreatorGuard";
 
 // Import marketplace components
 import { PresetBar, PresetSettings } from "@/components/model-marketplace/PresetBar";
