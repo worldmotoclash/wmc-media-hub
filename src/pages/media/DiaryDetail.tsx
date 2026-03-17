@@ -43,6 +43,35 @@ const DiaryDetail: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [entry, setEntry] = useState<DiaryEntry | null>(null);
   const [loading, setLoading] = useState(true);
+  const [regenerating, setRegenerating] = useState(false);
+
+  const handleRegenerate = async () => {
+    if (!date) return;
+    setRegenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-diary-entry', {
+        body: { date },
+      });
+      if (error) throw error;
+      toast.success('Diary entry re-generated');
+      // Refetch
+      const { data: freshData } = await supabase
+        .from('media_diary_entries')
+        .select('*')
+        .eq('date', date)
+        .maybeSingle();
+      if (freshData) {
+        setEntry({
+          ...freshData,
+          content_items: (freshData.content_items as unknown as ContentItem[]) || [],
+        });
+      }
+    } catch (err: any) {
+      toast.error('Failed to re-generate: ' + (err.message || 'Unknown error'));
+    } finally {
+      setRegenerating(false);
+    }
+  };
 
   // Auto-login token handling
   useEffect(() => {

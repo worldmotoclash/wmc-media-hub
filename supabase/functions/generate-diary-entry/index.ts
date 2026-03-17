@@ -45,16 +45,34 @@ Deno.serve(async (req) => {
     let imageCount = 0;
     let audioCount = 0;
 
+    const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v'];
+    const isVideoUrl = (url: string | null): boolean => {
+      if (!url) return false;
+      const lower = url.toLowerCase().split('?')[0];
+      return VIDEO_EXTENSIONS.some(ext => lower.endsWith(ext));
+    };
+
     const contentItems = assets.map((a) => {
       const type = (a.asset_type || "").toLowerCase();
       if (type === "video") videoCount++;
       else if (type === "image") imageCount++;
       else if (type === "audio") audioCount++;
+
+      // Resolve thumbnail: if it's a video URL (not a real thumbnail), try constructing the expected path
+      let resolvedThumbnail = a.thumbnail_url;
+      if (!resolvedThumbnail || isVideoUrl(resolvedThumbnail)) {
+        if (type === "video" && a.master_id) {
+          resolvedThumbnail = `https://media.worldmotoclash.com/VIDEOS_KNEWTV/masters/${a.master_id}/thumbnail.jpg`;
+        } else {
+          resolvedThumbnail = null;
+        }
+      }
+
       return {
         id: a.id,
         title: a.title,
         asset_type: a.asset_type,
-        thumbnail_url: a.thumbnail_url,
+        thumbnail_url: resolvedThumbnail,
         file_url: a.file_url,
         file_format: a.file_format,
       };
