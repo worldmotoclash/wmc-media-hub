@@ -116,9 +116,22 @@ const DiaryDetail: React.FC = () => {
     <div className="min-h-screen bg-background">
       <MediaNavigation />
       <div className="container mx-auto px-4 py-8 max-w-5xl">
-        <Button variant="ghost" size="sm" className="mb-6" onClick={() => navigate('/mediahub/diary')}>
-          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Diary
-        </Button>
+        <div className="flex items-center justify-between mb-6">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/mediahub/diary')}>
+            <ArrowLeft className="h-4 w-4 mr-2" /> Back to Diary
+          </Button>
+          {entry && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={regenerating}
+              onClick={handleRegenerate}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${regenerating ? 'animate-spin' : ''}`} />
+              Re-generate
+            </Button>
+          )}
+        </div>
 
         {loading ? (
           <div className="flex justify-center py-16">
