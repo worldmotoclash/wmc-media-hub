@@ -86,12 +86,15 @@ export default function CharacterLibrary() {
   const { user } = useUser();
   const navigate = useNavigate();
 
+  const creatorBlocked = useCreatorGuard();
   useEffect(() => {
     if (!user) {
       toast.error('Please log in to access this page');
       navigate('/login');
     }
   }, [user, navigate]);
+
+  if (!user || creatorBlocked) return null;
 
   const [characters, setCharacters] = useState<CharacterItem[]>([]);
   const [loading, setLoading] = useState(true);
