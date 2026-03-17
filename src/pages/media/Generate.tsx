@@ -503,6 +503,7 @@ const Generate: React.FC = () => {
   };
 
   // Check authentication
+  const creatorBlocked = useCreatorGuard();
   useEffect(() => {
     if (!user) {
       toast({
