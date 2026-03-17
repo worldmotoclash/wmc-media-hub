@@ -26,7 +26,7 @@ const PlaylistManager: React.FC = () => {
 
   const creatorBlocked = useCreatorGuard();
 
-  if (!user || creatorBlocked) return null;
+  
 
   // Fetch playlists on component mount
   useEffect(() => {

@@ -72,7 +72,7 @@ const ModelMarketplace: React.FC = () => {
     }
   }, [user, navigate, toast]);
 
-  if (!user || creatorBlocked) return null;
+  
 
   // Generate settings for pricing calculations
   const generationSettings: GenerationSettings = useMemo(() => ({

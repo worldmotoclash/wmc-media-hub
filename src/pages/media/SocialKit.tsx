@@ -41,7 +41,7 @@ export default function SocialKit() {
 
   const creatorBlocked = useCreatorGuard();
 
-  if (!user || creatorBlocked) return null;
+  
 
   const [assets, setAssets] = useState<MasterImage[]>([]);
   const [loading, setLoading] = useState(true);

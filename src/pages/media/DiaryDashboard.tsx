@@ -51,7 +51,7 @@ const DiaryDashboard: React.FC = () => {
     fetchEntries();
   }, [user, navigate]);
 
-  if (!user || creatorBlocked) return null;
+  
 
   const fetchEntries = async () => {
     setLoading(true);

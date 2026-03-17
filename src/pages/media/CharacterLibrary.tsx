@@ -94,7 +94,7 @@ export default function CharacterLibrary() {
     }
   }, [user, navigate]);
 
-  if (!user || creatorBlocked) return null;
+  
 
   const [characters, setCharacters] = useState<CharacterItem[]>([]);
   const [loading, setLoading] = useState(true);
