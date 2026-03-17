@@ -37,6 +37,7 @@ interface SceneDetection {
 const SceneDetectionPage = () => {
   const { user } = useUser();
   const navigate = useNavigate();
+  const creatorBlocked = useCreatorGuard();
 
   useEffect(() => {
     if (!user) {
