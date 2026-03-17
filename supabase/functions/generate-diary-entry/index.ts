@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
 
     const { data: assets, error: assetsError } = await supabase
       .from("media_assets")
-      .select("id, title, asset_type, thumbnail_url, file_url, file_format")
+      .select("id, title, asset_type, thumbnail_url, file_url, file_format, master_id")
       .gte("created_at", startOfDay)
       .lte("created_at", endOfDay);
 
