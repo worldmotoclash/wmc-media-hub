@@ -1160,7 +1160,7 @@ const Generate: React.FC = () => {
     });
   };
 
-  if (!user) {
+  if (!user || creatorBlocked) {
     return null;
   }
 
