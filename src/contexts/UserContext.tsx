@@ -11,7 +11,7 @@ export interface User {
   mailingstreet?: string;
   ipaddress?: string;
   ndaSigned?: boolean;
-  mediaHubAccess: 'Admin' | 'Editor' | 'Viewer';
+  mediaHubAccess: 'Admin' | 'Editor' | 'Viewer' | 'Creator';
   role?: 'racer' | 'admin' | 'investor';
 }
 
@@ -20,6 +20,7 @@ export interface UserContextType {
   setUser: (user: User | null) => void;
   isAdmin: () => boolean;
   isEditor: () => boolean;
+  isCreator: () => boolean;
   canDelete: (videoUserId: string) => boolean;
 }
 
