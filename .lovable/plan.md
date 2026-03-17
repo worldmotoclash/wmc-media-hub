@@ -1,31 +1,36 @@
 
 
-# Add Tag-Based Filtering to Media Library
+# Add "Creator" Media Hub Access Role
 
-## Current State
-- Search scopes "All" and "Metadata" already match against tag names in the text search
-- But there's no way to filter by specific tags (e.g., pick "Racer Submission" from a list)
-- The `MediaFilterDrawer` has Category, Content Type, Location, and Mood filters — but no Tags section
+## Overview
+Add a new `Creator` role to the `mediaHubAccess` type. Creators can only access the **Media Library** and **Upload** functions -- all other Media Hub features (Generate, Scene Detection, Playlists, Social Kit, Characters, Model Marketplace, S3 Config, Content Diary) are hidden from them.
 
-## Plan
+## Changes
 
-### 1. Add `tagIds` to `SearchFilters` type
-**File**: `src/services/unifiedMediaService.ts`
+### 1. `src/contexts/UserContext.tsx`
+- Expand `mediaHubAccess` type: `'Admin' | 'Editor' | 'Viewer' | 'Creator'`
+- Add `isCreator()` helper that returns `true` when role is `Creator`
+- Update `isEditor()` to also include `Creator` (they can upload/edit their own content)
 
-Add an optional `tagIds?: string[]` field to the `SearchFilters` interface.
+### 2. `src/services/loginService.ts`
+- Add `'Creator'` to the allowed values check on line 483: `['Admin', 'Editor', 'Viewer', 'Creator']`
+- Update the type cast on line 493
 
-### 2. Apply tag filter in the DB query
-**File**: `src/services/unifiedMediaService.ts`
+### 3. `src/components/media/ActionCards.tsx`
+- Import `useUser` and filter the action cards based on role
+- Creators only see: **Upload Media** and **Asset Library**
+- All other cards (Generate, Scene Detection, Playlists, Social Kit, Characters) hidden for Creators
 
-When `filters.tagIds` is set, query `media_asset_tags` to get matching `media_asset_id` values, then filter the main query using `.in('id', matchingIds)`. This ensures only assets with ALL selected tags (or ANY — we can use ANY for better UX) are returned.
+### 4. `src/pages/MediaHub.tsx`
+- Gate the `RecentActivity` and `RecentUploads` sections -- Creators see a simplified hub
 
-### 3. Add Tags section to `MediaFilterDrawer`
-**File**: `src/components/media/MediaFilterDrawer.tsx`
+### 5. Route guards for Creator-restricted pages
+- Pages like Generate, SceneDetection, PlaylistManager, SocialKit, CharacterLibrary, ModelMarketplace, DiaryDashboard: add a check that redirects Creators back to `/hub` with a toast
+- Media Library (`/admin/media/library`) and Upload (`/admin/media/upload`) remain accessible
 
-Add a new collapsible "Tags" section that loads available tags from the `media_tags` table (already fetched via `fetchMediaTags()`). Display them as checkboxes like the other filter sections. Pass `tags` as a prop from `UnifiedMediaLibrary`.
+### 6. `src/components/media/UnifiedMediaLibrary.tsx`
+- Hide S3 Config tab (already Admin-only, no change needed)
+- Hide admin-only bulk actions for Creators (same as Viewer behavior)
 
-### 4. Wire up in `UnifiedMediaLibrary`
-**File**: `src/components/media/UnifiedMediaLibrary.tsx`
-
-Pass the loaded `tags` array to `MediaFilterDrawer`. Handle `tagIds` filter changes alongside existing filters. Include tag count in the active filter badge.
+No database or edge function changes needed -- the role value comes from the Salesforce `mediahubaccess` field.
 
