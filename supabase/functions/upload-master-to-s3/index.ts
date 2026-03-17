@@ -273,7 +273,7 @@ serve(async (req) => {
         title: imageTitle,
         description: description || null,
         file_url: cdnUrl,
-        thumbnail_url: thumbnailUrl || (isAudio ? null : cdnUrl),
+        thumbnail_url: thumbnailUrl || (isImage ? cdnUrl : null),
         source: "local_upload",
         status: "ready",
         file_format: fileExtension,

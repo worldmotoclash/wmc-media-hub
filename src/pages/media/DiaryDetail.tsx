@@ -7,7 +7,14 @@ import { format, parseISO } from 'date-fns';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MediaNavigation } from '@/components/media/MediaNavigation';
-import { ArrowLeft, Video, Image, Music, Loader2, FileText, Download } from 'lucide-react';
+import { ArrowLeft, Video, Image, Music, Loader2, FileText, Download, RefreshCw } from 'lucide-react';
+
+const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v'];
+const isVideoUrl = (url: string | null): boolean => {
+  if (!url) return false;
+  const lower = url.toLowerCase().split('?')[0];
+  return VIDEO_EXTENSIONS.some(ext => lower.endsWith(ext));
+};
 
 interface ContentItem {
   id: string;
@@ -36,6 +43,35 @@ const DiaryDetail: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [entry, setEntry] = useState<DiaryEntry | null>(null);
   const [loading, setLoading] = useState(true);
+  const [regenerating, setRegenerating] = useState(false);
+
+  const handleRegenerate = async () => {
+    if (!date) return;
+    setRegenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-diary-entry', {
+        body: { date },
+      });
+      if (error) throw error;
+      toast.success('Diary entry re-generated');
+      // Refetch
+      const { data: freshData } = await supabase
+        .from('media_diary_entries')
+        .select('*')
+        .eq('date', date)
+        .maybeSingle();
+      if (freshData) {
+        setEntry({
+          ...freshData,
+          content_items: (freshData.content_items as unknown as ContentItem[]) || [],
+        });
+      }
+    } catch (err: any) {
+      toast.error('Failed to re-generate: ' + (err.message || 'Unknown error'));
+    } finally {
+      setRegenerating(false);
+    }
+  };
 
   // Auto-login token handling
   useEffect(() => {
@@ -109,9 +145,22 @@ const DiaryDetail: React.FC = () => {
     <div className="min-h-screen bg-background">
       <MediaNavigation />
       <div className="container mx-auto px-4 py-8 max-w-5xl">
-        <Button variant="ghost" size="sm" className="mb-6" onClick={() => navigate('/mediahub/diary')}>
-          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Diary
-        </Button>
+        <div className="flex items-center justify-between mb-6">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/mediahub/diary')}>
+            <ArrowLeft className="h-4 w-4 mr-2" /> Back to Diary
+          </Button>
+          {entry && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={regenerating}
+              onClick={handleRegenerate}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${regenerating ? 'animate-spin' : ''}`} />
+              Re-generate
+            </Button>
+          )}
+        </div>
 
         {loading ? (
           <div className="flex justify-center py-16">
@@ -153,7 +202,7 @@ const DiaryDetail: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {entry.content_items.map((item) => (
                   <Card key={item.id} className="overflow-hidden">
-                    {item.thumbnail_url ? (
+                    {item.thumbnail_url && !isVideoUrl(item.thumbnail_url) ? (
                       <div className="aspect-video bg-muted">
                         <img
                           src={item.thumbnail_url}
