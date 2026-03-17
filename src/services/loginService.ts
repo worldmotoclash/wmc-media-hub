@@ -480,7 +480,7 @@ export const authenticateUser = async (email: string, password: string, isGoogle
         
         // Check if user has Media Hub access permission
         const rawAccess = investor.mediahubaccess?.trim() || '';
-        if (!rawAccess || !['Admin', 'Editor', 'Viewer'].includes(rawAccess)) {
+        if (!rawAccess || !['Admin', 'Editor', 'Viewer', 'Creator'].includes(rawAccess)) {
           // Track the denied access attempt
           await trackLogin(investor.id, "Access Denied - No Media Hub Permission");
           throw new Error('NO_MEDIA_HUB_ACCESS');
@@ -490,7 +490,7 @@ export const authenticateUser = async (email: string, password: string, isGoogle
         const isQualifiedOrSecured = investor.status === "Qualified Investor" || investor.status === "Secured Investor";
         
         // Determine media hub access level
-        const mediaHubAccess = rawAccess as 'Admin' | 'Editor' | 'Viewer';
+        const mediaHubAccess = rawAccess as 'Admin' | 'Editor' | 'Viewer' | 'Creator';
         
         // Return user data
         const userData: User = {

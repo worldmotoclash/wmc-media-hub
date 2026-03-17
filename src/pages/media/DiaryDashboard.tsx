@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@/contexts/UserContext';
+import { useCreatorGuard } from '@/hooks/useCreatorGuard';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, startOfWeek, endOfWeek, parseISO } from 'date-fns';
@@ -40,6 +41,7 @@ const DiaryDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
 
+  const creatorBlocked = useCreatorGuard();
   useEffect(() => {
     if (!user) {
       toast.error('Please log in to access the Content Diary');
@@ -48,6 +50,8 @@ const DiaryDashboard: React.FC = () => {
     }
     fetchEntries();
   }, [user, navigate]);
+
+  
 
   const fetchEntries = async () => {
     setLoading(true);

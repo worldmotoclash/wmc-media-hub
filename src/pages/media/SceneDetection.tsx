@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "@/contexts/UserContext";
+import { useCreatorGuard } from "@/hooks/useCreatorGuard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,6 +37,7 @@ interface SceneDetection {
 const SceneDetectionPage = () => {
   const { user } = useUser();
   const navigate = useNavigate();
+  const creatorBlocked = useCreatorGuard();
 
   useEffect(() => {
     if (!user) {

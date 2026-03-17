@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Sparkles, Wand2, Image } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
+import { useCreatorGuard } from "@/hooks/useCreatorGuard";
 
 // Import marketplace components
 import { PresetBar, PresetSettings } from "@/components/model-marketplace/PresetBar";
@@ -59,7 +60,7 @@ const ModelMarketplace: React.FC = () => {
     availability: []
   });
 
-  // Check authentication
+  const creatorBlocked = useCreatorGuard();
   useEffect(() => {
     if (!user) {
       toast({
@@ -70,6 +71,8 @@ const ModelMarketplace: React.FC = () => {
       navigate('/login');
     }
   }, [user, navigate, toast]);
+
+  
 
   // Generate settings for pricing calculations
   const generationSettings: GenerationSettings = useMemo(() => ({

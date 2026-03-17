@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "@/contexts/UserContext";
+import { useCreatorGuard } from "@/hooks/useCreatorGuard";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,10 @@ export default function SocialKit() {
       navigate('/login');
     }
   }, [user, navigate]);
+
+  const creatorBlocked = useCreatorGuard();
+
+  
 
   const [assets, setAssets] = useState<MasterImage[]>([]);
   const [loading, setLoading] = useState(true);

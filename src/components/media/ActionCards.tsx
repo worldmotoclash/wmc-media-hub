@@ -3,16 +3,20 @@ import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Upload, Sparkles, PlaySquare, Scissors, ListVideo, Layers, BookOpen, Megaphone } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useUser } from '@/contexts/UserContext';
 
 const ActionCards: React.FC = () => {
-  const actions = [
+  const { isCreator } = useUser();
+
+  const allActions = [
     {
       title: 'Upload Media',
       description: 'Add videos, images, or audio from files or URLs to the WMC library',
       icon: Upload,
       href: '/admin/media/upload',
       color: 'from-science-blue/20 to-science-blue/10',
-      iconColor: 'text-science-blue'
+      iconColor: 'text-science-blue',
+      creatorVisible: true
     },
     {
       title: 'Generate AI Image / Video',
@@ -20,7 +24,8 @@ const ActionCards: React.FC = () => {
       icon: Sparkles,
       href: '/admin/media/generate',
       color: 'from-cinnabar/20 to-cinnabar/10',
-      iconColor: 'text-cinnabar'
+      iconColor: 'text-cinnabar',
+      creatorVisible: false
     },
     {
       title: 'Scene Detection',
@@ -28,7 +33,8 @@ const ActionCards: React.FC = () => {
       icon: Scissors,
       href: '/admin/media/scene-detection',
       color: 'from-purple-500/20 to-purple-500/10',
-      iconColor: 'text-purple-500'
+      iconColor: 'text-purple-500',
+      creatorVisible: false
     },
     {
       title: 'Manage Playlists',
@@ -36,7 +42,8 @@ const ActionCards: React.FC = () => {
       icon: ListVideo,
       href: '/admin/media/playlists',
       color: 'from-emerald-500/20 to-emerald-500/10',
-      iconColor: 'text-emerald-500'
+      iconColor: 'text-emerald-500',
+      creatorVisible: false
     },
     {
       title: 'Asset Library',
@@ -44,7 +51,8 @@ const ActionCards: React.FC = () => {
       icon: PlaySquare,
       href: '/admin/media/library',
       color: 'from-malibu/20 to-malibu/10',
-      iconColor: 'text-malibu'
+      iconColor: 'text-malibu',
+      creatorVisible: true
     },
     {
       title: 'Social Media Image Generation',
@@ -52,7 +60,8 @@ const ActionCards: React.FC = () => {
       icon: Layers,
       href: '/admin/media/social-kit',
       color: 'from-accent/20 to-accent/10',
-      iconColor: 'text-accent-foreground'
+      iconColor: 'text-accent-foreground',
+      creatorVisible: false
     },
     {
       title: 'Content Diary',
@@ -60,7 +69,8 @@ const ActionCards: React.FC = () => {
       icon: BookOpen,
       href: '/mediahub/diary',
       color: 'from-primary/20 to-primary/10',
-      iconColor: 'text-primary'
+      iconColor: 'text-primary',
+      creatorVisible: false
     },
     {
       title: "What's New",
@@ -68,9 +78,14 @@ const ActionCards: React.FC = () => {
       icon: Megaphone,
       href: '/admin/media/releases',
       color: 'from-rose-500/20 to-rose-500/10',
-      iconColor: 'text-rose-500'
+      iconColor: 'text-rose-500',
+      creatorVisible: true
     }
   ];
+
+  const actions = isCreator()
+    ? allActions.filter(a => a.creatorVisible)
+    : allActions;
 
   return (
     <section className="py-16 bg-background">

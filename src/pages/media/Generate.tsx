@@ -57,6 +57,7 @@ import { DefaultModelService } from "@/services/defaultModelService";
 import { ImageDefaultModelService } from "@/services/imageDefaultModelService";
 import { AIModel } from "@/services/modelRegistry";
 import { PricingService, GenerationSettings } from "@/services/pricingService";
+import { useCreatorGuard } from "@/hooks/useCreatorGuard";
 
 interface SalesforceData {
   title: string;
@@ -503,6 +504,7 @@ const Generate: React.FC = () => {
   };
 
   // Check authentication
+  const creatorBlocked = useCreatorGuard();
   useEffect(() => {
     if (!user) {
       toast({
@@ -1159,7 +1161,7 @@ const Generate: React.FC = () => {
     });
   };
 
-  if (!user) {
+  if (!user || creatorBlocked) {
     return null;
   }
 
