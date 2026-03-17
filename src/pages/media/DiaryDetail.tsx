@@ -7,7 +7,14 @@ import { format, parseISO } from 'date-fns';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MediaNavigation } from '@/components/media/MediaNavigation';
-import { ArrowLeft, Video, Image, Music, Loader2, FileText, Download } from 'lucide-react';
+import { ArrowLeft, Video, Image, Music, Loader2, FileText, Download, RefreshCw } from 'lucide-react';
+
+const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v'];
+const isVideoUrl = (url: string | null): boolean => {
+  if (!url) return false;
+  const lower = url.toLowerCase().split('?')[0];
+  return VIDEO_EXTENSIONS.some(ext => lower.endsWith(ext));
+};
 
 interface ContentItem {
   id: string;
