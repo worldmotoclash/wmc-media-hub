@@ -343,7 +343,7 @@ const UserGuide: React.FC = () => {
                 </p>
                 
                 {/* Role Quick Links */}
-                <div className="grid md:grid-cols-4 gap-4 mb-6">
+                <div className="grid md:grid-cols-5 gap-4 mb-6">
                   <a href="#for-everyone" className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 transition-colors">
                     <UserCircle className="w-6 h-6 text-emerald-600 dark:text-emerald-400 mb-2" />
                     <div className="font-semibold text-emerald-600 dark:text-emerald-400">Everyone</div>
@@ -353,6 +353,11 @@ const UserGuide: React.FC = () => {
                     <Eye className="w-6 h-6 text-blue-600 dark:text-blue-400 mb-2" />
                     <div className="font-semibold text-blue-600 dark:text-blue-400">Viewer</div>
                     <div className="text-xs text-muted-foreground">Browse & download content</div>
+                  </a>
+                  <a href="#for-creators" className="p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 transition-colors">
+                    <Camera className="w-6 h-6 text-cyan-600 dark:text-cyan-400 mb-2" />
+                    <div className="font-semibold text-cyan-600 dark:text-cyan-400">Creator</div>
+                    <div className="text-xs text-muted-foreground">Upload & manage media content</div>
                   </a>
                   <a href="#for-editors" className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition-colors">
                     <Edit className="w-6 h-6 text-amber-600 dark:text-amber-400 mb-2" />
