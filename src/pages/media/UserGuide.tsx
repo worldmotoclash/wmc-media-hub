@@ -124,6 +124,12 @@ const tocItems = [
   { id: 'viewing-content', title: 'Viewing Content' },
   { id: 'downloading', title: 'Downloading Assets' },
   
+  // Creator
+  { id: 'for-creators', title: 'For Creators', isCategory: true, role: 'creator' as const },
+  { id: 'upload-media-creator', title: 'Upload Media' },
+  { id: 'asset-library-creator', title: 'Asset Library' },
+  { id: 'whats-new-creator', title: "What's New & Releases" },
+
   // Editor
   { id: 'for-editors', title: 'For Editors', isCategory: true, role: 'editor' as const },
   { id: 'ai-generation', title: 'AI Content Generation' },
@@ -337,7 +343,7 @@ const UserGuide: React.FC = () => {
                 </p>
                 
                 {/* Role Quick Links */}
-                <div className="grid md:grid-cols-4 gap-4 mb-6">
+                <div className="grid md:grid-cols-5 gap-4 mb-6">
                   <a href="#for-everyone" className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 transition-colors">
                     <UserCircle className="w-6 h-6 text-emerald-600 dark:text-emerald-400 mb-2" />
                     <div className="font-semibold text-emerald-600 dark:text-emerald-400">Everyone</div>
@@ -347,6 +353,11 @@ const UserGuide: React.FC = () => {
                     <Eye className="w-6 h-6 text-blue-600 dark:text-blue-400 mb-2" />
                     <div className="font-semibold text-blue-600 dark:text-blue-400">Viewer</div>
                     <div className="text-xs text-muted-foreground">Browse & download content</div>
+                  </a>
+                  <a href="#for-creators" className="p-4 rounded-lg bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 transition-colors">
+                    <Camera className="w-6 h-6 text-cyan-600 dark:text-cyan-400 mb-2" />
+                    <div className="font-semibold text-cyan-600 dark:text-cyan-400">Creator</div>
+                    <div className="text-xs text-muted-foreground">Upload & manage media content</div>
                   </a>
                   <a href="#for-editors" className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition-colors">
                     <Edit className="w-6 h-6 text-amber-600 dark:text-amber-400 mb-2" />
@@ -362,7 +373,7 @@ const UserGuide: React.FC = () => {
 
                 <div className="grid md:grid-cols-3 gap-4">
                   <div className="p-4 rounded-lg bg-background/50 border border-border">
-                    <div className="text-2xl font-bold text-primary">4</div>
+                    <div className="text-2xl font-bold text-primary">5</div>
                     <div className="text-sm text-muted-foreground">Role Sections</div>
                   </div>
                   <div className="p-4 rounded-lg bg-background/50 border border-border">
@@ -494,27 +505,27 @@ const UserGuide: React.FC = () => {
                 </p>
 
                 <GuideTable
-                  headers={['Feature', 'Viewer', 'Editor', 'Admin']}
+                  headers={['Feature', 'Viewer', 'Creator', 'Editor', 'Admin']}
                   rows={[
-                    ['Browse Asset Library', '✓', '✓', '✓'],
-                    ['Search & Filter Assets', '✓', '✓', '✓'],
-                    ['View/Preview Content', '✓', '✓', '✓'],
-                    ['Download Approved Assets', '✓', '✓', '✓'],
-                    ['View Playlists', '✓', '✓', '✓'],
-                    ['Generate AI Images', '—', '✓', '✓'],
-                    ['Generate AI Videos', '—', '✓', '✓'],
-                    ['Upload Content', '—', '✓', '✓'],
-                    ['Use Social Kit', '—', '✓', '✓'],
-                    ['Edit Tags & Metadata', '—', '✓', '✓'],
-                    ['Create Characters', '—', '✓', '✓'],
-                    ['Scene Detection', '—', '✓', '✓'],
-                    ['Manage Playlists', '—', '✓', '✓'],
-                    ['Librarian Workflow', '—', '✓', '✓'],
-                    ['Set Default Models', '—', '✓', '✓'],
-                    ['S3 Bucket Configuration', '—', '—', '✓'],
-                    ['Salesforce Settings', '—', '—', '✓'],
-                    ['View Sync Status', '—', '—', '✓'],
-                    ['System Management', '—', '—', '✓'],
+                    ['Browse Asset Library', '✓', '✓', '✓', '✓'],
+                    ['Search & Filter Assets', '✓', '✓', '✓', '✓'],
+                    ['View/Preview Content', '✓', '✓', '✓', '✓'],
+                    ['Download Approved Assets', '✓', '✓', '✓', '✓'],
+                    ['View Playlists', '✓', '—', '✓', '✓'],
+                    ['Upload Content', '—', '✓', '✓', '✓'],
+                    ['Edit Tags & Metadata', '—', '✓', '✓', '✓'],
+                    ['Generate AI Images', '—', '—', '✓', '✓'],
+                    ['Generate AI Videos', '—', '—', '✓', '✓'],
+                    ['Use Social Kit', '—', '—', '✓', '✓'],
+                    ['Create Characters', '—', '—', '✓', '✓'],
+                    ['Scene Detection', '—', '—', '✓', '✓'],
+                    ['Manage Playlists', '—', '—', '✓', '✓'],
+                    ['Librarian Workflow', '—', '—', '✓', '✓'],
+                    ['Set Default Models', '—', '—', '✓', '✓'],
+                    ['S3 Bucket Configuration', '—', '—', '—', '✓'],
+                    ['Salesforce Settings', '—', '—', '—', '✓'],
+                    ['View Sync Status', '—', '—', '—', '✓'],
+                    ['System Management', '—', '—', '—', '✓'],
                   ]}
                 />
 
@@ -687,6 +698,96 @@ const UserGuide: React.FC = () => {
               </GuideSection>
 
               {/* ============================================================ */}
+              {/* FOR CREATORS SECTION */}
+              {/* ============================================================ */}
+              <RoleCategoryHeader
+                id="for-creators"
+                title="For Creators"
+                role="creator"
+                icon={Camera}
+                description="Focused media management access. Creators can upload content, browse the asset library, and manage their own media — without access to AI generation or advanced tools."
+                includesRoles={['viewer']}
+              />
+
+              {/* Upload Media (Creator) */}
+              <GuideSection id="upload-media-creator" title="Upload Media" icon={Upload} role="creator">
+                <p className="text-muted-foreground mb-6">
+                  As a Creator, uploading media is one of your primary functions. You can add videos, images, 
+                  and audio files directly to the Media Hub for the team to use.
+                </p>
+
+                <GuideSubSection title="Uploading Files">
+                  <GuideStep number={1} title="Navigate to Upload">
+                    From the dashboard, click the <strong>Upload Media</strong> action card. 
+                    You can also access it via the sidebar navigation.
+                  </GuideStep>
+                  <GuideStep number={2} title="Select Files">
+                    Drag and drop files into the upload zone, or click to browse your device. 
+                    Supported formats include MP4, MOV, JPG, PNG, MP3, and WAV.
+                  </GuideStep>
+                  <GuideStep number={3} title="Add Metadata">
+                    Fill in the title, description, and tags for each upload. Good metadata makes 
+                    your content easier for the team to find and use.
+                  </GuideStep>
+                  <GuideStep number={4} title="Upload">
+                    Click <strong>Upload</strong> to submit your files. You'll see a progress indicator 
+                    for each file being uploaded.
+                  </GuideStep>
+                </GuideSubSection>
+
+                <GuideTip type="tip">
+                  Add descriptive tags during upload to help editors and admins find your content quickly. 
+                  Include event names, locations, and dates when relevant (e.g., "COTA 2025", "Race Day", "Podium").
+                </GuideTip>
+              </GuideSection>
+
+              {/* Asset Library (Creator) */}
+              <GuideSection id="asset-library-creator" title="Asset Library" icon={FolderOpen} role="creator">
+                <p className="text-muted-foreground mb-6">
+                  Browse and manage the media you've uploaded. The Asset Library lets you search, filter, 
+                  and preview all content in the Media Hub.
+                </p>
+
+                <GuideSubSection title="Browsing Your Content">
+                  <GuideStep number={1} title="Open Asset Library">
+                    Click <strong>Asset Library</strong> from the dashboard to view all available media.
+                  </GuideStep>
+                  <GuideStep number={2} title="Search & Filter">
+                    Use the search bar to find assets by title, tags, or description. 
+                    Apply filters for asset type (video, image, audio) and source.
+                  </GuideStep>
+                  <GuideStep number={3} title="Edit Your Assets">
+                    Click on any asset you've uploaded to edit its title, description, and tags. 
+                    You can update metadata at any time to keep content organized.
+                  </GuideStep>
+                </GuideSubSection>
+
+                <GuideTip type="note">
+                  As a Creator, you can edit metadata on your own uploads. To modify assets uploaded by 
+                  others, contact an Editor or Admin.
+                </GuideTip>
+              </GuideSection>
+
+              {/* What's New (Creator) */}
+              <GuideSection id="whats-new-creator" title="What's New & Releases" icon={Sparkles} role="creator">
+                <p className="text-muted-foreground mb-6">
+                  Stay up to date with the latest Media Hub features and improvements. The Release Notes 
+                  page shows what's new, what's changed, and what's coming next.
+                </p>
+
+                <GuideSubSection title="Accessing Release Notes">
+                  <GuideStep number={1} title="Open What's New">
+                    Click the <strong>What's New</strong> button in the top navigation bar, or navigate 
+                    to the Release Notes page from the dashboard.
+                  </GuideStep>
+                  <GuideStep number={2} title="Browse Updates">
+                    Each release is tagged with its version number and date. Look for entries tagged 
+                    with "Creator" to see features relevant to your role.
+                  </GuideStep>
+                </GuideSubSection>
+              </GuideSection>
+
+              {/* ============================================================ */}
               {/* FOR EDITORS SECTION */}
               {/* ============================================================ */}
               <RoleCategoryHeader
@@ -695,7 +796,7 @@ const UserGuide: React.FC = () => {
                 role="editor"
                 icon={Edit}
                 description="Content creation and management capabilities. Editors can generate AI content, upload media, manage assets, and more."
-                includesRoles={['viewer']}
+                includesRoles={['viewer', 'creator']}
               />
 
               {/* AI Generation */}
