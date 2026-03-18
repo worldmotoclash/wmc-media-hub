@@ -698,6 +698,96 @@ const UserGuide: React.FC = () => {
               </GuideSection>
 
               {/* ============================================================ */}
+              {/* FOR CREATORS SECTION */}
+              {/* ============================================================ */}
+              <RoleCategoryHeader
+                id="for-creators"
+                title="For Creators"
+                role="creator"
+                icon={Camera}
+                description="Focused media management access. Creators can upload content, browse the asset library, and manage their own media — without access to AI generation or advanced tools."
+                includesRoles={['viewer']}
+              />
+
+              {/* Upload Media (Creator) */}
+              <GuideSection id="upload-media-creator" title="Upload Media" icon={Upload} role="creator">
+                <p className="text-muted-foreground mb-6">
+                  As a Creator, uploading media is one of your primary functions. You can add videos, images, 
+                  and audio files directly to the Media Hub for the team to use.
+                </p>
+
+                <GuideSubSection title="Uploading Files">
+                  <GuideStep number={1} title="Navigate to Upload">
+                    From the dashboard, click the <strong>Upload Media</strong> action card. 
+                    You can also access it via the sidebar navigation.
+                  </GuideStep>
+                  <GuideStep number={2} title="Select Files">
+                    Drag and drop files into the upload zone, or click to browse your device. 
+                    Supported formats include MP4, MOV, JPG, PNG, MP3, and WAV.
+                  </GuideStep>
+                  <GuideStep number={3} title="Add Metadata">
+                    Fill in the title, description, and tags for each upload. Good metadata makes 
+                    your content easier for the team to find and use.
+                  </GuideStep>
+                  <GuideStep number={4} title="Upload">
+                    Click <strong>Upload</strong> to submit your files. You'll see a progress indicator 
+                    for each file being uploaded.
+                  </GuideStep>
+                </GuideSubSection>
+
+                <GuideTip type="tip">
+                  Add descriptive tags during upload to help editors and admins find your content quickly. 
+                  Include event names, locations, and dates when relevant (e.g., "COTA 2025", "Race Day", "Podium").
+                </GuideTip>
+              </GuideSection>
+
+              {/* Asset Library (Creator) */}
+              <GuideSection id="asset-library-creator" title="Asset Library" icon={FolderOpen} role="creator">
+                <p className="text-muted-foreground mb-6">
+                  Browse and manage the media you've uploaded. The Asset Library lets you search, filter, 
+                  and preview all content in the Media Hub.
+                </p>
+
+                <GuideSubSection title="Browsing Your Content">
+                  <GuideStep number={1} title="Open Asset Library">
+                    Click <strong>Asset Library</strong> from the dashboard to view all available media.
+                  </GuideStep>
+                  <GuideStep number={2} title="Search & Filter">
+                    Use the search bar to find assets by title, tags, or description. 
+                    Apply filters for asset type (video, image, audio) and source.
+                  </GuideStep>
+                  <GuideStep number={3} title="Edit Your Assets">
+                    Click on any asset you've uploaded to edit its title, description, and tags. 
+                    You can update metadata at any time to keep content organized.
+                  </GuideStep>
+                </GuideSubSection>
+
+                <GuideTip type="note">
+                  As a Creator, you can edit metadata on your own uploads. To modify assets uploaded by 
+                  others, contact an Editor or Admin.
+                </GuideTip>
+              </GuideSection>
+
+              {/* What's New (Creator) */}
+              <GuideSection id="whats-new-creator" title="What's New & Releases" icon={Sparkles} role="creator">
+                <p className="text-muted-foreground mb-6">
+                  Stay up to date with the latest Media Hub features and improvements. The Release Notes 
+                  page shows what's new, what's changed, and what's coming next.
+                </p>
+
+                <GuideSubSection title="Accessing Release Notes">
+                  <GuideStep number={1} title="Open What's New">
+                    Click the <strong>What's New</strong> button in the top navigation bar, or navigate 
+                    to the Release Notes page from the dashboard.
+                  </GuideStep>
+                  <GuideStep number={2} title="Browse Updates">
+                    Each release is tagged with its version number and date. Look for entries tagged 
+                    with "Creator" to see features relevant to your role.
+                  </GuideStep>
+                </GuideSubSection>
+              </GuideSection>
+
+              {/* ============================================================ */}
               {/* FOR EDITORS SECTION */}
               {/* ============================================================ */}
               <RoleCategoryHeader
@@ -706,7 +796,7 @@ const UserGuide: React.FC = () => {
                 role="editor"
                 icon={Edit}
                 description="Content creation and management capabilities. Editors can generate AI content, upload media, manage assets, and more."
-                includesRoles={['viewer']}
+                includesRoles={['viewer', 'creator']}
               />
 
               {/* AI Generation */}
