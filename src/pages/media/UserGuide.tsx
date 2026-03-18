@@ -373,7 +373,7 @@ const UserGuide: React.FC = () => {
 
                 <div className="grid md:grid-cols-3 gap-4">
                   <div className="p-4 rounded-lg bg-background/50 border border-border">
-                    <div className="text-2xl font-bold text-primary">4</div>
+                    <div className="text-2xl font-bold text-primary">5</div>
                     <div className="text-sm text-muted-foreground">Role Sections</div>
                   </div>
                   <div className="p-4 rounded-lg bg-background/50 border border-border">
