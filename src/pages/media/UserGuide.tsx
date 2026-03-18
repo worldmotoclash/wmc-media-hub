@@ -505,27 +505,27 @@ const UserGuide: React.FC = () => {
                 </p>
 
                 <GuideTable
-                  headers={['Feature', 'Viewer', 'Editor', 'Admin']}
+                  headers={['Feature', 'Viewer', 'Creator', 'Editor', 'Admin']}
                   rows={[
-                    ['Browse Asset Library', '✓', '✓', '✓'],
-                    ['Search & Filter Assets', '✓', '✓', '✓'],
-                    ['View/Preview Content', '✓', '✓', '✓'],
-                    ['Download Approved Assets', '✓', '✓', '✓'],
-                    ['View Playlists', '✓', '✓', '✓'],
-                    ['Generate AI Images', '—', '✓', '✓'],
-                    ['Generate AI Videos', '—', '✓', '✓'],
-                    ['Upload Content', '—', '✓', '✓'],
-                    ['Use Social Kit', '—', '✓', '✓'],
-                    ['Edit Tags & Metadata', '—', '✓', '✓'],
-                    ['Create Characters', '—', '✓', '✓'],
-                    ['Scene Detection', '—', '✓', '✓'],
-                    ['Manage Playlists', '—', '✓', '✓'],
-                    ['Librarian Workflow', '—', '✓', '✓'],
-                    ['Set Default Models', '—', '✓', '✓'],
-                    ['S3 Bucket Configuration', '—', '—', '✓'],
-                    ['Salesforce Settings', '—', '—', '✓'],
-                    ['View Sync Status', '—', '—', '✓'],
-                    ['System Management', '—', '—', '✓'],
+                    ['Browse Asset Library', '✓', '✓', '✓', '✓'],
+                    ['Search & Filter Assets', '✓', '✓', '✓', '✓'],
+                    ['View/Preview Content', '✓', '✓', '✓', '✓'],
+                    ['Download Approved Assets', '✓', '✓', '✓', '✓'],
+                    ['View Playlists', '✓', '—', '✓', '✓'],
+                    ['Upload Content', '—', '✓', '✓', '✓'],
+                    ['Edit Tags & Metadata', '—', '✓', '✓', '✓'],
+                    ['Generate AI Images', '—', '—', '✓', '✓'],
+                    ['Generate AI Videos', '—', '—', '✓', '✓'],
+                    ['Use Social Kit', '—', '—', '✓', '✓'],
+                    ['Create Characters', '—', '—', '✓', '✓'],
+                    ['Scene Detection', '—', '—', '✓', '✓'],
+                    ['Manage Playlists', '—', '—', '✓', '✓'],
+                    ['Librarian Workflow', '—', '—', '✓', '✓'],
+                    ['Set Default Models', '—', '—', '✓', '✓'],
+                    ['S3 Bucket Configuration', '—', '—', '—', '✓'],
+                    ['Salesforce Settings', '—', '—', '—', '✓'],
+                    ['View Sync Status', '—', '—', '—', '✓'],
+                    ['System Management', '—', '—', '—', '✓'],
                   ]}
                 />
 
