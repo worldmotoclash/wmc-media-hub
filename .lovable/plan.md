@@ -1,31 +1,35 @@
 
 
-# Add Tag-Based Filtering to Media Library
+# Add Creator Role to User Guide
 
-## Current State
-- Search scopes "All" and "Metadata" already match against tag names in the text search
-- But there's no way to filter by specific tags (e.g., pick "Racer Submission" from a list)
-- The `MediaFilterDrawer` has Category, Content Type, Location, and Mood filters — but no Tags section
+## Context
+The Creator role is a restricted media-focused role that can Upload Media, browse the Asset Library, view Recent Activity, and see What's New — but cannot access AI Generation, Scene Detection, Social Kit, Playlists, or Content Diary. The User Guide currently documents four roles (Everyone, Viewer, Editor, Admin) but omits Creator entirely.
 
-## Plan
+## Changes
 
-### 1. Add `tagIds` to `SearchFilters` type
-**File**: `src/services/unifiedMediaService.ts`
+**`src/pages/media/UserGuide.tsx`**
 
-Add an optional `tagIds?: string[]` field to the `SearchFilters` interface.
+1. **Add Creator to TOC items** (after Viewer, before Editor around line 127):
+   - New category: `{ id: 'for-creators', title: 'For Creators', isCategory: true, role: 'creator' }`
+   - Sub-items: `upload-media-creator` (Upload Media), `asset-library-creator` (Asset Library), `whats-new-creator` (What's New & Releases)
 
-### 2. Apply tag filter in the DB query
-**File**: `src/services/unifiedMediaService.ts`
+2. **Add Creator to Hero quick links** (around line 340): Insert a 5th role card for Creator between Viewer and Editor with a Camera or Upload icon and description "Upload & manage media content". Adjust grid to `md:grid-cols-5`.
 
-When `filters.tagIds` is set, query `media_asset_tags` to get matching `media_asset_id` values, then filter the main query using `.in('id', matchingIds)`. This ensures only assets with ALL selected tags (or ANY — we can use ANY for better UX) are returned.
+3. **Update Permissions Matrix** (line 497): Add a "Creator" column to the table headers and add the appropriate checkmarks — Creator gets checkmarks for: Browse Asset Library, Search & Filter, View/Preview, Download, Upload Content, Edit Tags & Metadata. Dashes for everything else.
 
-### 3. Add Tags section to `MediaFilterDrawer`
-**File**: `src/components/media/MediaFilterDrawer.tsx`
+4. **Add Creator section content** (between Viewer and Editor sections, around line 526): A `RoleCategoryHeader` and `GuideSection` blocks covering:
+   - **Upload Media**: How Creators upload videos/images/audio to the library
+   - **Asset Library**: Browsing and managing their uploaded content
+   - **What's New**: Accessing release notes and updates
 
-Add a new collapsible "Tags" section that loads available tags from the `media_tags` table (already fetched via `fetchMediaTags()`). Display them as checkboxes like the other filter sections. Pass `tags` as a prop from `UnifiedMediaLibrary`.
+5. **Update role stats** in hero: Change "4 Role Sections" to "5 Role Sections".
 
-### 4. Wire up in `UnifiedMediaLibrary`
-**File**: `src/components/media/UnifiedMediaLibrary.tsx`
+**`src/components/docs/GuideSection.tsx`** and **`src/components/docs/GuideTOC.tsx`**
 
-Pass the loaded `tags` array to `MediaFilterDrawer`. Handle `tagIds` filter changes alongside existing filters. Include tag count in the active filter badge.
+6. **Add 'creator' to the `RoleType`** union type in both files, with styling:
+   - Color scheme: `bg-cyan-500/10`, `text-cyan-600 dark:text-cyan-400`, `border-cyan-500/30`
+   - Label: "Creator"
+   - Description: "Upload & manage media"
+
+These changes ensure Creator-role users see documentation relevant to their access level and understand exactly what features are available to them.
 
