@@ -48,6 +48,10 @@ const roleStyles: Record<RoleType, { bg: string; text: string; border: string; l
   },
 };
 
+interface GuideTOCProps {
+  items: TOCItem[];
+}
+
 export const GuideTOC: React.FC<GuideTOCProps> = ({ items }) => {
   const [activeId, setActiveId] = useState<string>('');
   const [isOpen, setIsOpen] = useState(false);
