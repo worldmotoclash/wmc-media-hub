@@ -31,12 +31,7 @@ const MediaHub: React.FC = () => {
       <MediaHubHero />
       <SearchBar />
       <ActionCards />
-      {!isCreator() && (
-        <>
-          <RecentActivity />
-          <RecentUploads />
-        </>
-      )}
+      <RecentActivity />
       <Footer />
     </div>
   );
