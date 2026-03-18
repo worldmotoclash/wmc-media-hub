@@ -1,31 +1,31 @@
 
 
-# Show Recent Activity for all roles & remove redundant Recent Uploads
+# Add Tag-Based Filtering to Media Library
 
-## Problem
-1. `RecentActivity` and `RecentUploads` are hidden for Creator role (line 35-40 in `MediaHub.tsx` wraps both in `!isCreator()`)
-2. `RecentUploads` is a video-only thumbnail grid that overlaps with what `RecentActivity` already shows (uploads + generations in a unified list)
+## Current State
+- Search scopes "All" and "Metadata" already match against tag names in the text search
+- But there's no way to filter by specific tags (e.g., pick "Racer Submission" from a list)
+- The `MediaFilterDrawer` has Category, Content Type, Location, and Mood filters — but no Tags section
 
-## Changes
+## Plan
 
-**`src/pages/MediaHub.tsx`**
-- Show `<RecentActivity />` for all roles (move it outside the `!isCreator()` block)
-- Remove `<RecentUploads />` entirely since it's redundant with RecentActivity
-- Remove the `RecentUploads` import
+### 1. Add `tagIds` to `SearchFilters` type
+**File**: `src/services/unifiedMediaService.ts`
 
-The result: lines 29-43 become:
-```tsx
-return (
-  <div className="min-h-screen bg-background">
-    <Navbar />
-    <MediaHubHero />
-    <SearchBar />
-    <ActionCards />
-    <RecentActivity />
-    <Footer />
-  </div>
-);
-```
+Add an optional `tagIds?: string[]` field to the `SearchFilters` interface.
 
-This is a small, focused change — just removing the conditional wrapper and the redundant component.
+### 2. Apply tag filter in the DB query
+**File**: `src/services/unifiedMediaService.ts`
+
+When `filters.tagIds` is set, query `media_asset_tags` to get matching `media_asset_id` values, then filter the main query using `.in('id', matchingIds)`. This ensures only assets with ALL selected tags (or ANY — we can use ANY for better UX) are returned.
+
+### 3. Add Tags section to `MediaFilterDrawer`
+**File**: `src/components/media/MediaFilterDrawer.tsx`
+
+Add a new collapsible "Tags" section that loads available tags from the `media_tags` table (already fetched via `fetchMediaTags()`). Display them as checkboxes like the other filter sections. Pass `tags` as a prop from `UnifiedMediaLibrary`.
+
+### 4. Wire up in `UnifiedMediaLibrary`
+**File**: `src/components/media/UnifiedMediaLibrary.tsx`
+
+Pass the loaded `tags` array to `MediaFilterDrawer`. Handle `tagIds` filter changes alongside existing filters. Include tag count in the active filter badge.
 

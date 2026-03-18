@@ -7,7 +7,6 @@ import MediaHubHero from '@/components/media/MediaHubHero';
 import SearchBar from '@/components/media/SearchBar';
 import ActionCards from '@/components/media/ActionCards';
 import RecentActivity from '@/components/media/RecentActivity';
-import RecentUploads from '@/components/media/RecentUploads';
 import Footer from '@/components/Footer';
 
 const MediaHub: React.FC = () => {
@@ -32,12 +31,7 @@ const MediaHub: React.FC = () => {
       <MediaHubHero />
       <SearchBar />
       <ActionCards />
-      {!isCreator() && (
-        <>
-          <RecentActivity />
-          <RecentUploads />
-        </>
-      )}
+      <RecentActivity />
       <Footer />
     </div>
   );
