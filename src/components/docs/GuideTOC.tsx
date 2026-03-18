@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 
-export type RoleType = 'everyone' | 'viewer' | 'editor' | 'admin';
+export type RoleType = 'everyone' | 'viewer' | 'creator' | 'editor' | 'admin';
 
 interface TOCItem {
   id: string;
@@ -13,10 +13,6 @@ interface TOCItem {
   icon?: React.ReactNode;
   isCategory?: boolean;
   role?: RoleType;
-}
-
-interface GuideTOCProps {
-  items: TOCItem[];
 }
 
 const roleStyles: Record<RoleType, { bg: string; text: string; border: string; label: string }> = {
@@ -31,6 +27,12 @@ const roleStyles: Record<RoleType, { bg: string; text: string; border: string; l
     text: 'text-blue-600 dark:text-blue-400', 
     border: 'border-blue-500/30',
     label: 'Viewer'
+  },
+  creator: { 
+    bg: 'bg-cyan-500/10', 
+    text: 'text-cyan-600 dark:text-cyan-400', 
+    border: 'border-cyan-500/30',
+    label: 'Creator'
   },
   editor: { 
     bg: 'bg-amber-500/10', 

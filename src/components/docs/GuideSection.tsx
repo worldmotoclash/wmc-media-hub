@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import { LucideIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
-export type RoleType = 'everyone' | 'viewer' | 'editor' | 'admin';
+export type RoleType = 'everyone' | 'viewer' | 'creator' | 'editor' | 'admin';
 
 const roleStyles: Record<RoleType, { bg: string; text: string; border: string; label: string; description: string }> = {
   everyone: { 
@@ -19,6 +19,13 @@ const roleStyles: Record<RoleType, { bg: string; text: string; border: string; l
     border: 'border-blue-500/30',
     label: 'Viewer',
     description: 'Read-only access'
+  },
+  creator: { 
+    bg: 'bg-cyan-500/10', 
+    text: 'text-cyan-600 dark:text-cyan-400', 
+    border: 'border-cyan-500/30',
+    label: 'Creator',
+    description: 'Upload & manage media'
   },
   editor: { 
     bg: 'bg-amber-500/10', 
