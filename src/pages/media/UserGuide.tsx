@@ -124,6 +124,12 @@ const tocItems = [
   { id: 'viewing-content', title: 'Viewing Content' },
   { id: 'downloading', title: 'Downloading Assets' },
   
+  // Creator
+  { id: 'for-creators', title: 'For Creators', isCategory: true, role: 'creator' as const },
+  { id: 'upload-media-creator', title: 'Upload Media' },
+  { id: 'asset-library-creator', title: 'Asset Library' },
+  { id: 'whats-new-creator', title: "What's New & Releases" },
+
   // Editor
   { id: 'for-editors', title: 'For Editors', isCategory: true, role: 'editor' as const },
   { id: 'ai-generation', title: 'AI Content Generation' },
