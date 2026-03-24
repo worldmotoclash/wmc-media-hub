@@ -1,30 +1,70 @@
 
 
-# Fix: Overall Progress Bar Not Reflecting Upload Percentage
+# Fix Album Counts and Remove Empty Albums
 
 ## Problem
+The `asset_count` column on `media_albums` is manually maintained and drifts out of sync with reality. Albums with zero actual assets still appear in the dropdown.
 
-The overall progress bar only updates when a file **completes** (jumps from 0% to 100% in one step for a single file). It uses `completedCount / queue.length * 100`, so for 1 file queued, the bar stays at 0% the entire time until it finishes, then jumps to 100%.
+## Changes
 
-The screenshot confirms this: 1 file queued, 24% uploaded per the individual file progress, but the overall bar shows 0%.
+### 1. `src/components/media/UnifiedMediaLibrary.tsx` — `loadAlbums()`
+Replace the current query that reads the stale `asset_count` column with a two-step approach:
+- Fetch all albums
+- For each album, query the actual count from `media_assets` where `album_id` matches
+- Filter out albums with zero assets
+- Optionally update the `asset_count` column in the background to keep it synced
 
-## Root Cause
+Alternatively (simpler and more performant): use a single query that joins with a count subquery. Since Supabase JS doesn't support aggregation joins well, we'll:
+1. Fetch all albums
+2. Fetch grouped counts: `select('album_id').not('album_id', 'is', null)` from `media_assets`, then count client-side
+3. Merge counts, filter out zero-count albums
 
-Line 351: `overallProgress = (completedCount / queue.length) * 100` — this only counts fully completed files, ignoring per-file progress percentages that are already being tracked in the `queue` state.
+### 2. `src/components/media/BulkUploadTab.tsx` — `fetchAlbums()`
+Apply the same real-count logic so the bulk upload album picker also shows accurate counts and hides empty albums.
 
-## Fix
+### 3. `src/components/media/MediaAssetDetailsDrawer.tsx`
+The album selector here doesn't show counts, so no count fix needed. But we should still filter out empty albums so users can't assign assets to dead albums — or keep showing all albums here since the user may want to assign to an empty album. We'll keep this as-is.
 
-**`src/components/media/BulkUploadTab.tsx`**
+### 4. Optional cleanup: delete empty albums
+Add a background cleanup step in `loadAlbums()` that deletes albums with zero assets (only `source: 'auto'` albums, to preserve manually created ones the user may want to keep). This addresses "if any album does not have any videos then the album should not exist."
 
-Replace the `overallProgress` calculation (line 351) to aggregate individual file progress values instead of just counting completed files:
+## Technical approach
 
+In `loadAlbums()`:
 ```typescript
-const overallProgress = queue.length > 0
-  ? queue.reduce((sum, f) => sum + f.progress, 0) / queue.length
-  : 0;
+const { data: allAlbums } = await supabase
+  .from('media_albums')
+  .select('id, name, source, created_at')
+  .order('created_at', { ascending: false });
+
+const { data: countRows } = await supabase
+  .from('media_assets')
+  .select('album_id');
+  
+// Count assets per album
+const countMap = new Map<string, number>();
+(countRows || []).forEach(row => {
+  if (row.album_id) {
+    countMap.set(row.album_id, (countMap.get(row.album_id) || 0) + 1);
+  }
+});
+
+// Filter to non-empty albums, attach real count
+const activeAlbums = (allAlbums || [])
+  .map(a => ({ ...a, asset_count: countMap.get(a.id) || 0 }))
+  .filter(a => a.asset_count > 0);
+
+setAlbums(activeAlbums);
+
+// Background: delete empty auto-generated albums
+const emptyAutoAlbums = (allAlbums || [])
+  .filter(a => !countMap.has(a.id) && a.source === 'auto');
+for (const album of emptyAutoAlbums) {
+  await supabase.from('media_albums').delete().eq('id', album.id);
+}
 ```
 
-This uses the per-file `progress` field (0-100) that's already being updated during XHR upload via `xhr.upload.onprogress`. The overall bar will now smoothly reflect the actual upload progress across all files.
+Same pattern applied to `BulkUploadTab.tsx`'s `fetchAlbums()`.
 
-One-line change. No other modifications needed.
+This ensures counts are always accurate and empty albums are cleaned up automatically.
 
