@@ -143,31 +143,50 @@ serve(async (req) => {
       s3Key = preuploadedS3Key!;
       cdnUrl = preuploadedCdnUrl!;
       masterId = preuploadedMasterId!;
-      console.log("Finalize path: file already in S3 at", s3Key);
+      console.log("Finalize path: verifying file exists in S3 at", s3Key);
 
-      // Upload thumbnail if provided (thumbnails are small enough for edge function)
+      // Verify the file actually exists in S3 before creating records
       const s3Config = getS3Config();
-      if (isVideo && thumbnailBase64 && s3Config.accessKeyId && s3Config.secretAccessKey) {
+      if (s3Config.accessKeyId && s3Config.secretAccessKey) {
         const aws = new AwsClient({
           accessKeyId: s3Config.accessKeyId,
           secretAccessKey: s3Config.secretAccessKey,
           region: s3Config.region,
           service: "s3",
         });
-        const s3BasePath = isVideo ? S3_PATHS.VIDEO_MASTERS : isAudio ? S3_PATHS.AUDIO_MASTERS : S3_PATHS.SOCIAL_MEDIA_MASTERS;
-        const thumbKey = `${s3BasePath}/${masterId}/thumbnail.jpg`;
-        const thumbData = Uint8Array.from(atob(thumbnailBase64), c => c.charCodeAt(0));
-        const thumbUploadUrl = `${s3Config.endpoint}/${s3Config.bucketName}/${thumbKey}`;
-        
-        const thumbResponse = await aws.fetch(thumbUploadUrl, {
-          method: "PUT",
-          body: thumbData,
-          headers: { "Content-Type": "image/jpeg", "Content-Length": thumbData.length.toString() },
-        });
-        
-        if (thumbResponse.ok) {
-          thumbnailUrl = getCdnUrl(thumbKey);
-          console.log("Thumbnail uploaded successfully:", thumbnailUrl);
+
+        const headUrl = `${s3Config.endpoint}/${s3Config.bucketName}/${s3Key}`;
+        const headResponse = await aws.fetch(headUrl, { method: "HEAD" });
+
+        if (!headResponse.ok) {
+          console.error("S3 HEAD check failed:", headResponse.status, "for key:", s3Key);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "File not found in S3. The upload may have failed. Please try again.",
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        console.log("S3 HEAD check passed — file confirmed in bucket");
+
+        // Upload thumbnail if provided (reuse same aws client)
+        if (isVideo && thumbnailBase64) {
+          const s3BasePath = isVideo ? S3_PATHS.VIDEO_MASTERS : isAudio ? S3_PATHS.AUDIO_MASTERS : S3_PATHS.SOCIAL_MEDIA_MASTERS;
+          const thumbKey = `${s3BasePath}/${masterId}/thumbnail.jpg`;
+          const thumbData = Uint8Array.from(atob(thumbnailBase64), c => c.charCodeAt(0));
+          const thumbUploadUrl = `${s3Config.endpoint}/${s3Config.bucketName}/${thumbKey}`;
+          
+          const thumbResponse = await aws.fetch(thumbUploadUrl, {
+            method: "PUT",
+            body: thumbData,
+            headers: { "Content-Type": "image/jpeg", "Content-Length": thumbData.length.toString() },
+          });
+          
+          if (thumbResponse.ok) {
+            thumbnailUrl = getCdnUrl(thumbKey);
+            console.log("Thumbnail uploaded successfully:", thumbnailUrl);
+          }
         }
       }
     } else {
