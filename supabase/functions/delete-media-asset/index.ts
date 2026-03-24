@@ -91,34 +91,43 @@ serve(async (req) => {
       }
     }
 
-    // 3. DB cleanup — tags first, then asset
-    const { error: tagsError } = await supabase
-      .from("media_asset_tags")
-      .delete()
-      .eq("media_asset_id", assetId);
+    // 3. DB cleanup — tags first, then asset (only if assetId is a valid UUID)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isValidUuid = uuidRegex.test(assetId);
+    let dbDeleted = false;
 
-    if (tagsError) {
-      console.error("Error deleting asset tags:", tagsError);
+    if (isValidUuid) {
+      const { error: tagsError } = await supabase
+        .from("media_asset_tags")
+        .delete()
+        .eq("media_asset_id", assetId);
+
+      if (tagsError) {
+        console.error("Error deleting asset tags:", tagsError);
+      }
+
+      const { error: assetError } = await supabase
+        .from("media_assets")
+        .delete()
+        .eq("id", assetId);
+
+      if (assetError) {
+        console.error("Error deleting asset record:", assetError);
+        throw assetError;
+      }
+
+      dbDeleted = true;
+      console.log(`Successfully deleted media asset ${assetId}`);
+    } else {
+      console.log(`Skipping DB cleanup — assetId "${assetId}" is not a UUID (SFDC-only record)`);
     }
-
-    const { error: assetError } = await supabase
-      .from("media_assets")
-      .delete()
-      .eq("id", assetId);
-
-    if (assetError) {
-      console.error("Error deleting asset record:", assetError);
-      throw assetError;
-    }
-
-    console.log(`Successfully deleted media asset ${assetId}`);
 
     return new Response(
       JSON.stringify({
         success: true,
         s3Deleted,
         sfdcDeleted,
-        dbDeleted: true,
+        dbDeleted,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
