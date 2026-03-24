@@ -348,7 +348,7 @@ export const BulkUploadTab: React.FC = () => {
     }
   };
 
-  const overallProgress = queue.length > 0 ? (completedCount / queue.length) * 100 : 0;
+  const overallProgress = queue.length > 0 ? queue.reduce((sum, f) => sum + f.progress, 0) / queue.length : 0;
   const doneCount = queue.filter(f => f.status === 'done').length;
   const errorCount = queue.filter(f => f.status === 'error').length;
   const totalQueueBytes = queue.reduce((sum, f) => sum + f.file.size, 0);
