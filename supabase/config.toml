@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.generate-diary-entry]
 verify_jwt = false
+
+[functions.audit-sfdc-file-health]
+verify_jwt = false
