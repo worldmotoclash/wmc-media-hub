@@ -276,9 +276,21 @@ export const UnifiedMediaLibrary: React.FC = () => {
 
   const handleBulkDelete = async () => {
     const ids = Array.from(selectedAssetIds);
+    const assetMap = new Map(assets.map((asset) => [asset.id, asset]));
+    const deleteTargets = ids.map((id) => {
+      const asset = assetMap.get(id);
+      return asset
+        ? {
+            assetId: id,
+            salesforceId: asset.salesforceId,
+            fileUrl: asset.fileUrl,
+          }
+        : id;
+    });
+
     setIsBulkDeleting(true);
     try {
-      const { successCount, failCount } = await deleteMediaAssets(ids);
+      const { successCount, failCount } = await deleteMediaAssets(deleteTargets);
       if (successCount > 0) {
         toast.success(`Deleted ${successCount} asset${successCount > 1 ? 's' : ''}`, {
           description: failCount > 0 ? `${failCount} failed` : undefined
