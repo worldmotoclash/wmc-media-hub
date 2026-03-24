@@ -127,14 +127,14 @@ serve(async (req) => {
       });
     }
 
-    const endpoint = "https://s3.wasabisys.com";
-    const bucketName = "worldmotoclash";
-    const region = "us-east-1";
+    const s3Config = getS3Config();
+    const endpoint = s3Config.endpoint;
+    const bucketName = s3Config.bucketName;
 
     const aws = new AwsClient({
       accessKeyId,
       secretAccessKey,
-      region,
+      region: s3Config.region,
       service: "s3",
     });
 
