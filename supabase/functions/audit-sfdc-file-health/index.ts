@@ -31,7 +31,7 @@ function parseContentRecords(xml: string): ContentRecord[] {
   for (const block of blocks) {
     const idMatch = block.match(/<id>([^<]+)<\/id>/);
     const nameMatch = block.match(/<name>([^<]+)<\/name>/);
-    const urlMatch = block.match(/<url>([^<]+)<\/url>/);
+    const urlMatch = block.match(/<url>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/url>/);
 
     if (idMatch && urlMatch) {
       const url = urlMatch[1].trim();
