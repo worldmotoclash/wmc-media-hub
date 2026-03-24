@@ -1,41 +1,30 @@
 
 
-# Fix: Delete failing for SFDC-sourced orphaned assets
+# Fix: Overall Progress Bar Not Reflecting Upload Percentage
+
+## Problem
+
+The overall progress bar only updates when a file **completes** (jumps from 0% to 100% in one step for a single file). It uses `completedCount / queue.length * 100`, so for 1 file queued, the bar stays at 0% the entire time until it finishes, then jumps to 100%.
+
+The screenshot confirms this: 1 file queued, 24% uploaded per the individual file progress, but the overall bar shows 0%.
 
 ## Root Cause
 
-The edge function logs show the exact error:
-```
-invalid input syntax for type uuid: "sf_a2FQQ000002F59V"
-```
-
-Assets synced from the Salesforce feed have IDs like `sf_a2FQQ000002F59V` (prefixed Salesforce IDs) instead of proper UUIDs. When `deleteMediaAsset()` passes this ID to the edge function, the Postgres `.eq("id", assetId)` query fails because the `media_assets.id` column is of type `uuid`.
-
-This means:
-- The S3 delete step runs fine (or skips if no s3_key)
-- The SFDC delete step runs fine (or skips if no salesforceId)
-- The DB cleanup step crashes, causing the whole function to return 500 "Failed to delete"
+Line 351: `overallProgress = (completedCount / queue.length) * 100` — this only counts fully completed files, ignoring per-file progress percentages that are already being tracked in the `queue` state.
 
 ## Fix
 
-**`supabase/functions/delete-media-asset/index.ts`**
+**`src/components/media/BulkUploadTab.tsx`**
 
-1. Before the DB delete steps, check if `assetId` is a valid UUID. If it's not (e.g. starts with `sf_`), skip the DB delete entirely since there's no local DB record to clean up — it's a pure SFDC ghost record.
-
-2. Also handle the case where the DB record simply doesn't exist (no rows deleted) — treat that as success rather than failure.
+Replace the `overallProgress` calculation (line 351) to aggregate individual file progress values instead of just counting completed files:
 
 ```typescript
-// Check if assetId is a valid UUID before attempting DB operations
-const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const isValidUuid = uuidRegex.test(assetId);
-
-if (isValidUuid) {
-  // Delete tags then asset from DB
-  // ... existing code ...
-} else {
-  console.log(`Skipping DB cleanup — assetId "${assetId}" is not a UUID`);
-}
+const overallProgress = queue.length > 0
+  ? queue.reduce((sum, f) => sum + f.progress, 0) / queue.length
+  : 0;
 ```
 
-This is a ~5-line guard addition. The S3 and SFDC delete steps already handle missing resources gracefully; only the DB step needs this fix.
+This uses the per-file `progress` field (0-100) that's already being updated during XHR upload via `xhr.upload.onprogress`. The overall bar will now smoothly reflect the actual upload progress across all files.
+
+One-line change. No other modifications needed.
 
