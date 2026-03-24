@@ -170,29 +170,23 @@ serve(async (req) => {
         }
         console.log("S3 HEAD check passed — file confirmed in bucket");
 
-      // Upload thumbnail if provided (thumbnails are small enough for edge function)
-      const s3Config = getS3Config();
-      if (isVideo && thumbnailBase64 && s3Config.accessKeyId && s3Config.secretAccessKey) {
-        const aws = new AwsClient({
-          accessKeyId: s3Config.accessKeyId,
-          secretAccessKey: s3Config.secretAccessKey,
-          region: s3Config.region,
-          service: "s3",
-        });
-        const s3BasePath = isVideo ? S3_PATHS.VIDEO_MASTERS : isAudio ? S3_PATHS.AUDIO_MASTERS : S3_PATHS.SOCIAL_MEDIA_MASTERS;
-        const thumbKey = `${s3BasePath}/${masterId}/thumbnail.jpg`;
-        const thumbData = Uint8Array.from(atob(thumbnailBase64), c => c.charCodeAt(0));
-        const thumbUploadUrl = `${s3Config.endpoint}/${s3Config.bucketName}/${thumbKey}`;
-        
-        const thumbResponse = await aws.fetch(thumbUploadUrl, {
-          method: "PUT",
-          body: thumbData,
-          headers: { "Content-Type": "image/jpeg", "Content-Length": thumbData.length.toString() },
-        });
-        
-        if (thumbResponse.ok) {
-          thumbnailUrl = getCdnUrl(thumbKey);
-          console.log("Thumbnail uploaded successfully:", thumbnailUrl);
+        // Upload thumbnail if provided (reuse same aws client)
+        if (isVideo && thumbnailBase64) {
+          const s3BasePath = isVideo ? S3_PATHS.VIDEO_MASTERS : isAudio ? S3_PATHS.AUDIO_MASTERS : S3_PATHS.SOCIAL_MEDIA_MASTERS;
+          const thumbKey = `${s3BasePath}/${masterId}/thumbnail.jpg`;
+          const thumbData = Uint8Array.from(atob(thumbnailBase64), c => c.charCodeAt(0));
+          const thumbUploadUrl = `${s3Config.endpoint}/${s3Config.bucketName}/${thumbKey}`;
+          
+          const thumbResponse = await aws.fetch(thumbUploadUrl, {
+            method: "PUT",
+            body: thumbData,
+            headers: { "Content-Type": "image/jpeg", "Content-Length": thumbData.length.toString() },
+          });
+          
+          if (thumbResponse.ok) {
+            thumbnailUrl = getCdnUrl(thumbKey);
+            console.log("Thumbnail uploaded successfully:", thumbnailUrl);
+          }
         }
       }
     } else {
