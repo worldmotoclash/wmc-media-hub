@@ -737,23 +737,37 @@ export const UnifiedMediaLibrary: React.FC = () => {
 
                 {/* Album Filter */}
                 {albums.length > 0 && (
-                  <Select value={selectedAlbumId} onValueChange={(v) => { setSelectedAlbumId(v); setCurrentPage(1); }}>
-                    <SelectTrigger className="w-[180px] bg-background">
-                      <Layers className="w-4 h-4 mr-2" />
-                      <SelectValue placeholder="Album" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border shadow-lg z-50">
-                      <SelectItem value="all">All Albums</SelectItem>
-                      {albums.map(a => (
-                        <SelectItem key={a.id} value={a.id}>
-                          <span className="flex items-center gap-1.5">
-                            {a.name} ({a.asset_count})
-                            {a.source === 'auto' && <Badge variant="outline" className="text-[10px] px-1 py-0 leading-tight">Auto</Badge>}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-1">
+                    <Select value={selectedAlbumId} onValueChange={(v) => { setSelectedAlbumId(v); setCurrentPage(1); }}>
+                      <SelectTrigger className="w-[180px] bg-background">
+                        <Layers className="w-4 h-4 mr-2" />
+                        <SelectValue placeholder="Album" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border shadow-lg z-50">
+                        <SelectItem value="all">All Albums</SelectItem>
+                        {[...albums].sort((a, b) => {
+                          if (albumSortBy === 'name') return a.name.localeCompare(b.name);
+                          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+                        }).map(a => (
+                          <SelectItem key={a.id} value={a.id}>
+                            <span className="flex items-center gap-1.5">
+                              {a.name} ({a.asset_count})
+                              {a.source === 'auto' && <Badge variant="outline" className="text-[10px] px-1 py-0 leading-tight">Auto</Badge>}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 shrink-0"
+                      title={albumSortBy === 'date' ? 'Sorted by date — click for A-Z' : 'Sorted A-Z — click for date'}
+                      onClick={() => setAlbumSortBy(prev => prev === 'date' ? 'name' : 'date')}
+                    >
+                      {albumSortBy === 'date' ? <Clock className="h-4 w-4" /> : <SortAsc className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 )}
 
                 <div className="flex border rounded-md">
