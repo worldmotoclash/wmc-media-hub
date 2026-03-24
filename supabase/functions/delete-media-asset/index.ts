@@ -127,7 +127,7 @@ serve(async (req) => {
         success: true,
         s3Deleted,
         sfdcDeleted,
-        dbDeleted: true,
+        dbDeleted,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
