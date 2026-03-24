@@ -967,7 +967,7 @@ export async function deleteMediaAsset(assetInput: string | DeleteMediaAssetPara
 /**
  * Delete multiple media assets and their associated tags
  */
-export async function deleteMediaAssets(assetIds: string[]): Promise<{ successCount: number; failCount: number }> {
+export async function deleteMediaAssets(assetIds: Array<string | DeleteMediaAssetParams>): Promise<{ successCount: number; failCount: number }> {
   let successCount = 0;
   let failCount = 0;
   for (const assetInput of assetIds) {
