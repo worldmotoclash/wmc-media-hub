@@ -1,35 +1,41 @@
 
 
-# Audit Salesforce Records for Missing Wasabi Files
+# Fix: Delete failing for SFDC-sourced orphaned assets
 
-## What we'll build
+## Root Cause
 
-A new edge function `audit-sfdc-file-health` that fetches all Salesforce content records from the Real Intelligence API, probes each URL against Wasabi with a HEAD request, and returns a report of broken records (NoSuchKey / 404).
+The edge function logs show the exact error:
+```
+invalid input syntax for type uuid: "sf_a2FQQ000002F59V"
+```
 
-## How it works
+Assets synced from the Salesforce feed have IDs like `sf_a2FQQ000002F59V` (prefixed Salesforce IDs) instead of proper UUIDs. When `deleteMediaAsset()` passes this ID to the edge function, the Postgres `.eq("id", assetId)` query fails because the `media_assets.id` column is of type `uuid`.
 
-1. Fetch all content from `wmc-content-master.py` API (same XML feed used by sync functions)
-2. Extract every `<url>` from each `<content>` block along with its `<id>` and `<name>`
-3. For each URL that points to Wasabi/CDN (`media.worldmotoclash.com`), send a HEAD request
-4. Collect records where the file doesn't exist (HTTP 404 or NoSuchKey XML response)
-5. Return a JSON report: `{ total, healthy, broken, brokenRecords: [{ salesforceId, name, url, error }] }`
+This means:
+- The S3 delete step runs fine (or skips if no s3_key)
+- The SFDC delete step runs fine (or skips if no salesforceId)
+- The DB cleanup step crashes, causing the whole function to return 500 "Failed to delete"
 
-## Changes
+## Fix
 
-**New file: `supabase/functions/audit-sfdc-file-health/index.ts`**
-- Fetch the XML feed from Real Intelligence API
-- Parse all content blocks for id, name, url
-- Filter to Wasabi/CDN URLs only
-- HEAD-check each URL (with concurrency limit of 5 to avoid throttling)
-- Return structured JSON report of all broken records
-- Uses existing `WASABI_ACCESS_KEY_ID` and `WASABI_SECRET_ACCESS_KEY` secrets for authenticated HEAD requests via aws4fetch
+**`supabase/functions/delete-media-asset/index.ts`**
 
-**No UI changes** — this is a diagnostic function you invoke directly. Results will be returned as JSON that we can review together.
+1. Before the DB delete steps, check if `assetId` is a valid UUID. If it's not (e.g. starts with `sf_`), skip the DB delete entirely since there's no local DB record to clean up — it's a pure SFDC ghost record.
 
-## Technical details
+2. Also handle the case where the DB record simply doesn't exist (no rows deleted) — treat that as success rather than failure.
 
-- Reuses the same API endpoint and org ID as `sync-asset-to-salesforce`
-- HEAD requests are signed with Wasabi credentials (same as scan-s3-buckets) for reliable access
-- Processes in batches of 5 concurrent requests to stay within rate limits
-- Estimated runtime: depends on total SFDC record count, ~1-2 seconds per batch of 5
+```typescript
+// Check if assetId is a valid UUID before attempting DB operations
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isValidUuid = uuidRegex.test(assetId);
+
+if (isValidUuid) {
+  // Delete tags then asset from DB
+  // ... existing code ...
+} else {
+  console.log(`Skipping DB cleanup — assetId "${assetId}" is not a UUID`);
+}
+```
+
+This is a ~5-line guard addition. The S3 and SFDC delete steps already handle missing resources gracefully; only the DB step needs this fix.
 
