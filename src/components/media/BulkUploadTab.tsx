@@ -80,13 +80,30 @@ export const BulkUploadTab: React.FC = () => {
   const [existingAlbums, setExistingAlbums] = useState<ExistingAlbum[]>([]);
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
 
-  // Fetch existing albums
+  // Fetch existing albums with real asset counts, hiding empty ones
   const fetchAlbums = useCallback(async () => {
-    const { data } = await supabase
+    const { data: allAlbums } = await supabase
       .from('media_albums')
       .select('id, name, asset_count')
       .order('created_at', { ascending: false });
-    if (data) setExistingAlbums(data);
+
+    const { data: assetRows } = await supabase
+      .from('media_assets')
+      .select('album_id')
+      .not('album_id', 'is', null);
+
+    const countMap = new Map<string, number>();
+    (assetRows || []).forEach(row => {
+      if (row.album_id) {
+        countMap.set(row.album_id, (countMap.get(row.album_id) || 0) + 1);
+      }
+    });
+
+    const activeAlbums = (allAlbums || [])
+      .map(a => ({ ...a, asset_count: countMap.get(a.id) || 0 }))
+      .filter(a => a.asset_count > 0);
+
+    if (activeAlbums) setExistingAlbums(activeAlbums);
   }, []);
 
   useEffect(() => {

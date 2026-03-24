@@ -340,11 +340,36 @@ export const UnifiedMediaLibrary: React.FC = () => {
 
   const loadAlbums = async () => {
     try {
-      const { data } = await supabase
+      const { data: allAlbums } = await supabase
         .from('media_albums')
         .select('id, name, asset_count, source, created_at')
         .order('created_at', { ascending: false });
-      setAlbums(data || []);
+
+      const { data: assetRows } = await supabase
+        .from('media_assets')
+        .select('album_id')
+        .not('album_id', 'is', null);
+
+      // Count assets per album
+      const countMap = new Map<string, number>();
+      (assetRows || []).forEach(row => {
+        if (row.album_id) {
+          countMap.set(row.album_id, (countMap.get(row.album_id) || 0) + 1);
+        }
+      });
+
+      // Filter to non-empty albums with real counts
+      const activeAlbums = (allAlbums || [])
+        .map(a => ({ ...a, asset_count: countMap.get(a.id) || 0 }))
+        .filter(a => a.asset_count > 0);
+
+      setAlbums(activeAlbums);
+
+      // Background: delete empty albums
+      const emptyAlbums = (allAlbums || []).filter(a => !countMap.has(a.id));
+      for (const album of emptyAlbums) {
+        await supabase.from('media_albums').delete().eq('id', album.id);
+      }
     } catch (error) {
       console.error('Error loading albums:', error);
     }
