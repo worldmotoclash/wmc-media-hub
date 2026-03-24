@@ -765,7 +765,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       title={albumSortBy === 'date' ? 'Sorted by date — click for A-Z' : 'Sorted A-Z — click for date'}
                       onClick={() => setAlbumSortBy(prev => prev === 'date' ? 'name' : 'date')}
                     >
-                      {albumSortBy === 'date' ? <Clock className="h-4 w-4" /> : <SortAsc className="h-4 w-4" />}
+                      {albumSortBy === 'date' ? <Clock className="h-4 w-4" /> : <ArrowDownAZ className="h-4 w-4" />}
                     </Button>
                   </div>
                 )}
