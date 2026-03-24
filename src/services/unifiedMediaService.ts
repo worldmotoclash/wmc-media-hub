@@ -51,6 +51,13 @@ export interface S3BucketConfig {
   scanFrequencyHours: number;
 }
 
+interface DeleteMediaAssetParams {
+  assetId: string;
+  s3Key?: string | null;
+  salesforceId?: string | null;
+  fileUrl?: string | null;
+}
+
 // Salesforce picklist values for Location (Scene)
 export const APPROVED_LOCATIONS = [
   'Race Track – On Track', 'Race Track – Grid / Start', 'Race Track – Pit Lane',
@@ -905,23 +912,56 @@ export async function fetchVariantsForMaster(masterId: string, salesforceId?: st
 /**
  * Delete a single media asset, its S3 file, Salesforce record, and DB rows
  */
-export async function deleteMediaAsset(assetId: string): Promise<void> {
-  // Fetch s3_key and salesforce_id before deletion
-  const { data: asset } = await supabase
-    .from('media_assets')
-    .select('s3_key, salesforce_id')
-    .eq('id', assetId)
-    .single();
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MEDIA_CDN_HOSTS = new Set(['media.worldmotoclash.com']);
 
-  const { error } = await supabase.functions.invoke('delete-media-asset', {
+const isUuid = (value: string) => UUID_REGEX.test(value);
+
+const extractS3KeyFromUrl = (fileUrl?: string | null): string | null => {
+  if (!fileUrl) return null;
+  try {
+    const parsedUrl = new URL(fileUrl);
+    if (!MEDIA_CDN_HOSTS.has(parsedUrl.hostname)) return null;
+    const key = decodeURIComponent(parsedUrl.pathname.replace(/^\/+/, ''));
+    return key || null;
+  } catch {
+    return null;
+  }
+};
+
+export async function deleteMediaAsset(assetInput: string | DeleteMediaAssetParams): Promise<void> {
+  const params = typeof assetInput === 'string' ? { assetId: assetInput } : assetInput;
+  const { assetId } = params;
+
+  let s3Key = params.s3Key || extractS3KeyFromUrl(params.fileUrl);
+  let salesforceId = params.salesforceId || (assetId.startsWith('sf_') ? assetId.slice(3) : null);
+
+  // Only query media_assets when ID is UUID; Salesforce synthetic IDs (sf_*) will fail UUID casting
+  if (isUuid(assetId)) {
+    const { data: asset, error: lookupError } = await supabase
+      .from('media_assets')
+      .select('s3_key, salesforce_id, file_url')
+      .eq('id', assetId)
+      .maybeSingle();
+
+    if (lookupError) throw lookupError;
+
+    s3Key = asset?.s3_key || s3Key || extractS3KeyFromUrl(asset?.file_url);
+    salesforceId = asset?.salesforce_id || salesforceId;
+  }
+
+  const { data, error } = await supabase.functions.invoke('delete-media-asset', {
     body: {
       assetId,
-      s3Key: asset?.s3_key || null,
-      salesforceId: asset?.salesforce_id || null,
+      s3Key: s3Key || null,
+      salesforceId: salesforceId || null,
     },
   });
 
   if (error) throw error;
+  if (data?.success === false) {
+    throw new Error(data.error || 'Failed to delete media asset');
+  }
 }
 
 /**
@@ -930,9 +970,9 @@ export async function deleteMediaAsset(assetId: string): Promise<void> {
 export async function deleteMediaAssets(assetIds: string[]): Promise<{ successCount: number; failCount: number }> {
   let successCount = 0;
   let failCount = 0;
-  for (const id of assetIds) {
+  for (const assetInput of assetIds) {
     try {
-      await deleteMediaAsset(id);
+      await deleteMediaAsset(assetInput);
       successCount++;
     } catch {
       failCount++;
