@@ -108,7 +108,11 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
     if (!asset) return;
     setIsDeleting(true);
     try {
-      await deleteMediaAsset(asset.id);
+      await deleteMediaAsset({
+        assetId: asset.id,
+        salesforceId: asset.salesforceId,
+        fileUrl: asset.fileUrl,
+      });
       toast.success(`"${asset.title}" deleted`);
       setShowDeleteConfirm(false);
       onOpenChange(false);
