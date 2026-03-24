@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { AwsClient } from "https://esm.sh/aws4fetch@1.0.20";
+import { getS3Config } from "../_shared/s3Config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
