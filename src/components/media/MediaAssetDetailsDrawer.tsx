@@ -59,6 +59,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   const [albums, setAlbums] = useState<{ id: string; name: string }[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSyncingToSfdc, setIsSyncingToSfdc] = useState(false);
   const { isEditor } = useUser();
 
   // Fetch albums on mount
