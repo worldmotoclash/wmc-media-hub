@@ -28,6 +28,7 @@ interface QueuedFile {
   status: 'queued' | 'uploading' | 'done' | 'error';
   progress: number;
   error?: string;
+  assetId?: string;
 }
 
 const MAX_CONCURRENCY = 3;
