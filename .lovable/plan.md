@@ -1,70 +1,40 @@
 
 
-# Fix Album Counts and Remove Empty Albums
+# Auto-Sync New Uploads to Salesforce
 
 ## Problem
-The `asset_count` column on `media_albums` is manually maintained and drifts out of sync with reality. Albums with zero actual assets still appear in the dropdown.
+The bulk upload flow (`BulkUploadTab.tsx`) uploads files to S3 and creates `media_assets` records, but never calls `sync-asset-to-salesforce`. New content only reaches Salesforce if the user manually triggers "Sync to SFDC" from the Media Sources dashboard.
 
-## Changes
+## Fix
 
-### 1. `src/components/media/UnifiedMediaLibrary.tsx` — `loadAlbums()`
-Replace the current query that reads the stale `asset_count` column with a two-step approach:
-- Fetch all albums
-- For each album, query the actual count from `media_assets` where `album_id` matches
-- Filter out albums with zero assets
-- Optionally update the `asset_count` column in the background to keep it synced
+**`src/components/media/BulkUploadTab.tsx`**
 
-Alternatively (simpler and more performant): use a single query that joins with a count subquery. Since Supabase JS doesn't support aggregation joins well, we'll:
-1. Fetch all albums
-2. Fetch grouped counts: `select('album_id').not('album_id', 'is', null)` from `media_assets`, then count client-side
-3. Merge counts, filter out zero-count albums
+After the bulk upload completes successfully (line ~354, after `setUploadDone(true)`), call `sync-asset-to-salesforce` with the IDs of all successfully uploaded assets:
 
-### 2. `src/components/media/BulkUploadTab.tsx` — `fetchAlbums()`
-Apply the same real-count logic so the bulk upload album picker also shows accurate counts and hides empty albums.
-
-### 3. `src/components/media/MediaAssetDetailsDrawer.tsx`
-The album selector here doesn't show counts, so no count fix needed. But we should still filter out empty albums so users can't assign assets to dead albums — or keep showing all albums here since the user may want to assign to an empty album. We'll keep this as-is.
-
-### 4. Optional cleanup: delete empty albums
-Add a background cleanup step in `loadAlbums()` that deletes albums with zero assets (only `source: 'auto'` albums, to preserve manually created ones the user may want to keep). This addresses "if any album does not have any videos then the album should not exist."
-
-## Technical approach
-
-In `loadAlbums()`:
 ```typescript
-const { data: allAlbums } = await supabase
-  .from('media_albums')
-  .select('id, name, source, created_at')
-  .order('created_at', { ascending: false });
+// After upload completes, sync new assets to Salesforce
+const successfulIds = queue
+  .filter(f => f.status === 'done' && f.assetId)
+  .map(f => f.assetId!);
 
-const { data: countRows } = await supabase
-  .from('media_assets')
-  .select('album_id');
-  
-// Count assets per album
-const countMap = new Map<string, number>();
-(countRows || []).forEach(row => {
-  if (row.album_id) {
-    countMap.set(row.album_id, (countMap.get(row.album_id) || 0) + 1);
-  }
-});
-
-// Filter to non-empty albums, attach real count
-const activeAlbums = (allAlbums || [])
-  .map(a => ({ ...a, asset_count: countMap.get(a.id) || 0 }))
-  .filter(a => a.asset_count > 0);
-
-setAlbums(activeAlbums);
-
-// Background: delete empty auto-generated albums
-const emptyAutoAlbums = (allAlbums || [])
-  .filter(a => !countMap.has(a.id) && a.source === 'auto');
-for (const album of emptyAutoAlbums) {
-  await supabase.from('media_albums').delete().eq('id', album.id);
+if (successfulIds.length > 0) {
+  toast.info(`Syncing ${successfulIds.length} assets to Salesforce...`);
+  supabase.functions.invoke('sync-asset-to-salesforce', {
+    body: { assetIds: successfulIds }
+  }).then(({ error }) => {
+    if (error) {
+      console.error('SFDC sync error:', error);
+      toast({ title: "SFDC sync failed", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Salesforce sync complete", description: `${successfulIds.length} assets synced` });
+    }
+  });
 }
 ```
 
-Same pattern applied to `BulkUploadTab.tsx`'s `fetchAlbums()`.
+This requires that each queued file stores its resulting `assetId` after successful upload. I'll need to check if `uploadSingleFile` already stores the asset ID on the queue item — if not, I'll add that.
 
-This ensures counts are always accurate and empty albums are cleaned up automatically.
+The sync runs asynchronously (fire-and-forget with toast feedback) so it doesn't block the upload completion UI.
+
+**One file changed**: `BulkUploadTab.tsx` — ~15 lines added.
 
