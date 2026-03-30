@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   X, Video, Image, Music, MapPin, Sparkles, Clock,
   HardDrive, Calendar, ExternalLink, CheckCircle, AlertTriangle,
-  Gauge, Link2, Eye, Wand2, Mic, Pencil, Loader2, Target, Trash2
+  Gauge, Link2, Eye, Wand2, Mic, Pencil, Loader2, Target, Trash2, CloudUpload
 } from "lucide-react";
 import { Save } from "lucide-react";
 import {
@@ -59,6 +59,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   const [albums, setAlbums] = useState<{ id: string; name: string }[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSyncingToSfdc, setIsSyncingToSfdc] = useState(false);
   const { isEditor } = useUser();
 
   // Fetch albums on mount
@@ -307,6 +308,33 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
               <div className="space-y-2">
                 {getSyncStatusBadge()}
                 {asset.salesforceId && <p className="text-xs text-muted-foreground">ID: {asset.salesforceId}</p>}
+                {!asset.salesforceId && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      setIsSyncingToSfdc(true);
+                      try {
+                        const { error } = await supabase.functions.invoke('sync-asset-to-salesforce', {
+                          body: { assetIds: [asset.id] }
+                        });
+                        if (error) throw error;
+                        toast.success('Asset synced to Salesforce');
+                        onAssetUpdated?.();
+                      } catch (err: any) {
+                        console.error('SFDC sync error:', err);
+                        toast.error('Sync failed: ' + (err.message || 'Unknown error'));
+                      } finally {
+                        setIsSyncingToSfdc(false);
+                      }
+                    }}
+                    disabled={isSyncingToSfdc}
+                    className="w-full mt-2"
+                  >
+                    {isSyncingToSfdc ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <CloudUpload className="h-3 w-3 mr-1" />}
+                    Sync to SFDC
+                  </Button>
+                )}
               </div>
             </div>
           </div>
