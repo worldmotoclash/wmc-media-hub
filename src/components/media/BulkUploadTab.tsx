@@ -268,7 +268,7 @@ export const BulkUploadTab: React.FC = () => {
         },
       }).catch(() => {}); // fire and forget
 
-      setQueue(prev => prev.map(f => f.id === qf.id ? { ...f, status: 'done' as const, progress: 100 } : f));
+      setQueue(prev => prev.map(f => f.id === qf.id ? { ...f, status: 'done' as const, progress: 100, assetId: presignData.masterId } : f));
       return true;
     } catch (err: any) {
       console.error(`Upload error for ${file.name}:`, err);
