@@ -1,40 +1,37 @@
 
 
-# Auto-Sync New Uploads to Salesforce
+# Add "Sync to SFDC" Button in Asset Details Drawer
 
 ## Problem
-The bulk upload flow (`BulkUploadTab.tsx`) uploads files to S3 and creates `media_assets` records, but never calls `sync-asset-to-salesforce`. New content only reaches Salesforce if the user manually triggers "Sync to SFDC" from the Media Sources dashboard.
+When an asset shows "Not synced" in the Salesforce Integration section of the details drawer, there's no way to trigger a sync from there. The user must go back to the Media Sources dashboard.
 
 ## Fix
 
-**`src/components/media/BulkUploadTab.tsx`**
+**`src/components/media/MediaAssetDetailsDrawer.tsx`**
 
-After the bulk upload completes successfully (line ~354, after `setUploadDone(true)`), call `sync-asset-to-salesforce` with the IDs of all successfully uploaded assets:
+Add a "Sync to SFDC" button below the "Not synced" badge (lines 304-311). When clicked, it calls `sync-asset-to-salesforce` with the asset's ID, shows a loading state, and updates the badge to "Synced" on success.
+
+Changes:
+1. Add `syncing` state variable
+2. Add `handleSyncToSfdc` function that invokes the edge function
+3. Below the "Not synced" badge, render a button:
 
 ```typescript
-// After upload completes, sync new assets to Salesforce
-const successfulIds = queue
-  .filter(f => f.status === 'done' && f.assetId)
-  .map(f => f.assetId!);
-
-if (successfulIds.length > 0) {
-  toast.info(`Syncing ${successfulIds.length} assets to Salesforce...`);
-  supabase.functions.invoke('sync-asset-to-salesforce', {
-    body: { assetIds: successfulIds }
-  }).then(({ error }) => {
-    if (error) {
-      console.error('SFDC sync error:', error);
-      toast({ title: "SFDC sync failed", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Salesforce sync complete", description: `${successfulIds.length} assets synced` });
-    }
-  });
-}
+{!asset.salesforceId && (
+  <Button
+    size="sm"
+    variant="outline"
+    onClick={handleSyncToSfdc}
+    disabled={syncing}
+    className="w-full mt-2"
+  >
+    {syncing ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <CloudUpload className="h-3 w-3 mr-1" />}
+    Sync to SFDC
+  </Button>
+)}
 ```
 
-This requires that each queued file stores its resulting `assetId` after successful upload. I'll need to check if `uploadSingleFile` already stores the asset ID on the queue item — if not, I'll add that.
+The handler will call `supabase.functions.invoke('sync-asset-to-salesforce', { body: { assetIds: [asset.id] } })`, toast the result, and call `onAssetUpdated?.()` to refresh the parent view.
 
-The sync runs asynchronously (fire-and-forget with toast feedback) so it doesn't block the upload completion UI.
-
-**One file changed**: `BulkUploadTab.tsx` — ~15 lines added.
+**One file changed, ~20 lines added.**
 
