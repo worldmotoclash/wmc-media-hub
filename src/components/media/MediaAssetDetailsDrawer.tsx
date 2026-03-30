@@ -308,6 +308,33 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
               <div className="space-y-2">
                 {getSyncStatusBadge()}
                 {asset.salesforceId && <p className="text-xs text-muted-foreground">ID: {asset.salesforceId}</p>}
+                {!asset.salesforceId && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      setIsSyncingToSfdc(true);
+                      try {
+                        const { error } = await supabase.functions.invoke('sync-asset-to-salesforce', {
+                          body: { assetIds: [asset.id] }
+                        });
+                        if (error) throw error;
+                        toast.success('Asset synced to Salesforce');
+                        onAssetUpdated?.();
+                      } catch (err: any) {
+                        console.error('SFDC sync error:', err);
+                        toast.error('Sync failed: ' + (err.message || 'Unknown error'));
+                      } finally {
+                        setIsSyncingToSfdc(false);
+                      }
+                    }}
+                    disabled={isSyncingToSfdc}
+                    className="w-full mt-2"
+                  >
+                    {isSyncingToSfdc ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <CloudUpload className="h-3 w-3 mr-1" />}
+                    Sync to SFDC
+                  </Button>
+                )}
               </div>
             </div>
           </div>
