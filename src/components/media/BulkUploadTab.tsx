@@ -358,6 +358,28 @@ export const BulkUploadTab: React.FC = () => {
         title: "Bulk upload complete!",
         description: `${completed} of ${queue.length} files uploaded to "${targetAlbumName}"`,
       });
+
+      // Auto-sync new assets to Salesforce
+      setQueue(prev => {
+        const successfulIds = prev
+          .filter(f => f.status === 'done' && f.assetId)
+          .map(f => f.assetId!);
+
+        if (successfulIds.length > 0) {
+          toast({ title: "Syncing to Salesforce...", description: `${successfulIds.length} assets being synced` });
+          supabase.functions.invoke('sync-asset-to-salesforce', {
+            body: { assetIds: successfulIds }
+          }).then(({ error }) => {
+            if (error) {
+              console.error('SFDC sync error:', error);
+              toast({ title: "SFDC sync failed", description: error.message, variant: "destructive" });
+            } else {
+              toast({ title: "Salesforce sync complete", description: `${successfulIds.length} assets synced` });
+            }
+          });
+        }
+        return prev;
+      });
     } catch (err: any) {
       console.error('Bulk upload error:', err);
       toast({ title: "Upload failed", description: err.message, variant: "destructive" });
