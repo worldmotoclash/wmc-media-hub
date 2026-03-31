@@ -310,13 +310,16 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
             <div>
               <h4 className="text-sm font-medium mb-3">Status</h4>
               <Select
-                value={asset.status || 'pending'}
+                value={localStatus}
                 onValueChange={async (newStatus) => {
+                  const previousStatus = localStatus;
+                  setLocalStatus(newStatus);
                   const { error } = await supabase
                     .from('media_assets')
                     .update({ status: newStatus })
                     .eq('id', asset.id);
                   if (error) {
+                    setLocalStatus(previousStatus);
                     toast.error('Failed to update status');
                   } else {
                     toast.success(`Status changed to ${newStatus}`);
