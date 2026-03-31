@@ -532,67 +532,29 @@ serve(async (req) => {
         continue;
       }
 
-      // Wait for Salesforce to propagate and query again
-      console.log("Record created, waiting for propagation...");
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Record created in SFDC — mark as pending_id and return immediately.
+      // The backfill-salesforce-ids function will resolve the ID asynchronously.
+      console.log("Record created via w2x-engine. Marking as pending_id (async backfill will resolve).");
       
-      // Refresh the API data
-      try {
-        const apiUrl = `${WMC_CONTENT_API}?orgId=${ORG_ID}&sandbox=False`;
-        const response = await fetch(apiUrl);
-        if (response.ok) {
-          apiXml = await response.text();
-        }
-      } catch (error) {
-        console.error("Error refreshing API:", error);
-      }
-      
-      const postCreateMatch = await findSalesforceMatch(asset.file_url, apiXml, asset.title);
-      
-      if (postCreateMatch) {
-        console.log(`Successfully synced, Salesforce ID: ${postCreateMatch.id}`);
-        
-        await supabase
-          .from("media_assets")
-          .update({
-            salesforce_id: postCreateMatch.id,
-            status: SYNC_APPROVAL_STATUS,
-            metadata: {
-              ...asset.metadata,
-              sfdcSyncStatus: 'success',
-              sfdcSyncedAt: new Date().toISOString(),
-              sfdcApprovalStatus: SYNC_APPROVAL_STATUS,
-              sfdcSystemFlags: SYNC_SYSTEM_FLAG,
-            }
-          })
-          .eq("id", asset.id);
+      await supabase
+        .from("media_assets")
+        .update({
+          status: SYNC_APPROVAL_STATUS,
+          metadata: {
+            ...asset.metadata,
+            sfdcSyncStatus: 'pending_id',
+            sfdcSyncAttemptedAt: new Date().toISOString(),
+            sfdcApprovalStatus: SYNC_APPROVAL_STATUS,
+            sfdcSystemFlags: SYNC_SYSTEM_FLAG,
+          }
+        })
+        .eq("id", asset.id);
 
-        results.push({
-          assetId: asset.id,
-          success: true,
-          salesforceId: postCreateMatch.id,
-          action: 'created',
-        });
-      } else {
-        results.push({
-          assetId: asset.id,
-          success: false,
-          error: "Record created but ID not found in API response",
-          action: 'failed',
-        });
-        
-        await supabase
-          .from("media_assets")
-          .update({
-            metadata: {
-              ...asset.metadata,
-              sfdcSyncStatus: 'failed',
-              sfdcSyncError: 'Created but ID not found',
-              sfdcSyncAttemptedAt: new Date().toISOString(),
-            }
-          })
-          .eq("id", asset.id);
-      }
+      results.push({
+        assetId: asset.id,
+        success: true,
+        action: 'created_pending',
+      });
     }
 
     const successCount = results.filter(r => r.success).length;
