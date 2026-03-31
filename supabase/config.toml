@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.audit-sfdc-file-health]
 verify_jwt = false
+
+[functions.backfill-salesforce-ids]
+verify_jwt = false
