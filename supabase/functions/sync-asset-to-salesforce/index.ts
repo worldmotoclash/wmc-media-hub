@@ -306,6 +306,7 @@ serve(async (req) => {
     const payload: SyncRequest = await req.json();
     const assetIds = payload.assetIds || (payload.assetId ? [payload.assetId] : []);
     const creatorContactId = payload.creatorContactId;
+    const requestedStatus = payload.status; // e.g. "Approved", "Pending", "Rejected"
     
     if (assetIds.length === 0) {
       return new Response(
