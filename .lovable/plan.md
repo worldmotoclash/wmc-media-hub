@@ -1,33 +1,41 @@
 
 
-# Fix Status Consistency and Add Editable Status
+# Fix: Assets Already in Salesforce Not Detected as Synced
 
-## Problems
+## Root Cause
 
-1. **"Review" button only appears for `pending` assets** — by design, but `ready` is not a recognized status in the system (`pending`, `approved`, `rejected` are). The "WMC SIZZLE MEDIA PITCH VER 8" was likely created with status `ready` by the S3 scan or bulk upload, which is outside the expected values.
+The sync function (`sync-asset-to-salesforce`) matches assets to Salesforce records using **exact URL matching only** (`block.includes(cdnUrl)`). This fails when:
 
-2. **Status is not editable** — there is no way to change an asset's status from the card view or the details drawer. The only way to move from `pending` to `approved` is via the Review/Librarian workflow dialog.
+- The local `file_url` is a Wasabi direct URL (`https://s3.us-east-1.wasabisys.com/...`)
+- The Salesforce record stores a CDN URL (`https://media.worldmotoclash.com/...`)
+- The asset was uploaded locally and the SFDC record was created independently
 
-## Changes
+Since the URLs don't match, the function thinks no SFDC record exists, creates a **duplicate** record, and the original match is never established.
 
-### 1. Normalize `ready` status to `approved` — `supabase/functions/scan-s3-buckets/index.ts`
-When the scan creates new `media_assets` records, ensure status is set to `pending` (not `ready`). Also add `ready` to `getStatusColor` as an alias for `approved` styling so existing records display correctly.
+## Fix — Multi-Strategy Matching in `sync-asset-to-salesforce`
 
-### 2. Add status dropdown to `MediaAssetDetailsDrawer.tsx`
-In the details drawer, add an editable status selector (a `Select` dropdown) with options: `pending`, `approved`, `rejected`. On change, update the `media_assets` record and call `onAssetUpdated()`. This gives users a quick way to change status without going through the full Review workflow.
+**File: `supabase/functions/sync-asset-to-salesforce/index.ts`**
 
-### 3. Include `ready` in status filter and color map — `UnifiedMediaLibrary.tsx`
-- Add `case 'ready':` to `getStatusColor` mapping it to the same green as `approved`
-- Add `ready` to the status filter checkbox list, or normalize it on fetch
+Enhance `findSalesforceIdByUrl` with three fallback strategies:
 
-### 4. Show Review button for all non-approved statuses — `UnifiedMediaLibrary.tsx`
-Change `asset.status === 'pending'` to `asset.status !== 'approved'` so assets with `ready` or other unexpected statuses also get the Review button.
+1. **Exact URL match** (existing, keep as-is)
+2. **Filename match** — extract the filename from both the asset's `file_url` and each SFDC record's URL, compare case-insensitively. For example, `WMC_SIZZLE_MEDIA_PITCH_VER_8.mp4` would match regardless of domain/path prefix.
+3. **Title match** — accept the asset title as a parameter and compare against the SFDC record's `<name>` field (case-insensitive, trimmed). This catches cases like "WMC SIZZLE MEDIA PITCH VER 8" matching the SFDC Name field exactly.
 
-## Files Changed
+The function signature changes to:
+```
+findSalesforceIdByUrl(cdnUrl, xmlCache, title?)
+```
+
+Each strategy runs in order; first match wins. This prevents duplicate SFDC record creation for assets that already exist there.
+
+**Additional change**: At line 364 where the function is called, pass `asset.title` as the third argument so title matching is used.
+
+## Summary
 
 | File | Change |
 |------|--------|
-| `src/components/media/UnifiedMediaLibrary.tsx` | Add `ready` to status color map; show Review for non-approved statuses; add `ready` to filter list |
-| `src/components/media/MediaAssetDetailsDrawer.tsx` | Add status dropdown selector with save logic |
-| `supabase/functions/scan-s3-buckets/index.ts` | Ensure new assets use `pending` not `ready` |
+| `supabase/functions/sync-asset-to-salesforce/index.ts` | Add filename and title fallback matching to `findSalesforceIdByUrl`; pass title at call site |
+
+One file, ~30 lines added. No new dependencies.
 
