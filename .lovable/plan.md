@@ -1,38 +1,86 @@
 
 
-# Fix: Drawer Not Reflecting SFDC Sync Results
+# Fix w2x-engine Response Handling: Treat 302 as Success
 
-## Root Cause
-
-After "Sync to SFDC" succeeds, the `onAssetUpdated` callback in `UnifiedMediaLibrary.tsx` calls `loadAssets()` then a second `fetchAllMediaAssets()` to refresh the drawer. This has two problems:
-
-1. **Race condition**: The edge function returns a response that includes the `salesforceId` and status, but the drawer ignores this response and instead re-fetches from the DB — which may not reflect the update yet due to timing.
-2. **Double fetch**: Two full `fetchAllMediaAssets()` calls (one in `loadAssets`, one to find the updated asset) are wasteful and slow.
+## Problem
+The `w2x-engine.php` endpoint processes the request and responds with a 302 redirect (to `retURL`). The current code follows the redirect (default `fetch` behavior), receives the HTML of the redirect target, and treats it as "success" based on `response.ok` — but the HTML body is meaningless. This causes false positives and prevents proper error detection.
 
 ## Fix
+Add `redirect: "manual"` to stop following the 302. Treat `302` as success (the engine processed the request). Treat anything else as failure.
 
-### 1. `MediaAssetDetailsDrawer.tsx` — Use sync response to update local state immediately
+## Changes
 
-The "Sync to SFDC" button already calls `supabase.functions.invoke('sync-asset-to-salesforce')` which returns `results[]` containing `salesforceId` and `action`. After a successful sync:
-- Read the `salesforceId` from the response
-- Set `localStatus` to `'Pending'` (the governance default)
-- Update a new `localSalesforceId` state so the drawer immediately shows "Synced" badge and the SFDC ID
-- Still call `onAssetUpdated?.()` for background refresh of the grid
+### File 1: `supabase/functions/sync-asset-to-salesforce/index.ts`
 
-Changes:
-- Add `localSalesforceId` state, initialized from `asset.salesforceId`, synced via the existing `useEffect`
-- Replace `asset.salesforceId` references in the drawer with `localSalesforceId`
-- After sync success, parse response and set `localSalesforceId` + `localStatus`
+**`updateSalesforceRecord`** (lines 170-177): Replace the fetch + `response.ok` check:
+```typescript
+const response = await fetch(W2X_ENGINE_URL, {
+  method: "POST",
+  body: formData,
+  redirect: "manual",
+});
 
-### 2. `MediaAssetDetailsDrawer.tsx` — Status dropdown guard fix
+if (response.status === 302) {
+  const location = response.headers.get("location");
+  console.log(`w2x-engine update redirected to: ${location} — treating as success`);
+  return true;
+}
 
-Currently the status dropdown only shows when `asset.salesforceId` is truthy. After sync, until `onAssetUpdated` refreshes the prop, the dropdown stays hidden. Using `localSalesforceId` instead fixes this — the dropdown appears immediately after sync.
+console.error(`w2x-engine update unexpected status: ${response.status}`);
+const responseText = await response.text();
+console.error(`w2x-engine response: ${responseText.substring(0, 300)}`);
+return false;
+```
+
+**`createSalesforceRecord`** (lines 284-293): Same pattern:
+```typescript
+const response = await fetch(W2X_ENGINE_URL, {
+  method: "POST",
+  body: formData,
+  redirect: "manual",
+});
+
+if (response.status === 302) {
+  const location = response.headers.get("location");
+  console.log(`w2x-engine create redirected to: ${location} — treating as success`);
+  return true;
+}
+
+console.error(`w2x-engine create unexpected status: ${response.status}`);
+const responseText = await response.text();
+console.error(`w2x-engine response: ${responseText.substring(0, 300)}`);
+return false;
+```
+
+### File 2: `supabase/functions/upload-master-to-s3/index.ts`
+
+**Inline SFDC sync block** (lines 459-522): Replace the fetch and `sfResponse.ok` check:
+```typescript
+const sfResponse = await fetch(W2X_ENGINE_URL, {
+  method: "POST",
+  body: formData,
+  redirect: "manual",
+});
+
+if (sfResponse.status === 302) {
+  console.log("w2x-engine accepted record (302 redirect) — querying for SFDC ID...");
+  salesforceId = await findSalesforceIdByUrl(cdnUrl, 3);
+  sfdcSyncStatus = salesforceId ? 'success' : 'failed';
+  if (!salesforceId) {
+    sfdcSyncError = "Record likely created but ID not found in XML feed yet";
+  }
+  // ... keep existing success/partial-success DB update logic
+} else {
+  sfdcSyncError = `w2x-engine unexpected status ${sfResponse.status}`;
+  console.error(sfdcSyncError);
+  // ... keep existing failure DB update logic
+}
+```
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/media/MediaAssetDetailsDrawer.tsx` | Add `localSalesforceId` state; use it for sync badge, SFDC ID display, and status dropdown guard; parse sync response to update both local states immediately |
-
-One file, ~15 lines changed.
+| `supabase/functions/sync-asset-to-salesforce/index.ts` | Add `redirect: "manual"` and treat 302 as success in both `createSalesforceRecord` and `updateSalesforceRecord` |
+| `supabase/functions/upload-master-to-s3/index.ts` | Same pattern in the inline SFDC sync block (~line 459) |
 
