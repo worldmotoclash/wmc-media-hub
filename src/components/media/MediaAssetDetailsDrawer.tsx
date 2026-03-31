@@ -359,10 +359,16 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
                     onClick={async () => {
                       setIsSyncingToSfdc(true);
                       try {
-                        const { error } = await supabase.functions.invoke('sync-asset-to-salesforce', {
+                        const { data, error } = await supabase.functions.invoke('sync-asset-to-salesforce', {
                           body: { assetIds: [asset.id] }
                         });
                         if (error) throw error;
+                        // Parse sync response to update local state immediately
+                        const result = data?.results?.[0];
+                        if (result?.salesforceId) {
+                          setLocalSalesforceId(result.salesforceId);
+                          setLocalStatus('Pending');
+                        }
                         toast.success('Asset synced to Salesforce');
                         onAssetUpdated?.();
                       } catch (err: any) {
