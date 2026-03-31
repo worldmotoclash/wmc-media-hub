@@ -302,6 +302,38 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
               </>
             )}
 
+            {/* Status */}
+            <div>
+              <h4 className="text-sm font-medium mb-3">Status</h4>
+              <Select
+                value={asset.status || 'pending'}
+                onValueChange={async (newStatus) => {
+                  const { error } = await supabase
+                    .from('media_assets')
+                    .update({ status: newStatus })
+                    .eq('id', asset.id);
+                  if (error) {
+                    toast.error('Failed to update status');
+                  } else {
+                    toast.success(`Status changed to ${newStatus}`);
+                    onAssetUpdated?.();
+                  }
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="ready">Ready</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Separator />
+
             {/* Sync Status */}
             <div>
               <h4 className="text-sm font-medium mb-3 flex items-center gap-2"><Link2 className="w-4 h-4 text-muted-foreground" />Salesforce Integration</h4>

@@ -1585,7 +1585,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       View Details
                     </Button>
                     
-                    {asset.status === 'pending' && (
+                    {asset.status !== 'approved' && asset.status !== 'ready' && (
                       <Button
                         size="sm"
                         onClick={() => {
