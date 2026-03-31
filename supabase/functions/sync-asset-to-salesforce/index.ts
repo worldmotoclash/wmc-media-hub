@@ -533,15 +533,16 @@ serve(async (req) => {
         console.error("Error refreshing API:", error);
       }
       
-      salesforceId = await findSalesforceIdByUrl(asset.file_url, apiXml, asset.title);
+      const postCreateMatch = await findSalesforceMatch(asset.file_url, apiXml, asset.title);
       
-      if (salesforceId) {
-        console.log(`Successfully synced, Salesforce ID: ${salesforceId}`);
+      if (postCreateMatch) {
+        console.log(`Successfully synced, Salesforce ID: ${postCreateMatch.id}`);
         
         await supabase
           .from("media_assets")
           .update({
-            salesforce_id: salesforceId,
+            salesforce_id: postCreateMatch.id,
+            status: SYNC_APPROVAL_STATUS,
             metadata: {
               ...asset.metadata,
               sfdcSyncStatus: 'success',
@@ -555,7 +556,7 @@ serve(async (req) => {
         results.push({
           assetId: asset.id,
           success: true,
-          salesforceId,
+          salesforceId: postCreateMatch.id,
           action: 'created',
         });
       } else {

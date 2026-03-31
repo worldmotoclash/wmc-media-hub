@@ -306,37 +306,40 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
               </>
             )}
 
-            {/* Status */}
+            {/* Status — mapped to ri1__Content_Approved__c */}
             <div>
-              <h4 className="text-sm font-medium mb-3">Status</h4>
-              <Select
-                value={localStatus}
-                onValueChange={async (newStatus) => {
-                  const previousStatus = localStatus;
-                  setLocalStatus(newStatus);
-                  const { error } = await supabase
-                    .from('media_assets')
-                    .update({ status: newStatus })
-                    .eq('id', asset.id);
-                  if (error) {
-                    setLocalStatus(previousStatus);
-                    toast.error('Failed to update status');
-                  } else {
-                    toast.success(`Status changed to ${newStatus}`);
-                    onAssetUpdated?.();
-                  }
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                  <SelectItem value="ready">Ready</SelectItem>
-                </SelectContent>
-              </Select>
+              <h4 className="text-sm font-medium mb-3">Approval Status</h4>
+              {asset.salesforceId ? (
+                <Select
+                  value={localStatus}
+                  onValueChange={async (newStatus) => {
+                    const previousStatus = localStatus;
+                    setLocalStatus(newStatus);
+                    try {
+                      const { error } = await supabase.functions.invoke('sync-asset-to-salesforce', {
+                        body: { assetIds: [asset.id], status: newStatus }
+                      });
+                      if (error) throw error;
+                      toast.success(`Approval status changed to ${newStatus}`);
+                      onAssetUpdated?.();
+                    } catch {
+                      setLocalStatus(previousStatus);
+                      toast.error('Failed to update approval status in Salesforce');
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="Approved">Approved</SelectItem>
+                    <SelectItem value="Rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">Not synced to Salesforce</p>
+              )}
             </div>
 
             <Separator />
