@@ -1,45 +1,53 @@
+# Fix Status Badge Readability + Drawer Not Refreshing After Sync
 
+## Problems
 
-# Map Status to Salesforce `ri1__Content_Approved__c` — Remove Local-Only Status
-
-## Problem
-The `status` field on `media_assets` is stored locally and never synced from/to Salesforce. The SFDC record shows "Pending" in `ri1__Content_Approved__c` but the local UI shows "Ready" — they are completely disconnected. Status should be sourced from Salesforce, not a local column.
-
-## Approach
-
-Since the XML feed from `wmc-content-master.py` contains `<ri1__Content_Approved__c>` for each content block, we can read it during sync and store it locally as a **cache**. When the user changes status, we push the update to SFDC and update the local cache.
+1. **Status badges are hard to read** — they use transparent backgrounds (`bg-green-500/10`) with colored text. User wants solid color backgrounds with white text.
+2. **"Sync to SFDC" doesn't update the drawer** — After syncing, `onAssetUpdated()` triggers `loadAssets()` which refetches the asset list, but `detailsAsset` (the state variable passed to the drawer) is never updated. The drawer keeps showing stale data: no `salesforce_id`, status still says "Not synced".
 
 ## Changes
 
-### 1. `supabase/functions/sync-asset-to-salesforce/index.ts` — Read approval status from XML on match
+### 1. Solid status badges — multiple files
 
-When `findSalesforceIdByUrl` finds a matching SFDC record, also extract `<ri1__Content_Approved__c>` from that content block and return it alongside the ID (change return type to `{ id, approvalStatus }`). After a successful match or create, update the local `media_assets.status` with the SFDC approval value (e.g. "Pending", "Approved", "Rejected").
+Update `getStatusColor` to return solid backgrounds with white text:
 
-### 2. `supabase/functions/sync-asset-to-salesforce/index.ts` — Push status changes to SFDC
 
-Add `ri1__Content_Approved__c` to the `updateSalesforceRecord` function so when the UI triggers a status change, it flows through to Salesforce.
+| Status   | Current                            | New                        |
+| -------- | ---------------------------------- | -------------------------- |
+| Approved | `bg-green-500/10 text-green-600`   | `bg-green-600 text-white`  |
+| Pending  | `bg-yellow-500/10 text-yellow-600` | `bg-yellow-600 text-white` |
+| Rejected | `bg-red-500/10 text-red-600`       | `bg-red-600 text-white`    |
+| default  | `bg-gray-500/10 text-gray-600`     | `bg-gray-600 text-white`   |
 
-### 3. `src/components/media/MediaAssetDetailsDrawer.tsx` — Update status via SFDC sync
 
-When the user changes status in the dropdown:
-- If the asset has a `salesforce_id`: call `sync-asset-to-salesforce` with the new status (which pushes to SFDC and updates local cache)
-- If no `salesforce_id`: show the status as read-only "Not synced" — no local-only status edits
-- Map dropdown values to SFDC picklist values: "Pending", "Approved", "Rejected"
+Apply in:
 
-### 4. `supabase/functions/scan-s3-buckets/index.ts` — Pull approval status during scan
+- `src/components/media/UnifiedMediaLibrary.tsx` — grid and list view badges
+- `src/components/media/ImagePreviewModal.tsx` — image preview badge
 
-After the scan creates/finds an asset and auto-syncs to SFDC, read back the `ri1__Content_Approved__c` value from the XML feed and store it in the local `status` field. For new assets not yet in SFDC, set status to `'pending'` (matching the governance rule).
+### 2. Refresh drawer after sync — `UnifiedMediaLibrary.tsx`
 
-### 5. `src/components/media/UnifiedMediaLibrary.tsx` — Normalize status display
+In the `onAssetUpdated` callback passed to `MediaAssetDetailsDrawer`, after `loadAssets()` completes, find the updated asset in the refreshed list and call `setDetailsAsset(updatedAsset)` so the drawer reflects the new `salesforce_id` and status.
 
-Update `getStatusColor` to handle SFDC picklist casing ("Pending", "Approved", "Rejected") in addition to lowercase variants. The filter checkboxes should use these same values.
+Change the callback from:
+
+```ts
+onAssetUpdated={() => {
+  loadAssets();
+  loadFilterCounts();
+}}
+```
+
+To an async function that awaits `loadAssets`, then updates `detailsAsset` from the refreshed `assets` array by matching on `id`.
+
+### 3. Refresh drawer after sync — `MediaAssetDetailsDrawer.tsx`
+
+After the "Sync to SFDC" button succeeds, the drawer currently calls `onAssetUpdated?.()` but the drawer itself doesn't re-read the asset. Since fix #2 above will update the `asset` prop, the existing `useEffect` on `asset` will handle re-syncing local state. No additional change needed here.
 
 ## Files Changed
 
-| File | Change |
-|------|--------|
-| `supabase/functions/sync-asset-to-salesforce/index.ts` | Return approval status from XML match; add `ri1__Content_Approved__c` to update calls; accept status param |
-| `supabase/functions/scan-s3-buckets/index.ts` | Pull approval status from SFDC XML during sync step |
-| `src/components/media/MediaAssetDetailsDrawer.tsx` | Status change calls SFDC sync; read-only if no `salesforce_id` |
-| `src/components/media/UnifiedMediaLibrary.tsx` | Handle SFDC-cased status values in display and filters |
 
+| File                                           | Change                                                               |
+| ---------------------------------------------- | -------------------------------------------------------------------- |
+| `src/components/media/UnifiedMediaLibrary.tsx` | Solid status badge colors; refresh `detailsAsset` after `loadAssets` |
+| `src/components/media/ImagePreviewModal.tsx`   | Solid status badge colors                                            |
