@@ -170,11 +170,19 @@ async function updateSalesforceRecord(
     const response = await fetch(W2X_ENGINE_URL, {
       method: "POST",
       body: formData,
+      redirect: "manual",
     });
 
+    if (response.status === 302) {
+      const location = response.headers.get("location");
+      console.log(`w2x-engine update redirected to: ${location} — treating as success`);
+      return true;
+    }
+
+    console.error(`w2x-engine update unexpected status: ${response.status}`);
     const responseText = await response.text();
-    console.log(`w2x-engine update response: ${response.status} – ${responseText.substring(0, 300)}`);
-    return response.ok;
+    console.error(`w2x-engine update response: ${responseText.substring(0, 300)}`);
+    return false;
   } catch (error) {
     console.error("Error updating Salesforce record:", error);
     return false;
@@ -284,13 +292,19 @@ async function createSalesforceRecord(
     const response = await fetch(W2X_ENGINE_URL, {
       method: "POST",
       body: formData,
+      redirect: "manual",
     });
 
-    const responseText = await response.text();
-    console.log(`w2x-engine response status: ${response.status}`);
-    console.log(`w2x-engine response: ${responseText.substring(0, 300)}`);
+    if (response.status === 302) {
+      const location = response.headers.get("location");
+      console.log(`w2x-engine create redirected to: ${location} — treating as success`);
+      return true;
+    }
 
-    return response.ok;
+    console.error(`w2x-engine create unexpected status: ${response.status}`);
+    const responseText = await response.text();
+    console.error(`w2x-engine create response: ${responseText.substring(0, 300)}`);
+    return false;
   } catch (error) {
     console.error("Error creating Salesforce record:", error);
     return false;
