@@ -82,7 +82,10 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   });
 
   useEffect(() => {
-    if (asset) setIsPodcast(asset.metadata?.isPodcast === true);
+    if (asset) {
+      setIsPodcast(asset.metadata?.isPodcast === true);
+      setLocalStatus(asset.status || 'pending');
+    }
   }, [asset]);
 
   if (!asset) return null;
