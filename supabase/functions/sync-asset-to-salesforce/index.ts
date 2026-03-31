@@ -59,31 +59,36 @@ async function findSalesforceMatch(cdnUrl: string, xmlCache?: string, title?: st
   // Extract filename from the asset URL for fallback matching
   const assetFilename = cdnUrl.split('/').pop()?.split('?')[0]?.toLowerCase() || '';
   
+  // Helper to extract result from a matched block
+  function extractFromBlock(block: string, strategy: string): { id: string; approvalStatus: string } | null {
+    const idMatch = block.match(/<id>([^<]+)<\/id>/);
+    if (idMatch && idMatch[1]) {
+      const approvalMatch = block.match(/<ri1__Content_Approved__c>([^<]*)<\/ri1__Content_Approved__c>/);
+      const approvalStatus = approvalMatch ? approvalMatch[1].trim() : 'Pending';
+      console.log(`${strategy}: Found Salesforce ID: ${idMatch[1].trim()}, approval: ${approvalStatus}`);
+      return { id: idMatch[1].trim(), approvalStatus };
+    }
+    return null;
+  }
+
   // Strategy 1: Exact URL match
   for (const block of contentBlocks) {
     if (block.includes(cdnUrl)) {
-      const idMatch = block.match(/<id>([^<]+)<\/id>/);
-      if (idMatch && idMatch[1]) {
-        console.log(`Strategy 1 (exact URL): Found Salesforce ID: ${idMatch[1].trim()}`);
-        return idMatch[1].trim();
-      }
+      const result = extractFromBlock(block, 'Strategy 1 (exact URL)');
+      if (result) return result;
     }
   }
 
   // Strategy 2: Filename match (compare last path segment, case-insensitive)
   if (assetFilename) {
     for (const block of contentBlocks) {
-      // Extract URLs from the block and compare filenames
       const urlMatch = block.match(/<ri1__URL__c>([^<]+)<\/ri1__URL__c>/) || 
                        block.match(/<url>([^<]+)<\/url>/);
       if (urlMatch && urlMatch[1]) {
         const sfdcFilename = urlMatch[1].trim().split('/').pop()?.split('?')[0]?.toLowerCase() || '';
         if (sfdcFilename && sfdcFilename === assetFilename) {
-          const idMatch = block.match(/<id>([^<]+)<\/id>/);
-          if (idMatch && idMatch[1]) {
-            console.log(`Strategy 2 (filename "${assetFilename}"): Found Salesforce ID: ${idMatch[1].trim()}`);
-            return idMatch[1].trim();
-          }
+          const result = extractFromBlock(block, `Strategy 2 (filename "${assetFilename}")`);
+          if (result) return result;
         }
       }
     }
@@ -97,11 +102,8 @@ async function findSalesforceMatch(cdnUrl: string, xmlCache?: string, title?: st
       if (nameMatch && nameMatch[1]) {
         const sfdcName = nameMatch[1].trim().toLowerCase();
         if (sfdcName === normalizedTitle) {
-          const idMatch = block.match(/<id>([^<]+)<\/id>/);
-          if (idMatch && idMatch[1]) {
-            console.log(`Strategy 3 (title "${title}"): Found Salesforce ID: ${idMatch[1].trim()}`);
-            return idMatch[1].trim();
-          }
+          const result = extractFromBlock(block, `Strategy 3 (title "${title}")`);
+          if (result) return result;
         }
       }
     }
