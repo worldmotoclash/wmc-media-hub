@@ -27,8 +27,8 @@ function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Query the wmc-content-master API to find a Salesforce ID by matching URL, filename, or title
-async function findSalesforceIdByUrl(cdnUrl: string, xmlCache?: string, title?: string): Promise<string | null> {
+// Query the wmc-content-master API to find a Salesforce ID and approval status by matching URL, filename, or title
+async function findSalesforceMatch(cdnUrl: string, xmlCache?: string, title?: string): Promise<{ id: string; approvalStatus: string } | null> {
   console.log(`Searching for Salesforce ID matching URL: ${cdnUrl}${title ? `, title: ${title}` : ''}`);
   
   let xmlText = xmlCache;
