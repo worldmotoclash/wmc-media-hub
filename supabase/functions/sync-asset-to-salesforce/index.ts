@@ -161,6 +161,10 @@ async function updateSalesforceRecord(
     if (metadata?.contentIntent) {
       formData.append("string_ri1__Content_Intent__c", metadata.contentIntent);
     }
+    if (metadata?.approvalStatus) {
+      formData.append("string_ri1__Content_Approved__c", metadata.approvalStatus);
+      console.log(`Pushing approval status to SFDC: ${metadata.approvalStatus}`);
+    }
 
     const response = await fetch(W2X_ENGINE_URL, {
       method: "POST",
