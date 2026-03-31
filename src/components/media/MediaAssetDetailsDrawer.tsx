@@ -154,9 +154,9 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
     }
   };
 
-  const getSyncStatusBadge = () => asset.salesforceId
-    ? <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20"><CheckCircle className="w-3 h-3 mr-1" />Synced to Salesforce</Badge>
-    : <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20"><AlertTriangle className="w-3 h-3 mr-1" />Not synced</Badge>;
+  const getSyncStatusBadge = () => localSalesforceId
+    ? <Badge variant="outline" className="bg-green-600 text-white border-green-700"><CheckCircle className="w-3 h-3 mr-1" />Synced to Salesforce</Badge>
+    : <Badge variant="outline" className="bg-yellow-600 text-white border-yellow-700"><AlertTriangle className="w-3 h-3 mr-1" />Not synced</Badge>;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
