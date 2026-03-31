@@ -86,6 +86,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
     if (asset) {
       setIsPodcast(asset.metadata?.isPodcast === true);
       setLocalStatus(asset.status || 'pending');
+      setLocalSalesforceId(asset.salesforceId || null);
     }
   }, [asset]);
 
