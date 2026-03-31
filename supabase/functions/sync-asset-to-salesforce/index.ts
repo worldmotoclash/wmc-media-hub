@@ -359,7 +359,7 @@ serve(async (req) => {
     // Fetch the API data once for all assets
     let apiXml: string | undefined;
     try {
-      const apiUrl = `${WMC_CONTENT_API}?orgId=${ORG_ID}&sandbox=False`;
+      const apiUrl = `${WMC_CONTENT_API}?orgId=${ORG_ID}&sandbox=False&_t=${Date.now()}`;
       const response = await fetch(apiUrl);
       if (response.ok) {
         apiXml = await response.text();
