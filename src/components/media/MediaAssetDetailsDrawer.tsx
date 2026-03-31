@@ -311,7 +311,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
             {/* Status — mapped to ri1__Content_Approved__c */}
             <div>
               <h4 className="text-sm font-medium mb-3">Approval Status</h4>
-              {asset.salesforceId ? (
+              {localSalesforceId ? (
                 <Select
                   value={localStatus}
                   onValueChange={async (newStatus) => {
