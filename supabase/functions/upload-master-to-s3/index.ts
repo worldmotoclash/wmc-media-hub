@@ -459,14 +459,13 @@ serve(async (req) => {
       const sfResponse = await fetch(W2X_ENGINE_URL, {
         method: "POST",
         body: formData,
+        redirect: "manual",
       });
 
-      const sfResponseText = await sfResponse.text();
       console.log("w2x-engine response status:", sfResponse.status);
-      console.log("w2x-engine response body:", sfResponseText.substring(0, 500));
 
-      if (sfResponse.ok) {
-        console.log("w2x-engine call successful, now querying API to find Salesforce ID...");
+      if (sfResponse.status === 302) {
+        console.log("w2x-engine accepted record (302 redirect) — querying for SFDC ID...");
         
         // Query the API to find the newly created record by URL
         salesforceId = await findSalesforceIdByUrl(cdnUrl, 3);
@@ -488,7 +487,7 @@ serve(async (req) => {
             })
             .eq("id", assetData.id);
         } else {
-          sfdcSyncError = "Record created but ID not found in API response";
+          sfdcSyncError = "Record likely created but ID not found in XML feed yet";
           console.warn("SFDC record may have been created but couldn't find matching ID in API");
           
           // Update metadata to reflect partial sync
@@ -505,7 +504,8 @@ serve(async (req) => {
             .eq("id", assetData.id);
         }
       } else {
-        sfdcSyncError = `w2x-engine returned status ${sfResponse.status}: ${sfResponseText.substring(0, 200)}`;
+        const sfResponseText = await sfResponse.text();
+        sfdcSyncError = `w2x-engine unexpected status ${sfResponse.status}: ${sfResponseText.substring(0, 200)}`;
         console.error("w2x-engine call failed:", sfdcSyncError);
         
         await supabase
