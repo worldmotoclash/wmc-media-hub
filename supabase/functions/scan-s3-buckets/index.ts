@@ -416,10 +416,12 @@ serve(async (req) => {
         const BATCH_DELAY_MS = 200; // 200ms pause between batches
         
         // Pre-fetch existing assets for ETag comparison to skip unchanged files faster
+        // Query ALL sources (not just s3_bucket) so we detect generated/local_upload records
+        // that share the same s3_key and avoid creating duplicates
         const { data: existingAssetsWithMetadata } = await supabase
           .from('media_assets')
-          .select('id, source_id, metadata, album_id')
-          .eq('source', 's3_bucket');
+          .select('id, source_id, metadata, album_id, s3_key, salesforce_id')
+          .not('s3_key', 'is', null);
         
         const existingAssetMap = new Map<string, { id: string; etag?: string; album_id?: string | null }>();
         if (existingAssetsWithMetadata) {
