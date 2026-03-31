@@ -57,11 +57,13 @@ const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({ asset, isOpen, on
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved': return 'bg-green-100 text-green-800 border-green-200';
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    const s = (status || '').toLowerCase();
+    switch (s) {
+      case 'approved':
+      case 'ready': return 'bg-green-600 text-white border-green-700';
+      case 'pending': return 'bg-yellow-600 text-white border-yellow-700';
+      case 'rejected': return 'bg-red-600 text-white border-red-700';
+      default: return 'bg-gray-600 text-white border-gray-700';
     }
   };
 
