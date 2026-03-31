@@ -19,6 +19,7 @@ interface SyncRequest {
   assetId?: string;
   assetIds?: string[];
   creatorContactId?: string;
+  status?: string; // Push a new ri1__Content_Approved__c value to SFDC
 }
 
 // Helper function to escape special regex characters
