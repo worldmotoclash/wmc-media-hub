@@ -513,7 +513,7 @@ serve(async (req) => {
         console.error("Error refreshing API:", error);
       }
       
-      salesforceId = await findSalesforceIdByUrl(asset.file_url, apiXml);
+      salesforceId = await findSalesforceIdByUrl(asset.file_url, apiXml, asset.title);
       
       if (salesforceId) {
         console.log(`Successfully synced, Salesforce ID: ${salesforceId}`);
