@@ -1,53 +1,38 @@
-# Fix Status Badge Readability + Drawer Not Refreshing After Sync
-
-## Problems
-
-1. **Status badges are hard to read** — they use transparent backgrounds (`bg-green-500/10`) with colored text. User wants solid color backgrounds with white text.
-2. **"Sync to SFDC" doesn't update the drawer** — After syncing, `onAssetUpdated()` triggers `loadAssets()` which refetches the asset list, but `detailsAsset` (the state variable passed to the drawer) is never updated. The drawer keeps showing stale data: no `salesforce_id`, status still says "Not synced".
-
-## Changes
-
-### 1. Solid status badges — multiple files
-
-Update `getStatusColor` to return solid backgrounds with white text:
 
 
-| Status   | Current                            | New                        |
-| -------- | ---------------------------------- | -------------------------- |
-| Approved | `bg-green-500/10 text-green-600`   | `bg-green-600 text-white`  |
-| Pending  | `bg-yellow-500/10 text-yellow-600` | `bg-yellow-600 text-white` |
-| Rejected | `bg-red-500/10 text-red-600`       | `bg-red-600 text-white`    |
-| default  | `bg-gray-500/10 text-gray-600`     | `bg-gray-600 text-white`   |
+# Fix: Drawer Not Reflecting SFDC Sync Results
 
+## Root Cause
 
-Apply in:
+After "Sync to SFDC" succeeds, the `onAssetUpdated` callback in `UnifiedMediaLibrary.tsx` calls `loadAssets()` then a second `fetchAllMediaAssets()` to refresh the drawer. This has two problems:
 
-- `src/components/media/UnifiedMediaLibrary.tsx` — grid and list view badges
-- `src/components/media/ImagePreviewModal.tsx` — image preview badge
+1. **Race condition**: The edge function returns a response that includes the `salesforceId` and status, but the drawer ignores this response and instead re-fetches from the DB — which may not reflect the update yet due to timing.
+2. **Double fetch**: Two full `fetchAllMediaAssets()` calls (one in `loadAssets`, one to find the updated asset) are wasteful and slow.
 
-### 2. Refresh drawer after sync — `UnifiedMediaLibrary.tsx`
+## Fix
 
-In the `onAssetUpdated` callback passed to `MediaAssetDetailsDrawer`, after `loadAssets()` completes, find the updated asset in the refreshed list and call `setDetailsAsset(updatedAsset)` so the drawer reflects the new `salesforce_id` and status.
+### 1. `MediaAssetDetailsDrawer.tsx` — Use sync response to update local state immediately
 
-Change the callback from:
+The "Sync to SFDC" button already calls `supabase.functions.invoke('sync-asset-to-salesforce')` which returns `results[]` containing `salesforceId` and `action`. After a successful sync:
+- Read the `salesforceId` from the response
+- Set `localStatus` to `'Pending'` (the governance default)
+- Update a new `localSalesforceId` state so the drawer immediately shows "Synced" badge and the SFDC ID
+- Still call `onAssetUpdated?.()` for background refresh of the grid
 
-```ts
-onAssetUpdated={() => {
-  loadAssets();
-  loadFilterCounts();
-}}
-```
+Changes:
+- Add `localSalesforceId` state, initialized from `asset.salesforceId`, synced via the existing `useEffect`
+- Replace `asset.salesforceId` references in the drawer with `localSalesforceId`
+- After sync success, parse response and set `localSalesforceId` + `localStatus`
 
-To an async function that awaits `loadAssets`, then updates `detailsAsset` from the refreshed `assets` array by matching on `id`.
+### 2. `MediaAssetDetailsDrawer.tsx` — Status dropdown guard fix
 
-### 3. Refresh drawer after sync — `MediaAssetDetailsDrawer.tsx`
-
-After the "Sync to SFDC" button succeeds, the drawer currently calls `onAssetUpdated?.()` but the drawer itself doesn't re-read the asset. Since fix #2 above will update the `asset` prop, the existing `useEffect` on `asset` will handle re-syncing local state. No additional change needed here.
+Currently the status dropdown only shows when `asset.salesforceId` is truthy. After sync, until `onAssetUpdated` refreshes the prop, the dropdown stays hidden. Using `localSalesforceId` instead fixes this — the dropdown appears immediately after sync.
 
 ## Files Changed
 
+| File | Change |
+|------|--------|
+| `src/components/media/MediaAssetDetailsDrawer.tsx` | Add `localSalesforceId` state; use it for sync badge, SFDC ID display, and status dropdown guard; parse sync response to update both local states immediately |
 
-| File                                           | Change                                                               |
-| ---------------------------------------------- | -------------------------------------------------------------------- |
-| `src/components/media/UnifiedMediaLibrary.tsx` | Solid status badge colors; refresh `detailsAsset` after `loadAssets` |
-| `src/components/media/ImagePreviewModal.tsx`   | Solid status badge colors                                            |
+One file, ~15 lines changed.
+
