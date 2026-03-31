@@ -54,6 +54,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   const [audioToVideoOpen, setAudioToVideoOpen] = useState(false);
   const [isPodcast, setIsPodcast] = useState(false);
   const [isSavingPodcast, setIsSavingPodcast] = useState(false);
+  const [localStatus, setLocalStatus] = useState(asset?.status || 'pending');
   const [isReanalyzing, setIsReanalyzing] = useState(false);
   const [suggestTitleOnAnalyze, setSuggestTitleOnAnalyze] = useState(true);
   const [albums, setAlbums] = useState<{ id: string; name: string }[]>([]);
@@ -81,7 +82,10 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   });
 
   useEffect(() => {
-    if (asset) setIsPodcast(asset.metadata?.isPodcast === true);
+    if (asset) {
+      setIsPodcast(asset.metadata?.isPodcast === true);
+      setLocalStatus(asset.status || 'pending');
+    }
   }, [asset]);
 
   if (!asset) return null;
@@ -306,13 +310,16 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
             <div>
               <h4 className="text-sm font-medium mb-3">Status</h4>
               <Select
-                value={asset.status || 'pending'}
+                value={localStatus}
                 onValueChange={async (newStatus) => {
+                  const previousStatus = localStatus;
+                  setLocalStatus(newStatus);
                   const { error } = await supabase
                     .from('media_assets')
                     .update({ status: newStatus })
                     .eq('id', asset.id);
                   if (error) {
+                    setLocalStatus(previousStatus);
                     toast.error('Failed to update status');
                   } else {
                     toast.success(`Status changed to ${newStatus}`);
