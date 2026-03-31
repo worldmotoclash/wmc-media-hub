@@ -2073,9 +2073,15 @@ export const UnifiedMediaLibrary: React.FC = () => {
           setShowDetailsDrawer(false);
           setSelectedAsset(asset);
         }}
-        onAssetUpdated={() => {
-          loadAssets();
+        onAssetUpdated={async () => {
+          await loadAssets();
           loadFilterCounts();
+          // Refresh the drawer's asset from the updated list
+          if (detailsAsset) {
+            const { assets: refreshed } = await fetchAllMediaAssets();
+            const updated = refreshed.find(a => a.id === detailsAsset.id);
+            if (updated) setDetailsAsset(updated);
+          }
         }}
       />
 
