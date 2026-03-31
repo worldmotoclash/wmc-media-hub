@@ -423,11 +423,18 @@ serve(async (req) => {
           .select('id, source_id, metadata, album_id, s3_key, salesforce_id')
           .not('s3_key', 'is', null);
         
-        const existingAssetMap = new Map<string, { id: string; etag?: string; album_id?: string | null }>();
+        const existingAssetMap = new Map<string, { id: string; etag?: string; album_id?: string | null; salesforce_id?: string | null }>();
         if (existingAssetsWithMetadata) {
           for (const asset of existingAssetsWithMetadata) {
             const etag = (asset.metadata as any)?.etag;
-            existingAssetMap.set(asset.source_id, { id: asset.id, etag, album_id: asset.album_id });
+            const key = asset.s3_key || asset.source_id;
+            if (key) {
+              // If multiple records share same key, prefer the one with a salesforce_id
+              const existing = existingAssetMap.get(key);
+              if (!existing || (!existing.salesforce_id && asset.salesforce_id)) {
+                existingAssetMap.set(key, { id: asset.id, etag, album_id: asset.album_id, salesforce_id: asset.salesforce_id });
+              }
+            }
           }
         }
         console.log(`[SCAN] Pre-loaded ${existingAssetMap.size} existing assets for ETag comparison`);
