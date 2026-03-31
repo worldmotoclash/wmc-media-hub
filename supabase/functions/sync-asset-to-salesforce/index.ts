@@ -134,6 +134,7 @@ interface SfdcSyncMetadata {
   negativeConstraints?: string[];
   creatorContactId?: string;
   contentIntent?: string;
+  approvalStatus?: string;
 }
 
 // Update an existing Salesforce Content record via w2x-engine
