@@ -1,86 +1,54 @@
 
 
-# Fix w2x-engine Response Handling: Treat 302 as Success
+# Fix S3 Path Typo + Async SFDC ID Backfill
 
-## Problem
-The `w2x-engine.php` endpoint processes the request and responds with a 302 redirect (to `retURL`). The current code follows the redirect (default `fetch` behavior), receives the HTML of the redirect target, and treats it as "success" based on `response.ok` — but the HTML body is meaningless. This causes false positives and prevents proper error detection.
+## Two Problems
 
-## Fix
-Add `redirect: "manual"` to stop following the 302. Treat `302` as success (the engine processed the request). Treat anything else as failure.
+**Problem 1**: `s3Config.ts` line 87 has `SOCAIL` instead of `SOCIAL`. Every social media image uploads to the wrong S3 prefix. CDN URLs sent to Salesforce don't match real file paths, breaking XML feed URL matching.
 
-## Changes
+**Problem 2**: After w2x-engine returns 302 (success), both `sync-asset-to-salesforce` and `upload-master-to-s3` poll the XML feed synchronously (2s, 4s, 6s = 12s total). SFDC propagation takes 30-60s. The edge function times out before the record appears, resulting in "Record likely created but ID not found."
 
-### File 1: `supabase/functions/sync-asset-to-salesforce/index.ts`
+## Solution
 
-**`updateSalesforceRecord`** (lines 170-177): Replace the fetch + `response.ok` check:
-```typescript
-const response = await fetch(W2X_ENGINE_URL, {
-  method: "POST",
-  body: formData,
-  redirect: "manual",
-});
+### Fix 1: Correct the typo (1 line)
+In `supabase/functions/_shared/s3Config.ts`, change `SOCAIL_MEDIA_IMAGES_KNEWTV/masters` to `SOCIAL_MEDIA_IMAGES_KNEWTV/masters`.
 
-if (response.status === 302) {
-  const location = response.headers.get("location");
-  console.log(`w2x-engine update redirected to: ${location} — treating as success`);
-  return true;
-}
+> **Note**: Existing files already uploaded under the old `SOCAIL_...` path in Wasabi will need to be either renamed in S3 or have their CDN URLs updated in the DB. This fix only prevents future uploads from going to the wrong path. We should discuss a migration strategy for existing files separately.
 
-console.error(`w2x-engine update unexpected status: ${response.status}`);
-const responseText = await response.text();
-console.error(`w2x-engine response: ${responseText.substring(0, 300)}`);
-return false;
-```
+### Fix 2: Remove synchronous polling, return immediately after 302
 
-**`createSalesforceRecord`** (lines 284-293): Same pattern:
-```typescript
-const response = await fetch(W2X_ENGINE_URL, {
-  method: "POST",
-  body: formData,
-  redirect: "manual",
-});
+Instead of waiting 12+ seconds inside the edge function trying to find the new SFDC ID, return immediately with `action: 'created_pending'` and mark the asset's metadata with `sfdcSyncStatus: 'pending_id'`.
 
-if (response.status === 302) {
-  const location = response.headers.get("location");
-  console.log(`w2x-engine create redirected to: ${location} — treating as success`);
-  return true;
-}
+**In `sync-asset-to-salesforce/index.ts`** (lines 535-595): After `createSalesforceRecord` returns `true`, skip the 3-second wait + re-query. Instead:
+- Update `media_assets.metadata` with `{ sfdcSyncStatus: 'pending_id', sfdcSyncAttemptedAt: now }`
+- Return `{ success: true, action: 'created_pending' }` to the UI
+- The UI shows "Synced (ID pending)" instead of a false failure
 
-console.error(`w2x-engine create unexpected status: ${response.status}`);
-const responseText = await response.text();
-console.error(`w2x-engine response: ${responseText.substring(0, 300)}`);
-return false;
-```
+**In `upload-master-to-s3/index.ts`** (lines 467-505): Same change — after the 302, skip `findSalesforceIdByUrl`. Mark metadata as `pending_id` and return success.
 
-### File 2: `supabase/functions/upload-master-to-s3/index.ts`
+### Fix 3: New edge function `backfill-salesforce-ids` for async ID resolution
 
-**Inline SFDC sync block** (lines 459-522): Replace the fetch and `sfResponse.ok` check:
-```typescript
-const sfResponse = await fetch(W2X_ENGINE_URL, {
-  method: "POST",
-  body: formData,
-  redirect: "manual",
-});
+A new edge function that:
+1. Queries `media_assets` where `salesforce_id IS NULL` and `metadata->>'sfdcSyncStatus' = 'pending_id'`
+2. Fetches the XML feed once
+3. For each pending asset, runs the same `findSalesforceMatch` logic (exact URL, filename, title)
+4. Updates `salesforce_id` and `sfdcSyncStatus: 'success'` on match
+5. Can be triggered manually from the UI or scheduled via `pg_cron`
 
-if (sfResponse.status === 302) {
-  console.log("w2x-engine accepted record (302 redirect) — querying for SFDC ID...");
-  salesforceId = await findSalesforceIdByUrl(cdnUrl, 3);
-  sfdcSyncStatus = salesforceId ? 'success' : 'failed';
-  if (!salesforceId) {
-    sfdcSyncError = "Record likely created but ID not found in XML feed yet";
-  }
-  // ... keep existing success/partial-success DB update logic
-} else {
-  sfdcSyncError = `w2x-engine unexpected status ${sfResponse.status}`;
-  console.error(sfdcSyncError);
-  // ... keep existing failure DB update logic
-}
-```
+This function has no time pressure — it can process all pending assets in one sweep.
+
+### Fix 4: XML parsing improvements in `sync-asset-to-salesforce/index.ts`
+
+- **Line 66**: Change `<ri1__Content_Approved__c>` to `<approved>` to match actual XML schema
+- **Lines 85-86**: Make URL regex CDATA-aware: `/<url>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/url>/`
+- **Line 38**: Add cache-busting `&_t=${Date.now()}` to API URL in `findSalesforceMatch`
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `supabase/functions/sync-asset-to-salesforce/index.ts` | Add `redirect: "manual"` and treat 302 as success in both `createSalesforceRecord` and `updateSalesforceRecord` |
-| `supabase/functions/upload-master-to-s3/index.ts` | Same pattern in the inline SFDC sync block (~line 459) |
+| `supabase/functions/_shared/s3Config.ts` | Fix `SOCAIL` → `SOCIAL` typo |
+| `supabase/functions/sync-asset-to-salesforce/index.ts` | Remove synchronous post-create polling (lines 535-595); return `created_pending` immediately; fix XML parsing (approved tag, CDATA regex, cache buster) |
+| `supabase/functions/upload-master-to-s3/index.ts` | Remove `findSalesforceIdByUrl` call after 302; mark as `pending_id` and return |
+| `supabase/functions/backfill-salesforce-ids/index.ts` | **New** — async backfill function that resolves pending SFDC IDs |
 
