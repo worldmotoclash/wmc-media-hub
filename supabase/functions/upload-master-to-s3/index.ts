@@ -465,44 +465,20 @@ serve(async (req) => {
       console.log("w2x-engine response status:", sfResponse.status);
 
       if (sfResponse.status === 302) {
-        console.log("w2x-engine accepted record (302 redirect) — querying for SFDC ID...");
+        console.log("w2x-engine accepted record (302 redirect) — marking as pending_id for async backfill.");
+        sfdcSyncStatus = 'pending_id';
         
-        // Query the API to find the newly created record by URL
-        salesforceId = await findSalesforceIdByUrl(cdnUrl, 3);
-        
-        if (salesforceId) {
-          sfdcSyncStatus = 'success';
-          console.log("Successfully retrieved Salesforce ID:", salesforceId);
-          
-          // Update the media_assets record with the Salesforce ID
-          await supabase
-            .from("media_assets")
-            .update({ 
-              salesforce_id: salesforceId,
-              metadata: {
-                ...initialMetadata,
-                sfdcSyncStatus: 'success',
-                sfdcSyncedAt: new Date().toISOString(),
-              }
-            })
-            .eq("id", assetData.id);
-        } else {
-          sfdcSyncError = "Record likely created but ID not found in XML feed yet";
-          console.warn("SFDC record may have been created but couldn't find matching ID in API");
-          
-          // Update metadata to reflect partial sync
-          await supabase
-            .from("media_assets")
-            .update({
-              metadata: {
-                ...initialMetadata,
-                sfdcSyncStatus: 'failed',
-                sfdcSyncError,
-                sfdcSyncAttemptedAt: new Date().toISOString(),
-              }
-            })
-            .eq("id", assetData.id);
-        }
+        // Don't poll synchronously — the backfill-salesforce-ids function will resolve the ID
+        await supabase
+          .from("media_assets")
+          .update({
+            metadata: {
+              ...initialMetadata,
+              sfdcSyncStatus: 'pending_id',
+              sfdcSyncAttemptedAt: new Date().toISOString(),
+            }
+          })
+          .eq("id", assetData.id);
       } else {
         const sfResponseText = await sfResponse.text();
         sfdcSyncError = `w2x-engine unexpected status ${sfResponse.status}: ${sfResponseText.substring(0, 200)}`;

@@ -35,7 +35,7 @@ async function findSalesforceMatch(cdnUrl: string, xmlCache?: string, title?: st
   
   if (!xmlText) {
     try {
-      const apiUrl = `${WMC_CONTENT_API}?orgId=${ORG_ID}&sandbox=False`;
+      const apiUrl = `${WMC_CONTENT_API}?orgId=${ORG_ID}&sandbox=False&_t=${Date.now()}`;
       console.log(`Querying API: ${apiUrl}`);
       
       const response = await fetch(apiUrl);
@@ -63,7 +63,7 @@ async function findSalesforceMatch(cdnUrl: string, xmlCache?: string, title?: st
   function extractFromBlock(block: string, strategy: string): { id: string; approvalStatus: string } | null {
     const idMatch = block.match(/<id>([^<]+)<\/id>/);
     if (idMatch && idMatch[1]) {
-      const approvalMatch = block.match(/<ri1__Content_Approved__c>([^<]*)<\/ri1__Content_Approved__c>/);
+      const approvalMatch = block.match(/<approved>([^<]*)<\/approved>/);
       const approvalStatus = approvalMatch ? approvalMatch[1].trim() : 'Pending';
       console.log(`${strategy}: Found Salesforce ID: ${idMatch[1].trim()}, approval: ${approvalStatus}`);
       return { id: idMatch[1].trim(), approvalStatus };
@@ -82,8 +82,8 @@ async function findSalesforceMatch(cdnUrl: string, xmlCache?: string, title?: st
   // Strategy 2: Filename match (compare last path segment, case-insensitive)
   if (assetFilename) {
     for (const block of contentBlocks) {
-      const urlMatch = block.match(/<ri1__URL__c>([^<]+)<\/ri1__URL__c>/) || 
-                       block.match(/<url>([^<]+)<\/url>/);
+      const urlMatch = block.match(/<ri1__URL__c>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/ri1__URL__c>/) || 
+                       block.match(/<url>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/url>/);
       if (urlMatch && urlMatch[1]) {
         const sfdcFilename = urlMatch[1].trim().split('/').pop()?.split('?')[0]?.toLowerCase() || '';
         if (sfdcFilename && sfdcFilename === assetFilename) {
@@ -359,7 +359,7 @@ serve(async (req) => {
     // Fetch the API data once for all assets
     let apiXml: string | undefined;
     try {
-      const apiUrl = `${WMC_CONTENT_API}?orgId=${ORG_ID}&sandbox=False`;
+      const apiUrl = `${WMC_CONTENT_API}?orgId=${ORG_ID}&sandbox=False&_t=${Date.now()}`;
       const response = await fetch(apiUrl);
       if (response.ok) {
         apiXml = await response.text();
@@ -374,7 +374,7 @@ serve(async (req) => {
       success: boolean;
       salesforceId?: string;
       error?: string;
-      action?: 'found' | 'created' | 'updated' | 'failed';
+      action?: 'found' | 'created' | 'created_pending' | 'updated' | 'failed';
     }> = [];
 
     for (const asset of assets) {
@@ -532,67 +532,29 @@ serve(async (req) => {
         continue;
       }
 
-      // Wait for Salesforce to propagate and query again
-      console.log("Record created, waiting for propagation...");
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Record created in SFDC — mark as pending_id and return immediately.
+      // The backfill-salesforce-ids function will resolve the ID asynchronously.
+      console.log("Record created via w2x-engine. Marking as pending_id (async backfill will resolve).");
       
-      // Refresh the API data
-      try {
-        const apiUrl = `${WMC_CONTENT_API}?orgId=${ORG_ID}&sandbox=False`;
-        const response = await fetch(apiUrl);
-        if (response.ok) {
-          apiXml = await response.text();
-        }
-      } catch (error) {
-        console.error("Error refreshing API:", error);
-      }
-      
-      const postCreateMatch = await findSalesforceMatch(asset.file_url, apiXml, asset.title);
-      
-      if (postCreateMatch) {
-        console.log(`Successfully synced, Salesforce ID: ${postCreateMatch.id}`);
-        
-        await supabase
-          .from("media_assets")
-          .update({
-            salesforce_id: postCreateMatch.id,
-            status: SYNC_APPROVAL_STATUS,
-            metadata: {
-              ...asset.metadata,
-              sfdcSyncStatus: 'success',
-              sfdcSyncedAt: new Date().toISOString(),
-              sfdcApprovalStatus: SYNC_APPROVAL_STATUS,
-              sfdcSystemFlags: SYNC_SYSTEM_FLAG,
-            }
-          })
-          .eq("id", asset.id);
+      await supabase
+        .from("media_assets")
+        .update({
+          status: SYNC_APPROVAL_STATUS,
+          metadata: {
+            ...asset.metadata,
+            sfdcSyncStatus: 'pending_id',
+            sfdcSyncAttemptedAt: new Date().toISOString(),
+            sfdcApprovalStatus: SYNC_APPROVAL_STATUS,
+            sfdcSystemFlags: SYNC_SYSTEM_FLAG,
+          }
+        })
+        .eq("id", asset.id);
 
-        results.push({
-          assetId: asset.id,
-          success: true,
-          salesforceId: postCreateMatch.id,
-          action: 'created',
-        });
-      } else {
-        results.push({
-          assetId: asset.id,
-          success: false,
-          error: "Record created but ID not found in API response",
-          action: 'failed',
-        });
-        
-        await supabase
-          .from("media_assets")
-          .update({
-            metadata: {
-              ...asset.metadata,
-              sfdcSyncStatus: 'failed',
-              sfdcSyncError: 'Created but ID not found',
-              sfdcSyncAttemptedAt: new Date().toISOString(),
-            }
-          })
-          .eq("id", asset.id);
-      }
+      results.push({
+        assetId: asset.id,
+        success: true,
+        action: 'created_pending',
+      });
     }
 
     const successCount = results.filter(r => r.success).length;
