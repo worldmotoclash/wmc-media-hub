@@ -54,6 +54,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   const [audioToVideoOpen, setAudioToVideoOpen] = useState(false);
   const [isPodcast, setIsPodcast] = useState(false);
   const [isSavingPodcast, setIsSavingPodcast] = useState(false);
+  const [localStatus, setLocalStatus] = useState(asset?.status || 'pending');
   const [isReanalyzing, setIsReanalyzing] = useState(false);
   const [suggestTitleOnAnalyze, setSuggestTitleOnAnalyze] = useState(true);
   const [albums, setAlbums] = useState<{ id: string; name: string }[]>([]);
