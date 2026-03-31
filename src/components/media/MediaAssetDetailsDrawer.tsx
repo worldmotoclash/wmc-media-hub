@@ -351,8 +351,8 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
               <h4 className="text-sm font-medium mb-3 flex items-center gap-2"><Link2 className="w-4 h-4 text-muted-foreground" />Salesforce Integration</h4>
               <div className="space-y-2">
                 {getSyncStatusBadge()}
-                {asset.salesforceId && <p className="text-xs text-muted-foreground">ID: {asset.salesforceId}</p>}
-                {!asset.salesforceId && (
+                {localSalesforceId && <p className="text-xs text-muted-foreground">ID: {localSalesforceId}</p>}
+                {!localSalesforceId && (
                   <Button
                     size="sm"
                     variant="outline"
