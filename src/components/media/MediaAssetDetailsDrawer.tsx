@@ -61,6 +61,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSyncingToSfdc, setIsSyncingToSfdc] = useState(false);
+  const [localSalesforceId, setLocalSalesforceId] = useState<string | null>(asset?.salesforceId || null);
   const { isEditor } = useUser();
 
   // Fetch albums on mount
@@ -85,6 +86,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
     if (asset) {
       setIsPodcast(asset.metadata?.isPodcast === true);
       setLocalStatus(asset.status || 'pending');
+      setLocalSalesforceId(asset.salesforceId || null);
     }
   }, [asset]);
 
@@ -152,9 +154,9 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
     }
   };
 
-  const getSyncStatusBadge = () => asset.salesforceId
-    ? <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20"><CheckCircle className="w-3 h-3 mr-1" />Synced to Salesforce</Badge>
-    : <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20"><AlertTriangle className="w-3 h-3 mr-1" />Not synced</Badge>;
+  const getSyncStatusBadge = () => localSalesforceId
+    ? <Badge variant="outline" className="bg-green-600 text-white border-green-700"><CheckCircle className="w-3 h-3 mr-1" />Synced to Salesforce</Badge>
+    : <Badge variant="outline" className="bg-yellow-600 text-white border-yellow-700"><AlertTriangle className="w-3 h-3 mr-1" />Not synced</Badge>;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -309,7 +311,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
             {/* Status — mapped to ri1__Content_Approved__c */}
             <div>
               <h4 className="text-sm font-medium mb-3">Approval Status</h4>
-              {asset.salesforceId ? (
+              {localSalesforceId ? (
                 <Select
                   value={localStatus}
                   onValueChange={async (newStatus) => {
@@ -349,18 +351,24 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
               <h4 className="text-sm font-medium mb-3 flex items-center gap-2"><Link2 className="w-4 h-4 text-muted-foreground" />Salesforce Integration</h4>
               <div className="space-y-2">
                 {getSyncStatusBadge()}
-                {asset.salesforceId && <p className="text-xs text-muted-foreground">ID: {asset.salesforceId}</p>}
-                {!asset.salesforceId && (
+                {localSalesforceId && <p className="text-xs text-muted-foreground">ID: {localSalesforceId}</p>}
+                {!localSalesforceId && (
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={async () => {
                       setIsSyncingToSfdc(true);
                       try {
-                        const { error } = await supabase.functions.invoke('sync-asset-to-salesforce', {
+                        const { data, error } = await supabase.functions.invoke('sync-asset-to-salesforce', {
                           body: { assetIds: [asset.id] }
                         });
                         if (error) throw error;
+                        // Parse sync response to update local state immediately
+                        const result = data?.results?.[0];
+                        if (result?.salesforceId) {
+                          setLocalSalesforceId(result.salesforceId);
+                          setLocalStatus('Pending');
+                        }
                         toast.success('Asset synced to Salesforce');
                         onAssetUpdated?.();
                       } catch (err: any) {
