@@ -82,8 +82,8 @@ async function findSalesforceMatch(cdnUrl: string, xmlCache?: string, title?: st
   // Strategy 2: Filename match (compare last path segment, case-insensitive)
   if (assetFilename) {
     for (const block of contentBlocks) {
-      const urlMatch = block.match(/<ri1__URL__c>([^<]+)<\/ri1__URL__c>/) || 
-                       block.match(/<url>([^<]+)<\/url>/);
+      const urlMatch = block.match(/<ri1__URL__c>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/ri1__URL__c>/) || 
+                       block.match(/<url>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/url>/);
       if (urlMatch && urlMatch[1]) {
         const sfdcFilename = urlMatch[1].trim().split('/').pop()?.split('?')[0]?.toLowerCase() || '';
         if (sfdcFilename && sfdcFilename === assetFilename) {
