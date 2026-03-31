@@ -35,7 +35,7 @@ async function findSalesforceMatch(cdnUrl: string, xmlCache?: string, title?: st
   
   if (!xmlText) {
     try {
-      const apiUrl = `${WMC_CONTENT_API}?orgId=${ORG_ID}&sandbox=False`;
+      const apiUrl = `${WMC_CONTENT_API}?orgId=${ORG_ID}&sandbox=False&_t=${Date.now()}`;
       console.log(`Querying API: ${apiUrl}`);
       
       const response = await fetch(apiUrl);
