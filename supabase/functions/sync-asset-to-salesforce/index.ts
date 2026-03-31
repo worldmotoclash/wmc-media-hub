@@ -63,7 +63,7 @@ async function findSalesforceMatch(cdnUrl: string, xmlCache?: string, title?: st
   function extractFromBlock(block: string, strategy: string): { id: string; approvalStatus: string } | null {
     const idMatch = block.match(/<id>([^<]+)<\/id>/);
     if (idMatch && idMatch[1]) {
-      const approvalMatch = block.match(/<ri1__Content_Approved__c>([^<]*)<\/ri1__Content_Approved__c>/);
+      const approvalMatch = block.match(/<approved>([^<]*)<\/approved>/);
       const approvalStatus = approvalMatch ? approvalMatch[1].trim() : 'Pending';
       console.log(`${strategy}: Found Salesforce ID: ${idMatch[1].trim()}, approval: ${approvalStatus}`);
       return { id: idMatch[1].trim(), approvalStatus };
