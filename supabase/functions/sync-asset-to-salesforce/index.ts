@@ -400,7 +400,7 @@ serve(async (req) => {
       }
 
       // First, check if the record already exists in Salesforce
-      let salesforceId = await findSalesforceIdByUrl(asset.file_url, apiXml);
+      let salesforceId = await findSalesforceIdByUrl(asset.file_url, apiXml, asset.title);
       
       if (salesforceId) {
         console.log(`Found existing Salesforce record: ${salesforceId}`);
