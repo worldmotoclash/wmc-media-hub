@@ -593,10 +593,10 @@ export const UnifiedMediaLibrary: React.FC = () => {
     const s = (status || '').toLowerCase();
     switch (s) {
       case 'approved':
-      case 'ready': return 'bg-green-500/10 text-green-600 border-green-500/20';
-      case 'pending': return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20';
-      case 'rejected': return 'bg-red-500/10 text-red-600 border-red-500/20';
-      default: return 'bg-gray-500/10 text-gray-600 border-gray-500/20';
+      case 'ready': return 'bg-green-600 text-white border-green-700';
+      case 'pending': return 'bg-yellow-600 text-white border-yellow-700';
+      case 'rejected': return 'bg-red-600 text-white border-red-700';
+      default: return 'bg-gray-600 text-white border-gray-700';
     }
   };
 
