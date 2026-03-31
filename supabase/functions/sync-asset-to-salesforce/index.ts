@@ -19,6 +19,7 @@ interface SyncRequest {
   assetId?: string;
   assetIds?: string[];
   creatorContactId?: string;
+  status?: string; // Push a new ri1__Content_Approved__c value to SFDC
 }
 
 // Helper function to escape special regex characters
@@ -26,8 +27,8 @@ function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Query the wmc-content-master API to find a Salesforce ID by matching URL, filename, or title
-async function findSalesforceIdByUrl(cdnUrl: string, xmlCache?: string, title?: string): Promise<string | null> {
+// Query the wmc-content-master API to find a Salesforce ID and approval status by matching URL, filename, or title
+async function findSalesforceMatch(cdnUrl: string, xmlCache?: string, title?: string): Promise<{ id: string; approvalStatus: string } | null> {
   console.log(`Searching for Salesforce ID matching URL: ${cdnUrl}${title ? `, title: ${title}` : ''}`);
   
   let xmlText = xmlCache;
@@ -58,31 +59,36 @@ async function findSalesforceIdByUrl(cdnUrl: string, xmlCache?: string, title?: 
   // Extract filename from the asset URL for fallback matching
   const assetFilename = cdnUrl.split('/').pop()?.split('?')[0]?.toLowerCase() || '';
   
+  // Helper to extract result from a matched block
+  function extractFromBlock(block: string, strategy: string): { id: string; approvalStatus: string } | null {
+    const idMatch = block.match(/<id>([^<]+)<\/id>/);
+    if (idMatch && idMatch[1]) {
+      const approvalMatch = block.match(/<ri1__Content_Approved__c>([^<]*)<\/ri1__Content_Approved__c>/);
+      const approvalStatus = approvalMatch ? approvalMatch[1].trim() : 'Pending';
+      console.log(`${strategy}: Found Salesforce ID: ${idMatch[1].trim()}, approval: ${approvalStatus}`);
+      return { id: idMatch[1].trim(), approvalStatus };
+    }
+    return null;
+  }
+
   // Strategy 1: Exact URL match
   for (const block of contentBlocks) {
     if (block.includes(cdnUrl)) {
-      const idMatch = block.match(/<id>([^<]+)<\/id>/);
-      if (idMatch && idMatch[1]) {
-        console.log(`Strategy 1 (exact URL): Found Salesforce ID: ${idMatch[1].trim()}`);
-        return idMatch[1].trim();
-      }
+      const result = extractFromBlock(block, 'Strategy 1 (exact URL)');
+      if (result) return result;
     }
   }
 
   // Strategy 2: Filename match (compare last path segment, case-insensitive)
   if (assetFilename) {
     for (const block of contentBlocks) {
-      // Extract URLs from the block and compare filenames
       const urlMatch = block.match(/<ri1__URL__c>([^<]+)<\/ri1__URL__c>/) || 
                        block.match(/<url>([^<]+)<\/url>/);
       if (urlMatch && urlMatch[1]) {
         const sfdcFilename = urlMatch[1].trim().split('/').pop()?.split('?')[0]?.toLowerCase() || '';
         if (sfdcFilename && sfdcFilename === assetFilename) {
-          const idMatch = block.match(/<id>([^<]+)<\/id>/);
-          if (idMatch && idMatch[1]) {
-            console.log(`Strategy 2 (filename "${assetFilename}"): Found Salesforce ID: ${idMatch[1].trim()}`);
-            return idMatch[1].trim();
-          }
+          const result = extractFromBlock(block, `Strategy 2 (filename "${assetFilename}")`);
+          if (result) return result;
         }
       }
     }
@@ -96,11 +102,8 @@ async function findSalesforceIdByUrl(cdnUrl: string, xmlCache?: string, title?: 
       if (nameMatch && nameMatch[1]) {
         const sfdcName = nameMatch[1].trim().toLowerCase();
         if (sfdcName === normalizedTitle) {
-          const idMatch = block.match(/<id>([^<]+)<\/id>/);
-          if (idMatch && idMatch[1]) {
-            console.log(`Strategy 3 (title "${title}"): Found Salesforce ID: ${idMatch[1].trim()}`);
-            return idMatch[1].trim();
-          }
+          const result = extractFromBlock(block, `Strategy 3 (title "${title}")`);
+          if (result) return result;
         }
       }
     }
@@ -131,6 +134,7 @@ interface SfdcSyncMetadata {
   negativeConstraints?: string[];
   creatorContactId?: string;
   contentIntent?: string;
+  approvalStatus?: string;
 }
 
 // Update an existing Salesforce Content record via w2x-engine
@@ -157,6 +161,10 @@ async function updateSalesforceRecord(
     }
     if (metadata?.contentIntent) {
       formData.append("string_ri1__Content_Intent__c", metadata.contentIntent);
+    }
+    if (metadata?.approvalStatus) {
+      formData.append("string_ri1__Content_Approved__c", metadata.approvalStatus);
+      console.log(`Pushing approval status to SFDC: ${metadata.approvalStatus}`);
     }
 
     const response = await fetch(W2X_ENGINE_URL, {
@@ -298,6 +306,7 @@ serve(async (req) => {
     const payload: SyncRequest = await req.json();
     const assetIds = payload.assetIds || (payload.assetId ? [payload.assetId] : []);
     const creatorContactId = payload.creatorContactId;
+    const requestedStatus = payload.status; // e.g. "Approved", "Pending", "Rejected"
     
     if (assetIds.length === 0) {
       return new Response(
@@ -376,9 +385,19 @@ serve(async (req) => {
           description: asset.description,
           categories: tagNames.length > 0 ? tagNames : assetMetadata.categories,
           contentIntent: assetMetadata.contentIntent,
+          approvalStatus: requestedStatus,
         };
 
         const updated = await updateSalesforceRecord(asset.salesforce_id, asset.title, syncMetadata);
+
+        // If status was pushed, also update local cache
+        if (updated && requestedStatus) {
+          await supabase
+            .from('media_assets')
+            .update({ status: requestedStatus })
+            .eq('id', asset.id);
+          console.log(`Updated local status cache to: ${requestedStatus}`);
+        }
 
         results.push({
           assetId: asset.id,
@@ -400,16 +419,17 @@ serve(async (req) => {
       }
 
       // First, check if the record already exists in Salesforce
-      let salesforceId = await findSalesforceIdByUrl(asset.file_url, apiXml, asset.title);
+      const sfdcMatch = await findSalesforceMatch(asset.file_url, apiXml, asset.title);
       
-      if (salesforceId) {
-        console.log(`Found existing Salesforce record: ${salesforceId}`);
+      if (sfdcMatch) {
+        console.log(`Found existing Salesforce record: ${sfdcMatch.id}, approval: ${sfdcMatch.approvalStatus}`);
         
-        // Update the asset with the found ID
+        // Update the asset with the found ID and cached approval status
         const { error: updateError } = await supabase
           .from("media_assets")
           .update({
-            salesforce_id: salesforceId,
+            salesforce_id: sfdcMatch.id,
+            status: sfdcMatch.approvalStatus || 'Pending',
             metadata: {
               ...asset.metadata,
               sfdcSyncStatus: 'success',
@@ -425,7 +445,7 @@ serve(async (req) => {
         results.push({
           assetId: asset.id,
           success: true,
-          salesforceId,
+          salesforceId: sfdcMatch.id,
           action: 'found',
         });
         continue;
@@ -513,15 +533,16 @@ serve(async (req) => {
         console.error("Error refreshing API:", error);
       }
       
-      salesforceId = await findSalesforceIdByUrl(asset.file_url, apiXml, asset.title);
+      const postCreateMatch = await findSalesforceMatch(asset.file_url, apiXml, asset.title);
       
-      if (salesforceId) {
-        console.log(`Successfully synced, Salesforce ID: ${salesforceId}`);
+      if (postCreateMatch) {
+        console.log(`Successfully synced, Salesforce ID: ${postCreateMatch.id}`);
         
         await supabase
           .from("media_assets")
           .update({
-            salesforce_id: salesforceId,
+            salesforce_id: postCreateMatch.id,
+            status: SYNC_APPROVAL_STATUS,
             metadata: {
               ...asset.metadata,
               sfdcSyncStatus: 'success',
@@ -535,7 +556,7 @@ serve(async (req) => {
         results.push({
           assetId: asset.id,
           success: true,
-          salesforceId,
+          salesforceId: postCreateMatch.id,
           action: 'created',
         });
       } else {

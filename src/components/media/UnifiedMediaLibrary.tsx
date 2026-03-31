@@ -590,7 +590,8 @@ export const UnifiedMediaLibrary: React.FC = () => {
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
+    const s = (status || '').toLowerCase();
+    switch (s) {
       case 'approved':
       case 'ready': return 'bg-green-500/10 text-green-600 border-green-500/20';
       case 'pending': return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20';
