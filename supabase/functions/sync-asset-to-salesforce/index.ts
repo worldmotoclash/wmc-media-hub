@@ -26,9 +26,9 @@ function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Query the wmc-content-master API to find a Salesforce ID by matching URL
-async function findSalesforceIdByUrl(cdnUrl: string, xmlCache?: string): Promise<string | null> {
-  console.log(`Searching for Salesforce ID matching URL: ${cdnUrl}`);
+// Query the wmc-content-master API to find a Salesforce ID by matching URL, filename, or title
+async function findSalesforceIdByUrl(cdnUrl: string, xmlCache?: string, title?: string): Promise<string | null> {
+  console.log(`Searching for Salesforce ID matching URL: ${cdnUrl}${title ? `, title: ${title}` : ''}`);
   
   let xmlText = xmlCache;
   
@@ -51,23 +51,62 @@ async function findSalesforceIdByUrl(cdnUrl: string, xmlCache?: string): Promise
     }
   }
   
-  // Find all content blocks and check URLs
+  // Find all content blocks
   const contentBlocks = xmlText.match(/<content>[\s\S]*?<\/content>/g) || [];
-  console.log(`Found ${contentBlocks.length} content blocks, searching for URL match...`);
+  console.log(`Found ${contentBlocks.length} content blocks, searching for match...`);
+
+  // Extract filename from the asset URL for fallback matching
+  const assetFilename = cdnUrl.split('/').pop()?.split('?')[0]?.toLowerCase() || '';
   
+  // Strategy 1: Exact URL match
   for (const block of contentBlocks) {
-    // Check if this block contains our URL
     if (block.includes(cdnUrl)) {
-      // Extract ID from this block
       const idMatch = block.match(/<id>([^<]+)<\/id>/);
       if (idMatch && idMatch[1]) {
-        const salesforceId = idMatch[1].trim();
-        console.log(`Found Salesforce ID: ${salesforceId}`);
-        return salesforceId;
+        console.log(`Strategy 1 (exact URL): Found Salesforce ID: ${idMatch[1].trim()}`);
+        return idMatch[1].trim();
+      }
+    }
+  }
+
+  // Strategy 2: Filename match (compare last path segment, case-insensitive)
+  if (assetFilename) {
+    for (const block of contentBlocks) {
+      // Extract URLs from the block and compare filenames
+      const urlMatch = block.match(/<ri1__URL__c>([^<]+)<\/ri1__URL__c>/) || 
+                       block.match(/<url>([^<]+)<\/url>/);
+      if (urlMatch && urlMatch[1]) {
+        const sfdcFilename = urlMatch[1].trim().split('/').pop()?.split('?')[0]?.toLowerCase() || '';
+        if (sfdcFilename && sfdcFilename === assetFilename) {
+          const idMatch = block.match(/<id>([^<]+)<\/id>/);
+          if (idMatch && idMatch[1]) {
+            console.log(`Strategy 2 (filename "${assetFilename}"): Found Salesforce ID: ${idMatch[1].trim()}`);
+            return idMatch[1].trim();
+          }
+        }
+      }
+    }
+  }
+
+  // Strategy 3: Title match against SFDC <name> field (case-insensitive)
+  if (title) {
+    const normalizedTitle = title.trim().toLowerCase();
+    for (const block of contentBlocks) {
+      const nameMatch = block.match(/<name>([^<]+)<\/name>/);
+      if (nameMatch && nameMatch[1]) {
+        const sfdcName = nameMatch[1].trim().toLowerCase();
+        if (sfdcName === normalizedTitle) {
+          const idMatch = block.match(/<id>([^<]+)<\/id>/);
+          if (idMatch && idMatch[1]) {
+            console.log(`Strategy 3 (title "${title}"): Found Salesforce ID: ${idMatch[1].trim()}`);
+            return idMatch[1].trim();
+          }
+        }
       }
     }
   }
   
+  console.log('No match found across all strategies');
   return null;
 }
 
@@ -361,7 +400,7 @@ serve(async (req) => {
       }
 
       // First, check if the record already exists in Salesforce
-      let salesforceId = await findSalesforceIdByUrl(asset.file_url, apiXml);
+      let salesforceId = await findSalesforceIdByUrl(asset.file_url, apiXml, asset.title);
       
       if (salesforceId) {
         console.log(`Found existing Salesforce record: ${salesforceId}`);
@@ -474,7 +513,7 @@ serve(async (req) => {
         console.error("Error refreshing API:", error);
       }
       
-      salesforceId = await findSalesforceIdByUrl(asset.file_url, apiXml);
+      salesforceId = await findSalesforceIdByUrl(asset.file_url, apiXml, asset.title);
       
       if (salesforceId) {
         console.log(`Successfully synced, Salesforce ID: ${salesforceId}`);
