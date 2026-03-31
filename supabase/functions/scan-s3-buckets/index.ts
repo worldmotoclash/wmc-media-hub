@@ -416,16 +416,25 @@ serve(async (req) => {
         const BATCH_DELAY_MS = 200; // 200ms pause between batches
         
         // Pre-fetch existing assets for ETag comparison to skip unchanged files faster
+        // Query ALL sources (not just s3_bucket) so we detect generated/local_upload records
+        // that share the same s3_key and avoid creating duplicates
         const { data: existingAssetsWithMetadata } = await supabase
           .from('media_assets')
-          .select('id, source_id, metadata, album_id')
-          .eq('source', 's3_bucket');
+          .select('id, source_id, metadata, album_id, s3_key, salesforce_id')
+          .not('s3_key', 'is', null);
         
-        const existingAssetMap = new Map<string, { id: string; etag?: string; album_id?: string | null }>();
+        const existingAssetMap = new Map<string, { id: string; etag?: string; album_id?: string | null; salesforce_id?: string | null }>();
         if (existingAssetsWithMetadata) {
           for (const asset of existingAssetsWithMetadata) {
             const etag = (asset.metadata as any)?.etag;
-            existingAssetMap.set(asset.source_id, { id: asset.id, etag, album_id: asset.album_id });
+            const key = asset.s3_key || asset.source_id;
+            if (key) {
+              // If multiple records share same key, prefer the one with a salesforce_id
+              const existing = existingAssetMap.get(key);
+              if (!existing || (!existing.salesforce_id && asset.salesforce_id)) {
+                existingAssetMap.set(key, { id: asset.id, etag, album_id: asset.album_id, salesforce_id: asset.salesforce_id });
+              }
+            }
           }
         }
         console.log(`[SCAN] Pre-loaded ${existingAssetMap.size} existing assets for ETag comparison`);
@@ -543,14 +552,14 @@ serve(async (req) => {
                   failedMedia++;
                 }
               } else {
-                // Check for existing record by s3_key first (covers local_upload records)
+                // Check for existing record by s3_key first (covers generated/local_upload records)
                 const { data: byS3Key } = await supabase
                   .from('media_assets')
                   .select('id')
                   .eq('s3_key', obj.Key)
-                  .maybeSingle();
+                  .limit(1);
 
-                if (byS3Key) {
+                if (byS3Key && byS3Key.length > 0) {
                   skippedMedia++;
                   continue;
                 }
@@ -625,6 +634,87 @@ serve(async (req) => {
           // Pause between batches to avoid CPU timeout
           if (batchStart + BATCH_SIZE < mediaObjects.length) {
             await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+          }
+        }
+
+        // --- Dedup: remove s3_bucket duplicates where a generated/local_upload record exists ---
+        try {
+          const { data: allWithS3Key } = await supabase
+            .from('media_assets')
+            .select('id, s3_key, source, salesforce_id')
+            .not('s3_key', 'is', null);
+
+          if (allWithS3Key) {
+            const keyGroups = new Map<string, typeof allWithS3Key>();
+            for (const a of allWithS3Key) {
+              const group = keyGroups.get(a.s3_key!) || [];
+              group.push(a);
+              keyGroups.set(a.s3_key!, group);
+            }
+
+            const dupIdsToDelete: string[] = [];
+            for (const [key, group] of keyGroups) {
+              if (group.length <= 1) continue;
+              // Keep the record that has a salesforce_id, or is 'generated', or first non-s3_bucket
+              const keeper = group.find(a => a.salesforce_id) 
+                || group.find(a => a.source !== 's3_bucket')
+                || group[0];
+              for (const a of group) {
+                if (a.id !== keeper.id) {
+                  dupIdsToDelete.push(a.id);
+                }
+              }
+            }
+
+            if (dupIdsToDelete.length > 0) {
+              console.log(`[DEDUP] Removing ${dupIdsToDelete.length} duplicate records`);
+              for (let i = 0; i < dupIdsToDelete.length; i += 100) {
+                const batch = dupIdsToDelete.slice(i, i + 100);
+                await supabase.from('media_assets').delete().in('id', batch);
+              }
+              removedMedia += dupIdsToDelete.length;
+            }
+          }
+        } catch (dedupErr: any) {
+          console.error('[DEDUP] Error:', dedupErr?.message || dedupErr);
+        }
+
+        // --- Auto-sync new assets to Salesforce ---
+        // Collect IDs of newly created assets that need SFDC records
+        if (newMedia > 0 && existingAssetsWithMetadata) {
+          try {
+            // Re-query for assets created during this scan that lack a salesforce_id
+            const { data: unsyncedAssets } = await supabase
+              .from('media_assets')
+              .select('id')
+              .eq('source', 's3_bucket')
+              .is('salesforce_id', null)
+              .not('file_url', 'is', null)
+              .limit(500);
+
+            if (unsyncedAssets && unsyncedAssets.length > 0) {
+              const newAssetIds = unsyncedAssets.map(a => a.id);
+              console.log(`[SYNC] Triggering SFDC sync for ${newAssetIds.length} new assets`);
+
+              const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+              const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+              // Fire-and-forget – don't block scan completion
+              fetch(`${supabaseUrl}/functions/v1/sync-asset-to-salesforce`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${serviceKey}`,
+                },
+                body: JSON.stringify({ assetIds: newAssetIds }),
+              }).then(res => {
+                console.log(`[SYNC] SFDC sync response: ${res.status}`);
+              }).catch(err => {
+                console.error('[SYNC] SFDC sync call failed:', err?.message || err);
+              });
+            }
+          } catch (syncErr: any) {
+            console.error('[SYNC] Error triggering SFDC sync:', syncErr?.message || syncErr);
           }
         }
 
