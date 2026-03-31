@@ -552,14 +552,14 @@ serve(async (req) => {
                   failedMedia++;
                 }
               } else {
-                // Check for existing record by s3_key first (covers local_upload records)
+                // Check for existing record by s3_key first (covers generated/local_upload records)
                 const { data: byS3Key } = await supabase
                   .from('media_assets')
                   .select('id')
                   .eq('s3_key', obj.Key)
-                  .maybeSingle();
+                  .limit(1);
 
-                if (byS3Key) {
+                if (byS3Key && byS3Key.length > 0) {
                   skippedMedia++;
                   continue;
                 }
