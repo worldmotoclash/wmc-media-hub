@@ -385,9 +385,19 @@ serve(async (req) => {
           description: asset.description,
           categories: tagNames.length > 0 ? tagNames : assetMetadata.categories,
           contentIntent: assetMetadata.contentIntent,
+          approvalStatus: requestedStatus,
         };
 
         const updated = await updateSalesforceRecord(asset.salesforce_id, asset.title, syncMetadata);
+
+        // If status was pushed, also update local cache
+        if (updated && requestedStatus) {
+          await supabase
+            .from('media_assets')
+            .update({ status: requestedStatus })
+            .eq('id', asset.id);
+          console.log(`Updated local status cache to: ${requestedStatus}`);
+        }
 
         results.push({
           assetId: asset.id,
