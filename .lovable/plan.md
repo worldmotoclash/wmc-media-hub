@@ -1,41 +1,17 @@
+# Fix: Status Dropdown Not Updating After Save
 
+## Problem
 
-# Fix: Assets Already in Salesforce Not Detected as Synced
+The `Select` dropdown uses `asset.status` (a prop) as its value. After the DB update succeeds and `onAssetUpdated?.()` is called, the parent refetches data — but the prop-driven value doesn't reflect the change until the drawer is re-opened or the parent finishes its async refetch. The dropdown visually stays on the old value.
 
-## Root Cause
+## Fix
 
-The sync function (`sync-asset-to-salesforce`) matches assets to Salesforce records using **exact URL matching only** (`block.includes(cdnUrl)`). This fails when:
+`**src/components/media/MediaAssetDetailsDrawer.tsx**`
 
-- The local `file_url` is a Wasabi direct URL (`https://s3.us-east-1.wasabisys.com/...`)
-- The Salesforce record stores a CDN URL (`https://media.worldmotoclash.com/...`)
-- The asset was uploaded locally and the SFDC record was created independently
+1. Add a `localStatus` state variable initialized from `asset.status`, synced via `useEffect` when `asset` changes.
+2. Change the `Select` value to use `localStatus` instead of `asset.status`.
+3. On successful save, update `localStatus` immediately (optimistic update) before calling `onAssetUpdated?.()`.
 
-Since the URLs don't match, the function thinks no SFDC record exists, creates a **duplicate** record, and the original match is never established.
+~5 lines added/changed. Same file only.   
 
-## Fix — Multi-Strategy Matching in `sync-asset-to-salesforce`
-
-**File: `supabase/functions/sync-asset-to-salesforce/index.ts`**
-
-Enhance `findSalesforceIdByUrl` with three fallback strategies:
-
-1. **Exact URL match** (existing, keep as-is)
-2. **Filename match** — extract the filename from both the asset's `file_url` and each SFDC record's URL, compare case-insensitively. For example, `WMC_SIZZLE_MEDIA_PITCH_VER_8.mp4` would match regardless of domain/path prefix.
-3. **Title match** — accept the asset title as a parameter and compare against the SFDC record's `<name>` field (case-insensitive, trimmed). This catches cases like "WMC SIZZLE MEDIA PITCH VER 8" matching the SFDC Name field exactly.
-
-The function signature changes to:
-```
-findSalesforceIdByUrl(cdnUrl, xmlCache, title?)
-```
-
-Each strategy runs in order; first match wins. This prevents duplicate SFDC record creation for assets that already exist there.
-
-**Additional change**: At line 364 where the function is called, pass `asset.title` as the third argument so title matching is used.
-
-## Summary
-
-| File | Change |
-|------|--------|
-| `supabase/functions/sync-asset-to-salesforce/index.ts` | Add filename and title fallback matching to `findSalesforceIdByUrl`; pass title at call site |
-
-One file, ~30 lines added. No new dependencies.
-
+And SFDC show Pending? Not Ready or Approved?
