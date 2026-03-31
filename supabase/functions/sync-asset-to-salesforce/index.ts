@@ -419,16 +419,17 @@ serve(async (req) => {
       }
 
       // First, check if the record already exists in Salesforce
-      let salesforceId = await findSalesforceIdByUrl(asset.file_url, apiXml, asset.title);
+      const sfdcMatch = await findSalesforceMatch(asset.file_url, apiXml, asset.title);
       
-      if (salesforceId) {
-        console.log(`Found existing Salesforce record: ${salesforceId}`);
+      if (sfdcMatch) {
+        console.log(`Found existing Salesforce record: ${sfdcMatch.id}, approval: ${sfdcMatch.approvalStatus}`);
         
-        // Update the asset with the found ID
+        // Update the asset with the found ID and cached approval status
         const { error: updateError } = await supabase
           .from("media_assets")
           .update({
-            salesforce_id: salesforceId,
+            salesforce_id: sfdcMatch.id,
+            status: sfdcMatch.approvalStatus || 'Pending',
             metadata: {
               ...asset.metadata,
               sfdcSyncStatus: 'success',
@@ -444,7 +445,7 @@ serve(async (req) => {
         results.push({
           assetId: asset.id,
           success: true,
-          salesforceId,
+          salesforceId: sfdcMatch.id,
           action: 'found',
         });
         continue;
