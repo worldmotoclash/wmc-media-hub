@@ -1176,7 +1176,7 @@ const MediaUpload: React.FC = () => {
                               {isDragOver ? 'Drop your file here' : 'Drag & drop video, image, or audio files'}
                             </p>
                             <p className="text-xs text-muted-foreground mb-3">
-                              Video up to 500MB • Audio up to 100MB • Images up to 50MB
+                              Video up to 500MB • Audio up to 100MB • Images up to 500MB
                             </p>
                             <Button variant="outline" type="button" onClick={(e) => {
                               e.stopPropagation();
