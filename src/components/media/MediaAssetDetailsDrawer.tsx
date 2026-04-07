@@ -351,7 +351,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
               <h4 className="text-sm font-medium mb-3 flex items-center gap-2"><Link2 className="w-4 h-4 text-muted-foreground" />Salesforce Integration</h4>
               <div className="space-y-2">
                 {getSyncStatusBadge()}
-                {localSalesforceId && <p className="text-xs text-muted-foreground">ID: {localSalesforceId}</p>}
+                {localSalesforceId && <a href={`https://worldmotoclash.my.salesforce.com/${localSalesforceId}`} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300 underline block">ID: {localSalesforceId}</a>}
                 {!localSalesforceId && (
                   <Button
                     size="sm"
