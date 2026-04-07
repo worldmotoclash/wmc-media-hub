@@ -1,28 +1,33 @@
 
 
-# Fix: Redeploy sync-asset-to-salesforce Edge Function
+# Add "Retry All SFDC Sync" Button
 
-## Problem
+## What
+Add a button to the media library toolbar that syncs **all** assets missing a `salesforce_id` to Salesforce in one click — not just selected ones.
 
-The bulk upload correctly sends all 5 asset IDs to `sync-asset-to-salesforce`, but the edge function is returning **HTTP 404** — meaning it's not currently deployed. The edge function logs confirm the request was received but got a 404 response (execution time: 436ms, which is too fast for any real processing).
+## Where
+The `MediaSourceDashboard` component already has a "Sync to SFDC" button inside the collapsible panel, but it's hidden when collapsed. We'll add a prominent "Retry All" button in two places:
 
-This is why the assets show "No SFDC" — the sync call silently fails.
+1. **MediaSourceDashboard collapsed summary** — show a "Retry All" button next to the issues badge when the panel is collapsed and there are missing SFDC records
+2. **Bulk Action Bar in UnifiedMediaLibrary** — add a "Sync to SFDC" button when selected assets include any without a `salesforce_id`
 
-## Fix
+## Changes
 
-**One step**: Redeploy the `sync-asset-to-salesforce` edge function. No code changes needed — the function code is correct and already handles batch `assetIds`. It just needs to be redeployed.
+### 1. `src/components/media/MediaSourceDashboard.tsx`
+- In the collapsed header (around line 130), when `syncHealth.missingSfdc > 0`, add a "Retry All" button next to the issues badge
+- Button calls existing `handleSyncMissing()` — no new logic needed
+- Style: small outline button with `CloudUpload` icon, stops event propagation so it doesn't toggle the collapsible
 
-After deployment, the existing 5 assets can be re-synced by either:
-1. Clicking "Sync to SFDC" on each asset in the details drawer
-2. Or triggering a bulk re-sync (we could add a "Retry SFDC Sync" button for assets with "No SFDC" status)
-
-### Optional Enhancement: Add "Retry All" Button
-
-Add a button on the media library to re-trigger SFDC sync for all assets missing a `salesforce_id`. This would invoke the same edge function with all unsynced asset IDs in one call.
+### 2. `src/components/media/UnifiedMediaLibrary.tsx`
+- In the Bulk Action Bar (line 1271), add a "Sync to SFDC" button that syncs selected assets missing `salesforce_id`
+- Filter `selectedAssetIds` to those where `salesforce_id` is null, invoke `sync-asset-to-salesforce` with those IDs
+- Add state for `isBulkSyncing` to show spinner
+- After sync completes, refresh the asset list
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `supabase/functions/sync-asset-to-salesforce/index.ts` | Redeploy (no code changes) |
+| `src/components/media/MediaSourceDashboard.tsx` | Add "Retry All" button in collapsed header |
+| `src/components/media/UnifiedMediaLibrary.tsx` | Add "Sync to SFDC" button in bulk action bar for selected unsynced assets |
 
