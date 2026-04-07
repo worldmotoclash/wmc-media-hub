@@ -152,6 +152,7 @@ async function updateSalesforceRecord(
     formData.append("action", "update");
     formData.append("Id", salesforceId);
     formData.append("string_Name", title);
+    console.log(`Update payload → title="${title}", description="${metadata?.description?.substring(0, 80) || '(empty)'}", tags="${metadata?.categories?.join(';') || '(none)'}"`);
 
     if (metadata?.description) {
       formData.append("string_ri1__Description__c", metadata.description.substring(0, 32768));
@@ -401,6 +402,7 @@ serve(async (req) => {
           contentIntent: assetMetadata.contentIntent,
           approvalStatus: requestedStatus,
         };
+        console.log(`Sync metadata for ${asset.id}: description=${syncMetadata.description ? 'YES (' + syncMetadata.description.length + ' chars)' : 'NULL'}, tags=${syncMetadata.categories?.length || 0}`);
 
         const updated = await updateSalesforceRecord(asset.salesforce_id, asset.title, syncMetadata);
 
