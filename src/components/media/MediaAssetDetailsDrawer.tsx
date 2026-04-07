@@ -368,8 +368,31 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
                         if (result?.salesforceId) {
                           setLocalSalesforceId(result.salesforceId);
                           setLocalStatus('Pending');
+                          toast.success('Asset synced to Salesforce');
+                        } else if (result?.action === 'created_pending' || result?.action === 'created') {
+                          toast.info('Record created — resolving Salesforce ID...');
+                          let resolved = false;
+                          for (let i = 0; i < 12; i++) {
+                            await new Promise(r => setTimeout(r, 5000));
+                            const { data: refreshed } = await supabase
+                              .from('media_assets')
+                              .select('salesforce_id')
+                              .eq('id', asset.id)
+                              .single();
+                            if (refreshed?.salesforce_id) {
+                              setLocalSalesforceId(refreshed.salesforce_id);
+                              setLocalStatus('Pending');
+                              toast.success('Salesforce ID resolved');
+                              resolved = true;
+                              break;
+                            }
+                          }
+                          if (!resolved) {
+                            toast.info('SFDC record created — ID will appear shortly. Refresh to check.');
+                          }
+                        } else {
+                          toast.success('Asset synced to Salesforce');
                         }
-                        toast.success('Asset synced to Salesforce');
                         onAssetUpdated?.();
                       } catch (err: any) {
                         console.error('SFDC sync error:', err);
