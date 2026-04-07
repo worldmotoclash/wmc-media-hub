@@ -68,7 +68,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   useEffect(() => {
     const fetchAlbums = async () => {
       const { data } = await supabase.from('media_albums').select('id, name').order('name');
-      if (data) setAlbums(data);
+      if (data) setAlbums(data.sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })));
     };
     fetchAlbums();
   }, []);

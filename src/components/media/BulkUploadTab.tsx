@@ -104,6 +104,7 @@ export const BulkUploadTab: React.FC = () => {
       .map(a => ({ ...a, asset_count: countMap.get(a.id) || 0 }))
       .filter(a => a.asset_count > 0);
 
+    activeAlbums.sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
     if (activeAlbums) setExistingAlbums(activeAlbums);
   }, []);
 
