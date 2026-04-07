@@ -8,6 +8,28 @@ export interface ReleaseNote {
 
 export const releaseNotes: ReleaseNote[] = [
   {
+    version: '2.5.0',
+    date: 'Apr 7, 2026',
+    title: 'Bulk SFDC Sync & Retry All Button',
+    highlights: [
+      '"Retry All" button added to the dashboard header to sync all assets missing a Salesforce ID in one click',
+      'Bulk action bar now includes a "Sync to SFDC" button for syncing selected unsynced assets',
+      'Loading spinner and disabled state feedback during bulk sync operations',
+    ],
+    category: 'feature',
+  },
+  {
+    version: '2.4.0',
+    date: 'Apr 7, 2026',
+    title: 'Post-Sync SFDC ID Polling & Edge Function Fix',
+    highlights: [
+      'After syncing to SFDC, the UI now polls for the asynchronously-resolved Salesforce ID and displays it automatically',
+      'Fixed sync-asset-to-salesforce edge function deployment (was returning 404 for bulk uploads)',
+      'Bulk upload now correctly triggers SFDC sync for all uploaded assets',
+    ],
+    category: 'fix',
+  },
+  {
     version: '2.3.0',
     date: 'Apr 7, 2026',
     title: 'Clickable Salesforce IDs & Post-Sync Polling',
