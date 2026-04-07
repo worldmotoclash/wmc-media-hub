@@ -329,12 +329,10 @@ const MediaUpload: React.FC = () => {
       return;
     }
     
-    // Max 500MB for video, 100MB for audio, 50MB for images
-    const maxSize = file.type.startsWith('video/') ? 500 * 1024 * 1024 : 
-                    file.type.startsWith('audio/') ? 100 * 1024 * 1024 : 
-                    50 * 1024 * 1024;
-    const maxSizeLabel = file.type.startsWith('video/') ? '500MB' : 
-                         file.type.startsWith('audio/') ? '100MB' : '50MB';
+    // Max 500MB for video/images, 100MB for audio
+    const maxSize = file.type.startsWith('audio/') ? 100 * 1024 * 1024 : 
+                    500 * 1024 * 1024;
+    const maxSizeLabel = file.type.startsWith('audio/') ? '100MB' : '500MB';
     
     if (file.size > maxSize) {
       toast({
