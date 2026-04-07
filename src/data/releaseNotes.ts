@@ -8,6 +8,64 @@ export interface ReleaseNote {
 
 export const releaseNotes: ReleaseNote[] = [
   {
+    version: '2.3.0',
+    date: 'Apr 7, 2026',
+    title: 'Clickable Salesforce IDs & Post-Sync Polling',
+    highlights: [
+      'Salesforce IDs in asset details and video preview are now clickable links that open the record in Salesforce',
+      'After syncing to SFDC, the UI polls for the asynchronously-resolved Salesforce ID and displays it automatically',
+      'Album dropdown lists are now sorted alphabetically (case-insensitive) across the entire Media Hub',
+    ],
+    category: 'feature',
+  },
+  {
+    version: '2.2.0',
+    date: 'Apr 1, 2026',
+    title: 'Salesforce Metadata Sync & Description Push',
+    highlights: [
+      'Editing title, description, or tags now pushes updates to Salesforce fields automatically',
+      'Diagnostic logging added to confirm description values reach the w2x-engine endpoint',
+      'Fixed async SFDC ID backfill flow so IDs resolve reliably after record creation',
+    ],
+    category: 'feature',
+  },
+  {
+    version: '2.1.0',
+    date: 'Mar 25, 2026',
+    title: 'Improved SFDC Sync & Status Mapping',
+    highlights: [
+      'Asset status now maps to Salesforce approval field (Pending / Approved / Rejected)',
+      'Fixed w2x-engine redirect handling — 302 responses are correctly detected as success',
+      'Status badge colors updated for better readability in both light and dark modes',
+      'Status dropdown editing UX improved with instant local feedback',
+    ],
+    category: 'improvement',
+  },
+  {
+    version: '2.0.0',
+    date: 'Mar 18, 2026',
+    title: 'Auto-Sync to Salesforce & Manual Sync Button',
+    highlights: [
+      'New uploads are automatically synced to Salesforce on creation',
+      'Manual "Sync to SFDC" button added to asset details for unsynced assets',
+      'S3 scan deduplication prevents duplicate media_asset records on re-scan',
+      'Fixed S3 path resolution and orphan cleanup edge cases',
+    ],
+    category: 'feature',
+  },
+  {
+    version: '1.8.0',
+    date: 'Mar 15, 2026',
+    title: 'Album Sorting & Orphan Cleanup Improvements',
+    highlights: [
+      'Added sort toggle for albums (alphabetical vs. newest first)',
+      'Empty albums are now automatically removed during cleanup',
+      'Orphan deletion payloads fixed for reliable S3 + Salesforce cleanup',
+      'Salesforce health audit function added to detect sync mismatches',
+    ],
+    category: 'improvement',
+  },
+  {
     version: '1.7.0',
     date: 'Mar 13, 2026',
     title: 'Complete Delete: S3 + Salesforce Cleanup',
