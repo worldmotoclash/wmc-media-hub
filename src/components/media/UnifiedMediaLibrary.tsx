@@ -1335,6 +1335,25 @@ export const UnifiedMediaLibrary: React.FC = () => {
                 </>
               )}
             </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleBulkSyncSfdc}
+              disabled={isBulkTagging || isBulkRenaming || isBulkDeleting || isBulkSyncing}
+              className="flex items-center gap-2"
+            >
+              {isBulkSyncing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <CloudUpload className="w-4 h-4" />
+                  Sync to SFDC
+                </>
+              )}
+            </Button>
             {isEditor() && (
               <Button
                 variant="secondary"
