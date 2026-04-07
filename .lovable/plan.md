@@ -1,57 +1,28 @@
 
 
-# Fix "Sync to SFDC" Button — Show SFDC ID After Sync
+# Fix: Redeploy sync-asset-to-salesforce Edge Function
 
 ## Problem
 
-When clicking "Sync to SFDC", the edge function creates the Salesforce record successfully (302 redirect = success), but returns `action: 'created_pending'` **without a `salesforceId`** in the response. The UI code at line 368 checks `if (result?.salesforceId)` — which is always false for new records — so the ID badge never appears.
+The bulk upload correctly sends all 5 asset IDs to `sync-asset-to-salesforce`, but the edge function is returning **HTTP 404** — meaning it's not currently deployed. The edge function logs confirm the request was received but got a 404 response (execution time: 436ms, which is too fast for any real processing).
 
-The SFDC ID is resolved asynchronously by the `backfill-salesforce-ids` function, but the UI doesn't poll for it.
+This is why the assets show "No SFDC" — the sync call silently fails.
 
 ## Fix
 
-After a successful `created_pending` sync, poll the local DB for the `salesforce_id` to appear (the backfill function resolves it within 30-60 seconds). Show a "Pending SFDC ID..." indicator while waiting, then display the clickable link once resolved.
+**One step**: Redeploy the `sync-asset-to-salesforce` edge function. No code changes needed — the function code is correct and already handles batch `assetIds`. It just needs to be redeployed.
 
-### `src/components/media/MediaAssetDetailsDrawer.tsx`
+After deployment, the existing 5 assets can be re-synced by either:
+1. Clicking "Sync to SFDC" on each asset in the details drawer
+2. Or triggering a bulk re-sync (we could add a "Retry SFDC Sync" button for assets with "No SFDC" status)
 
-**In the Sync to SFDC click handler (lines 359-379):**
+### Optional Enhancement: Add "Retry All" Button
 
-After getting a successful response with `action === 'created_pending'`:
-1. Show toast: "Record created — waiting for Salesforce ID..."
-2. Poll `media_assets.salesforce_id` every 5 seconds, up to 12 attempts (60s)
-3. When found, update `localSalesforceId` and show success toast with the clickable link
-4. If timeout, show info toast telling user the ID will appear shortly
+Add a button on the media library to re-trigger SFDC sync for all assets missing a `salesforce_id`. This would invoke the same edge function with all unsynced asset IDs in one call.
 
-```typescript
-// After successful sync response
-if (result?.salesforceId) {
-  setLocalSalesforceId(result.salesforceId);
-} else if (result?.action === 'created_pending') {
-  toast.info('Record created — resolving Salesforce ID...');
-  // Poll for backfilled ID
-  for (let i = 0; i < 12; i++) {
-    await new Promise(r => setTimeout(r, 5000));
-    const { data: refreshed } = await supabase
-      .from('media_assets')
-      .select('salesforce_id')
-      .eq('id', asset.id)
-      .single();
-    if (refreshed?.salesforce_id) {
-      setLocalSalesforceId(refreshed.salesforce_id);
-      toast.success('Salesforce ID resolved');
-      break;
-    }
-  }
-}
-```
-
-**Also update the sync status badge area (line 355):** When `localSalesforceId` is null but sync was triggered, show a "Pending ID..." spinner instead of the "Sync to SFDC" button.
-
-### Files Changed
+## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/media/MediaAssetDetailsDrawer.tsx` | Add post-sync polling for SFDC ID; update UI to show pending state |
-
-One file, ~20 lines added.
+| `supabase/functions/sync-asset-to-salesforce/index.ts` | Redeploy (no code changes) |
 
