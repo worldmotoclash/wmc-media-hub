@@ -1,29 +1,57 @@
 
 
-# Make Salesforce IDs Clickable Links
+# Fix "Sync to SFDC" Button — Show SFDC ID After Sync
 
-## What
-Turn the Salesforce ID text in two locations into clickable links that open the record in Salesforce at `https://worldmotoclash.my.salesforce.com/{id}`.
+## Problem
 
-## Changes
+When clicking "Sync to SFDC", the edge function creates the Salesforce record successfully (302 redirect = success), but returns `action: 'created_pending'` **without a `salesforceId`** in the response. The UI code at line 368 checks `if (result?.salesforceId)` — which is always false for new records — so the ID badge never appears.
 
-### 1. `src/components/media/MediaAssetDetailsDrawer.tsx` (line 354)
-Change the static text `ID: {localSalesforceId}` to a clickable link:
-```tsx
-<a href={`https://worldmotoclash.my.salesforce.com/${localSalesforceId}`}
-   target="_blank" rel="noopener noreferrer"
-   className="text-xs text-blue-400 hover:text-blue-300 underline">
-  ID: {localSalesforceId}
-</a>
+The SFDC ID is resolved asynchronously by the `backfill-salesforce-ids` function, but the UI doesn't poll for it.
+
+## Fix
+
+After a successful `created_pending` sync, poll the local DB for the `salesforce_id` to appear (the backfill function resolves it within 30-60 seconds). Show a "Pending SFDC ID..." indicator while waiting, then display the clickable link once resolved.
+
+### `src/components/media/MediaAssetDetailsDrawer.tsx`
+
+**In the Sync to SFDC click handler (lines 359-379):**
+
+After getting a successful response with `action === 'created_pending'`:
+1. Show toast: "Record created — waiting for Salesforce ID..."
+2. Poll `media_assets.salesforce_id` every 5 seconds, up to 12 attempts (60s)
+3. When found, update `localSalesforceId` and show success toast with the clickable link
+4. If timeout, show info toast telling user the ID will appear shortly
+
+```typescript
+// After successful sync response
+if (result?.salesforceId) {
+  setLocalSalesforceId(result.salesforceId);
+} else if (result?.action === 'created_pending') {
+  toast.info('Record created — resolving Salesforce ID...');
+  // Poll for backfilled ID
+  for (let i = 0; i < 12; i++) {
+    await new Promise(r => setTimeout(r, 5000));
+    const { data: refreshed } = await supabase
+      .from('media_assets')
+      .select('salesforce_id')
+      .eq('id', asset.id)
+      .single();
+    if (refreshed?.salesforce_id) {
+      setLocalSalesforceId(refreshed.salesforce_id);
+      toast.success('Salesforce ID resolved');
+      break;
+    }
+  }
+}
 ```
 
-### 2. `src/components/media/VideoPreviewModal.tsx` (line 185)
-Change `Salesforce ID: {video.id}` to a clickable link:
-```tsx
-<span>Salesforce ID: <a href={`https://worldmotoclash.my.salesforce.com/${video.id}`}
-  target="_blank" rel="noopener noreferrer"
-  className="text-blue-400 hover:text-blue-300 underline">{video.id}</a></span>
-```
+**Also update the sync status badge area (line 355):** When `localSalesforceId` is null but sync was triggered, show a "Pending ID..." spinner instead of the "Sync to SFDC" button.
 
-Two files, 2 lines changed.
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/components/media/MediaAssetDetailsDrawer.tsx` | Add post-sync polling for SFDC ID; update UI to show pending state |
+
+One file, ~20 lines added.
 
