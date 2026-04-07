@@ -88,10 +88,10 @@ export function MasterImageUploadDialog({
       });
       return false;
     }
-    if (file.size > 20 * 1024 * 1024) {
+    if (file.size > 500 * 1024 * 1024) {
       toast({
         title: "File too large",
-        description: "Maximum file size is 20MB.",
+        description: "Maximum file size is 500MB.",
         variant: "destructive",
       });
       return false;
