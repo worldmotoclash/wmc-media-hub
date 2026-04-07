@@ -109,7 +109,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
   // Album filter state
   const [albums, setAlbums] = useState<{ id: string; name: string; asset_count: number; source?: string; created_at?: string }[]>([]);
   const [selectedAlbumId, setSelectedAlbumId] = useState<string>('all');
-  const [albumSortBy, setAlbumSortBy] = useState<'date' | 'name'>('date');
+  const [albumSortBy, setAlbumSortBy] = useState<'date' | 'name'>('name');
   
   // Variant expansion state
   const [hideVariants, setHideVariants] = useState(true);
@@ -785,7 +785,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       <SelectContent className="bg-background border shadow-lg z-50">
                         <SelectItem value="all">All Albums</SelectItem>
                         {[...albums].sort((a, b) => {
-                          if (albumSortBy === 'name') return a.name.localeCompare(b.name);
+                          if (albumSortBy === 'name') return a.name.localeCompare(b.name, 'en', { sensitivity: 'base' });
                           return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
                         }).map(a => (
                           <SelectItem key={a.id} value={a.id}>
