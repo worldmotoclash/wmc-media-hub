@@ -95,6 +95,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [isBulkTagging, setIsBulkTagging] = useState(false);
   const [isBulkRenaming, setIsBulkRenaming] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isBulkSyncing, setIsBulkSyncing] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [bulkTagProgress, setBulkTagProgress] = useState({ current: 0, total: 0 });
   const [bulkRenameProgress, setBulkRenameProgress] = useState({ current: 0, total: 0 });

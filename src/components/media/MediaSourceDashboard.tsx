@@ -142,6 +142,25 @@ const MediaSourceDashboard: React.FC = () => {
                     <Badge variant="secondary" title="Files tracked in storage (has a file_url)">
                       {filesCount} files
                     </Badge>
+                    {syncHealth.missingSfdc > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSyncMissing();
+                        }}
+                        disabled={syncing}
+                      >
+                        {syncing ? (
+                          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                        ) : (
+                          <CloudUpload className="h-3 w-3 mr-1" />
+                        )}
+                        Retry All ({syncHealth.missingSfdc})
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
