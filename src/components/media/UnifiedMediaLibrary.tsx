@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music, Info, SlidersHorizontal, ChevronDown, ChevronUp, Layers, Grid3x3, Mic, Pencil, Trash2, Clock, ArrowDownAZ } from "lucide-react";
+import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music, Info, SlidersHorizontal, ChevronDown, ChevronUp, Layers, Grid3x3, Mic, Pencil, Trash2, Clock, ArrowDownAZ, CloudUpload } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -95,6 +95,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [isBulkTagging, setIsBulkTagging] = useState(false);
   const [isBulkRenaming, setIsBulkRenaming] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isBulkSyncing, setIsBulkSyncing] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [bulkTagProgress, setBulkTagProgress] = useState({ current: 0, total: 0 });
   const [bulkRenameProgress, setBulkRenameProgress] = useState({ current: 0, total: 0 });
@@ -305,6 +306,33 @@ export const UnifiedMediaLibrary: React.FC = () => {
       setIsBulkDeleting(false);
       setShowBulkDeleteConfirm(false);
       clearSelection();
+    }
+  };
+
+  const handleBulkSyncSfdc = async () => {
+    const unsyncedIds = Array.from(selectedAssetIds).filter(id => {
+      const asset = assets.find(a => a.id === id);
+      return asset && !asset.salesforceId;
+    });
+    if (unsyncedIds.length === 0) {
+      toast.info('All selected assets already have SFDC records');
+      return;
+    }
+    setIsBulkSyncing(true);
+    try {
+      toast.info(`Syncing ${unsyncedIds.length} assets to Salesforce...`);
+      const { data, error } = await supabase.functions.invoke('sync-asset-to-salesforce', {
+        body: { assetIds: unsyncedIds }
+      });
+      if (error) throw error;
+      const successCount = data?.results?.filter((r: any) => r.success).length || 0;
+      toast.success(`Synced ${successCount}/${unsyncedIds.length} assets to Salesforce`);
+      loadAssets();
+    } catch (error) {
+      console.error('Bulk SFDC sync error:', error);
+      toast.error('Failed to sync assets to Salesforce');
+    } finally {
+      setIsBulkSyncing(false);
     }
   };
 
@@ -1304,6 +1332,25 @@ export const UnifiedMediaLibrary: React.FC = () => {
                 <>
                   <Pencil className="w-4 h-4" />
                   AI Rename ({getTaggableAssets().length})
+                </>
+              )}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleBulkSyncSfdc}
+              disabled={isBulkTagging || isBulkRenaming || isBulkDeleting || isBulkSyncing}
+              className="flex items-center gap-2"
+            >
+              {isBulkSyncing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <CloudUpload className="w-4 h-4" />
+                  Sync to SFDC
                 </>
               )}
             </Button>
