@@ -240,7 +240,7 @@ export const BulkUploadTab: React.FC = () => {
 
       // Step 3: Finalize metadata
       const title = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
-      const { error } = await supabase.functions.invoke('upload-master-to-s3', {
+      const { data: finalizeData, error } = await supabase.functions.invoke('upload-master-to-s3', {
         body: {
           filename: file.name,
           mimeType: file.type,
@@ -253,23 +253,27 @@ export const BulkUploadTab: React.FC = () => {
           masterId: presignData.masterId,
           fileSize: file.size,
           albumId: createdAlbumId,
+          creatorContactId: user?.id,
         },
       });
 
       if (error) throw error;
+
+      // Use the real database asset ID from the finalize response
+      const realAssetId = finalizeData?.assetId || presignData.masterId;
 
       setQueue(prev => prev.map(f => f.id === qf.id ? { ...f, progress: 95 } : f));
 
       // Step 4: Fire auto-tag in background (don't await)
       supabase.functions.invoke('auto-tag-media-asset', {
         body: {
-          assetId: presignData.masterId,
+          assetId: realAssetId,
           mediaUrl: presignData.cdnUrl,
           mediaType: isVideo ? 'video' : isAudio ? 'audio' : 'image',
         },
       }).catch(() => {}); // fire and forget
 
-      setQueue(prev => prev.map(f => f.id === qf.id ? { ...f, status: 'done' as const, progress: 100, assetId: presignData.masterId } : f));
+      setQueue(prev => prev.map(f => f.id === qf.id ? { ...f, status: 'done' as const, progress: 100, assetId: realAssetId } : f));
       return true;
     } catch (err: any) {
       console.error(`Upload error for ${file.name}:`, err);
