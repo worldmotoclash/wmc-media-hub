@@ -489,7 +489,13 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
                   {editableFields.isCreatingLocal ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Pencil className="w-4 h-4 mr-2" />}
                   Edit Details
                 </Button>
-                {asset.fileUrl && <Button variant="outline" className="flex-1" onClick={() => window.open(asset.fileUrl, '_blank')}><ExternalLink className="w-4 h-4 mr-2" />Open in Browser</Button>}
+                {asset.fileUrl && <Button variant="outline" className="flex-1" onClick={() => {
+                  if (asset.assetType === 'video') {
+                    onPreview?.(asset);
+                  } else {
+                    window.open(asset.fileUrl, '_blank');
+                  }
+                }}><ExternalLink className="w-4 h-4 mr-2" />{asset.assetType === 'video' ? 'Play Video' : 'Open in Browser'}</Button>}
               </div>
               {isEditor() && (
                 <Button
