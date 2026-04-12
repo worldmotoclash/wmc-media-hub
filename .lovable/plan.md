@@ -1,48 +1,34 @@
 
 
-# Auto-Generate Thumbnails for Large Images
+# Fix Missing Creator Attribution on Single Media Upload
 
 ## Problem
-Large image assets (100MB+) display the full-resolution file in search/grid results, causing massive bandwidth usage and slow rendering. The `thumbnail_url` for images is currently set to the same URL as `file_url`.
+The single upload flow in `MediaUpload.tsx` does not pass `creatorContactId` to `upload-master-to-s3`, so uploaded files are not linked to the uploader's Salesforce Contact record. Bulk upload and Master Image upload already include it correctly.
 
-## Solution
-Two-part fix: generate a small thumbnail during upload, and use it in the grid view.
+## Current State
 
-### 1. Edge function: generate image thumbnails on upload (`upload-master-to-s3`)
-- For **image** uploads (not just videos), generate a resized thumbnail (max 400px, JPEG quality 0.7)
-- In the **finalize path**: after the HEAD check, download the original from S3, resize server-side using a canvas/sharp approach, upload as `thumbnail.jpg` alongside the master
-- In the **direct upload path**: resize the provided `imageBase64` before uploading
-- Store the thumbnail CDN URL in `thumbnail_url` instead of the full-size `file_url`
+| Upload Flow | Sends `creatorContactId`? |
+|---|---|
+| Bulk Upload (`BulkUploadTab.tsx`) | Yes |
+| Master Image Upload (`MasterImageUploadDialog.tsx`) | Yes |
+| Single Upload (`MediaUpload.tsx`) — direct file | **No** |
+| Single Upload (`MediaUpload.tsx`) — AI generation | Yes |
+| Racer Upload (`racerMediaService.ts`) | **No** |
 
-Since Deno edge functions lack sharp/canvas, the approach will be:
-- Accept a `thumbnailBase64` from the client for images (same as videos already do)
-- Upload it to `S3_PATHS.SOCIAL_MEDIA_MASTERS/{masterId}/thumbnail.jpg`
-- Set `thumbnail_url` to the thumbnail CDN URL
+## Changes
 
-### 2. Client-side: generate thumbnail before upload
-- In `BulkUploadTab.tsx` and `MediaUpload.tsx` (and `MasterImageUploadDialog.tsx`): for image files, use a canvas to resize to max 400px and produce a JPEG base64 string
-- Pass this as `thumbnailBase64` in the upload request (reusing the existing field)
+### 1. `src/pages/media/MediaUpload.tsx`
+Add `creatorContactId: user?.id` to both upload paths:
+- **Presigned URL finalize** (line ~672 body): add `creatorContactId: user?.id`
+- **Base64 upload** (line ~727 body): add `creatorContactId: user?.id`
 
-### 3. Grid view: prefer `thumbnailUrl` for images
-- In `UnifiedMediaLibrary.tsx` line 1444-1445, change image rendering to prefer `thumbnailUrl` over `fileUrl`:
-  ```
-  // Before: asset.fileUrl || asset.thumbnailUrl
-  // After:  asset.thumbnailUrl || asset.fileUrl
-  ```
-- This ensures the small thumbnail loads in the grid; clicking "View Details" or opening still uses `fileUrl`
+### 2. `src/services/racerMediaService.ts`
+Add `creatorContactId: racerContactId` to the `upload-master-to-s3` finalize call (line ~78 body). The `racerContactId` parameter is already passed into the function but not forwarded.
 
-## Files Changed
+## Files
 
 | File | Change |
-|------|--------|
-| `supabase/functions/upload-master-to-s3/index.ts` | Handle `thumbnailBase64` for images (not just videos), upload as thumbnail.jpg |
-| `src/pages/media/MediaUpload.tsx` | Generate thumbnail base64 for images before upload |
-| `src/components/media/BulkUploadTab.tsx` | Generate thumbnail base64 for images before upload |
-| `src/components/media/MasterImageUploadDialog.tsx` | Generate thumbnail base64 for images before upload |
-| `src/components/media/UnifiedMediaLibrary.tsx` | Prefer `thumbnailUrl` over `fileUrl` for image grid cards |
-
-## Technical Notes
-- Thumbnail generation reuses the existing resize-to-1024px pattern from the AI analysis payload optimization, but targets 400px for even smaller thumbnails
-- The `thumbnailBase64` field already exists in the edge function interface — we just need to stop gating it behind `isVideo`
-- Existing assets with no separate thumbnail will still work fine (they fall back to `fileUrl`)
+|---|---|
+| `src/pages/media/MediaUpload.tsx` | Add `creatorContactId` to both direct upload paths |
+| `src/services/racerMediaService.ts` | Forward existing `racerContactId` param to finalize call |
 
