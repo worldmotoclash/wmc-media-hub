@@ -182,7 +182,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, on
             />
 
             <div className="text-xs text-muted-foreground border-t pt-4">
-              <span>Salesforce ID: <a href={`https://worldmotoclash.my.salesforce.com/${video.id}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">{video.id}</a></span>
+              <span>Salesforce ID: <a href={`https://worldmotoclash.my.salesforce.com/${video.id.replace(/^sf_/, '')}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">{video.id.replace(/^sf_/, '')}</a></span>
             </div>
           </div>
         </div>
