@@ -204,9 +204,21 @@ export const BulkUploadTab: React.FC = () => {
     const file = qf.file;
     const isVideo = file.type.startsWith('video/');
     const isAudio = file.type.startsWith('audio/');
+    const isImage = file.type.startsWith('image/');
 
     // Update status
     setQueue(prev => prev.map(f => f.id === qf.id ? { ...f, status: 'uploading' as const, progress: 10 } : f));
+
+    // Generate thumbnail for images
+    let thumbnailBase64: string | null = null;
+    if (isImage) {
+      try {
+        const { generateImageThumbnail } = await import('@/utils/generateImageThumbnail');
+        thumbnailBase64 = await generateImageThumbnail(file);
+      } catch (e) {
+        console.warn('Thumbnail generation failed:', e);
+      }
+    }
 
     try {
       // Step 1: Get presigned URL
@@ -248,6 +260,7 @@ export const BulkUploadTab: React.FC = () => {
           height: 0,
           title,
           tags: tagsList,
+          thumbnailBase64,
           s3Key: presignData.s3Key,
           cdnUrl: presignData.cdnUrl,
           masterId: presignData.masterId,

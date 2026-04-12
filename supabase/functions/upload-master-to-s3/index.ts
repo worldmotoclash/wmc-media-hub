@@ -170,8 +170,8 @@ serve(async (req) => {
         }
         console.log("S3 HEAD check passed — file confirmed in bucket");
 
-        // Upload thumbnail if provided (reuse same aws client)
-        if (isVideo && thumbnailBase64) {
+        // Upload thumbnail if provided (for videos AND images)
+        if (thumbnailBase64) {
           const s3BasePath = isVideo ? S3_PATHS.VIDEO_MASTERS : isAudio ? S3_PATHS.AUDIO_MASTERS : S3_PATHS.SOCIAL_MEDIA_MASTERS;
           const thumbKey = `${s3BasePath}/${masterId}/thumbnail.jpg`;
           const thumbData = Uint8Array.from(atob(thumbnailBase64), c => c.charCodeAt(0));
@@ -212,8 +212,8 @@ serve(async (req) => {
       const s3BasePath = isVideo ? S3_PATHS.VIDEO_MASTERS : isAudio ? S3_PATHS.AUDIO_MASTERS : S3_PATHS.SOCIAL_MEDIA_MASTERS;
       s3Key = `${s3BasePath}/${masterId}/master.${fileExtension}`;
 
-      // Upload thumbnail for videos if provided
-      if (isVideo && thumbnailBase64) {
+      // Upload thumbnail if provided (for videos AND images)
+      if (thumbnailBase64) {
         const thumbKey = `${s3BasePath}/${masterId}/thumbnail.jpg`;
         const thumbData = Uint8Array.from(atob(thumbnailBase64), c => c.charCodeAt(0));
         const thumbUploadUrl = `${s3Config.endpoint}/${s3Config.bucketName}/${thumbKey}`;
