@@ -94,6 +94,7 @@ export const uploadRacerFile = async (opts: RacerUploadOptions): Promise<UploadR
         masterId: presignData.masterId,
         fileSize: file.size,
         ...(albumId ? { albumId } : {}),
+        creatorContactId: racerContactId,
       },
     });
 

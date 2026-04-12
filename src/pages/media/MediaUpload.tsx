@@ -685,6 +685,7 @@ const MediaUpload: React.FC = () => {
               cdnUrl: presignData.cdnUrl,
               masterId: presignData.masterId,
               fileSize: selectedFile.size,
+              creatorContactId: user?.id,
             },
           });
 
@@ -737,6 +738,7 @@ const MediaUpload: React.FC = () => {
               thumbnailBase64: thumbnailBase64,
               duration: (isVideo || isAudio) ? mediaDuration : undefined,
               isPodcast: isAudio ? isPodcast : undefined,
+              creatorContactId: user?.id,
             },
           });
           
