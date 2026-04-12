@@ -595,6 +595,15 @@ const MediaUpload: React.FC = () => {
           });
           dimensions = imgData;
           console.log('Extracted image dimensions:', dimensions);
+
+          // Generate a small thumbnail for grid performance
+          try {
+            const { generateImageThumbnail } = await import('@/utils/generateImageThumbnail');
+            thumbnailBase64 = await generateImageThumbnail(selectedFile);
+            console.log('Generated image thumbnail for upload');
+          } catch (e) {
+            console.warn('Thumbnail generation failed, will use full image:', e);
+          }
         }
         
         setUploadProgress(15);

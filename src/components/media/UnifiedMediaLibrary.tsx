@@ -1442,7 +1442,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                         src={brokenThumbnails.has(asset.id) 
                           ? '/placeholder.svg' 
                           : isImageType(asset.assetType)
-                            ? (asset.fileUrl || asset.thumbnailUrl || '/placeholder.svg')
+                            ? (asset.thumbnailUrl || asset.fileUrl || '/placeholder.svg')
                             : (asset.thumbnailUrl && asset.thumbnailUrl.trim() !== '' 
                                 ? asset.thumbnailUrl 
                                 : asset.fileUrl)}

@@ -137,6 +137,16 @@ export function MasterImageUploadDialog({
       // Get image dimensions
       const dimensions = await getImageDimensions(selectedFile);
       
+      // Generate a small thumbnail for grid performance
+      let thumbnailBase64: string | null = null;
+      try {
+        const { generateImageThumbnail } = await import('@/utils/generateImageThumbnail');
+        thumbnailBase64 = await generateImageThumbnail(selectedFile);
+        console.log('Generated image thumbnail for upload');
+      } catch (e) {
+        console.warn('Thumbnail generation failed:', e);
+      }
+
       const PRESIGNED_THRESHOLD = 4 * 1024 * 1024; // 4MB — base64 inflates ~33%, edge function has tight memory
       const usePresigned = selectedFile.size > PRESIGNED_THRESHOLD;
 
@@ -192,6 +202,7 @@ export function MasterImageUploadDialog({
               version: catalogFields.version,
               eventDate: catalogFields.eventDate,
             } : undefined,
+            thumbnailBase64,
             s3Key: presignData.s3Key,
             cdnUrl: presignData.cdnUrl,
             masterId: presignData.masterId,
@@ -229,6 +240,7 @@ export function MasterImageUploadDialog({
             height: dimensions.height,
             title: catalogFields?.naturalName || selectedFile.name.replace(/\.[^/.]+$/, ""),
             creatorContactId: user?.id,
+            thumbnailBase64,
             salesforceFields: catalogFields ? {
               domain: catalogFields.domain,
               eventCode: catalogFields.eventCode,
