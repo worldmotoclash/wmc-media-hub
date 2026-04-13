@@ -654,6 +654,20 @@ const MediaUpload: React.FC = () => {
           finalTags = ['Podcast', ...finalTags];
         }
 
+        // Resolve album ID
+        let finalAlbumId: string | null = null;
+        if (albumMode === 'new' && albumName.trim()) {
+          const { data: newAlbum, error: albumError } = await supabase
+            .from('media_albums')
+            .insert({ name: albumName.trim(), description: albumDescription.trim() || null, source: 'manual', created_by: user?.id })
+            .select('id')
+            .single();
+          if (albumError) throw new Error('Failed to create album: ' + albumError.message);
+          finalAlbumId = newAlbum.id;
+        } else if (albumMode === 'existing' && selectedAlbumId) {
+          finalAlbumId = selectedAlbumId;
+        }
+
         const PRESIGNED_THRESHOLD = 4 * 1024 * 1024; // 4MB for all file types — base64 inflates ~33%, edge function has tight memory
         const usePresigned = selectedFile.size > PRESIGNED_THRESHOLD;
 
@@ -726,6 +740,7 @@ const MediaUpload: React.FC = () => {
               masterId: presignData.masterId,
               fileSize: selectedFile.size,
               creatorContactId: user?.id,
+              albumId: finalAlbumId || undefined,
             },
           });
 
@@ -779,6 +794,7 @@ const MediaUpload: React.FC = () => {
               duration: (isVideo || isAudio) ? mediaDuration : undefined,
               isPodcast: isAudio ? isPodcast : undefined,
               creatorContactId: user?.id,
+              albumId: finalAlbumId || undefined,
             },
           });
           
@@ -1353,6 +1369,72 @@ const MediaUpload: React.FC = () => {
                           className="mt-2"
                           rows={4}
                         />
+                      </div>
+
+                      {/* Album Selection */}
+                      <div className="space-y-3">
+                        <Label className="flex items-center gap-2">
+                          <FolderOpen className="w-4 h-4" />
+                          Album (optional)
+                        </Label>
+                        <RadioGroup
+                          value={albumMode}
+                          onValueChange={(v) => setAlbumMode(v as 'none' | 'new' | 'existing')}
+                          className="flex gap-4"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="none" id="album-none" />
+                            <Label htmlFor="album-none" className="cursor-pointer text-sm">No Album</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="new" id="album-new" />
+                            <Label htmlFor="album-new" className="cursor-pointer text-sm">New Album</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="existing" id="album-existing" />
+                            <Label htmlFor="album-existing" className="cursor-pointer text-sm">Existing Album</Label>
+                          </div>
+                        </RadioGroup>
+
+                        {albumMode === 'new' && (
+                          <div className="space-y-3 pl-1">
+                            <Input
+                              placeholder="Album name"
+                              value={albumName}
+                              onChange={(e) => setAlbumName(e.target.value)}
+                            />
+                            <Input
+                              placeholder="Album description (optional)"
+                              value={albumDescription}
+                              onChange={(e) => setAlbumDescription(e.target.value)}
+                            />
+                          </div>
+                        )}
+
+                        {albumMode === 'existing' && (
+                          <div className="space-y-2 pl-1">
+                            <Input
+                              placeholder="Search albums..."
+                              value={albumSearch}
+                              onChange={(e) => setAlbumSearch(e.target.value)}
+                              className="mb-2"
+                            />
+                            <Select value={selectedAlbumId || ''} onValueChange={(v) => setSelectedAlbumId(v)}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select an album" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {existingAlbums
+                                  .filter(a => !albumSearch || a.name.toLowerCase().includes(albumSearch.toLowerCase()))
+                                  .map(album => (
+                                    <SelectItem key={album.id} value={album.id}>
+                                      {album.name} ({album.asset_count} assets)
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                       </div>
                     </div>
 
