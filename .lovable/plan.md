@@ -1,34 +1,31 @@
 
 
-# Fix Missing Creator Attribution on Single Media Upload
+# Add Album Selection to Single Media Upload
 
 ## Problem
-The single upload flow in `MediaUpload.tsx` does not pass `creatorContactId` to `upload-master-to-s3`, so uploaded files are not linked to the uploader's Salesforce Contact record. Bulk upload and Master Image upload already include it correctly.
+The single upload flow (`MediaUpload.tsx`) has no album selection — uploaded files are not assigned to any album. The bulk upload already supports both "New Album" and "Existing Album" modes with full UI.
 
-## Current State
-
-| Upload Flow | Sends `creatorContactId`? |
-|---|---|
-| Bulk Upload (`BulkUploadTab.tsx`) | Yes |
-| Master Image Upload (`MasterImageUploadDialog.tsx`) | Yes |
-| Single Upload (`MediaUpload.tsx`) — direct file | **No** |
-| Single Upload (`MediaUpload.tsx`) — AI generation | Yes |
-| Racer Upload (`racerMediaService.ts`) | **No** |
+## Solution
+Port the album selection UI and logic from `BulkUploadTab.tsx` into the single upload form in `MediaUpload.tsx`, making album assignment optional (not required like in bulk).
 
 ## Changes
 
-### 1. `src/pages/media/MediaUpload.tsx`
-Add `creatorContactId: user?.id` to both upload paths:
-- **Presigned URL finalize** (line ~672 body): add `creatorContactId: user?.id`
-- **Base64 upload** (line ~727 body): add `creatorContactId: user?.id`
+### `src/pages/media/MediaUpload.tsx`
 
-### 2. `src/services/racerMediaService.ts`
-Add `creatorContactId: racerContactId` to the `upload-master-to-s3` finalize call (line ~78 body). The `racerContactId` parameter is already passed into the function but not forwarded.
+1. **Add state variables**: `albumMode` (new/existing/none), `albumName`, `albumDescription`, `selectedAlbumId`, `existingAlbums` list
+2. **Add `fetchAlbums` effect**: Same pattern as `BulkUploadTab` — query `media_albums`, compute real asset counts from `media_assets`, filter empties
+3. **Add album selection UI** in the upload form (below tags/keywords fields):
+   - Three-way toggle: "No Album", "New Album", "Existing Album"
+   - New Album: name input + optional description
+   - Existing Album: searchable select dropdown with asset counts
+4. **Update upload handler**: Before calling `upload-master-to-s3`, if album mode is "new", create the album row first; if "existing", use `selectedAlbumId`. Pass `albumId` in both the presigned-URL finalize body (line ~672) and the base64 upload body (line ~728). After upload, update `asset_count` on the album.
 
-## Files
+### No edge function changes needed
+The `upload-master-to-s3` function already accepts and handles `albumId` — the bulk flow already uses it.
+
+## Files Changed
 
 | File | Change |
-|---|---|
-| `src/pages/media/MediaUpload.tsx` | Add `creatorContactId` to both direct upload paths |
-| `src/services/racerMediaService.ts` | Forward existing `racerContactId` param to finalize call |
+|------|--------|
+| `src/pages/media/MediaUpload.tsx` | Add album selection UI, state, fetch logic, and pass `albumId` to upload calls |
 
