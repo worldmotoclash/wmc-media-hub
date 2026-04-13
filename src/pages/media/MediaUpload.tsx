@@ -159,6 +159,17 @@ const MediaUpload: React.FC = () => {
     fetchAlbums();
   }, [fetchAlbums]);
 
+  useEffect(() => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to access the media upload",
+        variant: "destructive",
+      });
+      navigate('/login');
+    }
+  }, [user, navigate, toast]);
+
   // Polling subscription for generation updates (replaces real-time due to RLS issues)
   useEffect(() => {
     if (!user || !currentGeneration) return;
