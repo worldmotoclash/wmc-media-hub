@@ -820,6 +820,11 @@ const MediaUpload: React.FC = () => {
         setUploadData({ url: '', title: '', description: '', tags: '', keywords: '' });
         setUploadProgress(0);
         setUploadPhase('');
+        setAlbumMode('none');
+        setAlbumName('');
+        setAlbumDescription('');
+        setSelectedAlbumId(null);
+        setAlbumSearch('');
         
         // Navigate to library
         navigate('/admin/media/library');
