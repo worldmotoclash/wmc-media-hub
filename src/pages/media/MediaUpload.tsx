@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,8 @@ import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Wand2, AlertCircle, CheckCircle2, Calendar, MapPin, Tag, ArrowLeft, Sparkles, Clock, Monitor, Video, X, FileVideo, Image as ImageIcon, Music, Mic, Layers } from "lucide-react";
+import { Upload, Wand2, AlertCircle, CheckCircle2, Calendar, MapPin, Tag, ArrowLeft, Sparkles, Clock, Monitor, Video, X, FileVideo, Image as ImageIcon, Music, Mic, Layers, FolderOpen } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { BulkUploadTab } from "@/components/media/BulkUploadTab";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
@@ -70,6 +71,14 @@ const MediaUpload: React.FC = () => {
   const [submissionCount, setSubmissionCount] = useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   
+  // Album selection state
+  const [albumMode, setAlbumMode] = useState<'none' | 'new' | 'existing'>('none');
+  const [albumName, setAlbumName] = useState('');
+  const [albumDescription, setAlbumDescription] = useState('');
+  const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
+  const [existingAlbums, setExistingAlbums] = useState<{ id: string; name: string; asset_count: number }[]>([]);
+  const [albumSearch, setAlbumSearch] = useState('');
+  
   // AI Analysis state
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
@@ -118,6 +127,37 @@ const MediaUpload: React.FC = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  // Fetch existing albums with real asset counts
+  const fetchAlbums = useCallback(async () => {
+    const { data: allAlbums } = await supabase
+      .from('media_albums')
+      .select('id, name, asset_count')
+      .order('created_at', { ascending: false });
+
+    const { data: assetRows } = await supabase
+      .from('media_assets')
+      .select('album_id')
+      .not('album_id', 'is', null);
+
+    const countMap = new Map<string, number>();
+    (assetRows || []).forEach(row => {
+      if (row.album_id) {
+        countMap.set(row.album_id, (countMap.get(row.album_id) || 0) + 1);
+      }
+    });
+
+    const activeAlbums = (allAlbums || [])
+      .map(a => ({ ...a, asset_count: countMap.get(a.id) || 0 }))
+      .filter(a => a.asset_count > 0);
+
+    activeAlbums.sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+    setExistingAlbums(activeAlbums);
+  }, []);
+
+  useEffect(() => {
+    fetchAlbums();
+  }, [fetchAlbums]);
 
   useEffect(() => {
     if (!user) {
@@ -614,6 +654,20 @@ const MediaUpload: React.FC = () => {
           finalTags = ['Podcast', ...finalTags];
         }
 
+        // Resolve album ID
+        let finalAlbumId: string | null = null;
+        if (albumMode === 'new' && albumName.trim()) {
+          const { data: newAlbum, error: albumError } = await supabase
+            .from('media_albums')
+            .insert({ name: albumName.trim(), description: albumDescription.trim() || null, source: 'manual', created_by: user?.id })
+            .select('id')
+            .single();
+          if (albumError) throw new Error('Failed to create album: ' + albumError.message);
+          finalAlbumId = newAlbum.id;
+        } else if (albumMode === 'existing' && selectedAlbumId) {
+          finalAlbumId = selectedAlbumId;
+        }
+
         const PRESIGNED_THRESHOLD = 4 * 1024 * 1024; // 4MB for all file types — base64 inflates ~33%, edge function has tight memory
         const usePresigned = selectedFile.size > PRESIGNED_THRESHOLD;
 
@@ -686,6 +740,7 @@ const MediaUpload: React.FC = () => {
               masterId: presignData.masterId,
               fileSize: selectedFile.size,
               creatorContactId: user?.id,
+              albumId: finalAlbumId || undefined,
             },
           });
 
@@ -739,6 +794,7 @@ const MediaUpload: React.FC = () => {
               duration: (isVideo || isAudio) ? mediaDuration : undefined,
               isPodcast: isAudio ? isPodcast : undefined,
               creatorContactId: user?.id,
+              albumId: finalAlbumId || undefined,
             },
           });
           
@@ -764,6 +820,11 @@ const MediaUpload: React.FC = () => {
         setUploadData({ url: '', title: '', description: '', tags: '', keywords: '' });
         setUploadProgress(0);
         setUploadPhase('');
+        setAlbumMode('none');
+        setAlbumName('');
+        setAlbumDescription('');
+        setSelectedAlbumId(null);
+        setAlbumSearch('');
         
         // Navigate to library
         navigate('/admin/media/library');
@@ -1313,6 +1374,72 @@ const MediaUpload: React.FC = () => {
                           className="mt-2"
                           rows={4}
                         />
+                      </div>
+
+                      {/* Album Selection */}
+                      <div className="space-y-3">
+                        <Label className="flex items-center gap-2">
+                          <FolderOpen className="w-4 h-4" />
+                          Album (optional)
+                        </Label>
+                        <RadioGroup
+                          value={albumMode}
+                          onValueChange={(v) => setAlbumMode(v as 'none' | 'new' | 'existing')}
+                          className="flex gap-4"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="none" id="album-none" />
+                            <Label htmlFor="album-none" className="cursor-pointer text-sm">No Album</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="new" id="album-new" />
+                            <Label htmlFor="album-new" className="cursor-pointer text-sm">New Album</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="existing" id="album-existing" />
+                            <Label htmlFor="album-existing" className="cursor-pointer text-sm">Existing Album</Label>
+                          </div>
+                        </RadioGroup>
+
+                        {albumMode === 'new' && (
+                          <div className="space-y-3 pl-1">
+                            <Input
+                              placeholder="Album name"
+                              value={albumName}
+                              onChange={(e) => setAlbumName(e.target.value)}
+                            />
+                            <Input
+                              placeholder="Album description (optional)"
+                              value={albumDescription}
+                              onChange={(e) => setAlbumDescription(e.target.value)}
+                            />
+                          </div>
+                        )}
+
+                        {albumMode === 'existing' && (
+                          <div className="space-y-2 pl-1">
+                            <Input
+                              placeholder="Search albums..."
+                              value={albumSearch}
+                              onChange={(e) => setAlbumSearch(e.target.value)}
+                              className="mb-2"
+                            />
+                            <Select value={selectedAlbumId || ''} onValueChange={(v) => setSelectedAlbumId(v)}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select an album" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {existingAlbums
+                                  .filter(a => !albumSearch || a.name.toLowerCase().includes(albumSearch.toLowerCase()))
+                                  .map(album => (
+                                    <SelectItem key={album.id} value={album.id}>
+                                      {album.name} ({album.asset_count} assets)
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                       </div>
                     </div>
 
