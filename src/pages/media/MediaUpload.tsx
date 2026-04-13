@@ -128,16 +128,36 @@ const MediaUpload: React.FC = () => {
     window.scrollTo(0, 0);
   }, []);
 
+  // Fetch existing albums with real asset counts
+  const fetchAlbums = useCallback(async () => {
+    const { data: allAlbums } = await supabase
+      .from('media_albums')
+      .select('id, name, asset_count')
+      .order('created_at', { ascending: false });
+
+    const { data: assetRows } = await supabase
+      .from('media_assets')
+      .select('album_id')
+      .not('album_id', 'is', null);
+
+    const countMap = new Map<string, number>();
+    (assetRows || []).forEach(row => {
+      if (row.album_id) {
+        countMap.set(row.album_id, (countMap.get(row.album_id) || 0) + 1);
+      }
+    });
+
+    const activeAlbums = (allAlbums || [])
+      .map(a => ({ ...a, asset_count: countMap.get(a.id) || 0 }))
+      .filter(a => a.asset_count > 0);
+
+    activeAlbums.sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+    setExistingAlbums(activeAlbums);
+  }, []);
+
   useEffect(() => {
-    if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to access the media upload",
-        variant: "destructive",
-      });
-      navigate('/login');
-    }
-  }, [user, navigate, toast]);
+    fetchAlbums();
+  }, [fetchAlbums]);
 
   // Polling subscription for generation updates (replaces real-time due to RLS issues)
   useEffect(() => {
