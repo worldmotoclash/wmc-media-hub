@@ -71,6 +71,14 @@ const MediaUpload: React.FC = () => {
   const [submissionCount, setSubmissionCount] = useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   
+  // Album selection state
+  const [albumMode, setAlbumMode] = useState<'none' | 'new' | 'existing'>('none');
+  const [albumName, setAlbumName] = useState('');
+  const [albumDescription, setAlbumDescription] = useState('');
+  const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
+  const [existingAlbums, setExistingAlbums] = useState<{ id: string; name: string; asset_count: number }[]>([]);
+  const [albumSearch, setAlbumSearch] = useState('');
+  
   // AI Analysis state
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
