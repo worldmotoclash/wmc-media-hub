@@ -18,7 +18,8 @@ interface ProfileDropdownProps {
 }
 
 const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut, variant = 'navbar' }) => {
-  const { user } = useUser();
+  const { user, isViewer, isCreator } = useUser();
+  const isRestricted = isViewer() || isCreator();
   const { theme, toggleTheme } = useTheme();
   
   if (!user) {
@@ -105,18 +106,22 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onSignOut, variant = 
             <span>Media Library</span>
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild className="cursor-pointer">
-          <Link to="/admin/media/upload">
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Upload Content</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild className="cursor-pointer">
-          <Link to="/admin/media/scene-detection">
-            <Scissors className="mr-2 h-4 w-4" />
-            <span>Scene Detection</span>
-          </Link>
-        </DropdownMenuItem>
+        {!isRestricted && (
+          <>
+            <DropdownMenuItem asChild className="cursor-pointer">
+              <Link to="/admin/media/upload">
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Upload Content</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className="cursor-pointer">
+              <Link to="/admin/media/scene-detection">
+                <Scissors className="mr-2 h-4 w-4" />
+                <span>Scene Detection</span>
+              </Link>
+            </DropdownMenuItem>
+          </>
+        )}
         <DropdownMenuItem onClick={toggleTheme} className="cursor-pointer">
           {theme === 'light' ? (
             <>

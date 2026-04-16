@@ -8,9 +8,9 @@ import { toast } from 'sonner';
  * Returns true if the user is a Creator (page should not render).
  */
 export function useCreatorGuard(): boolean {
-  const { user, isCreator } = useUser();
+  const { user, isCreator, isViewer } = useUser();
   const navigate = useNavigate();
-  const blocked = !!user && isCreator();
+  const blocked = !!user && (isCreator() || isViewer());
 
   useEffect(() => {
     if (blocked) {

@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { useUser } from '@/contexts/UserContext';
 
 const ActionCards: React.FC = () => {
-  const { isCreator } = useUser();
+  const { isCreator, isViewer } = useUser();
 
   const allActions = [
     {
@@ -83,7 +83,9 @@ const ActionCards: React.FC = () => {
     }
   ];
 
-  const actions = isCreator()
+  const actions = isViewer()
+    ? allActions.filter(a => a.viewerVisible)
+    : isCreator()
     ? allActions.filter(a => a.creatorVisible)
     : allActions;
 

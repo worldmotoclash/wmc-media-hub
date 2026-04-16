@@ -21,6 +21,7 @@ export interface UserContextType {
   isAdmin: () => boolean;
   isEditor: () => boolean;
   isCreator: () => boolean;
+  isViewer: () => boolean;
   canDelete: (videoUserId: string) => boolean;
 }
 
@@ -49,13 +50,14 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const isAdmin = () => user?.mediaHubAccess === 'Admin';
   const isEditor = () => ['Admin', 'Editor', 'Creator'].includes(user?.mediaHubAccess || '');
   const isCreator = () => user?.mediaHubAccess === 'Creator';
+  const isViewer = () => user?.mediaHubAccess === 'Viewer';
   const canDelete = (videoUserId: string) => {
     if (!user) return false;
     return user.mediaHubAccess === 'Admin' || user.id === videoUserId;
   };
 
   return (
-    <UserContext.Provider value={{ user, setUser, isAdmin, isEditor, isCreator, canDelete }}>
+    <UserContext.Provider value={{ user, setUser, isAdmin, isEditor, isCreator, isViewer, canDelete }}>
       {children}
     </UserContext.Provider>
   );
