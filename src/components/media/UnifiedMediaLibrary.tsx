@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,7 @@ import MediaSourceDashboard from "./MediaSourceDashboard";
 import { S3BucketConfigManager } from "./S3BucketConfigManager";
 import { MediaNavigation } from "./MediaNavigation";
 import { MediaAssetDetailsDrawer } from "./MediaAssetDetailsDrawer";
+import { generateImageThumbnailFromUrl } from "@/utils/generateImageThumbnail";
 
 interface MiniPlayerState {
   isOpen: boolean;
@@ -119,6 +120,45 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [expandedVariants, setExpandedVariants] = useState<Map<string, MediaAsset[]>>(new Map());
   const [loadingVariants, setLoadingVariants] = useState<Set<string>>(new Set());
   
+  // Client-side thumbnail cache for images missing thumbnailUrl
+  const [thumbnailCache, setThumbnailCache] = useState<Map<string, string>>(new Map());
+  const thumbnailQueueRef = useRef<Set<string>>(new Set());
+  const activeThumbnailsRef = useRef(0);
+  const MAX_CONCURRENT_THUMBNAILS = 3;
+
+  const generateMissingThumbnail = useCallback((assetId: string, fileUrl: string) => {
+    if (thumbnailQueueRef.current.has(assetId) || activeThumbnailsRef.current >= MAX_CONCURRENT_THUMBNAILS) return;
+    thumbnailQueueRef.current.add(assetId);
+    activeThumbnailsRef.current++;
+    
+    generateImageThumbnailFromUrl(fileUrl, 400, 0.7)
+      .then(dataUrl => {
+        setThumbnailCache(prev => new Map(prev).set(assetId, dataUrl));
+      })
+      .catch(() => {
+        // CORS or load failure — fall back to fileUrl (will be handled by brokenThumbnails)
+        setThumbnailCache(prev => new Map(prev).set(assetId, fileUrl));
+      })
+      .finally(() => {
+        activeThumbnailsRef.current--;
+      });
+  }, []);
+
+  // Queue thumbnail generation for visible image assets missing thumbnails
+  useEffect(() => {
+    assets.forEach(asset => {
+      if (
+        isImageType(asset.assetType) &&
+        !asset.thumbnailUrl &&
+        asset.fileUrl &&
+        !thumbnailCache.has(asset.id) &&
+        !thumbnailQueueRef.current.has(asset.id)
+      ) {
+        generateMissingThumbnail(asset.id, asset.fileUrl);
+      }
+    });
+  }, [assets, thumbnailCache, generateMissingThumbnail]);
+
   const pageSize = 20;
   const { user, isEditor } = useUser();
   useSupabaseAuth(); // Ensure Supabase auth when user is logged in
@@ -1442,7 +1482,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                         src={brokenThumbnails.has(asset.id) 
                           ? '/placeholder.svg' 
                           : isImageType(asset.assetType)
-                            ? (asset.thumbnailUrl || asset.fileUrl || '/placeholder.svg')
+                            ? (asset.thumbnailUrl || thumbnailCache.get(asset.id) || '/placeholder.svg')
                             : (asset.thumbnailUrl && asset.thumbnailUrl.trim() !== '' 
                                 ? asset.thumbnailUrl 
                                 : asset.fileUrl)}
@@ -1714,7 +1754,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       >
                         <div className="relative">
                           <img 
-                            src={variant.thumbnailUrl || variant.fileUrl || '/placeholder.svg'} 
+                            src={variant.thumbnailUrl || thumbnailCache.get(variant.id) || '/placeholder.svg'} 
                             alt={variant.title}
                             className="w-full h-16 object-cover rounded"
                           />
