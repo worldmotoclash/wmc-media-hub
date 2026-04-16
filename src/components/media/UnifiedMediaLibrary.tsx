@@ -1754,7 +1754,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       >
                         <div className="relative">
                           <img 
-                            src={variant.thumbnailUrl || variant.fileUrl || '/placeholder.svg'} 
+                            src={variant.thumbnailUrl || thumbnailCache.get(variant.id) || '/placeholder.svg'} 
                             alt={variant.title}
                             className="w-full h-16 object-cover rounded"
                           />
