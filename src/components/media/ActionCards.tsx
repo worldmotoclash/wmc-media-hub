@@ -16,7 +16,8 @@ const ActionCards: React.FC = () => {
       href: '/admin/media/upload',
       color: 'from-science-blue/20 to-science-blue/10',
       iconColor: 'text-science-blue',
-      creatorVisible: true
+      creatorVisible: true,
+      viewerVisible: false
     },
     {
       title: 'Generate AI Image / Video',
@@ -25,7 +26,8 @@ const ActionCards: React.FC = () => {
       href: '/admin/media/generate',
       color: 'from-cinnabar/20 to-cinnabar/10',
       iconColor: 'text-cinnabar',
-      creatorVisible: false
+      creatorVisible: false,
+      viewerVisible: false
     },
     {
       title: 'Scene Detection',
@@ -34,7 +36,8 @@ const ActionCards: React.FC = () => {
       href: '/admin/media/scene-detection',
       color: 'from-purple-500/20 to-purple-500/10',
       iconColor: 'text-purple-500',
-      creatorVisible: false
+      creatorVisible: false,
+      viewerVisible: false
     },
     {
       title: 'Manage Playlists',
@@ -43,7 +46,8 @@ const ActionCards: React.FC = () => {
       href: '/admin/media/playlists',
       color: 'from-emerald-500/20 to-emerald-500/10',
       iconColor: 'text-emerald-500',
-      creatorVisible: false
+      creatorVisible: false,
+      viewerVisible: false
     },
     {
       title: 'Asset Library',
@@ -52,7 +56,8 @@ const ActionCards: React.FC = () => {
       href: '/admin/media/library',
       color: 'from-malibu/20 to-malibu/10',
       iconColor: 'text-malibu',
-      creatorVisible: true
+      creatorVisible: true,
+      viewerVisible: true
     },
     {
       title: 'Social Media Image Generation',
@@ -61,7 +66,8 @@ const ActionCards: React.FC = () => {
       href: '/admin/media/social-kit',
       color: 'from-accent/20 to-accent/10',
       iconColor: 'text-accent-foreground',
-      creatorVisible: false
+      creatorVisible: false,
+      viewerVisible: false
     },
     {
       title: 'Content Diary',
@@ -70,7 +76,8 @@ const ActionCards: React.FC = () => {
       href: '/mediahub/diary',
       color: 'from-primary/20 to-primary/10',
       iconColor: 'text-primary',
-      creatorVisible: false
+      creatorVisible: false,
+      viewerVisible: false
     },
     {
       title: "What's New",
@@ -79,7 +86,8 @@ const ActionCards: React.FC = () => {
       href: '/admin/media/releases',
       color: 'from-rose-500/20 to-rose-500/10',
       iconColor: 'text-rose-500',
-      creatorVisible: true
+      creatorVisible: true,
+      viewerVisible: true
     }
   ];
 
