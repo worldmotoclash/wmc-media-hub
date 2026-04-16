@@ -1,31 +1,72 @@
 
 
-# Add Album Selection to Single Media Upload
+# Enforce Viewer Role Restrictions
 
 ## Problem
-The single upload flow (`MediaUpload.tsx`) has no album selection — uploaded files are not assigned to any album. The bulk upload already supports both "New Album" and "Existing Album" modes with full UI.
+A user with `mediaHubAccess: 'Viewer'` sees the full Media Hub — all action cards (Upload, Generate AI, Scene Detection, Playlists, Social Kit, Content Diary) and all dropdown menu links (Upload Content, Scene Detection). Viewers should only be able to **browse and view** the library — no uploading, generating, or editing.
 
-## Solution
-Port the album selection UI and logic from `BulkUploadTab.tsx` into the single upload form in `MediaUpload.tsx`, making album assignment optional (not required like in bulk).
+## Current State
+- `ActionCards.tsx` only filters for Creator role (`isCreator()`) — Viewers see everything
+- `profile-dropdown.tsx` shows Upload Content and Scene Detection links to everyone
+- `useCreatorGuard` only blocks Creators, not Viewers
+- No `isViewer()` helper exists in `UserContext`
+- Route-level guards only check for login, not role
 
 ## Changes
 
-### `src/pages/media/MediaUpload.tsx`
+### 1. `src/contexts/UserContext.tsx`
+Add `isViewer()` helper method that returns `true` when `mediaHubAccess === 'Viewer'`.
 
-1. **Add state variables**: `albumMode` (new/existing/none), `albumName`, `albumDescription`, `selectedAlbumId`, `existingAlbums` list
-2. **Add `fetchAlbums` effect**: Same pattern as `BulkUploadTab` — query `media_albums`, compute real asset counts from `media_assets`, filter empties
-3. **Add album selection UI** in the upload form (below tags/keywords fields):
-   - Three-way toggle: "No Album", "New Album", "Existing Album"
-   - New Album: name input + optional description
-   - Existing Album: searchable select dropdown with asset counts
-4. **Update upload handler**: Before calling `upload-master-to-s3`, if album mode is "new", create the album row first; if "existing", use `selectedAlbumId`. Pass `albumId` in both the presigned-URL finalize body (line ~672) and the base64 upload body (line ~728). After upload, update `asset_count` on the album.
+### 2. `src/components/media/ActionCards.tsx`
+Add a `viewerVisible` flag to each action card. Viewers should only see:
+- **Asset Library** (browse only)
+- **What's New**
 
-### No edge function changes needed
-The `upload-master-to-s3` function already accepts and handles `albumId` — the bulk flow already uses it.
+Filter the actions list when user is a Viewer, similar to how Creator filtering already works.
+
+### 3. `src/components/ui/profile-dropdown.tsx`
+Conditionally hide "Upload Content" and "Scene Detection" links for Viewers. Only show "Media Hub" and "Media Library" links.
+
+### 4. `src/hooks/useCreatorGuard.tsx` → Rename/expand to `useRoleGuard.tsx`
+Expand the guard to also block Viewers from restricted pages (Upload, Generate, Scene Detection, Social Kit, Playlists, Content Diary). Keep backward compatibility by exporting both `useCreatorGuard` and a new `useViewerGuard`, or unify into a single `useAccessGuard` that blocks both Creators and Viewers from advanced routes.
+
+### 5. Route-guarded pages
+Add the viewer guard to the same pages that already use `useCreatorGuard`:
+- `MediaUpload.tsx`
+- `Generate.tsx`
+- `SceneDetection.tsx`
+- `SocialKit.tsx`
+- `PlaylistManager.tsx`
+- `DiaryDashboard.tsx`
+
+## Viewer Permissions Summary
+
+| Feature | Viewer Access |
+|---------|--------------|
+| Media Hub home | Yes |
+| Asset Library (browse) | Yes |
+| What's New | Yes |
+| Upload Media | No |
+| Generate AI Image/Video | No |
+| Scene Detection | No |
+| Manage Playlists | No |
+| Social Media Image Gen | No |
+| Content Diary | No |
+| Edit asset metadata | No |
+| Delete assets | No |
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/media/MediaUpload.tsx` | Add album selection UI, state, fetch logic, and pass `albumId` to upload calls |
+| `src/contexts/UserContext.tsx` | Add `isViewer()` helper |
+| `src/components/media/ActionCards.tsx` | Add `viewerVisible` flag, filter for Viewers |
+| `src/components/ui/profile-dropdown.tsx` | Hide upload/scene links for Viewers |
+| `src/hooks/useCreatorGuard.tsx` | Expand to also block Viewers from restricted routes |
+| `src/pages/media/MediaUpload.tsx` | Add viewer guard |
+| `src/pages/media/Generate.tsx` | Add viewer guard |
+| `src/pages/media/SceneDetection.tsx` | Add viewer guard |
+| `src/pages/media/SocialKit.tsx` | Add viewer guard |
+| `src/pages/media/PlaylistManager.tsx` | Add viewer guard |
+| `src/pages/media/DiaryDashboard.tsx` | Add viewer guard |
 
