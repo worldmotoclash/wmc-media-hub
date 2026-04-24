@@ -158,7 +158,7 @@ Deno.serve(async (req: Request) => {
 
   const wasExisting = !!existing;
 
-  const row = {
+  const baseRow = {
     report_id: reportId,
     report_type: "social_performance",
     title,
@@ -174,21 +174,22 @@ Deno.serve(async (req: Request) => {
     top_overall: payload.top_overall ?? [],
     raw_payload: payload,
     page_url: pageUrl,
-    // status is intentionally NOT set on update — preserves manual publish flips.
-    // For new rows, DB default 'draft' applies.
   };
 
   let upsertErr;
   if (wasExisting) {
+    // On re-ingest, do NOT touch status — preserves any manual flip
+    // (e.g. an admin unpublishing a bad report stays unpublished).
     const { error } = await supabase
       .from("social_performance_reports")
-      .update(row)
+      .update(baseRow)
       .eq("report_id", reportId);
     upsertErr = error;
   } else {
+    // New reports auto-publish so the returned page_url works immediately.
     const { error } = await supabase
       .from("social_performance_reports")
-      .insert(row);
+      .insert({ ...baseRow, status: "published" });
     upsertErr = error;
   }
 
