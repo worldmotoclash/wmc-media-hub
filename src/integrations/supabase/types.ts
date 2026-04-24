@@ -470,6 +470,72 @@ export type Database = {
         }
         Relationships: []
       }
+      social_performance_reports: {
+        Row: {
+          created_at: string
+          generated_at: string
+          id: string
+          page_url: string | null
+          platforms: Json
+          raw_payload: Json
+          report_date: string
+          report_id: string
+          report_type: string
+          since: string
+          slug: string
+          status: string
+          title: string
+          top_overall: Json
+          total_clicks: number
+          total_engagements: number
+          total_posts: number
+          total_views: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          generated_at: string
+          id?: string
+          page_url?: string | null
+          platforms?: Json
+          raw_payload?: Json
+          report_date: string
+          report_id: string
+          report_type?: string
+          since: string
+          slug: string
+          status?: string
+          title: string
+          top_overall?: Json
+          total_clicks?: number
+          total_engagements?: number
+          total_posts?: number
+          total_views?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          generated_at?: string
+          id?: string
+          page_url?: string | null
+          platforms?: Json
+          raw_payload?: Json
+          report_date?: string
+          report_id?: string
+          report_type?: string
+          since?: string
+          slug?: string
+          status?: string
+          title?: string
+          top_overall?: Json
+          total_clicks?: number
+          total_engagements?: number
+          total_posts?: number
+          total_views?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       video_generations: {
         Row: {
           created_at: string
