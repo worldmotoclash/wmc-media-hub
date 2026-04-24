@@ -62,8 +62,7 @@ export default function ReportsArchive() {
       ) : rows.length === 0 ? (
         <Card>
           <CardContent className="pt-6 text-muted-foreground">
-            No published reports yet. Reports default to <strong>draft</strong> on ingest;
-            flip <code>status</code> to <code>published</code> in the database to make them appear here.
+            No reports yet. Reports appear here automatically once the ingest endpoint receives its first payload.
           </CardContent>
         </Card>
       ) : (
