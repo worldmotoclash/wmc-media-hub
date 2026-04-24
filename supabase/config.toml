@@ -86,3 +86,7 @@ verify_jwt = false
 
 [functions.backfill-salesforce-ids]
 verify_jwt = false
+
+[functions.social-performance-ingest]
+verify_jwt = false
+
