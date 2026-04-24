@@ -1,0 +1,1 @@
+UPDATE public.social_performance_reports SET status = 'published' WHERE report_id = 'social-performance-2026-04-24';
