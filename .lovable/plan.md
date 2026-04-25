@@ -1,130 +1,126 @@
 ## Goal
 
-Transform `/reports` from a static archive list into an **interactive analytics dashboard** with:
-1. A time-range selector (7d / 30d / 60d / 120d / 1y / 2y / All)
-2. KPI summary cards aggregated for the selected range
-3. Trend charts (totals over time + per-platform breakdown)
-4. A cinematic **"Live Telemetry"** HUD-style streaming graph at the top — WMC brand identity, motorsport-broadcast feel
-5. Existing report list filtered by the selected range, kept below
+1. Remove the `LiveTelemetry` HUD from `/reports` so the archive stays focused on social analytics.
+2. Build a new standalone demo page at `/racer-performance` that showcases a multi-channel racer telemetry dashboard with racer + track selection and 1‑vs‑1 / 1‑vs‑field comparison.
 
-The per-report detail page (`/reports/:slug`) is unchanged.
+This is a **front-end demo** — all data is synthetic (mock racers, tracks, lap streams). No DB schema changes.
 
 ---
 
-## What the user will see on `/reports`
+## Changes to `/reports`
+
+- `src/pages/reports/ReportsArchive.tsx`: remove `<LiveTelemetry />` and its import. Add a small subtle link/button in the header: "View Racer Telemetry Demo →" pointing to `/racer-performance`.
+- `src/components/reports/LiveTelemetry.tsx`: keep the file (it will be reused as a building block on the new page) — no deletion.
+
+---
+
+## New page: `/racer-performance`
+
+### Route
+- Add to `src/App.tsx`: `<Route path="/racer-performance" element={<RacerPerformance />} />` (public, same as `/reports`).
+
+### Page file
+- `src/pages/racer-performance/RacerPerformance.tsx`
+
+### Layout (top → bottom)
 
 ```text
-┌──────────────────────────────────────────────────┐
-│  ● LIVE        WMC LIVE TELEMETRY                │
-│                                                  │
-│   SPEED 184 MPH    RPM 12,450    THROTTLE 87%    │
-│   ╱╲    ╱╲╱╲                                     │
-│  ╱  ╲╱╲╱    ╲╱╲╱╲   (scrolling neon line)       │
-│                                                  │
-└──────────────────────────────────────────────────┘
-
-Social Performance Reports
-[ 7D ] [ 30D ] [ 60D ] [ 120D ] [ 1Y ] [ 2Y ] [ All ]
-
-┌─Posts─┐ ┌─Views─┐ ┌─Engagements─┐ ┌─Clicks─┐
-│ 1,204 │ │ 482K  │ │   38.2K     │ │ 9.1K   │
-└───────┘ └───────┘ └─────────────┘ └────────┘
-
-[ Trend over time — area/line chart, all 4 metrics ]
-
-[ Per-platform stacked bar chart — posts/views by platform ]
-
-[ Reports archive list — filtered to range ]
+┌───────────────────────────────────────────────────────────────┐
+│ HEADER: "RACER PERFORMANCE — LIVE TELEMETRY DEMO"             │
+│ Subtitle + LIVE pulse dot                                     │
+├───────────────────────────────────────────────────────────────┤
+│ SELECTORS BAR                                                 │
+│  [ Racer A ▾ ]   [ Racer B / Field ▾ ]   [ Track ▾ ]          │
+│  [ Session: Practice / Qualy / Race ▾ ]   [ Lap ▾ ]           │
+├───────────────────────────────────────────────────────────────┤
+│ HUD STAT TILES (animated readouts)                            │
+│  SPEED · RPM · THROTTLE · BRAKE · LEAN ANGLE · G‑FORCE        │
+│  GEAR · TIRE TEMP · LAP TIME · DELTA Δ                        │
+├───────────────────────────────────────────────────────────────┤
+│ MAIN TELEMETRY CHART (multi-line, scrolling window)           │
+│  Channel toggles: Speed | Throttle | Brake | Lean | G | RPM    │
+│  Racer A solid neon orange · Racer B dashed cyan              │
+├───────────────────────────────────────────────────────────────┤
+│ COMPARISON STRIP                                              │
+│  - Lap-time delta sparkline                                   │
+│  - Sector bars (S1/S2/S3) with green/red faster/slower        │
+│  - Mini track map placeholder (SVG outline) with A/B dots     │
+└───────────────────────────────────────────────────────────────┘
 ```
+
+### Components to create (under `src/components/racer-performance/`)
+
+1. `RacerSelector.tsx` — two dropdowns (Racer A, Racer B|Field) populated from a mock racer list.
+2. `TrackSelector.tsx` — track + session + lap dropdowns.
+3. `TelemetryHUD.tsx` — grid of `Readout` tiles for Speed, RPM, Throttle, Brake, Lean Angle, Lateral G, Longitudinal G, Gear, Tire Temp (FL/FR/RL/RR rolled up), Lap Time, Delta. Reuses the animated number hook pattern from `LiveTelemetry`.
+4. `TelemetryChart.tsx` — Recharts `LineChart` with a sliding-window data buffer; supports two series per channel (Racer A / Racer B). Channel-toggle chips above the chart.
+5. `LapDeltaStrip.tsx` — small composed chart showing cumulative delta vs reference (Racer B or field median).
+6. `SectorBars.tsx` — three colored bars (S1/S2/S3) showing time delta per sector.
+7. `TrackMapMini.tsx` — inline SVG oval/track silhouette with two animated dots representing each racer's position around the lap.
+
+### Mock data layer
+
+- `src/components/racer-performance/mockTelemetry.ts`
+  - `RACERS`: ~6 entries (id, name, number, team, color).
+  - `TRACKS`: 3–4 entries (id, name, length_km, sector_split).
+  - `generateStream(racerId, trackId, channels[])`: returns a `setInterval`-driven generator producing correlated channel values (e.g. brake↑ → speed↓ → lean↓; throttle↑ → speed↑; lateral G derived from speed × lean).
+  - `FIELD` pseudo-racer (id `"field"`) returned as median of all racers.
+
+### Channel ranges (for synthetic generation)
+
+- Speed: 40–340 km/h
+- RPM: 4 000–16 500
+- Throttle: 0–100 %
+- Brake: 0–100 %
+- Lean Angle: -62°..+62°
+- Lateral G: -2.4..+2.4
+- Longitudinal G: -1.8..+1.6
+- Gear: 1–6
+- Tire Temp: 60–115 °C
+
+All use a bounded random-walk similar to `LiveTelemetry`'s `nextValue`, with cross-channel coupling for realism.
+
+### Comparison logic
+
+- Selector for "Compare against": `Racer B` | `Field median` | `None`.
+- When set, every chart and HUD tile shows a secondary value/series and a Δ badge (green if A faster/better, red if slower).
+- Sector bars and lap-delta strip are hidden when "None".
+
+### Styling
+
+- Reuse existing telemetry tokens already in `src/index.css`: `--telemetry-primary/accent/secondary/grid/muted/danger`, `hud-frame`, `hud-corner-*`, `hud-scanline`, `animate-hud-flicker`, `animate-pulse-live`, `font-hud-display`, `font-hud-mono`, `hud-glow-*`.
+- Add one extra accent token only if needed (e.g. `--telemetry-compare` cyan) — likely the existing accent works.
 
 ---
 
-## Implementation
+## Discoverability
 
-### 1. Design tokens (`src/index.css`)
-Add HUD/telemetry semantic tokens (HSL, dark-only feel, used regardless of theme):
-- `--telemetry-bg: 0 0% 4%`
-- `--telemetry-grid: 0 0% 14%`
-- `--telemetry-primary: 22 100% 50%` (electric orange #FF6B00)
-- `--telemetry-accent: 195 100% 50%` (cyan #00BFFF)
-- `--telemetry-danger: 0 84% 55%`
-- `--telemetry-text: 0 0% 92%`
-- `--telemetry-muted: 0 0% 55%`
+- Add a small card/link from `/reports` header → `/racer-performance` ("Demo: Racer Telemetry").
+- No nav menu change required (keeps it as an unlisted demo).
 
-Add utility classes:
-- `.hud-frame` — black bg, thin orange border, corner brackets via `::before`/`::after` pseudo-elements
-- `.hud-glow` — `filter: drop-shadow(0 0 6px hsl(var(--telemetry-primary)))`
-- `.hud-scanline` — subtle repeating linear gradient overlay (CRT feel)
-- `.font-mono-hud` — mapped to `JetBrains Mono` (loaded via Google Fonts `@import`)
-- Keyframes: `pulse-live` (red dot), `flicker` (subtle opacity jitter)
+---
 
-### 2. New component: `src/components/reports/LiveTelemetry.tsx`
-- Self-contained card with HUD frame
-- State: `points: { t: number; speed: number; rpm: number; throttle: number }[]` — sliding window of 60 points
-- `setInterval(150ms)` pushes a new synthetic point (smoothed random walk so the lines look organic, not jittery)
-- Animated numeric readouts (count-up easing via `framer-motion`'s `animate` on a `useMotionValue`)
-- Recharts `LineChart` with three `Line` series, `isAnimationActive={false}` (we manually animate via state updates), neon stroke + drop-shadow filter
-- Top-right: pulsing red dot + "LIVE" label
-- Pauses interval when tab is hidden (`document.visibilityState`) to save CPU
-- Pure visual flourish — does **not** read from the database
+## Out of scope (explicitly)
 
-### 3. New component: `src/components/reports/RangeSelector.tsx`
-Segmented control of buttons: `7d, 30d, 60d, 120d, 1y, 2y, all`. Emits a `Range` value. Uses existing `Button` (variant outline / default for active).
-
-### 4. New component: `src/components/reports/ReportsTrendChart.tsx`
-- Recharts `ComposedChart` (area for views, lines for engagements/clicks/posts on a secondary axis)
-- Receives the filtered `ReportRow[]` and renders by `report_date`
-- Tooltip styled with shadcn `Card`
-
-### 5. New component: `src/components/reports/PlatformBreakdownChart.tsx`
-- Aggregates `platforms[]` JSON across the filtered rows (sum `views` / `engagements` per platform)
-- Recharts horizontal `BarChart`
-- Falls back to a friendly empty state when no platform data is present
-
-### 6. Refactor `src/pages/reports/ReportsArchive.tsx`
-- Add `range` state (default `30d`)
-- Compute `cutoff = today - rangeDays` (or null for "all"), filter `rows` by `report_date >= cutoff`
-- Compute aggregate KPIs from the filtered rows (sum of totals)
-- Layout order:
-  1. `<LiveTelemetry />`
-  2. Page header
-  3. `<RangeSelector />`
-  4. KPI cards (re-use existing `Metric`/`Card` style, larger numbers)
-  5. `<ReportsTrendChart />`
-  6. `<PlatformBreakdownChart />`
-  7. Existing report cards list (unchanged structure, filtered)
-- Query unchanged but also pull `platforms` jsonb (lightweight — already capped to 200 rows)
-
-### 7. Tailwind config (`tailwind.config.ts`)
-- Register the telemetry color tokens under `colors.telemetry.{bg,grid,primary,accent,danger,text,muted}` so charts/components can use semantic class names like `text-telemetry-primary`
-- Add `pulse-live` and `flicker` keyframes/animations
-- Add `fontFamily.mono-hud: ['"JetBrains Mono"', 'monospace']`
-
-### 8. Font loading (`src/index.css`)
-Add JetBrains Mono `@import` next to existing Inter import.
+- No Supabase tables, no real racer/track data wiring, no live ingest.
+- No persistence of selections (URL params only if trivial).
+- No mobile-optimized track map — desktop-first demo.
 
 ---
 
 ## Files touched
 
 **New**
-- `src/components/reports/LiveTelemetry.tsx`
-- `src/components/reports/RangeSelector.tsx`
-- `src/components/reports/ReportsTrendChart.tsx`
-- `src/components/reports/PlatformBreakdownChart.tsx`
+- `src/pages/racer-performance/RacerPerformance.tsx`
+- `src/components/racer-performance/RacerSelector.tsx`
+- `src/components/racer-performance/TrackSelector.tsx`
+- `src/components/racer-performance/TelemetryHUD.tsx`
+- `src/components/racer-performance/TelemetryChart.tsx`
+- `src/components/racer-performance/LapDeltaStrip.tsx`
+- `src/components/racer-performance/SectorBars.tsx`
+- `src/components/racer-performance/TrackMapMini.tsx`
+- `src/components/racer-performance/mockTelemetry.ts`
 
-**Edited**
-- `src/pages/reports/ReportsArchive.tsx`
-- `src/index.css` (tokens, font, HUD utilities, keyframes)
-- `tailwind.config.ts` (telemetry colors, animations, mono-hud font)
-
-No DB changes, no new dependencies (recharts + framer-motion already installed).
-
----
-
-## Notes / decisions
-
-- Telemetry component uses **synthetic data** by design — it's a brand/atmosphere flourish, not a real metric. The actual social data lives in the trend chart below.
-- Range selector defaults to **30 days** (most common analytics window).
-- Mobile: range buttons wrap; charts use `ResponsiveContainer`; HUD frame keeps padding scaled down on `< sm`.
-- Performance: telemetry interval pauses on tab blur; sliding window capped at 60 points; charts memoize aggregation with `useMemo`.
+**Modified**
+- `src/App.tsx` — register `/racer-performance` route.
+- `src/pages/reports/ReportsArchive.tsx` — remove `LiveTelemetry`, add link to demo.

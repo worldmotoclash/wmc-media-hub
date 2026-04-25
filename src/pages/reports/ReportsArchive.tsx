@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import LiveTelemetry from "@/components/reports/LiveTelemetry";
 import RangeSelector, { Range, rangeToDays } from "@/components/reports/RangeSelector";
 import ReportsTrendChart from "@/components/reports/ReportsTrendChart";
 import PlatformBreakdownChart from "@/components/reports/PlatformBreakdownChart";
@@ -71,13 +70,19 @@ export default function ReportsArchive() {
 
   return (
     <main className="container mx-auto px-4 py-10 max-w-6xl">
-      <LiveTelemetry />
-
-      <header className="mb-6">
-        <h1 className="text-4xl font-bold tracking-tight">Social Performance Reports</h1>
-        <p className="text-muted-foreground mt-2">
-          Daily archive of automated social media performance for World Moto Clash.
-        </p>
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight">Social Performance Reports</h1>
+          <p className="text-muted-foreground mt-2">
+            Daily archive of automated social media performance for World Moto Clash.
+          </p>
+        </div>
+        <Link
+          to="/racer-performance"
+          className="font-hud-mono text-[10px] uppercase tracking-widest text-[hsl(var(--telemetry-muted))] hover:text-[hsl(var(--telemetry-accent))] border border-[hsl(var(--telemetry-grid))] px-3 py-1.5 rounded-sm"
+        >
+          Demo · Racer Telemetry →
+        </Link>
       </header>
 
       <div className="mb-8">
