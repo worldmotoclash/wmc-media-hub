@@ -30,6 +30,18 @@ export default {
 				malibu: "#78c0f4",
 				siam: "#61645b",
 				"science-blue": "#0464c4",
+
+				telemetry: {
+					bg: 'hsl(var(--telemetry-bg))',
+					surface: 'hsl(var(--telemetry-surface))',
+					grid: 'hsl(var(--telemetry-grid))',
+					primary: 'hsl(var(--telemetry-primary))',
+					accent: 'hsl(var(--telemetry-accent))',
+					secondary: 'hsl(var(--telemetry-secondary))',
+					danger: 'hsl(var(--telemetry-danger))',
+					text: 'hsl(var(--telemetry-text))',
+					muted: 'hsl(var(--telemetry-muted))',
+				},
 				
 				// Keep original shadcn colors
 				border: 'hsl(var(--border))',
