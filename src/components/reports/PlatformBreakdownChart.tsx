@@ -20,6 +20,7 @@ interface PlatformBlock {
 }
 
 interface Row {
+  report_date: string;
   platforms: unknown;
 }
 
@@ -30,30 +31,49 @@ interface Props {
 const fmtCompact = (n: number) =>
   new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(n);
 
+function toMap(list: PlatformBlock[]): Map<string, PlatformBlock> {
+  const m = new Map<string, PlatformBlock>();
+  for (const p of list) {
+    const key = (p.platform ?? "unknown").toLowerCase();
+    m.set(key, p);
+  }
+  return m;
+}
+
 export default function PlatformBreakdownChart({ rows }: Props) {
   const data = useMemo(() => {
-    const acc = new Map<string, { platform: string; Views: number; Engagements: number; Clicks: number; Posts: number }>();
-    for (const r of rows) {
-      const list = Array.isArray(r.platforms) ? (r.platforms as PlatformBlock[]) : [];
-      for (const p of list) {
-        const key = (p.platform ?? "unknown").toLowerCase();
-        const cur = acc.get(key) ?? { platform: key, Views: 0, Engagements: 0, Clicks: 0, Posts: 0 };
-        cur.Views += Number(p.views ?? 0);
-        cur.Engagements += Number(p.engagements ?? 0);
-        cur.Clicks += Number(p.clicks ?? 0);
-        cur.Posts += Number(p.posts ?? 0);
-        acc.set(key, cur);
-      }
-    }
-    return Array.from(acc.values())
-      .sort((a, b) => b.Views - a.Views)
-      .map((d) => ({ ...d, platform: d.platform.charAt(0).toUpperCase() + d.platform.slice(1) }));
+    if (rows.length === 0) return [];
+
+    const sorted = [...rows].sort((a, b) => a.report_date.localeCompare(b.report_date));
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+
+    const firstList = Array.isArray(first.platforms) ? (first.platforms as PlatformBlock[]) : [];
+    const lastList = Array.isArray(last.platforms) ? (last.platforms as PlatformBlock[]) : [];
+
+    const firstMap = sorted.length > 1 ? toMap(firstList) : new Map<string, PlatformBlock>();
+    const lastMap = toMap(lastList);
+
+    // Use latest snapshot's platforms as the universe; subtract earliest if present.
+    const out = Array.from(lastMap.entries()).map(([key, lp]) => {
+      const fp = firstMap.get(key);
+      const sub = (a?: number, b?: number) => Math.max(0, Number(a ?? 0) - Number(b ?? 0));
+      return {
+        platform: key.charAt(0).toUpperCase() + key.slice(1),
+        Views: sub(lp.views, fp?.views),
+        Engagements: sub(lp.engagements, fp?.engagements),
+        Clicks: sub(lp.clicks, fp?.clicks),
+        Posts: sub(lp.posts, fp?.posts),
+      };
+    });
+
+    return out.sort((a, b) => b.Views - a.Views);
   }, [rows]);
 
   return (
     <Card className="mb-10">
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg">Platform Breakdown</CardTitle>
+        <CardTitle className="text-lg">Platform Breakdown <span className="text-xs font-normal text-muted-foreground">(period delta)</span></CardTitle>
       </CardHeader>
       <CardContent className="h-72">
         {data.length === 0 ? (

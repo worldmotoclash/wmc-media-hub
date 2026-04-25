@@ -55,17 +55,44 @@ export default function ReportsArchive() {
     return rows.filter((r) => new Date(r.report_date) >= cutoff);
   }, [rows, range]);
 
-  const totals = useMemo(() => {
-    return filtered.reduce(
-      (acc, r) => {
-        acc.posts += r.total_posts || 0;
-        acc.views += r.total_views || 0;
-        acc.engagements += r.total_engagements || 0;
-        acc.clicks += r.total_clicks || 0;
-        return acc;
-      },
-      { posts: 0, views: 0, engagements: 0, clicks: 0 }
+  // Period delta: latest snapshot − earliest snapshot in range.
+  // Each row's totals are cumulative running counts from the ingest, so summing
+  // would double-count. The delta represents activity added during the period.
+  const { totals, periodInfo } = useMemo(() => {
+    if (filtered.length === 0) {
+      return {
+        totals: { posts: 0, views: 0, engagements: 0, clicks: 0 },
+        periodInfo: null as null | { from: string; to: string; count: number },
+      };
+    }
+    const sorted = [...filtered].sort((a, b) =>
+      a.report_date.localeCompare(b.report_date)
     );
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    if (sorted.length === 1) {
+      return {
+        totals: {
+          posts: last.total_posts || 0,
+          views: last.total_views || 0,
+          engagements: last.total_engagements || 0,
+          clicks: last.total_clicks || 0,
+        },
+        periodInfo: { from: last.report_date, to: last.report_date, count: 1 },
+      };
+    }
+    return {
+      totals: {
+        posts: Math.max(0, (last.total_posts || 0) - (first.total_posts || 0)),
+        views: Math.max(0, (last.total_views || 0) - (first.total_views || 0)),
+        engagements: Math.max(
+          0,
+          (last.total_engagements || 0) - (first.total_engagements || 0)
+        ),
+        clicks: Math.max(0, (last.total_clicks || 0) - (first.total_clicks || 0)),
+      },
+      periodInfo: { from: first.report_date, to: last.report_date, count: sorted.length },
+    };
   }, [filtered]);
 
   return (
@@ -102,13 +129,20 @@ export default function ReportsArchive() {
         </div>
       ) : (
         <>
-          {/* KPI cards */}
-          <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <KpiCard label="Posts" value={fmt(totals.posts)} />
-            <KpiCard label="Views" value={fmtCompact(totals.views)} />
-            <KpiCard label="Engagements" value={fmtCompact(totals.engagements)} />
-            <KpiCard label="Clicks" value={fmtCompact(totals.clicks)} />
+          {/* KPI cards — period delta (latest snapshot − earliest in range) */}
+          <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-2">
+            <KpiCard label="Posts Δ" value={fmt(totals.posts)} />
+            <KpiCard label="Views Δ" value={fmtCompact(totals.views)} />
+            <KpiCard label="Engagements Δ" value={fmtCompact(totals.engagements)} />
+            <KpiCard label="Clicks Δ" value={fmtCompact(totals.clicks)} />
           </section>
+          <p className="font-hud-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-8">
+            {periodInfo
+              ? periodInfo.count === 1
+                ? `Snapshot · ${periodInfo.from} (only 1 report in range)`
+                : `Δ added from ${periodInfo.from} → ${periodInfo.to} · ${periodInfo.count} reports`
+              : "No reports in selected range"}
+          </p>
 
           <ReportsTrendChart rows={filtered} />
           <PlatformBreakdownChart rows={filtered} />
