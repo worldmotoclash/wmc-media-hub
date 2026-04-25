@@ -129,13 +129,20 @@ export default function ReportsArchive() {
         </div>
       ) : (
         <>
-          {/* KPI cards */}
-          <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <KpiCard label="Posts" value={fmt(totals.posts)} />
-            <KpiCard label="Views" value={fmtCompact(totals.views)} />
-            <KpiCard label="Engagements" value={fmtCompact(totals.engagements)} />
-            <KpiCard label="Clicks" value={fmtCompact(totals.clicks)} />
+          {/* KPI cards — period delta (latest snapshot − earliest in range) */}
+          <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-2">
+            <KpiCard label="Posts Δ" value={fmt(totals.posts)} />
+            <KpiCard label="Views Δ" value={fmtCompact(totals.views)} />
+            <KpiCard label="Engagements Δ" value={fmtCompact(totals.engagements)} />
+            <KpiCard label="Clicks Δ" value={fmtCompact(totals.clicks)} />
           </section>
+          <p className="font-hud-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-8">
+            {periodInfo
+              ? periodInfo.count === 1
+                ? `Snapshot · ${periodInfo.from} (only 1 report in range)`
+                : `Δ added from ${periodInfo.from} → ${periodInfo.to} · ${periodInfo.count} reports`
+              : "No reports in selected range"}
+          </p>
 
           <ReportsTrendChart rows={filtered} />
           <PlatformBreakdownChart rows={filtered} />
