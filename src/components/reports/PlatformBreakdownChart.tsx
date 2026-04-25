@@ -98,6 +98,7 @@ export default function PlatformBreakdownChart({ rows }: Props) {
                 width={48}
               />
               <Tooltip
+                cursor={{ fill: "hsl(var(--telemetry-primary) / 0.08)" }}
                 contentStyle={{
                   background: "hsl(var(--popover))",
                   border: "1px solid hsl(var(--border))",
