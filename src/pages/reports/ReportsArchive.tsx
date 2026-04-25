@@ -1,8 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import LiveTelemetry from "@/components/reports/LiveTelemetry";
+import RangeSelector, { Range, rangeToDays } from "@/components/reports/RangeSelector";
+import ReportsTrendChart from "@/components/reports/ReportsTrendChart";
+import PlatformBreakdownChart from "@/components/reports/PlatformBreakdownChart";
 
 interface ReportRow {
   id: string;
@@ -13,22 +17,26 @@ interface ReportRow {
   total_views: number;
   total_engagements: number;
   total_clicks: number;
+  platforms: unknown;
 }
 
 const fmt = (n: number) => new Intl.NumberFormat("en-US").format(n);
+const fmtCompact = (n: number) =>
+  new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(n);
 
 export default function ReportsArchive() {
   const [rows, setRows] = useState<ReportRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [range, setRange] = useState<Range>("30d");
 
   useEffect(() => {
     document.title = "Social Performance Reports — World Moto Clash";
     (async () => {
       const { data, error } = await supabase
         .from("social_performance_reports")
-        .select("id, slug, title, report_date, total_posts, total_views, total_engagements, total_clicks")
+        .select("id, slug, title, report_date, total_posts, total_views, total_engagements, total_clicks, platforms")
         .order("report_date", { ascending: false })
-        .limit(200);
+        .limit(1000);
       if (error) {
         setError(error.message);
         setRows([]);
@@ -38,14 +46,43 @@ export default function ReportsArchive() {
     })();
   }, []);
 
+  const filtered = useMemo(() => {
+    if (!rows) return [];
+    const days = rangeToDays(range);
+    if (days === null) return rows;
+    const cutoff = new Date();
+    cutoff.setHours(0, 0, 0, 0);
+    cutoff.setDate(cutoff.getDate() - days);
+    return rows.filter((r) => new Date(r.report_date) >= cutoff);
+  }, [rows, range]);
+
+  const totals = useMemo(() => {
+    return filtered.reduce(
+      (acc, r) => {
+        acc.posts += r.total_posts || 0;
+        acc.views += r.total_views || 0;
+        acc.engagements += r.total_engagements || 0;
+        acc.clicks += r.total_clicks || 0;
+        return acc;
+      },
+      { posts: 0, views: 0, engagements: 0, clicks: 0 }
+    );
+  }, [filtered]);
+
   return (
     <main className="container mx-auto px-4 py-10 max-w-6xl">
-      <header className="mb-8">
+      <LiveTelemetry />
+
+      <header className="mb-6">
         <h1 className="text-4xl font-bold tracking-tight">Social Performance Reports</h1>
         <p className="text-muted-foreground mt-2">
           Daily archive of automated social media performance for World Moto Clash.
         </p>
       </header>
+
+      <div className="mb-8">
+        <RangeSelector value={range} onChange={setRange} />
+      </div>
 
       {error && (
         <Card className="mb-6 border-destructive">
@@ -55,41 +92,77 @@ export default function ReportsArchive() {
 
       {rows === null ? (
         <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full" />
-          ))}
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-72 w-full" />
         </div>
-      ) : rows.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6 text-muted-foreground">
-            No reports yet. Reports appear here automatically once the ingest endpoint receives its first payload.
-          </CardContent>
-        </Card>
       ) : (
-        <div className="space-y-3">
-          {rows.map((r) => (
-            <Link key={r.id} to={`/reports/${r.slug}`} className="block">
-              <Card className="hover:border-primary transition-colors">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg flex items-center justify-between gap-4">
-                    <span>{r.title}</span>
-                    <span className="text-sm font-normal text-muted-foreground">{r.report_date}</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <Metric label="Posts" value={fmt(r.total_posts)} />
-                    <Metric label="Views" value={fmt(r.total_views)} />
-                    <Metric label="Engagements" value={fmt(r.total_engagements)} />
-                    <Metric label="Clicks" value={fmt(r.total_clicks)} />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
+        <>
+          {/* KPI cards */}
+          <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <KpiCard label="Posts" value={fmt(totals.posts)} />
+            <KpiCard label="Views" value={fmtCompact(totals.views)} />
+            <KpiCard label="Engagements" value={fmtCompact(totals.engagements)} />
+            <KpiCard label="Clicks" value={fmtCompact(totals.clicks)} />
+          </section>
+
+          <ReportsTrendChart rows={filtered} />
+          <PlatformBreakdownChart rows={filtered} />
+
+          <h2 className="text-2xl font-semibold mb-4">
+            Reports{" "}
+            <span className="text-sm text-muted-foreground font-normal">
+              ({filtered.length})
+            </span>
+          </h2>
+
+          {filtered.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6 text-muted-foreground">
+                No reports in the selected range.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((r) => (
+                <Link key={r.id} to={`/reports/${r.slug}`} className="block">
+                  <Card className="hover:border-primary transition-colors">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg flex items-center justify-between gap-4">
+                        <span>{r.title}</span>
+                        <span className="text-sm font-normal text-muted-foreground">
+                          {r.report_date}
+                        </span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <Metric label="Posts" value={fmt(r.total_posts)} />
+                        <Metric label="Views" value={fmt(r.total_views)} />
+                        <Metric label="Engagements" value={fmt(r.total_engagements)} />
+                        <Metric label="Clicks" value={fmt(r.total_clicks)} />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </main>
+  );
+}
+
+function KpiCard({ label, value }: { label: string; value: string }) {
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <div className="font-hud-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+          {label}
+        </div>
+        <div className="font-hud-display text-4xl mt-1 text-foreground">{value}</div>
+      </CardContent>
+    </Card>
   );
 }
 
