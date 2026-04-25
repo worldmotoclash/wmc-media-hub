@@ -9,10 +9,12 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export interface TrendRow {
   report_date: string;
+  slug?: string;
   total_posts: number;
   total_views: number;
   total_engagements: number;
@@ -23,25 +25,75 @@ interface Props {
   rows: TrendRow[];
 }
 
+const fmt = (n: number) => new Intl.NumberFormat("en-US").format(n);
 const fmtCompact = (n: number) =>
   new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(n);
 
 export default function ReportsTrendChart({ rows }: Props) {
-  // Chronological for the chart
+  const navigate = useNavigate();
+
   const data = [...rows]
     .sort((a, b) => a.report_date.localeCompare(b.report_date))
     .map((r) => ({
       date: r.report_date,
+      slug: r.slug,
       Posts: r.total_posts,
       Views: r.total_views,
       Engagements: r.total_engagements,
       Clicks: r.total_clicks,
     }));
 
+  const goTo = (slug?: string) => {
+    if (slug) navigate(`/reports/${slug}`);
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload || payload.length === 0) return null;
+    const slug = payload[0]?.payload?.slug as string | undefined;
+    return (
+      <div
+        onClick={() => goTo(slug)}
+        className={`rounded-md border border-border bg-popover/95 backdrop-blur px-3 py-2 text-xs shadow-lg pointer-events-auto ${
+          slug ? "cursor-pointer hover:border-[hsl(var(--telemetry-primary))]" : ""
+        }`}
+      >
+        <div className="font-medium text-foreground mb-1">{label}</div>
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        {payload.map((p: any) => (
+          <div key={p.dataKey} className="flex items-center gap-2" style={{ color: p.color }}>
+            <span>{p.dataKey}</span>
+            <span>:</span>
+            <span>{fmt(p.value as number)}</span>
+          </div>
+        ))}
+        {slug && (
+          <div className="mt-1.5 pt-1.5 border-t border-border text-[10px] uppercase tracking-widest text-[hsl(var(--telemetry-primary))]">
+            View report →
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleChartClick = (e: any) => {
+    const slug = e?.activePayload?.[0]?.payload?.slug;
+    goTo(slug);
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dotClick = (_: unknown, payload: any) => goTo(payload?.payload?.slug);
+
   return (
     <Card className="mb-8">
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg">Performance Trend</CardTitle>
+        <CardTitle className="text-lg">
+          Performance Trend{" "}
+          <span className="text-xs font-normal text-muted-foreground">
+            (click a point to open the report)
+          </span>
+        </CardTitle>
       </CardHeader>
       <CardContent className="h-72">
         {data.length === 0 ? (
@@ -50,7 +102,12 @@ export default function ReportsTrendChart({ rows }: Props) {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+            <ComposedChart
+              data={data}
+              margin={{ top: 10, right: 16, left: 0, bottom: 0 }}
+              onClick={handleChartClick}
+              style={{ cursor: "pointer" }}
+            >
               <defs>
                 <linearGradient id="viewsFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="hsl(var(--telemetry-primary))" stopOpacity={0.45} />
@@ -83,14 +140,12 @@ export default function ReportsTrendChart({ rows }: Props) {
                 width={40}
               />
               <Tooltip
-                contentStyle={{
-                  background: "hsl(var(--popover))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: 6,
-                  fontSize: 12,
+                content={<CustomTooltip />}
+                cursor={{
+                  stroke: "hsl(var(--telemetry-primary))",
+                  strokeWidth: 1,
+                  strokeDasharray: "3 3",
                 }}
-                labelStyle={{ color: "hsl(var(--foreground))" }}
-                formatter={(v: number) => new Intl.NumberFormat("en-US").format(v)}
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Area
@@ -100,6 +155,7 @@ export default function ReportsTrendChart({ rows }: Props) {
                 stroke="hsl(var(--telemetry-primary))"
                 strokeWidth={2}
                 fill="url(#viewsFill)"
+                activeDot={{ r: 6, style: { cursor: "pointer" }, onClick: dotClick }}
               />
               <Line
                 yAxisId="left"
@@ -108,6 +164,7 @@ export default function ReportsTrendChart({ rows }: Props) {
                 stroke="hsl(var(--telemetry-accent))"
                 strokeWidth={2}
                 dot={false}
+                activeDot={{ r: 5, style: { cursor: "pointer" }, onClick: dotClick }}
               />
               <Line
                 yAxisId="right"
@@ -116,6 +173,7 @@ export default function ReportsTrendChart({ rows }: Props) {
                 stroke="hsl(var(--telemetry-secondary))"
                 strokeWidth={2}
                 dot={false}
+                activeDot={{ r: 5, style: { cursor: "pointer" }, onClick: dotClick }}
               />
               <Line
                 yAxisId="right"
@@ -125,6 +183,7 @@ export default function ReportsTrendChart({ rows }: Props) {
                 strokeWidth={1.5}
                 strokeDasharray="4 4"
                 dot={false}
+                activeDot={{ r: 4, style: { cursor: "pointer" }, onClick: dotClick }}
               />
             </ComposedChart>
           </ResponsiveContainer>
