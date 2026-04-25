@@ -49,6 +49,7 @@ import DiaryDetail from "./pages/media/DiaryDetail";
 import ReleaseNotes from "./pages/media/ReleaseNotes";
 import ReportsArchive from "./pages/reports/ReportsArchive";
 import SocialPerformanceReport from "./pages/reports/SocialPerformanceReport";
+import RacerPerformance from "./pages/racer-performance/RacerPerformance";
 
 const queryClient = new QueryClient();
 
@@ -107,6 +108,7 @@ const App = () => (
                 <Route path="/mediahub/diary/:date" element={<DiaryDetail />} />
                 <Route path="/reports" element={<ReportsArchive />} />
                 <Route path="/reports/:slug" element={<SocialPerformanceReport />} />
+                <Route path="/racer-performance" element={<RacerPerformance />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                 <Route path="/terms-of-service" element={<TermsOfService />} />
                 <Route path="/cookie-policy" element={<CookiePolicy />} />
