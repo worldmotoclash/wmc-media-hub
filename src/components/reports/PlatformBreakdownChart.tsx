@@ -73,7 +73,7 @@ export default function PlatformBreakdownChart({ rows }: Props) {
   return (
     <Card className="mb-10">
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg">Platform Breakdown</CardTitle>
+        <CardTitle className="text-lg">Platform Breakdown <span className="text-xs font-normal text-muted-foreground">(period delta)</span></CardTitle>
       </CardHeader>
       <CardContent className="h-72">
         {data.length === 0 ? (
