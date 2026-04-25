@@ -60,6 +60,17 @@
     --color-malibu: #78c0f4;
     --color-siam: #61645b;
     --color-science-blue: #0464c4;
+
+    /* HUD / Live Telemetry tokens (motorsport broadcast feel) */
+    --telemetry-bg: 0 0% 4%;
+    --telemetry-surface: 0 0% 7%;
+    --telemetry-grid: 0 0% 14%;
+    --telemetry-primary: 22 100% 50%;     /* electric orange */
+    --telemetry-accent: 195 100% 50%;     /* cyan */
+    --telemetry-secondary: 60 100% 55%;   /* hot yellow */
+    --telemetry-danger: 0 84% 55%;
+    --telemetry-text: 0 0% 92%;
+    --telemetry-muted: 0 0% 55%;
   }
 
   .dark {
