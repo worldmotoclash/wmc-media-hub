@@ -671,6 +671,8 @@ const MediaUpload: React.FC = () => {
         const PRESIGNED_THRESHOLD = 4 * 1024 * 1024; // 4MB for all file types — base64 inflates ~33%, edge function has tight memory
         const usePresigned = selectedFile.size > PRESIGNED_THRESHOLD;
 
+        let uploadResultData: any = null;
+
         if (usePresigned) {
           // === PRESIGNED URL FLOW for large files ===
           setUploadPhase('Preparing upload...');
@@ -745,6 +747,7 @@ const MediaUpload: React.FC = () => {
           });
 
           if (error) throw error;
+          uploadResultData = data;
         } else {
           // === TRADITIONAL BASE64 FLOW for smaller files ===
           setUploadPhase('Reading file...');
@@ -800,6 +803,7 @@ const MediaUpload: React.FC = () => {
           
           clearInterval(progressInterval);
           if (error) throw error;
+          uploadResultData = data;
         }
         
         // Stage 3: Complete (100%)
@@ -811,6 +815,35 @@ const MediaUpload: React.FC = () => {
           title: "Upload successful!",
           description: `${mediaLabel} has been uploaded and is being processed.`,
         });
+
+        // Auto-sync to Salesforce (matches Bulk Upload behavior)
+        const newAssetId =
+          uploadResultData?.assetId ??
+          uploadResultData?.id ??
+          uploadResultData?.asset?.id;
+
+        if (newAssetId) {
+          toast({
+            title: "Syncing to Salesforce…",
+            description: "Creating SFDC record",
+          });
+          supabase.functions
+            .invoke('sync-asset-to-salesforce', { body: { assetIds: [newAssetId] } })
+            .then(({ error: syncError }) => {
+              if (syncError) {
+                console.error('SFDC sync error:', syncError);
+                toast({
+                  title: "SFDC sync failed",
+                  description: `${syncError.message} — use "Sync to SFDC" in the asset details to retry.`,
+                  variant: "destructive",
+                });
+              } else {
+                toast({ title: "Salesforce sync complete" });
+              }
+            });
+        } else {
+          console.warn('No asset ID returned from upload-master-to-s3; skipping auto-sync', uploadResultData);
+        }
         
         // Brief delay to show 100%
         await new Promise(resolve => setTimeout(resolve, 500));
