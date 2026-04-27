@@ -27,8 +27,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, on
   // Detect known-bad characters in the source URL that Wasabi/Cloudflare won't serve.
   const srcLooksProblematic = !!video?.videoSrc && (
     /:[^/]*\.[a-z0-9]+$/i.test(video.videoSrc) ||      // colon in filename
-    /\*/.test(video.videoSrc) ||                        // asterisk
-    /\.m4v(\?|$)/i.test(video.videoSrc)                 // m4v container
+    /\*/.test(video.videoSrc)                           // asterisk
   );
 
   const initialTags: MediaTag[] = (video?.tags || []).map((name, i) => ({
@@ -150,7 +149,7 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, on
                   crossOrigin="anonymous"
                   onError={() => setPlaybackError(
                     srcLooksProblematic
-                      ? "This file's name contains characters Wasabi can't serve over HTTP (e.g. ':' or '*'), or uses .m4v which most browsers can't play. An admin can repair it from the asset details drawer (\"Fix Filename\")."
+                      ? "This file's name contains characters Wasabi can't serve over HTTP (such as ':' or '*'). An admin can repair it from the asset details drawer (\"Fix Filename\")."
                       : "Unable to play this file. The source may be missing or the format isn't supported by your browser."
                   )}
                 >
