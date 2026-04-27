@@ -62,7 +62,16 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSyncingToSfdc, setIsSyncingToSfdc] = useState(false);
   const [localSalesforceId, setLocalSalesforceId] = useState<string | null>(asset?.salesforceId || null);
-  const { isEditor } = useUser();
+  const [isRenamingFile, setIsRenamingFile] = useState(false);
+  const { isEditor, isAdmin } = useUser();
+
+  // Detect Wasabi-incompatible characters in the S3 key (or .m4v which Chrome/Firefox can't play reliably).
+  const s3KeyForCheck: string | undefined = (asset as any)?.s3Key || (asset as any)?.s3_key;
+  const needsFilenameFix = !!s3KeyForCheck && (
+    /[:*?#]/.test(s3KeyForCheck) ||
+    / {2,}/.test(s3KeyForCheck) ||
+    s3KeyForCheck.toLowerCase().endsWith('.m4v')
+  );
 
   // Fetch albums on mount
   useEffect(() => {
@@ -345,6 +354,61 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
             </div>
 
             <Separator />
+
+            {/* File Storage — fix unplayable Wasabi keys */}
+            {isAdmin?.() && needsFilenameFix && (
+              <>
+                <div>
+                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                    File Storage
+                  </h4>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    This file's name contains characters Wasabi can't serve over HTTP
+                    (or uses .m4v which most browsers can't play). Repair the filename
+                    to enable playback.
+                  </p>
+                  <p className="text-[11px] font-mono text-muted-foreground/80 break-all mb-3">
+                    {s3KeyForCheck}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    disabled={isRenamingFile}
+                    onClick={async () => {
+                      setIsRenamingFile(true);
+                      try {
+                        const { data, error } = await supabase.functions.invoke('rename-s3-asset', {
+                          body: { asset_id: asset.id, reextension_m4v: true },
+                        });
+                        if (error) throw error;
+                        const result = data?.results?.[0];
+                        if (result?.status === 'renamed') {
+                          toast.success(`Renamed to: ${result.new_key}`);
+                          onAssetUpdated?.();
+                        } else if (result?.status === 'skipped') {
+                          toast.info(result.message || 'Nothing to rename');
+                        } else {
+                          toast.error(result?.message || 'Rename failed');
+                        }
+                      } catch (err: any) {
+                        console.error('Rename error:', err);
+                        toast.error('Rename failed: ' + (err.message || 'Unknown error'));
+                      } finally {
+                        setIsRenamingFile(false);
+                      }
+                    }}
+                  >
+                    {isRenamingFile
+                      ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      : <Pencil className="h-3 w-3 mr-1" />}
+                    Fix Filename
+                  </Button>
+                </div>
+                <Separator />
+              </>
+            )}
 
             {/* Sync Status */}
             <div>
