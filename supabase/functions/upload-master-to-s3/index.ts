@@ -127,7 +127,11 @@ serve(async (req) => {
     const isVideo = mimeType?.startsWith('video/');
     const isAudio = mimeType?.startsWith('audio/');
     const isImage = !isVideo && !isAudio;
-    const fileExtension = filename.split('.').pop()?.toLowerCase() || (isVideo ? 'mp4' : isAudio ? 'mp3' : 'jpg');
+    // Defensive: strip non-alphanumeric chars from extension so reserved
+    // characters (":", "*", "?", "#") can never enter S3 keys.
+    const rawExt = filename.split('.').pop()?.toLowerCase() || '';
+    const safeExt = rawExt.replace(/[^a-z0-9]/g, '');
+    const fileExtension = safeExt || (isVideo ? 'mp4' : isAudio ? 'mp3' : 'jpg');
     const assetType = isVideo ? 'video' : isAudio ? 'audio' : 'master_image';
 
     console.log(`Detected media type: ${assetType}, extension: ${fileExtension}, isVideo: ${isVideo}, isAudio: ${isAudio}, duration: ${duration}, isPodcast: ${isPodcast}`);
