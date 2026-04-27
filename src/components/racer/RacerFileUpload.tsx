@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { uploadRacerFile } from '@/services/racerMediaService';
 import { cn } from '@/lib/utils';
+import { sanitizeFile } from '@/utils/sanitizeFilename';
 
 const MIME_MAP: Record<string, string> = {
   heic: 'image/heic',
@@ -54,7 +55,10 @@ const RacerFileUpload: React.FC<RacerFileUploadProps> = ({
   const handleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (f) {
-      setFile(f);
+      // Strip Wasabi-incompatible characters (":", "*", "?", "#") from the
+      // filename before it can reach S3.
+      const { file: cleanFile } = sanitizeFile(f);
+      setFile(cleanFile);
       setStatus('idle');
       setProgress(0);
       setError('');

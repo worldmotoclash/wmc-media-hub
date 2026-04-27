@@ -1,59 +1,89 @@
-# Why "WMC SIZZLE 4:01 NEW" Won't Play
+## Scope
 
-## How it's mapped to Wasabi
+Two things, narrow:
 
-The asset (`media_assets.id = 2538b99b-b906-46ec-80d6-3bc8055ffa5d`) was discovered by the `scan-s3-buckets` edge function (source = `s3_bucket`) and stored with:
+1. **Make the existing "Fix Filename" button actually appear** for assets with reserved characters in their S3 key (the button's hidden today because `asset.s3Key` is never populated by the data-mapping layer).
+2. **Block uploads** (single + bulk) from creating Wasabi keys that contain `:` `*` `?` `#` or runs of double spaces — sanitize the filename client-side before it reaches S3.
 
-- **s3_key**: `WMC FINAL SIZZLES/WMC SIZZLE 4:01  NEW.m4v`
-- **file_url**: `https://media.worldmotoclash.com/WMC%20FINAL%20SIZZLES/WMC%20SIZZLE%204:01%20%20NEW.m4v`
+**Not doing:** any `.m4v` → `.mp4` re-extensioning. Files keep their original extensions everywhere (rename function, upload validators, drawer detection).
 
-`<VideoPreviewModal>` simply renders `<video src={file_url} controls />`, so the browser fetches that exact URL from the Wasabi CDN.
+---
 
-## Root causes (two problems stacked)
+## Bug fix — why "Fix Filename" doesn't show
 
-**1. The URL returns HTTP 403 from Wasabi/Cloudflare**
-I tested the CDN URL directly — both the raw `:` and percent-encoded `%3A` versions return `403 Forbidden`. The colon in the filename (`4:01`) is a reserved URL character; Wasabi's signature/path handling does not match the object key the way the CDN forwards it. Other videos in the same album with no colon (e.g. `WMC SIZZLE 1:08 *HOEBER VIDEO NEW*.m4v` — wait, that has a colon too) fail for the same reason. Files without colons in the name play fine. This is the primary blocker.
+`MediaAssetDetailsDrawer` checks `asset.s3Key`, but `unifiedMediaService.transformDbAsset()` never copies `dbAsset.s3_key` onto the returned object. So the field is always undefined and the button is always hidden.
 
-**2. `.m4v` is not universally playable**
-Even if the file loaded, `.m4v` (Apple's variant of MP4) is only reliably playable in Safari. Chrome/Firefox usually need the file served as `video/mp4` or transcoded. Many of the "S3-discovered" entries in this album are `.m4v`.
+**Fix:** add one line `s3Key: dbAsset.s3_key` to the transform, and add `s3Key?: string | null` to the `MediaAsset` type (already declared on the interface — just needs the mapping). Detection logic in the drawer stays the same minus the m4v branch.
 
-## The fix
+## Drawer detection — drop the m4v trigger
 
-### Step 1 — Rename the offending S3 objects
-The cleanest fix is to remove `:` (and other shell-unsafe chars like `*`) from the actual Wasabi object keys, then re-sync. Specifically for this album the files needing rename are any with `:` or `*` in the name. Example:
-
+Change:
+```ts
+const needsFilenameFix = !!s3Key && (
+  /[:*?#]/.test(s3Key) || / {2,}/.test(s3Key) || s3Key.endsWith('.m4v')
+);
 ```
-WMC FINAL SIZZLES/WMC SIZZLE 4:01  NEW.m4v
-  → WMC FINAL SIZZLES/WMC SIZZLE 4-01 NEW.m4v
+to:
+```ts
+const needsFilenameFix = !!s3Key && (/[:*?#]/.test(s3Key) || / {2,}/.test(s3Key));
 ```
 
-I'll build a small admin edge function `rename-s3-asset` that:
-1. Takes a `media_asset_id`.
-2. Copies the object in Wasabi to a sanitized key (replace `:` → `-`, collapse `**`/`*` → `_`, collapse double-spaces).
-3. Deletes the old object.
-4. Updates `media_assets.s3_key` and `file_url` in the DB.
-5. Optionally re-extension `.m4v` → `.mp4` (no transcode, just rename — works for the majority of m4v files which are already H.264/AAC MP4 containers).
+## `rename-s3-asset` edge function — preserve extensions
 
-Expose a "Fix filename" button in the asset details drawer (admin-only) and a bulk "Sanitize album filenames" action on the album.
+- Default `reextension_m4v` → `false`.
+- Remove the `.m4v → .mp4` block from `sanitizeKey`.
+- Album-scan filter no longer flags `.m4v` files; only flags reserved chars / double spaces.
+- Sanitization rules kept: `:` → `-`, `*` → `_`, drop `?` and `#`, collapse `__` and double spaces, trim edges.
 
-### Step 2 — Defensive playback in the UI
-Update `VideoPreviewModal` so that when `src` fails to load (`onError`), it:
-- Shows a clear error: "This file's name contains characters Wasabi can't serve over HTTP. Click 'Fix filename' to repair."
-- Surfaces a direct "Open in new tab" + "Repair" action.
+## Upload-time prevention (the part you asked about)
 
-### Step 3 — Prevent recurrence
-Update `scan-s3-buckets` to flag any newly-discovered key containing `:` `*` `?` `#` (or other reserved chars) and either auto-sanitize on ingest or mark `status = 'needs_rename'` so they show up in the Sync Health dashboard.
+Add a single shared sanitizer used by every upload path so dirty filenames can never reach Wasabi or the DB:
 
-## Files to add / change
+**New helper** `src/utils/sanitizeFilename.ts`:
+```ts
+// Returns { clean, changed, reason? }
+export function sanitizeFilename(name: string) {
+  const original = name;
+  let s = name
+    .replace(/:/g, '-')
+    .replace(/\*/g, '_')
+    .replace(/[?#]/g, '')
+    .replace(/_+/g, '_')
+    .replace(/ {2,}/g, ' ')
+    .replace(/^[\s_-]+|[\s_-]+$/g, '');
+  return { clean: s, changed: s !== original };
+}
+```
 
-- `supabase/functions/rename-s3-asset/index.ts` (new)
-- `src/components/media/MediaAssetDetailsDrawer.tsx` — add "Fix filename" button (admin only)
-- `src/components/media/VideoPreviewModal.tsx` — add `onError` handler + clearer error UI
-- `supabase/functions/scan-s3-buckets/index.ts` — flag reserved-char keys
+**Wired into:**
+- `MediaUpload` (single upload page) — sanitize `file.name` before computing the S3 key; show a small toast if it was changed ("Filename adjusted to `X` — Wasabi can't serve `:` `*` `?` `#`").
+- `BulkUploadTab` — same sanitize step inside the per-file loop, with the rename surfaced in the row's filename column so the user sees the new name.
+- `RacerFileUpload` — same sanitize step (racer license/bike/audition uploads go to the same Wasabi bucket).
+- `upload-master-to-s3` and `generate-presigned-upload-url` edge functions — defensive server-side sanitize on the requested key, so even a custom client can't slip a bad key through.
 
-## Confirm before I build
+This means: from now on, any new upload is automatically clean. The "Fix Filename" button only has to deal with the historical files already in Wasabi (like `WMC SIZZLE 4:01  NEW.m4v`).
 
-Two quick questions before I switch to build mode:
+## Files to change
 
-1. **Rename strategy**: replace `:` with `-` and `*` with `_` (my proposal), or different mapping?
-2. **Re-extension `.m4v` → `.mp4`**: do it as part of the rename (improves cross-browser playback, no transcode needed), or leave extensions alone?
+- `src/services/unifiedMediaService.ts` — add `s3Key: dbAsset.s3_key` mapping (~line 750).
+- `src/components/media/MediaAssetDetailsDrawer.tsx` — drop `.m4v` trigger from `needsFilenameFix`; tighten copy ("contains characters Wasabi can't serve" — no mention of m4v).
+- `src/components/media/VideoPreviewModal.tsx` — same: error message stops blaming m4v, just says "filename contains reserved characters".
+- `supabase/functions/rename-s3-asset/index.ts` — default `reextension_m4v=false`, remove `.m4v` rewrite, drop m4v from album-scan filter.
+- `src/utils/sanitizeFilename.ts` — **new** shared helper.
+- `src/pages/media/MediaUpload.tsx` — call `sanitizeFilename` before upload.
+- `src/components/media/BulkUploadTab.tsx` — call `sanitizeFilename` per file.
+- `src/components/racer/RacerFileUpload.tsx` — call `sanitizeFilename` per file.
+- `supabase/functions/upload-master-to-s3/index.ts` — server-side sanitize.
+- `supabase/functions/generate-presigned-upload-url/index.ts` — server-side sanitize.
+
+## After this is shipped, for the "WMC SIZZLE 4:01  NEW" asset
+
+1. Open it in the drawer.
+2. The **File Storage → Fix Filename** button now appears (because `s3Key` is wired through and the key contains `:` and double spaces).
+3. Click it. Wasabi object renames from
+   `WMC FINAL SIZZLES/WMC SIZZLE 4:01  NEW.m4v`
+   →
+   `WMC FINAL SIZZLES/WMC SIZZLE 4-01 NEW.m4v` *(extension preserved)*.
+4. The video can then be served — though note `.m4v` may still not play in Chrome/Firefox; that's a browser limitation we're explicitly not addressing here. Safari will play it fine.
+
+Approve and I'll implement.

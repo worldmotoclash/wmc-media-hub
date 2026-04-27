@@ -65,12 +65,13 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   const [isRenamingFile, setIsRenamingFile] = useState(false);
   const { isEditor, isAdmin } = useUser();
 
-  // Detect Wasabi-incompatible characters in the S3 key (or .m4v which Chrome/Firefox can't play reliably).
+  // Detect Wasabi-incompatible characters in the S3 key.
+  // (Extensions like .m4v are not flagged here — that's a browser-playback
+  // concern, not a Wasabi-serving concern.)
   const s3KeyForCheck: string | undefined = (asset as any)?.s3Key || (asset as any)?.s3_key;
   const needsFilenameFix = !!s3KeyForCheck && (
     /[:*?#]/.test(s3KeyForCheck) ||
-    / {2,}/.test(s3KeyForCheck) ||
-    s3KeyForCheck.toLowerCase().endsWith('.m4v')
+    / {2,}/.test(s3KeyForCheck)
   );
 
   // Fetch albums on mount
@@ -364,9 +365,9 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
                     File Storage
                   </h4>
                   <p className="text-xs text-muted-foreground mb-3">
-                    This file's name contains characters Wasabi can't serve over HTTP
-                    (or uses .m4v which most browsers can't play). Repair the filename
-                    to enable playback.
+                    This file's name contains characters Wasabi can't serve over
+                    HTTP (such as ":", "*", "?" or "#"). Repair the filename to
+                    enable playback. The file extension is preserved.
                   </p>
                   <p className="text-[11px] font-mono text-muted-foreground/80 break-all mb-3">
                     {s3KeyForCheck}
@@ -380,7 +381,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
                       setIsRenamingFile(true);
                       try {
                         const { data, error } = await supabase.functions.invoke('rename-s3-asset', {
-                          body: { asset_id: asset.id, reextension_m4v: true },
+                          body: { asset_id: asset.id, reextension_m4v: false },
                         });
                         if (error) throw error;
                         const result = data?.results?.[0];

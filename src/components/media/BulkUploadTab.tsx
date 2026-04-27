@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { sanitizeFile } from "@/utils/sanitizeFilename";
 
 interface ExistingAlbum {
   id: string;
@@ -128,14 +129,29 @@ export const BulkUploadTab: React.FC = () => {
   }, []);
 
   const addFiles = useCallback((files: FileList | File[]) => {
-    const newFiles: QueuedFile[] = Array.from(files)
+    // Sanitize filenames up front so reserved characters (":", "*", "?", "#")
+    // never enter Wasabi keys, S3 metadata, or DB titles.
+    const sanitized: { file: File; original: string; changed: boolean }[] = Array.from(files)
       .filter(isValidMedia)
-      .map(f => ({
-        file: f,
-        id: crypto.randomUUID(),
-        status: 'queued' as const,
-        progress: 0,
-      }));
+      .map((f) => sanitizeFile(f));
+
+    const renamed = sanitized.filter((s) => s.changed);
+    if (renamed.length > 0) {
+      const sample = renamed.slice(0, 3)
+        .map((s) => `"${s.original}" → "${s.file.name}"`).join(', ');
+      const extra = renamed.length > 3 ? ` (+${renamed.length - 3} more)` : '';
+      toast({
+        title: `${renamed.length} filename${renamed.length > 1 ? 's' : ''} adjusted`,
+        description: `Wasabi can't serve ":", "*", "?" or "#". Renamed: ${sample}${extra}`,
+      });
+    }
+
+    const newFiles: QueuedFile[] = sanitized.map((s) => ({
+      file: s.file,
+      id: crypto.randomUUID(),
+      status: 'queued' as const,
+      progress: 0,
+    }));
 
     if (newFiles.length === 0) {
       toast({ title: "No valid files", description: "Only images, videos, and audio files are supported", variant: "destructive" });

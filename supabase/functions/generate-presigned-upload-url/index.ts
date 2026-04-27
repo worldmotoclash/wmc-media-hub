@@ -33,7 +33,11 @@ serve(async (req) => {
 
     const isVideo = mimeType.startsWith('video/');
     const isAudio = mimeType.startsWith('audio/');
-    const fileExtension = filename.split('.').pop()?.toLowerCase() || (isVideo ? 'mp4' : isAudio ? 'mp3' : 'jpg');
+    // Defensive: sanitize extension so reserved chars (":", "*", "?", "#") can never
+    // appear in the S3 key. The key itself is `master.{ext}` so this is belt-and-suspenders.
+    const rawExt = filename.split('.').pop()?.toLowerCase() || '';
+    const safeExt = rawExt.replace(/[^a-z0-9]/g, '');
+    const fileExtension = safeExt || (isVideo ? 'mp4' : isAudio ? 'mp3' : 'jpg');
 
     const masterId = crypto.randomUUID();
     const s3BasePath = isVideo ? S3_PATHS.VIDEO_MASTERS : isAudio ? S3_PATHS.AUDIO_MASTERS : S3_PATHS.SOCIAL_MEDIA_MASTERS;

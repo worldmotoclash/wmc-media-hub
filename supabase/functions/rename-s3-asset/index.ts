@@ -21,7 +21,8 @@ const corsHeaders = {
 };
 
 // Characters that break Wasabi/Cloudflare path serving even when percent-encoded.
-function sanitizeKey(key: string, reextensionM4v: boolean): string {
+// Extensions are intentionally preserved — we only rewrite the stem.
+function sanitizeKey(key: string, _reextensionM4v: boolean): string {
   // Split into directory parts + filename so we never touch path separators.
   const parts = key.split("/");
   const sanitizedParts = parts.map((segment) => {
@@ -35,12 +36,7 @@ function sanitizeKey(key: string, reextensionM4v: boolean): string {
     s = s.replace(/^[\s_-]+|[\s_-]+$/g, ""); // trim edges
     return s;
   });
-  let newKey = sanitizedParts.join("/");
-
-  if (reextensionM4v && newKey.toLowerCase().endsWith(".m4v")) {
-    newKey = newKey.slice(0, -4) + ".mp4";
-  }
-  return newKey;
+  return sanitizedParts.join("/");
 }
 
 function encodeKey(key: string): string {
@@ -168,7 +164,7 @@ serve(async (req) => {
     const assetId: string | undefined = body.asset_id || body.media_asset_id;
     const assetIds: string[] | undefined = body.asset_ids;
     const albumId: string | undefined = body.album_id;
-    const reextensionM4v: boolean = body.reextension_m4v !== false; // default true
+    const reextensionM4v: boolean = body.reextension_m4v === true; // default false — preserve extensions
     const dryRun: boolean = body.dry_run === true;
 
     if (!assetId && !assetIds?.length && !albumId) {
@@ -195,8 +191,7 @@ serve(async (req) => {
       if (error) throw error;
       const dirty = (rows ?? []).filter((r: any) => {
         if (!r.s3_key) return false;
-        return /[:*?#]/.test(r.s3_key) || / {2,}/.test(r.s3_key) ||
-          (reextensionM4v && r.s3_key.toLowerCase().endsWith(".m4v"));
+        return /[:*?#]/.test(r.s3_key) || / {2,}/.test(r.s3_key);
       });
       targetIds.push(...dirty.map((r: any) => r.id));
     }

@@ -19,6 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
+import { sanitizeFile } from "@/utils/sanitizeFilename";
 
 interface SalesforceData {
   title: string;
@@ -383,11 +384,20 @@ const MediaUpload: React.FC = () => {
       return;
     }
     
-    setSelectedFile(file);
+    // Sanitize filename so reserved characters never reach Wasabi/DB.
+    const { file: cleanFile, changed, original } = sanitizeFile(file);
+    if (changed) {
+      toast({
+        title: "Filename adjusted",
+        description: `Wasabi can't serve ":", "*", "?" or "#". "${original}" → "${cleanFile.name}"`,
+      });
+    }
+
+    setSelectedFile(cleanFile);
     setIsPodcast(false); // Reset podcast toggle
     // Auto-fill title from filename if empty
     if (!uploadData.title) {
-      const fileName = file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
+      const fileName = cleanFile.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
       setUploadData(prev => ({ ...prev, title: fileName }));
     }
   };
