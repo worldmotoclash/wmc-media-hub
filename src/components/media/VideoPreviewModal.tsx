@@ -140,13 +140,40 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, on
               isYouTube ? (
                 <iframe ref={iframeRef} src={video.youtubeId ? `https://www.youtube.com/embed/${video.youtubeId}?autoplay=0&rel=0&modestbranding=1` : video.videoSrc} title={video.title} className="w-full h-full" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen />
               ) : (
-                <video ref={videoRef} src={video.videoSrc} title={video.title} className="w-full h-full" controls preload="metadata" crossOrigin="anonymous">Your browser does not support the video tag.</video>
+                <video
+                  ref={videoRef}
+                  src={video.videoSrc}
+                  title={video.title}
+                  className="w-full h-full"
+                  controls
+                  preload="metadata"
+                  crossOrigin="anonymous"
+                  onError={() => setPlaybackError(
+                    srcLooksProblematic
+                      ? "This file's name contains characters Wasabi can't serve over HTTP (e.g. ':' or '*'), or uses .m4v which most browsers can't play. An admin can repair it from the asset details drawer (\"Fix Filename\")."
+                      : "Unable to play this file. The source may be missing or the format isn't supported by your browser."
+                  )}
+                >
+                  Your browser does not support the video tag.
+                </video>
               )
             ) : (
               <div className="w-full h-full flex items-center justify-center"><img src={video.thumbnail} alt={video.title} className="max-w-full max-h-full object-contain" /></div>
             )}
+            {playbackError && (
+              <div className="absolute inset-0 bg-black/85 flex items-center justify-center p-6">
+                <div className="max-w-md text-center space-y-3">
+                  <p className="text-sm text-white">{playbackError}</p>
+                  {video.videoSrc && (
+                    <Button size="sm" variant="outline" onClick={() => window.open(video.videoSrc, '_blank')}>
+                      Open file directly
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-          
+
           {/* Video Details */}
           <div className="space-y-4">
             <div className="flex flex-wrap gap-4 items-center justify-between">
