@@ -21,7 +21,8 @@ const corsHeaders = {
 };
 
 // Characters that break Wasabi/Cloudflare path serving even when percent-encoded.
-function sanitizeKey(key: string, reextensionM4v: boolean): string {
+// Extensions are intentionally preserved — we only rewrite the stem.
+function sanitizeKey(key: string, _reextensionM4v: boolean): string {
   // Split into directory parts + filename so we never touch path separators.
   const parts = key.split("/");
   const sanitizedParts = parts.map((segment) => {
@@ -35,12 +36,7 @@ function sanitizeKey(key: string, reextensionM4v: boolean): string {
     s = s.replace(/^[\s_-]+|[\s_-]+$/g, ""); // trim edges
     return s;
   });
-  let newKey = sanitizedParts.join("/");
-
-  if (reextensionM4v && newKey.toLowerCase().endsWith(".m4v")) {
-    newKey = newKey.slice(0, -4) + ".mp4";
-  }
-  return newKey;
+  return sanitizedParts.join("/");
 }
 
 function encodeKey(key: string): string {
