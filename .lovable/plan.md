@@ -1,127 +1,59 @@
-## Overview
+# Why "WMC SIZZLE 4:01 NEW" Won't Play
 
-Build a separate, secure server-to-server ingestion endpoint specifically for **Media Hub content-upload reports** (daily and weekly), with its own DB table, edge function, archive page, and detail pages. This is parallel to — and fully isolated from — the existing `social-performance-ingest` / `social_performance_reports` system.
+## How it's mapped to Wasabi
 
-The new feature will follow the exact same proven patterns already in production for social performance reports (constant-time bearer auth, service-role upsert, status preservation on re-ingest, structured JSON storage with `raw_payload`).
+The asset (`media_assets.id = 2538b99b-b906-46ec-80d6-3bc8055ffa5d`) was discovered by the `scan-s3-buckets` edge function (source = `s3_bucket`) and stored with:
 
-## 1. Database — new table `mediahub_content_reports`
+- **s3_key**: `WMC FINAL SIZZLES/WMC SIZZLE 4:01  NEW.m4v`
+- **file_url**: `https://media.worldmotoclash.com/WMC%20FINAL%20SIZZLES/WMC%20SIZZLE%204:01%20%20NEW.m4v`
 
-Migration creating a dedicated table:
+`<VideoPreviewModal>` simply renders `<video src={file_url} controls />`, so the browser fetches that exact URL from the Wasabi CDN.
 
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid PK | `gen_random_uuid()` |
-| `report_id` | text UNIQUE | e.g. `mediahub-daily-2026-04-26` (upsert key) |
-| `report_type` | text | always `mediahub_content_report` |
-| `period_type` | text | `daily` or `weekly` (CHECK constraint) |
-| `title` | text | from payload |
-| `slug` | text UNIQUE | `mediahub-daily-report-YYYY-MM-DD` or `mediahub-weekly-report-YYYY-week-WW` |
-| `report_date` | date | |
-| `period_start` | date | |
-| `period_end` | date | |
-| `heading` | text | nullable |
-| `subheading` | text | nullable |
-| `summary_text` | text | |
-| `asset_counts` | jsonb | `{videos, images, audio, other, total}` |
-| `assets` | jsonb | array of asset objects |
-| `day_breakdown` | jsonb | nullable; weekly only |
-| `generated_at` | timestamptz | |
-| `status` | text | default `draft`, but new ingests insert as `published` (matches social pattern) |
-| `raw_payload` | jsonb | full original payload for audit |
-| `page_url` | text | absolute mediahub URL |
-| `created_at` / `updated_at` | timestamptz | with trigger using existing `update_updated_at_column()` |
+## Root causes (two problems stacked)
 
-**RLS:** enabled; only one SELECT policy: `status = 'published'` (mirrors `social_performance_reports`). All writes happen via the edge function with service-role key, bypassing RLS.
+**1. The URL returns HTTP 403 from Wasabi/Cloudflare**
+I tested the CDN URL directly — both the raw `:` and percent-encoded `%3A` versions return `403 Forbidden`. The colon in the filename (`4:01`) is a reserved URL character; Wasabi's signature/path handling does not match the object key the way the CDN forwards it. Other videos in the same album with no colon (e.g. `WMC SIZZLE 1:08 *HOEBER VIDEO NEW*.m4v` — wait, that has a colon too) fail for the same reason. Files without colons in the name play fine. This is the primary blocker.
 
-**Indexes:** unique on `report_id` and `slug`; btree on `(period_type, report_date DESC)` for archive queries.
+**2. `.m4v` is not universally playable**
+Even if the file loaded, `.m4v` (Apple's variant of MP4) is only reliably playable in Safari. Chrome/Firefox usually need the file served as `video/mp4` or transcoded. Many of the "S3-discovered" entries in this album are `.m4v`.
 
-## 2. Edge function — `mediahub-content-report-ingest`
+## The fix
 
-New file: `supabase/functions/mediahub-content-report-ingest/index.ts`. Server-to-server only; no browser CORS needed (same as `social-performance-ingest`).
+### Step 1 — Rename the offending S3 objects
+The cleanest fix is to remove `:` (and other shell-unsafe chars like `*`) from the actual Wasabi object keys, then re-sync. Specifically for this album the files needing rename are any with `:` or `*` in the name. Example:
 
-**Auth:** `Authorization: Bearer <token>` checked with constant-time compare against env `MEDIAHUB_CONTENT_REPORT_INGEST_TOKEN`. (You'll add this secret after I prompt for it.)
-
-**Validation** (returns 400 with `{ ok: false, error: "validation_failed", details: [{field, message}] }`):
-- `report_type` required, must equal `mediahub_content_report`
-- `period_type` required, must be `daily` or `weekly`
-- `generated_at` required, valid ISO 8601
-- `report_date` required, valid `YYYY-MM-DD`
-- `title` required, non-empty string
-- `summary_text` required, non-empty string
-- `asset_counts` required object with numeric `videos`, `images`, `audio`, `other`, `total`
-- `assets` required array
-- `period_start`/`period_end` required for weekly (warn-but-accept missing for daily)
-- For weekly: if `day_breakdown` present, must be array
-
-**Slug + report_id derivation:**
-- Daily: `slug = mediahub-daily-report-YYYY-MM-DD`, `report_id = mediahub-daily-YYYY-MM-DD`
-- Weekly: ISO week of `report_date` → `slug = mediahub-weekly-report-YYYY-week-WW`, `report_id = mediahub-weekly-YYYY-week-WW` (zero-padded)
-
-**Upsert behavior** (matches social pattern exactly):
-- Look up by `report_id`
-- If exists → UPDATE all fields except `status` (preserves manual unpublish)
-- If new → INSERT with `status = 'published'` so the returned URL works immediately
-
-**Logging:** structured JSON line with event/report_id/period_type/created/updated. Never logs the bearer token.
-
-**Response:**
-```json
-{ "ok": true, "reportId": "...", "created": true, "updated": false,
-  "url": "https://mediahub.worldmotoclash.com/content-reports/{daily|weekly}/{slug}" }
+```
+WMC FINAL SIZZLES/WMC SIZZLE 4:01  NEW.m4v
+  → WMC FINAL SIZZLES/WMC SIZZLE 4-01 NEW.m4v
 ```
 
-**config.toml:** add `[functions.mediahub-content-report-ingest] verify_jwt = false` (matches `social-performance-ingest`).
+I'll build a small admin edge function `rename-s3-asset` that:
+1. Takes a `media_asset_id`.
+2. Copies the object in Wasabi to a sanitized key (replace `:` → `-`, collapse `**`/`*` → `_`, collapse double-spaces).
+3. Deletes the old object.
+4. Updates `media_assets.s3_key` and `file_url` in the DB.
+5. Optionally re-extension `.m4v` → `.mp4` (no transcode, just rename — works for the majority of m4v files which are already H.264/AAC MP4 containers).
 
-## 3. Frontend routes & pages
+Expose a "Fix filename" button in the asset details drawer (admin-only) and a bulk "Sanitize album filenames" action on the album.
 
-Add to `src/App.tsx`:
-- `/content-reports` → `ContentReportsArchive`
-- `/content-reports/daily/:slug` → `ContentReportDetail` (period_type filter applied)
-- `/content-reports/weekly/:slug` → `ContentReportDetail`
+### Step 2 — Defensive playback in the UI
+Update `VideoPreviewModal` so that when `src` fails to load (`onError`), it:
+- Shows a clear error: "This file's name contains characters Wasabi can't serve over HTTP. Click 'Fix filename' to repair."
+- Surfaces a direct "Open in new tab" + "Repair" action.
 
-New files:
-- `src/pages/reports/ContentReportsArchive.tsx` — two tabs (Daily | Weekly), each showing a card list with: report_date / period range, asset counts (videos/images/audio/other/total chips), summary preview, link to detail page. Range selector reused from existing `RangeSelector` component.
-- `src/pages/reports/ContentReportDetail.tsx` — renders title / heading / subheading / generated date / editorial summary / 5 count cards (videos, images, audio, other, total) / asset grid (name, type badge, created date, external-link button). For weekly reports, also renders `day_breakdown` as collapsible day sections with their own counts and items.
+### Step 3 — Prevent recurrence
+Update `scan-s3-buckets` to flag any newly-discovered key containing `:` `*` `?` `#` (or other reserved chars) and either auto-sanitize on ingest or mark `status = 'needs_rename'` so they show up in the Sync Health dashboard.
 
-Both pages query `mediahub_content_reports` (RLS auto-filters to published rows for anon users).
+## Files to add / change
 
-## 4. Token generation & delivery
+- `supabase/functions/rename-s3-asset/index.ts` (new)
+- `src/components/media/MediaAssetDetailsDrawer.tsx` — add "Fix filename" button (admin only)
+- `src/components/media/VideoPreviewModal.tsx` — add `onError` handler + clearer error UI
+- `supabase/functions/scan-s3-buckets/index.ts` — flag reserved-char keys
 
-After you approve this plan, I'll:
-1. Generate a strong random token (32 bytes, base64url) on the sandbox
-2. Print it once in chat so you can copy it into your local automation
-3. Use the secrets tool to store it as `MEDIAHUB_CONTENT_REPORT_INGEST_TOKEN`
-4. Deploy the edge function
+## Confirm before I build
 
-The token will only ever exist in chat output (for you) and the server secret store — never in the codebase.
+Two quick questions before I switch to build mode:
 
-## 5. Deliverables I'll give you after build
-
-- Endpoint URL: `https://vlwumuuolvxhiixqbnub.supabase.co/functions/v1/mediahub-content-report-ingest`
-- The generated bearer token (one-time display)
-- Env var name: `MEDIAHUB_CONTENT_REPORT_INGEST_TOKEN`
-- Table name: `mediahub_content_reports`
-- Daily route: `/content-reports/daily/:slug`
-- Weekly route: `/content-reports/weekly/:slug`
-- Archive route: `/content-reports`
-- `curl` example for daily payload
-- `curl` example for weekly payload
-- Confirmation: **new ingests default to `published`**; re-ingest preserves any manual status flip
-
-## Files touched
-
-**New:**
-- `supabase/migrations/<timestamp>_create_mediahub_content_reports.sql`
-- `supabase/functions/mediahub-content-report-ingest/index.ts`
-- `src/pages/reports/ContentReportsArchive.tsx`
-- `src/pages/reports/ContentReportDetail.tsx`
-
-**Modified:**
-- `supabase/config.toml` (register new function with `verify_jwt = false`)
-- `src/App.tsx` (3 new routes)
-
-## Out of scope (no changes)
-
-- `social_performance_reports` table, `social-performance-ingest` function, `/reports*` routes
-- Any blog/story endpoint on worldmotoclash.com
-- Existing Media Hub upload, sync, or diary flows
+1. **Rename strategy**: replace `:` with `-` and `*` with `_` (my proposal), or different mapping?
+2. **Re-extension `.m4v` → `.mp4`**: do it as part of the rename (improves cross-browser playback, no transcode needed), or leave extensions alone?
