@@ -49,6 +49,8 @@ import DiaryDetail from "./pages/media/DiaryDetail";
 import ReleaseNotes from "./pages/media/ReleaseNotes";
 import ReportsArchive from "./pages/reports/ReportsArchive";
 import SocialPerformanceReport from "./pages/reports/SocialPerformanceReport";
+import ContentReportsArchive from "./pages/reports/ContentReportsArchive";
+import ContentReportDetail from "./pages/reports/ContentReportDetail";
 import RacerPerformance from "./pages/racer-performance/RacerPerformance";
 
 const queryClient = new QueryClient();
@@ -108,6 +110,9 @@ const App = () => (
                 <Route path="/mediahub/diary/:date" element={<DiaryDetail />} />
                 <Route path="/reports" element={<ReportsArchive />} />
                 <Route path="/reports/:slug" element={<SocialPerformanceReport />} />
+                <Route path="/content-reports" element={<ContentReportsArchive />} />
+                <Route path="/content-reports/daily/:slug" element={<ContentReportDetail expectedPeriod="daily" />} />
+                <Route path="/content-reports/weekly/:slug" element={<ContentReportDetail expectedPeriod="weekly" />} />
                 <Route path="/racer-performance" element={<RacerPerformance />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                 <Route path="/terms-of-service" element={<TermsOfService />} />
