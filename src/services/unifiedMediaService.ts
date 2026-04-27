@@ -24,6 +24,7 @@ export interface MediaAsset {
   salesforceId?: string;
   syncStatus?: 'in_sync' | 'missing_sfdc' | 'missing_file' | 'unknown';
   album_id?: string;
+  s3Key?: string | null;
 }
 
 export interface MediaTag {
