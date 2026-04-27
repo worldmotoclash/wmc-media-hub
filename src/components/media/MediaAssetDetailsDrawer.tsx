@@ -62,7 +62,16 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSyncingToSfdc, setIsSyncingToSfdc] = useState(false);
   const [localSalesforceId, setLocalSalesforceId] = useState<string | null>(asset?.salesforceId || null);
-  const { isEditor } = useUser();
+  const [isRenamingFile, setIsRenamingFile] = useState(false);
+  const { isEditor, isAdmin } = useUser();
+
+  // Detect Wasabi-incompatible characters in the S3 key (or .m4v which Chrome/Firefox can't play reliably).
+  const s3KeyForCheck: string | undefined = (asset as any)?.s3Key || (asset as any)?.s3_key;
+  const needsFilenameFix = !!s3KeyForCheck && (
+    /[:*?#]/.test(s3KeyForCheck) ||
+    / {2,}/.test(s3KeyForCheck) ||
+    s3KeyForCheck.toLowerCase().endsWith('.m4v')
+  );
 
   // Fetch albums on mount
   useEffect(() => {
