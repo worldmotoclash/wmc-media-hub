@@ -380,6 +380,78 @@ export type Database = {
         }
         Relationships: []
       }
+      mediahub_content_reports: {
+        Row: {
+          asset_counts: Json
+          assets: Json
+          created_at: string
+          day_breakdown: Json | null
+          generated_at: string
+          heading: string | null
+          id: string
+          page_url: string | null
+          period_end: string | null
+          period_start: string | null
+          period_type: string
+          raw_payload: Json
+          report_date: string
+          report_id: string
+          report_type: string
+          slug: string
+          status: string
+          subheading: string | null
+          summary_text: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          asset_counts?: Json
+          assets?: Json
+          created_at?: string
+          day_breakdown?: Json | null
+          generated_at: string
+          heading?: string | null
+          id?: string
+          page_url?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          period_type: string
+          raw_payload?: Json
+          report_date: string
+          report_id: string
+          report_type?: string
+          slug: string
+          status?: string
+          subheading?: string | null
+          summary_text: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          asset_counts?: Json
+          assets?: Json
+          created_at?: string
+          day_breakdown?: Json | null
+          generated_at?: string
+          heading?: string | null
+          id?: string
+          page_url?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          period_type?: string
+          raw_payload?: Json
+          report_date?: string
+          report_id?: string
+          report_type?: string
+          slug?: string
+          status?: string
+          subheading?: string | null
+          summary_text?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       s3_bucket_configs: {
         Row: {
           bucket_name: string
