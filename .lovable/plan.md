@@ -1,53 +1,127 @@
-## Why "No SFDC" appeared
+## Overview
 
-Your asset (`WMC Social Media Preformance Chart`, id `14ae56bc…`) was created cleanly in `media_assets` but its `salesforce_id` is `NULL`. The badge is correctly reflecting reality — the Salesforce sync was never triggered.
+Build a separate, secure server-to-server ingestion endpoint specifically for **Media Hub content-upload reports** (daily and weekly), with its own DB table, edge function, archive page, and detail pages. This is parallel to — and fully isolated from — the existing `social-performance-ingest` / `social_performance_reports` system.
 
-**Root cause:** `src/pages/media/MediaUpload.tsx` (the Single Upload tab) finishes after `upload-master-to-s3` returns and never invokes `sync-asset-to-salesforce`. Bulk Upload does call it (`BulkUploadTab.tsx:388`); single upload does not. The last 5 local uploads (4/22 → 4/27) all have `salesforce_id = NULL`, confirming this is systemic.
+The new feature will follow the exact same proven patterns already in production for social performance reports (constant-time bearer auth, service-role upsert, status preservation on re-ingest, structured JSON storage with `raw_payload`).
 
-## The fix
+## 1. Database — new table `mediahub_content_reports`
 
-Add the same auto-sync call that Bulk Upload uses to the end of the single-upload success path.
+Migration creating a dedicated table:
 
-### Change: `src/pages/media/MediaUpload.tsx`
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | `gen_random_uuid()` |
+| `report_id` | text UNIQUE | e.g. `mediahub-daily-2026-04-26` (upsert key) |
+| `report_type` | text | always `mediahub_content_report` |
+| `period_type` | text | `daily` or `weekly` (CHECK constraint) |
+| `title` | text | from payload |
+| `slug` | text UNIQUE | `mediahub-daily-report-YYYY-MM-DD` or `mediahub-weekly-report-YYYY-week-WW` |
+| `report_date` | date | |
+| `period_start` | date | |
+| `period_end` | date | |
+| `heading` | text | nullable |
+| `subheading` | text | nullable |
+| `summary_text` | text | |
+| `asset_counts` | jsonb | `{videos, images, audio, other, total}` |
+| `assets` | jsonb | array of asset objects |
+| `day_breakdown` | jsonb | nullable; weekly only |
+| `generated_at` | timestamptz | |
+| `status` | text | default `draft`, but new ingests insert as `published` (matches social pattern) |
+| `raw_payload` | jsonb | full original payload for audit |
+| `page_url` | text | absolute mediahub URL |
+| `created_at` / `updated_at` | timestamptz | with trigger using existing `update_updated_at_column()` |
 
-In the upload handler, after the toast `"Upload successful!"` (around line 810), capture the new asset id returned from `upload-master-to-s3` and fire-and-forget a sync call:
+**RLS:** enabled; only one SELECT policy: `status = 'published'` (mirrors `social_performance_reports`). All writes happen via the edge function with service-role key, bypassing RLS.
 
-```ts
-// After successful upload, before clearing the form
-const newAssetId = data?.assetId ?? data?.id ?? presignData?.masterId;
+**Indexes:** unique on `report_id` and `slug`; btree on `(period_type, report_date DESC)` for archive queries.
 
-if (newAssetId) {
-  toast({ title: "Syncing to Salesforce…", description: "Creating SFDC record" });
-  supabase.functions
-    .invoke('sync-asset-to-salesforce', { body: { assetIds: [newAssetId] } })
-    .then(({ error }) => {
-      if (error) {
-        console.error('SFDC sync error:', error);
-        toast({
-          title: "SFDC sync failed",
-          description: `${error.message} — use "Sync to SFDC" in the asset details to retry.`,
-          variant: "destructive",
-        });
-      } else {
-        toast({ title: "Salesforce sync complete" });
-      }
-    });
-}
+## 2. Edge function — `mediahub-content-report-ingest`
+
+New file: `supabase/functions/mediahub-content-report-ingest/index.ts`. Server-to-server only; no browser CORS needed (same as `social-performance-ingest`).
+
+**Auth:** `Authorization: Bearer <token>` checked with constant-time compare against env `MEDIAHUB_CONTENT_REPORT_INGEST_TOKEN`. (You'll add this secret after I prompt for it.)
+
+**Validation** (returns 400 with `{ ok: false, error: "validation_failed", details: [{field, message}] }`):
+- `report_type` required, must equal `mediahub_content_report`
+- `period_type` required, must be `daily` or `weekly`
+- `generated_at` required, valid ISO 8601
+- `report_date` required, valid `YYYY-MM-DD`
+- `title` required, non-empty string
+- `summary_text` required, non-empty string
+- `asset_counts` required object with numeric `videos`, `images`, `audio`, `other`, `total`
+- `assets` required array
+- `period_start`/`period_end` required for weekly (warn-but-accept missing for daily)
+- For weekly: if `day_breakdown` present, must be array
+
+**Slug + report_id derivation:**
+- Daily: `slug = mediahub-daily-report-YYYY-MM-DD`, `report_id = mediahub-daily-YYYY-MM-DD`
+- Weekly: ISO week of `report_date` → `slug = mediahub-weekly-report-YYYY-week-WW`, `report_id = mediahub-weekly-YYYY-week-WW` (zero-padded)
+
+**Upsert behavior** (matches social pattern exactly):
+- Look up by `report_id`
+- If exists → UPDATE all fields except `status` (preserves manual unpublish)
+- If new → INSERT with `status = 'published'` so the returned URL works immediately
+
+**Logging:** structured JSON line with event/report_id/period_type/created/updated. Never logs the bearer token.
+
+**Response:**
+```json
+{ "ok": true, "reportId": "...", "created": true, "updated": false,
+  "url": "https://mediahub.worldmotoclash.com/content-reports/{daily|weekly}/{slug}" }
 ```
 
-Both branches (presigned >4MB and base64 ≤4MB) flow through the same success block, so this is a single insertion point — applies to images, videos, and audio.
+**config.toml:** add `[functions.mediahub-content-report-ingest] verify_jwt = false` (matches `social-performance-ingest`).
 
-### Notes / safety
+## 3. Frontend routes & pages
 
-- Fire-and-forget (no `await`) so the user isn't blocked. Matches Bulk Upload pattern exactly.
-- Per the async-id-resolution memory, SFDC propagation can take 30–60s; the badge will refresh to "Synced" once `salesforce_id` is populated.
-- Existing manual "Sync to SFDC" button in the asset details drawer remains available as the retry path if the auto-sync errors.
-- No DB migration, no edge function changes — `sync-asset-to-salesforce` already exists and works.
+Add to `src/App.tsx`:
+- `/content-reports` → `ContentReportsArchive`
+- `/content-reports/daily/:slug` → `ContentReportDetail` (period_type filter applied)
+- `/content-reports/weekly/:slug` → `ContentReportDetail`
 
-### Backfill for your current asset
+New files:
+- `src/pages/reports/ContentReportsArchive.tsx` — two tabs (Daily | Weekly), each showing a card list with: report_date / period range, asset counts (videos/images/audio/other/total chips), summary preview, link to detail page. Range selector reused from existing `RangeSelector` component.
+- `src/pages/reports/ContentReportDetail.tsx` — renders title / heading / subheading / generated date / editorial summary / 5 count cards (videos, images, audio, other, total) / asset grid (name, type badge, created date, external-link button). For weekly reports, also renders `day_breakdown` as collapsible day sections with their own counts and items.
 
-After the fix, you can resync the existing "WMC Social Media Preformance Chart" using the **Sync to SFDC** button in its details drawer (no need to re-upload). Same for the other 4 unsynced uploads from 4/22 if desired — or I can run a one-shot sync invocation for all 5 once you approve.
+Both pages query `mediahub_content_reports` (RLS auto-filters to published rows for anon users).
+
+## 4. Token generation & delivery
+
+After you approve this plan, I'll:
+1. Generate a strong random token (32 bytes, base64url) on the sandbox
+2. Print it once in chat so you can copy it into your local automation
+3. Use the secrets tool to store it as `MEDIAHUB_CONTENT_REPORT_INGEST_TOKEN`
+4. Deploy the edge function
+
+The token will only ever exist in chat output (for you) and the server secret store — never in the codebase.
+
+## 5. Deliverables I'll give you after build
+
+- Endpoint URL: `https://vlwumuuolvxhiixqbnub.supabase.co/functions/v1/mediahub-content-report-ingest`
+- The generated bearer token (one-time display)
+- Env var name: `MEDIAHUB_CONTENT_REPORT_INGEST_TOKEN`
+- Table name: `mediahub_content_reports`
+- Daily route: `/content-reports/daily/:slug`
+- Weekly route: `/content-reports/weekly/:slug`
+- Archive route: `/content-reports`
+- `curl` example for daily payload
+- `curl` example for weekly payload
+- Confirmation: **new ingests default to `published`**; re-ingest preserves any manual status flip
 
 ## Files touched
 
-- `src/pages/media/MediaUpload.tsx` — add SFDC auto-sync after successful single upload (one block, both upload paths)
+**New:**
+- `supabase/migrations/<timestamp>_create_mediahub_content_reports.sql`
+- `supabase/functions/mediahub-content-report-ingest/index.ts`
+- `src/pages/reports/ContentReportsArchive.tsx`
+- `src/pages/reports/ContentReportDetail.tsx`
+
+**Modified:**
+- `supabase/config.toml` (register new function with `verify_jwt = false`)
+- `src/App.tsx` (3 new routes)
+
+## Out of scope (no changes)
+
+- `social_performance_reports` table, `social-performance-ingest` function, `/reports*` routes
+- Any blog/story endpoint on worldmotoclash.com
+- Existing Media Hub upload, sync, or diary flows
