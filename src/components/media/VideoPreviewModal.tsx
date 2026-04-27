@@ -20,8 +20,16 @@ interface VideoPreviewModalProps {
 const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, onClose, onVideoUpdated }) => {
   const [isCreatingThumbnail, setIsCreatingThumbnail] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Detect known-bad characters in the source URL that Wasabi/Cloudflare won't serve.
+  const srcLooksProblematic = !!video?.videoSrc && (
+    /:[^/]*\.[a-z0-9]+$/i.test(video.videoSrc) ||      // colon in filename
+    /\*/.test(video.videoSrc) ||                        // asterisk
+    /\.m4v(\?|$)/i.test(video.videoSrc)                 // m4v container
+  );
 
   const initialTags: MediaTag[] = (video?.tags || []).map((name, i) => ({
     id: `string-tag-${i}-${name}`,
