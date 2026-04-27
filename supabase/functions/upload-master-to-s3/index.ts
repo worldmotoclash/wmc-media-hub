@@ -385,7 +385,7 @@ serve(async (req) => {
     let sfdcSyncError: string | null = null;
 
     try {
-      const fileExtension = filename.split('.').pop()?.toUpperCase() || 'JPG';
+      const fileExtension = (filename.split('.').pop() || 'jpg').replace(/[^a-zA-Z0-9]/g, '').toUpperCase() || 'JPG';
       
       const formData = new FormData();
       formData.append("retURL", "https://worldmotoclash.com");
