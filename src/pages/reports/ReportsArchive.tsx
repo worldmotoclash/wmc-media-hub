@@ -200,7 +200,7 @@ export default function ReportsArchive() {
   );
 }
 
-function KpiCard({ label, value }: { label: string; value: string }) {
+function KpiCard({ label, value, caption }: { label: string; value: string; caption?: string }) {
   return (
     <Card>
       <CardContent className="pt-6">
@@ -208,6 +208,11 @@ function KpiCard({ label, value }: { label: string; value: string }) {
           {label}
         </div>
         <div className="font-hud-display text-4xl mt-1 text-foreground">{value}</div>
+        {caption && (
+          <div className="font-hud-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground mt-2">
+            {caption}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
