@@ -55,9 +55,9 @@ export default function ReportsArchive() {
     return allReports.filter((r) => new Date(r.report_date) >= cutoff);
   }, [allReports, selectedRange]);
 
-  // Aggregate totals across the filtered window. Each report holds its own
-  // per-day totals; sum them to get the window total.
-  const { totalPosts, totalViews, totalEngagements, totalClicks, periodInfo } = useMemo(() => {
+  // Each report stores cumulative snapshot totals. Show the LATEST report
+  // within the selected window — not a sum (summing inflates the numbers).
+  const { totalPosts, totalViews, totalEngagements, totalClicks, periodInfo, asOfDate } = useMemo(() => {
     if (filteredReports.length === 0) {
       return {
         totalPosts: 0,
@@ -65,21 +65,24 @@ export default function ReportsArchive() {
         totalEngagements: 0,
         totalClicks: 0,
         periodInfo: null as null | { from: string; to: string; count: number },
+        asOfDate: null as string | null,
       };
     }
     const sorted = [...filteredReports].sort((a, b) =>
       a.report_date.localeCompare(b.report_date)
     );
+    const latest = sorted[sorted.length - 1];
     return {
-      totalPosts: filteredReports.reduce((s, r) => s + (r.total_posts || 0), 0),
-      totalViews: filteredReports.reduce((s, r) => s + (r.total_views || 0), 0),
-      totalEngagements: filteredReports.reduce((s, r) => s + (r.total_engagements || 0), 0),
-      totalClicks: filteredReports.reduce((s, r) => s + (r.total_clicks || 0), 0),
+      totalPosts: latest.total_posts || 0,
+      totalViews: latest.total_views || 0,
+      totalEngagements: latest.total_engagements || 0,
+      totalClicks: latest.total_clicks || 0,
       periodInfo: {
         from: sorted[0].report_date,
-        to: sorted[sorted.length - 1].report_date,
+        to: latest.report_date,
         count: sorted.length,
       },
+      asOfDate: latest.report_date,
     };
   }, [filteredReports]);
 
