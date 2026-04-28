@@ -24,9 +24,9 @@ const fmtCompact = (n: number) =>
   new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(n);
 
 export default function ReportsArchive() {
-  const [rows, setRows] = useState<ReportRow[] | null>(null);
+  const [allReports, setAllReports] = useState<ReportRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [range, setRange] = useState<Range>("30d");
+  const [selectedRange, setSelectedRange] = useState<Range>("all");
 
   useEffect(() => {
     document.title = "Social Performance Reports — World Moto Clash";
