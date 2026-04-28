@@ -1,89 +1,74 @@
-## Scope
+## Refactor `/reports` (ReportsArchive) — single source of truth
 
-Two things, narrow:
+### State changes
+- Change `useState<Range>("30d")` → `useState<Range>("ALL")` so ALL is active on first load.
+- Update `RangeSelector`'s `Range` type and `rangeToDays` to use `"ALL"` (uppercase) to match the spec; update option list labels accordingly (already mostly uppercase). Keep other tokens lowercase internally is fine — the simplest move is to keep existing lowercase `"all"` value but display "ALL" (already does). I'll just switch the default to `"all"` and rename nothing to avoid breaking the selector. The user-facing label stays `ALL`.
 
-1. **Make the existing "Fix Filename" button actually appear** for assets with reserved characters in their S3 key (the button's hidden today because `asset.s3Key` is never populated by the data-mapping layer).
-2. **Block uploads** (single + bulk) from creating Wasabi keys that contain `:` `*` `?` `#` or runs of double spaces — sanitize the filename client-side before it reaches S3.
+### Filtering — one collection
+Rename `rows` → `allReports`. Compute a single memoized `filteredReports`:
 
-**Not doing:** any `.m4v` → `.mp4` re-extensioning. Files keep their original extensions everywhere (rename function, upload validators, drawer detection).
-
----
-
-## Bug fix — why "Fix Filename" doesn't show
-
-`MediaAssetDetailsDrawer` checks `asset.s3Key`, but `unifiedMediaService.transformDbAsset()` never copies `dbAsset.s3_key` onto the returned object. So the field is always undefined and the button is always hidden.
-
-**Fix:** add one line `s3Key: dbAsset.s3_key` to the transform, and add `s3Key?: string | null` to the `MediaAsset` type (already declared on the interface — just needs the mapping). Detection logic in the drawer stays the same minus the m4v branch.
-
-## Drawer detection — drop the m4v trigger
-
-Change:
-```ts
-const needsFilenameFix = !!s3Key && (
-  /[:*?#]/.test(s3Key) || / {2,}/.test(s3Key) || s3Key.endsWith('.m4v')
-);
 ```
-to:
-```ts
-const needsFilenameFix = !!s3Key && (/[:*?#]/.test(s3Key) || / {2,}/.test(s3Key));
+filteredReports = selectedRange === 'all'
+  ? allReports
+  : allReports.filter(r => new Date(r.report_date) >= today - Ndays)
 ```
 
-## `rename-s3-asset` edge function — preserve extensions
+### Summary metrics — totals, not deltas
+Replace the latest-minus-earliest delta logic with straight aggregate sums over `filteredReports`:
 
-- Default `reextension_m4v` → `false`.
-- Remove the `.m4v → .mp4` block from `sanitizeKey`.
-- Album-scan filter no longer flags `.m4v` files; only flags reserved chars / double spaces.
-- Sanitization rules kept: `:` → `-`, `*` → `_`, drop `?` and `#`, collapse `__` and double spaces, trim edges.
-
-## Upload-time prevention (the part you asked about)
-
-Add a single shared sanitizer used by every upload path so dirty filenames can never reach Wasabi or the DB:
-
-**New helper** `src/utils/sanitizeFilename.ts`:
-```ts
-// Returns { clean, changed, reason? }
-export function sanitizeFilename(name: string) {
-  const original = name;
-  let s = name
-    .replace(/:/g, '-')
-    .replace(/\*/g, '_')
-    .replace(/[?#]/g, '')
-    .replace(/_+/g, '_')
-    .replace(/ {2,}/g, ' ')
-    .replace(/^[\s_-]+|[\s_-]+$/g, '');
-  return { clean: s, changed: s !== original };
-}
+```
+totalPosts       = sum(filteredReports.total_posts)
+totalViews       = sum(filteredReports.total_views)
+totalEngagements = sum(filteredReports.total_engagements)
+totalClicks      = sum(filteredReports.total_clicks)
+reportCount      = filteredReports.length
 ```
 
-**Wired into:**
-- `MediaUpload` (single upload page) — sanitize `file.name` before computing the S3 key; show a small toast if it was changed ("Filename adjusted to `X` — Wasabi can't serve `:` `*` `?` `#`").
-- `BulkUploadTab` — same sanitize step inside the per-file loop, with the rename surfaced in the row's filename column so the user sees the new name.
-- `RacerFileUpload` — same sanitize step (racer license/bike/audition uploads go to the same Wasabi bucket).
-- `upload-master-to-s3` and `generate-presigned-upload-url` edge functions — defensive server-side sanitize on the requested key, so even a custom client can't slip a bad key through.
+Note: the existing delta logic existed because earlier ingests were assumed cumulative. Per the new spec, treat each report's totals as the report's own totals for that day and SUM them across the filtered window. (Acceptance criterion explicitly requests `Apr 28 report appears with 1,515,953 views` — that's a per-report value, and ALL aggregation will sum every report.)
 
-This means: from now on, any new upload is automatically clean. The "Fix Filename" button only has to deal with the historical files already in Wasabi (like `WMC SIZZLE 4:01  NEW.m4v`).
+### KPI card labels
+- `Posts Δ` → `TOTAL POSTS`
+- `Views Δ` → `TOTAL VIEWS`
+- `Engagements Δ` → `TOTAL ENGAGEMENTS`
+- `Clicks Δ` → `TOTAL CLICKS`
 
-## Files to change
+Use exact formatted values (`fmt`, with thousands separators) on all four cards — no compact abbreviations — so `1,515,953` displays consistently with the report cards.
 
-- `src/services/unifiedMediaService.ts` — add `s3Key: dbAsset.s3_key` mapping (~line 750).
-- `src/components/media/MediaAssetDetailsDrawer.tsx` — drop `.m4v` trigger from `needsFilenameFix`; tighten copy ("contains characters Wasabi can't serve" — no mention of m4v).
-- `src/components/media/VideoPreviewModal.tsx` — same: error message stops blaming m4v, just says "filename contains reserved characters".
-- `supabase/functions/rename-s3-asset/index.ts` — default `reextension_m4v=false`, remove `.m4v` rewrite, drop m4v from album-scan filter.
-- `src/utils/sanitizeFilename.ts` — **new** shared helper.
-- `src/pages/media/MediaUpload.tsx` — call `sanitizeFilename` before upload.
-- `src/components/media/BulkUploadTab.tsx` — call `sanitizeFilename` per file.
-- `src/components/racer/RacerFileUpload.tsx` — call `sanitizeFilename` per file.
-- `supabase/functions/upload-master-to-s3/index.ts` — server-side sanitize.
-- `supabase/functions/generate-presigned-upload-url/index.ts` — server-side sanitize.
+### Active range label
+Replace the `Δ added from … → …` line with an explicit active-range pill above/below the KPI cards:
 
-## After this is shipped, for the "WMC SIZZLE 4:01  NEW" asset
+```
+ALL REPORTS              (selectedRange = all)
+LAST 7 DAYS              (7d)
+LAST 30 DAYS             (30d)
+LAST 60 DAYS             (60d)
+LAST 120 DAYS            (120d)
+LAST 1 YEAR              (1y)
+LAST 2 YEARS             (2y)
+```
 
-1. Open it in the drawer.
-2. The **File Storage → Fix Filename** button now appears (because `s3Key` is wired through and the key contains `:` and double spaces).
-3. Click it. Wasabi object renames from
-   `WMC FINAL SIZZLES/WMC SIZZLE 4:01  NEW.m4v`
-   →
-   `WMC FINAL SIZZLES/WMC SIZZLE 4-01 NEW.m4v` *(extension preserved)*.
-4. The video can then be served — though note `.m4v` may still not play in Chrome/Firefox; that's a browser limitation we're explicitly not addressing here. Safari will play it fine.
+Plus secondary text: `N reports · {earliest report_date} → {latest report_date}` derived from `filteredReports`.
 
-Approve and I'll implement.
+### Report list
+- Heading: `Reports ({filteredReports.length})` — already uses `filtered`, will now read from the renamed `filteredReports`.
+- Cards continue to show exact values via `fmt(...)`.
+
+### Chart
+- `<ReportsTrendChart rows={filteredReports} />` and `<PlatformBreakdownChart rows={filteredReports} />` — already wired to the filtered set; just confirms they use the new collection.
+- Click-through to `/reports/:slug` is unchanged.
+
+### Files to edit
+- `src/pages/reports/ReportsArchive.tsx` — all the logic changes above.
+
+No DB, edge function, or RangeSelector changes required.
+
+### Acceptance check after change
+- Page loads with `ALL` selected.
+- Summary cards, chart, and list all derived from `filteredReports`.
+- Apr 28 report shows `1,515,953` in its card; the ALL summary sums all reports.
+- Switching 7D/30D/etc. updates summary, chart, and list together.
+
+### Answers to the three required confirmations
+- **State/filter logic changed**: default range → `'all'`; replaced delta calculation with straight sum aggregation over a single `filteredReports` memo; renamed for clarity; updated KPI labels and added an active-range label.
+- **Summary cards format**: exact totals with thousands separators (e.g. `1,515,953`), not abbreviated.
+- **Default selected range**: `ALL`, confirmed.

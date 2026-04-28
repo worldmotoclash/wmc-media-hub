@@ -24,9 +24,9 @@ const fmtCompact = (n: number) =>
   new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(n);
 
 export default function ReportsArchive() {
-  const [rows, setRows] = useState<ReportRow[] | null>(null);
+  const [allReports, setAllReports] = useState<ReportRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [range, setRange] = useState<Range>("30d");
+  const [selectedRange, setSelectedRange] = useState<Range>("all");
 
   useEffect(() => {
     document.title = "Social Performance Reports — World Moto Clash";
@@ -38,62 +38,62 @@ export default function ReportsArchive() {
         .limit(1000);
       if (error) {
         setError(error.message);
-        setRows([]);
+        setAllReports([]);
         return;
       }
-      setRows((data as ReportRow[]) ?? []);
+      setAllReports((data as ReportRow[]) ?? []);
     })();
   }, []);
 
-  const filtered = useMemo(() => {
-    if (!rows) return [];
-    const days = rangeToDays(range);
-    if (days === null) return rows;
+  const filteredReports = useMemo(() => {
+    if (!allReports) return [];
+    const days = rangeToDays(selectedRange);
+    if (days === null) return allReports;
     const cutoff = new Date();
     cutoff.setHours(0, 0, 0, 0);
     cutoff.setDate(cutoff.getDate() - days);
-    return rows.filter((r) => new Date(r.report_date) >= cutoff);
-  }, [rows, range]);
+    return allReports.filter((r) => new Date(r.report_date) >= cutoff);
+  }, [allReports, selectedRange]);
 
-  // Period delta: latest snapshot − earliest snapshot in range.
-  // Each row's totals are cumulative running counts from the ingest, so summing
-  // would double-count. The delta represents activity added during the period.
-  const { totals, periodInfo } = useMemo(() => {
-    if (filtered.length === 0) {
+  // Aggregate totals across the filtered window. Each report holds its own
+  // per-day totals; sum them to get the window total.
+  const { totalPosts, totalViews, totalEngagements, totalClicks, periodInfo } = useMemo(() => {
+    if (filteredReports.length === 0) {
       return {
-        totals: { posts: 0, views: 0, engagements: 0, clicks: 0 },
+        totalPosts: 0,
+        totalViews: 0,
+        totalEngagements: 0,
+        totalClicks: 0,
         periodInfo: null as null | { from: string; to: string; count: number },
       };
     }
-    const sorted = [...filtered].sort((a, b) =>
+    const sorted = [...filteredReports].sort((a, b) =>
       a.report_date.localeCompare(b.report_date)
     );
-    const first = sorted[0];
-    const last = sorted[sorted.length - 1];
-    if (sorted.length === 1) {
-      return {
-        totals: {
-          posts: last.total_posts || 0,
-          views: last.total_views || 0,
-          engagements: last.total_engagements || 0,
-          clicks: last.total_clicks || 0,
-        },
-        periodInfo: { from: last.report_date, to: last.report_date, count: 1 },
-      };
-    }
     return {
-      totals: {
-        posts: Math.max(0, (last.total_posts || 0) - (first.total_posts || 0)),
-        views: Math.max(0, (last.total_views || 0) - (first.total_views || 0)),
-        engagements: Math.max(
-          0,
-          (last.total_engagements || 0) - (first.total_engagements || 0)
-        ),
-        clicks: Math.max(0, (last.total_clicks || 0) - (first.total_clicks || 0)),
+      totalPosts: filteredReports.reduce((s, r) => s + (r.total_posts || 0), 0),
+      totalViews: filteredReports.reduce((s, r) => s + (r.total_views || 0), 0),
+      totalEngagements: filteredReports.reduce((s, r) => s + (r.total_engagements || 0), 0),
+      totalClicks: filteredReports.reduce((s, r) => s + (r.total_clicks || 0), 0),
+      periodInfo: {
+        from: sorted[0].report_date,
+        to: sorted[sorted.length - 1].report_date,
+        count: sorted.length,
       },
-      periodInfo: { from: first.report_date, to: last.report_date, count: sorted.length },
     };
-  }, [filtered]);
+  }, [filteredReports]);
+
+  const rangeLabel = useMemo(() => {
+    switch (selectedRange) {
+      case "all": return "ALL REPORTS";
+      case "7d": return "LAST 7 DAYS";
+      case "30d": return "LAST 30 DAYS";
+      case "60d": return "LAST 60 DAYS";
+      case "120d": return "LAST 120 DAYS";
+      case "1y": return "LAST 1 YEAR";
+      case "2y": return "LAST 2 YEARS";
+    }
+  }, [selectedRange]);
 
   return (
     <main className="container mx-auto px-4 py-10 max-w-6xl">
@@ -113,7 +113,7 @@ export default function ReportsArchive() {
       </header>
 
       <div className="mb-8">
-        <RangeSelector value={range} onChange={setRange} />
+        <RangeSelector value={selectedRange} onChange={setSelectedRange} />
       </div>
 
       {error && (
@@ -122,39 +122,44 @@ export default function ReportsArchive() {
         </Card>
       )}
 
-      {rows === null ? (
+      {allReports === null ? (
         <div className="space-y-3">
           <Skeleton className="h-28 w-full" />
           <Skeleton className="h-72 w-full" />
         </div>
       ) : (
         <>
-          {/* KPI cards — period delta (latest snapshot − earliest in range) */}
-          <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-2">
-            <KpiCard label="Posts Δ" value={fmt(totals.posts)} />
-            <KpiCard label="Views Δ" value={fmtCompact(totals.views)} />
-            <KpiCard label="Engagements Δ" value={fmtCompact(totals.engagements)} />
-            <KpiCard label="Clicks Δ" value={fmtCompact(totals.clicks)} />
-          </section>
-          <p className="font-hud-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-8">
-            {periodInfo
-              ? periodInfo.count === 1
-                ? `Snapshot · ${periodInfo.from} (only 1 report in range)`
-                : `Δ added from ${periodInfo.from} → ${periodInfo.to} · ${periodInfo.count} reports`
-              : "No reports in selected range"}
-          </p>
+          {/* Active range label */}
+          <div className="mb-3 flex flex-wrap items-center gap-3">
+            <span className="font-hud-mono text-[11px] uppercase tracking-[0.25em] text-[hsl(var(--telemetry-primary))] border border-[hsl(var(--telemetry-grid))] px-2.5 py-1 rounded-sm">
+              {rangeLabel}
+            </span>
+            {periodInfo && (
+              <span className="font-hud-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                {periodInfo.count} {periodInfo.count === 1 ? "report" : "reports"} · {periodInfo.from} → {periodInfo.to}
+              </span>
+            )}
+          </div>
 
-          <ReportsTrendChart rows={filtered} />
-          <PlatformBreakdownChart rows={filtered} />
+          {/* KPI cards — total aggregates across selected window */}
+          <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <KpiCard label="Total Posts" value={fmt(totalPosts)} />
+            <KpiCard label="Total Views" value={fmt(totalViews)} />
+            <KpiCard label="Total Engagements" value={fmt(totalEngagements)} />
+            <KpiCard label="Total Clicks" value={fmt(totalClicks)} />
+          </section>
+
+          <ReportsTrendChart rows={filteredReports} />
+          <PlatformBreakdownChart rows={filteredReports} />
 
           <h2 className="text-2xl font-semibold mb-4">
             Reports{" "}
             <span className="text-sm text-muted-foreground font-normal">
-              ({filtered.length})
+              ({filteredReports.length})
             </span>
           </h2>
 
-          {filtered.length === 0 ? (
+          {filteredReports.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-muted-foreground">
                 No reports in the selected range.
@@ -162,7 +167,7 @@ export default function ReportsArchive() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {filtered.map((r) => (
+              {filteredReports.map((r) => (
                 <Link key={r.id} to={`/reports/${r.slug}`} className="block">
                   <Card className="hover:border-primary transition-colors">
                     <CardHeader className="pb-2">
