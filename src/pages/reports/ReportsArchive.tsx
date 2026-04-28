@@ -107,12 +107,6 @@ export default function ReportsArchive() {
             Daily archive of automated social media performance for World Moto Clash.
           </p>
         </div>
-        <Link
-          to="/racer-performance"
-          className="font-hud-mono text-[10px] uppercase tracking-widest text-[hsl(var(--telemetry-muted))] hover:text-[hsl(var(--telemetry-accent))] border border-[hsl(var(--telemetry-grid))] px-3 py-1.5 rounded-sm"
-        >
-          Demo · Racer Telemetry →
-        </Link>
       </header>
 
       <div className="mb-8">
