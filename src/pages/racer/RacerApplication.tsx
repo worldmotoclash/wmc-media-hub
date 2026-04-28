@@ -293,7 +293,7 @@ const RacerApplication: React.FC = () => {
               <Label>Country</Label>
               <Input value={formData.country || ''} onChange={(e) => updateField('country', e.target.value)} />
             </div>
-            <p className="text-xs text-muted-foreground">At least one social handle is required.</p>
+            <p className="text-xs text-muted-foreground">At least one social account is required.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>LinkedIn</Label>

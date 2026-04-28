@@ -41,7 +41,7 @@ const SocialHandleInput: React.FC<SocialHandleInputProps> = ({ platform, value, 
         onChange={handleChange}
         onBlur={handleBlur}
         disabled={disabled}
-        placeholder="your-handle"
+        placeholder="your-username"
         className="flex-1 h-10 px-3 py-2 bg-transparent outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
       />
       {showValid && <CheckCircle2 className="w-4 h-4 text-green-500 mr-3 shrink-0" />}
