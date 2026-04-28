@@ -167,7 +167,7 @@ export default function ReportsArchive() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {filtered.map((r) => (
+              {filteredReports.map((r) => (
                 <Link key={r.id} to={`/reports/${r.slug}`} className="block">
                   <Card className="hover:border-primary transition-colors">
                     <CardHeader className="pb-2">
