@@ -1,50 +1,39 @@
-# Fix Summary Cards: Show Latest Snapshot, Not Summed Totals
-
 ## Problem
 
-Each daily report in `social_performance_reports` stores a **cumulative snapshot** (Apr 28 = 1,515,953 views, Apr 27 = 1,467,648 views, etc. — each day grows over the prior). The current archive page sums every report in the selected window, producing inflated numbers like 16,789,403 views across 25 reports.
+On media library cards (and the list-view rows), the **ExternalLink** icon button next to **View Details** / **Review** currently behaves like a second "preview" button:
 
-The newest report (Apr 28) shows 1,515,953 views on its detail card — that's the actual current total. The summary should match.
+- For **videos**, it calls `setSelectedAsset(asset)` which opens the in-app `VideoPreviewModal` — effectively the same UX as View Details.
+- For non-videos, it correctly opens `asset.fileUrl` (the `media.worldmotoclash.com/...` CDN URL) in a new browser tab.
+
+The user expects the ExternalLink button to always open the raw CDN URL in a new tab so they can view/download the file directly from `media.worldmotoclash.com/<key>`.
 
 ## Fix
 
-Replace the `reduce(... + r.total_views ...)` aggregation with **the latest report's values within the filtered window**.
+In `src/components/media/UnifiedMediaLibrary.tsx`, remove the video-specific branch from the ExternalLink button's `onClick`. It should unconditionally call:
 
-### Logic
-
-```text
-filteredReports = sorted desc by report_date, filtered by selected range
-latestReport    = filteredReports[0]   // most recent in window
-
-summary = {
-  totalPosts:       latestReport.total_posts,
-  totalViews:       latestReport.total_views,
-  totalEngagements: latestReport.total_engagements,
-  totalClicks:      latestReport.total_clicks,
-}
+```ts
+window.open(asset.fileUrl, '_blank', 'noopener,noreferrer');
 ```
 
-So for ALL → shows Apr 28 totals (1,515,953 views). For 7D → shows the most recent report within the last 7 days (also Apr 28 right now). For 30D → same, etc. The numbers always equal what the user sees on the top report card.
+This change is needed in **two places**:
 
-### Labels
+1. **Grid view card** (around lines 1689–1703) — the ExternalLink button next to View Details / Review.
+2. **List/table view row** (around lines 1979–1993) — the same button in the actions column.
 
-Change KPI labels from `TOTAL POSTS / TOTAL VIEWS / ...` to `POSTS / VIEWS / ENGAGEMENTS / CLICKS` (since they are snapshot values, not window sums). Add an "as of <date>" sub-label using `latestReport.report_date` so it's clear what the number represents.
+Behaviour after the fix:
 
-### Period strip
+| Button         | Action                                                              |
+| -------------- | ------------------------------------------------------------------- |
+| View Details   | Opens the `MediaAssetDetailsDrawer` (unchanged)                     |
+| Review         | Opens the librarian workflow dialog (unchanged)                     |
+| ExternalLink   | Opens `asset.fileUrl` (e.g. `https://media.worldmotoclash.com/...`) in a new browser tab — for **all** asset types including video |
 
-Keep the existing range pill (`ALL REPORTS`, `LAST 30 DAYS`) and the `25 reports · 2026-04-04 → 2026-04-28` line — those describe the **list/chart window** correctly.
+`asset.fileUrl` is already the CDN URL produced by the upload pipeline (`getCdnUrl(s3Key)` → `https://media.worldmotoclash.com/<key>`), so no URL construction is needed.
 
-### Chart and list
+A small UX nicety: add `title="Open file in new tab"` to the button for clarity.
 
-No change. `ReportsTrendChart`, `PlatformBreakdownChart`, and the report list continue to use the full `filteredReports` array — the trend chart should show the per-day snapshot progression.
+## Files
 
-## File touched
+- `src/components/media/UnifiedMediaLibrary.tsx` — two `onClick` handlers simplified to always `window.open(asset.fileUrl, '_blank', 'noopener,noreferrer')`.
 
-- `src/pages/reports/ReportsArchive.tsx` — replace the `reduce` aggregation in the `useMemo` with `latestReport`-based values; tweak KPI labels and add an "as of YYYY-MM-DD" caption under each KPI value.
-
-## Confirmation after publish
-
-I will confirm:
-- Default selected range is still `ALL`
-- Summary cards now show **exact latest-report totals** (e.g. 1,515,953 views) matching the Apr 28 card
-- Switching ranges updates the summary to the latest report inside that window
+No other files, no DB, no edge function changes.
