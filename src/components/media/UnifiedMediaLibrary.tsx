@@ -1977,12 +1977,9 @@ export const UnifiedMediaLibrary: React.FC = () => {
                         <Button
                           size="sm"
                           variant="ghost"
+                          title="Open file in new tab"
                           onClick={() => {
-                            if (asset.assetType === 'video') {
-                              setSelectedAsset(asset);
-                            } else {
-                              window.open(asset.fileUrl, '_blank');
-                            }
+                            window.open(asset.fileUrl, '_blank', 'noopener,noreferrer');
                           }}
                         >
                           <ExternalLink className="w-4 h-4" />
