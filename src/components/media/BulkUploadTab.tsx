@@ -73,6 +73,7 @@ export const BulkUploadTab: React.FC = () => {
   const [albumName, setAlbumName] = useState('');
   const [albumDescription, setAlbumDescription] = useState('');
   const [sharedTags, setSharedTags] = useState('');
+  const [approvalStatus, setApprovalStatus] = useState<'Pending' | 'Approved' | 'Rejected' | 'Restricted'>('Pending');
   const [queue, setQueue] = useState<QueuedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -283,6 +284,7 @@ export const BulkUploadTab: React.FC = () => {
           fileSize: file.size,
           albumId: createdAlbumId,
           creatorContactId: user?.id,
+          approvalStatus,
         },
       });
 
@@ -528,6 +530,28 @@ export const BulkUploadTab: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* Approval status applied to all uploads */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="bulk-approval-status">Approval Status (applied to all)</Label>
+              <Select
+                value={approvalStatus}
+                onValueChange={(v) => setApprovalStatus(v as typeof approvalStatus)}
+                disabled={isUploading}
+              >
+                <SelectTrigger id="bulk-approval-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Approved">Approved</SelectItem>
+                  <SelectItem value="Rejected">Rejected</SelectItem>
+                  <SelectItem value="Restricted">Restricted</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
 
         {/* Dropzone */}

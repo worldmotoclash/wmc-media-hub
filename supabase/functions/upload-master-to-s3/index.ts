@@ -39,6 +39,7 @@ interface UploadMasterRequest {
   duration?: number;
   salesforceFields?: SalesforceFields;
   isPodcast?: boolean; // Flag for audio podcast classification
+  approvalStatus?: 'Pending' | 'Approved' | 'Rejected' | 'Restricted';
 }
 
 // Helper function to escape special regex characters
@@ -109,7 +110,7 @@ serve(async (req) => {
       dimensions: `${payload.width}x${payload.height}`,
     });
 
-    const { imageBase64, filename, mimeType, width, height, title, description, tags, creatorContactId, thumbnailBase64, duration, salesforceFields, isPodcast, s3Key: preuploadedS3Key, cdnUrl: preuploadedCdnUrl, masterId: preuploadedMasterId, fileSize: preuploadedFileSize, albumId } = payload as UploadMasterRequest & { s3Key?: string; cdnUrl?: string; masterId?: string; fileSize?: number; albumId?: string };
+    const { imageBase64, filename, mimeType, width, height, title, description, tags, creatorContactId, thumbnailBase64, duration, salesforceFields, isPodcast, approvalStatus, s3Key: preuploadedS3Key, cdnUrl: preuploadedCdnUrl, masterId: preuploadedMasterId, fileSize: preuploadedFileSize, albumId } = payload as UploadMasterRequest & { s3Key?: string; cdnUrl?: string; masterId?: string; fileSize?: number; albumId?: string };
 
     // Support two modes:
     // 1. Traditional: imageBase64 + filename (file sent through edge function)
@@ -298,7 +299,7 @@ serve(async (req) => {
         file_url: cdnUrl,
         thumbnail_url: thumbnailUrl || (isImage ? cdnUrl : null),
         source: "local_upload",
-        status: "ready",
+        status: approvalStatus ? approvalStatus.toLowerCase() : "ready",
         file_format: fileExtension,
         asset_type: assetType,
         s3_key: s3Key,
@@ -393,6 +394,12 @@ serve(async (req) => {
       formData.append("string_Name", imageTitle);
       formData.append("string_ri1__Content_Type__c", fileExtension);
       formData.append("string_ri1__URL__c", cdnUrl);
+
+      // Caller-provided approval status overrides the governance default
+      if (approvalStatus) {
+        formData.append("string_ri1__Content_Approved__c", approvalStatus);
+        console.log(`Setting initial approval status to: ${approvalStatus}`);
+      }
       
       // Add description if provided
       if (description) {

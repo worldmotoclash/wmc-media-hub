@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music, Info, SlidersHorizontal, ChevronDown, ChevronUp, Layers, Grid3x3, Mic, Pencil, Trash2, Clock, ArrowDownAZ, CloudUpload } from "lucide-react";
+import { Search, Filter, RefreshCw, Plus, Eye, Tag, ExternalLink, Video, Image, Play, ArrowUpDown, LayoutGrid, List, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Youtube, Sparkles, Upload, CheckCircle, AlertTriangle, Link2, Music, Info, SlidersHorizontal, ChevronDown, ChevronUp, Layers, Grid3x3, Mic, Pencil, Trash2, Clock, ArrowDownAZ, CloudUpload, ShieldCheck, Lock } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -98,6 +99,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
   const [isBulkRenaming, setIsBulkRenaming] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [isBulkSyncing, setIsBulkSyncing] = useState(false);
+  const [isBulkStatusUpdating, setIsBulkStatusUpdating] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [bulkTagProgress, setBulkTagProgress] = useState({ current: 0, total: 0 });
   const [bulkRenameProgress, setBulkRenameProgress] = useState({ current: 0, total: 0 });
@@ -374,6 +376,41 @@ export const UnifiedMediaLibrary: React.FC = () => {
       toast.error('Failed to sync assets to Salesforce');
     } finally {
       setIsBulkSyncing(false);
+    }
+  };
+
+  const handleBulkSetStatus = async (newStatus: 'Pending' | 'Approved' | 'Rejected' | 'Restricted') => {
+    const ids = Array.from(selectedAssetIds);
+    const syncableIds = ids.filter(id => {
+      const asset = assets.find(a => a.id === id);
+      return asset && asset.salesforceId;
+    });
+    const skipped = ids.length - syncableIds.length;
+
+    if (syncableIds.length === 0) {
+      toast.error('None of the selected assets are synced to Salesforce yet');
+      return;
+    }
+
+    setIsBulkStatusUpdating(true);
+    try {
+      toast.info(`Setting ${syncableIds.length} asset${syncableIds.length > 1 ? 's' : ''} to ${newStatus}...`);
+      const { data, error } = await supabase.functions.invoke('sync-asset-to-salesforce', {
+        body: { assetIds: syncableIds, status: newStatus }
+      });
+      if (error) throw error;
+      const successCount = data?.results?.filter((r: any) => r.success).length ?? syncableIds.length;
+      toast.success(
+        `Status updated to ${newStatus} for ${successCount}/${syncableIds.length} asset${syncableIds.length > 1 ? 's' : ''}`,
+        { description: skipped > 0 ? `${skipped} skipped (not synced to SFDC)` : undefined }
+      );
+      loadAssets();
+      loadFilterCounts();
+    } catch (err) {
+      console.error('Bulk status update error:', err);
+      toast.error('Failed to update approval status');
+    } finally {
+      setIsBulkStatusUpdating(false);
     }
   };
 
@@ -665,6 +702,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
       case 'ready': return 'bg-green-600 text-white border-green-700';
       case 'pending': return 'bg-yellow-600 text-white border-yellow-700';
       case 'rejected': return 'bg-red-600 text-white border-red-700';
+      case 'restricted': return 'bg-orange-600 text-white border-orange-700';
       default: return 'bg-gray-600 text-white border-gray-700';
     }
   };
@@ -1240,7 +1278,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
             <div className="space-y-3">
               <label className="text-sm font-medium mb-2 block">Status</label>
               <div className="space-y-1">
-                {['pending', 'approved', 'rejected'].map(status => (
+                {['pending', 'approved', 'rejected', 'restricted'].map(status => (
                   <div key={status} className="min-h-8 flex items-center space-x-2">
                     <Checkbox
                       id={status}
@@ -1395,6 +1433,38 @@ export const UnifiedMediaLibrary: React.FC = () => {
                 </>
               )}
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={isBulkTagging || isBulkRenaming || isBulkDeleting || isBulkStatusUpdating}
+                  className="flex items-center gap-2"
+                >
+                  {isBulkStatusUpdating ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4" />
+                      Set Status
+                      <ChevronDown className="w-3 h-3" />
+                    </>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-popover z-50">
+                <DropdownMenuItem onClick={() => handleBulkSetStatus('Pending')}>Pending</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleBulkSetStatus('Approved')}>Approved</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleBulkSetStatus('Rejected')}>Rejected</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleBulkSetStatus('Restricted')}>
+                  <Lock className="w-3.5 h-3.5 mr-2" />
+                  Restricted
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {isEditor() && (
               <Button
                 variant="secondary"

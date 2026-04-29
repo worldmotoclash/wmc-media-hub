@@ -42,6 +42,7 @@ export interface StatusStats {
   pending: number;
   approved: number;
   rejected: number;
+  restricted: number;
 }
 
 export interface ApiConnectionStatus {
@@ -91,7 +92,7 @@ export const getMediaSourceStats = async (albumId?: string): Promise<MediaSource
     salesforceApiAssets: 0,
     wasabiBreakdown: { videos: 0, images: 0, total: 0 },
     assetTypes: { video: 0, allImages: 0, masters: 0, variants: 0, grids: 0, standardImages: 0 },
-    statusCounts: { pending: 0, approved: 0, rejected: 0 }
+    statusCounts: { pending: 0, approved: 0, rejected: 0, restricted: 0 }
   };
 
   try {
@@ -355,10 +356,16 @@ export const getMediaSourceStats = async (albumId?: string): Promise<MediaSource
       .select('*', { count: 'exact', head: true })
       .eq('status', 'rejected'));
 
+    const { count: restrictedCount } = await withAlbumFilter(supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'restricted'));
+
     stats.statusCounts = {
       pending: pendingCount || 0,
       approved: approvedCount || 0,
-      rejected: rejectedCount || 0
+      rejected: rejectedCount || 0,
+      restricted: restrictedCount || 0
     };
 
     // Calculate total

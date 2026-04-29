@@ -6,6 +6,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, ImageIcon, X, Loader2, Cloud } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
@@ -67,6 +69,7 @@ export function MasterImageUploadDialog({
   const [uploadProgress, setUploadProgress] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [catalogFields, setCatalogFields] = useState<ContentCatalogFields | null>(null);
+  const [approvalStatus, setApprovalStatus] = useState<'Pending' | 'Approved' | 'Rejected' | 'Restricted'>('Pending');
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -207,6 +210,7 @@ export function MasterImageUploadDialog({
             cdnUrl: presignData.cdnUrl,
             masterId: presignData.masterId,
             fileSize: selectedFile.size,
+            approvalStatus,
           },
         });
 
@@ -253,6 +257,7 @@ export function MasterImageUploadDialog({
               version: catalogFields.version,
               eventDate: catalogFields.eventDate,
             } : undefined,
+            approvalStatus,
           },
         });
 
@@ -292,6 +297,7 @@ export function MasterImageUploadDialog({
     setIsDragging(false);
     setUploadProgress("");
     setCatalogFields(null);
+    setApprovalStatus('Pending');
     onOpenChange(false);
   };
 
@@ -377,6 +383,22 @@ export function MasterImageUploadDialog({
                 autoDetectContentType="image"
                 onFieldChange={setCatalogFields}
               />
+
+              {/* Approval Status */}
+              <div className="space-y-1.5">
+                <Label htmlFor="approval-status" className="text-sm">Approval Status</Label>
+                <Select value={approvalStatus} onValueChange={(v) => setApprovalStatus(v as typeof approvalStatus)} disabled={isUploading}>
+                  <SelectTrigger id="approval-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="Approved">Approved</SelectItem>
+                    <SelectItem value="Rejected">Rejected</SelectItem>
+                    <SelectItem value="Restricted">Restricted</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
 
