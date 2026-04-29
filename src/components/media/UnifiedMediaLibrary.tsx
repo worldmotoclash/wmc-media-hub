@@ -665,6 +665,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
       case 'ready': return 'bg-green-600 text-white border-green-700';
       case 'pending': return 'bg-yellow-600 text-white border-yellow-700';
       case 'rejected': return 'bg-red-600 text-white border-red-700';
+      case 'restricted': return 'bg-orange-600 text-white border-orange-700';
       default: return 'bg-gray-600 text-white border-gray-700';
     }
   };
