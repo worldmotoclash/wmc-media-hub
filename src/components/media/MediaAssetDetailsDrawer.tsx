@@ -347,6 +347,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
                     <SelectItem value="Pending">Pending</SelectItem>
                     <SelectItem value="Approved">Approved</SelectItem>
                     <SelectItem value="Rejected">Rejected</SelectItem>
+                    <SelectItem value="Restricted">Restricted</SelectItem>
                   </SelectContent>
                 </Select>
               ) : (
