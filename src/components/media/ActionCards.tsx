@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload, Sparkles, PlaySquare, Scissors, ListVideo, Layers, BookOpen, Megaphone } from 'lucide-react';
+import { Upload, Sparkles, PlaySquare, Scissors, ListVideo, Layers, BookOpen, Megaphone, LifeBuoy } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useUser } from '@/contexts/UserContext';
 
@@ -86,6 +86,16 @@ const ActionCards: React.FC = () => {
       href: '/admin/media/releases',
       color: 'from-rose-500/20 to-rose-500/10',
       iconColor: 'text-rose-500',
+      creatorVisible: true,
+      viewerVisible: true
+    },
+    {
+      title: 'User Guide',
+      description: 'How-to docs, walkthroughs, and tips for the Media Hub',
+      icon: LifeBuoy,
+      href: '/admin/media/user-guide',
+      color: 'from-amber-500/20 to-amber-500/10',
+      iconColor: 'text-amber-500',
       creatorVisible: true,
       viewerVisible: true
     }
