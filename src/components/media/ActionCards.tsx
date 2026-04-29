@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload, Sparkles, PlaySquare, Scissors, ListVideo, Layers, BookOpen, Megaphone } from 'lucide-react';
+import { Upload, Sparkles, PlaySquare, Scissors, ListVideo, Layers, BookOpen, Megaphone, LifeBuoy } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useUser } from '@/contexts/UserContext';
 
