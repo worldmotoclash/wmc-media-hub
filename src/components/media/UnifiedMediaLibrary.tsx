@@ -1433,6 +1433,38 @@ export const UnifiedMediaLibrary: React.FC = () => {
                 </>
               )}
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={isBulkTagging || isBulkRenaming || isBulkDeleting || isBulkStatusUpdating}
+                  className="flex items-center gap-2"
+                >
+                  {isBulkStatusUpdating ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4" />
+                      Set Status
+                      <ChevronDown className="w-3 h-3" />
+                    </>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-popover z-50">
+                <DropdownMenuItem onClick={() => handleBulkSetStatus('Pending')}>Pending</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleBulkSetStatus('Approved')}>Approved</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleBulkSetStatus('Rejected')}>Rejected</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleBulkSetStatus('Restricted')}>
+                  <Lock className="w-3.5 h-3.5 mr-2" />
+                  Restricted
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {isEditor() && (
               <Button
                 variant="secondary"
