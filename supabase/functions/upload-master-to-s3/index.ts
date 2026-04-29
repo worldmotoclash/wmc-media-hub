@@ -394,6 +394,12 @@ serve(async (req) => {
       formData.append("string_Name", imageTitle);
       formData.append("string_ri1__Content_Type__c", fileExtension);
       formData.append("string_ri1__URL__c", cdnUrl);
+
+      // Caller-provided approval status overrides the governance default
+      if (approvalStatus) {
+        formData.append("string_ri1__Content_Approved__c", approvalStatus);
+        console.log(`Setting initial approval status to: ${approvalStatus}`);
+      }
       
       // Add description if provided
       if (description) {
