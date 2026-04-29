@@ -210,6 +210,7 @@ export function MasterImageUploadDialog({
             cdnUrl: presignData.cdnUrl,
             masterId: presignData.masterId,
             fileSize: selectedFile.size,
+            approvalStatus,
           },
         });
 
