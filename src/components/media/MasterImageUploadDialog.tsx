@@ -257,6 +257,7 @@ export function MasterImageUploadDialog({
               version: catalogFields.version,
               eventDate: catalogFields.eventDate,
             } : undefined,
+            approvalStatus,
           },
         });
 
