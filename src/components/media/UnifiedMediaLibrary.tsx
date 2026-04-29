@@ -414,6 +414,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
     }
   };
 
+  const handlePlayInBackground = (asset: MediaAsset) => {
     setMiniPlayer({
       isOpen: true,
       audioUrl: asset.fileUrl || '',
