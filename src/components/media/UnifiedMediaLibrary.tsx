@@ -1241,7 +1241,7 @@ export const UnifiedMediaLibrary: React.FC = () => {
             <div className="space-y-3">
               <label className="text-sm font-medium mb-2 block">Status</label>
               <div className="space-y-1">
-                {['pending', 'approved', 'rejected'].map(status => (
+                {['pending', 'approved', 'rejected', 'restricted'].map(status => (
                   <div key={status} className="min-h-8 flex items-center space-x-2">
                     <Checkbox
                       id={status}
