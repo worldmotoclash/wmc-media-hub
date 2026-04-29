@@ -379,7 +379,41 @@ export const UnifiedMediaLibrary: React.FC = () => {
     }
   };
 
-  const handlePlayInBackground = (asset: MediaAsset) => {
+  const handleBulkSetStatus = async (newStatus: 'Pending' | 'Approved' | 'Rejected' | 'Restricted') => {
+    const ids = Array.from(selectedAssetIds);
+    const syncableIds = ids.filter(id => {
+      const asset = assets.find(a => a.id === id);
+      return asset && asset.salesforceId;
+    });
+    const skipped = ids.length - syncableIds.length;
+
+    if (syncableIds.length === 0) {
+      toast.error('None of the selected assets are synced to Salesforce yet');
+      return;
+    }
+
+    setIsBulkStatusUpdating(true);
+    try {
+      toast.info(`Setting ${syncableIds.length} asset${syncableIds.length > 1 ? 's' : ''} to ${newStatus}...`);
+      const { data, error } = await supabase.functions.invoke('sync-asset-to-salesforce', {
+        body: { assetIds: syncableIds, status: newStatus }
+      });
+      if (error) throw error;
+      const successCount = data?.results?.filter((r: any) => r.success).length ?? syncableIds.length;
+      toast.success(
+        `Status updated to ${newStatus} for ${successCount}/${syncableIds.length} asset${syncableIds.length > 1 ? 's' : ''}`,
+        { description: skipped > 0 ? `${skipped} skipped (not synced to SFDC)` : undefined }
+      );
+      loadAssets();
+      loadFilterCounts();
+    } catch (err) {
+      console.error('Bulk status update error:', err);
+      toast.error('Failed to update approval status');
+    } finally {
+      setIsBulkStatusUpdating(false);
+    }
+  };
+
     setMiniPlayer({
       isOpen: true,
       audioUrl: asset.fileUrl || '',
