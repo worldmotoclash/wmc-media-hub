@@ -284,6 +284,7 @@ export const BulkUploadTab: React.FC = () => {
           fileSize: file.size,
           albumId: createdAlbumId,
           creatorContactId: user?.id,
+          approvalStatus,
         },
       });
 
