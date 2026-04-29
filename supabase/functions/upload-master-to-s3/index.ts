@@ -39,6 +39,7 @@ interface UploadMasterRequest {
   duration?: number;
   salesforceFields?: SalesforceFields;
   isPodcast?: boolean; // Flag for audio podcast classification
+  approvalStatus?: 'Pending' | 'Approved' | 'Rejected' | 'Restricted';
 }
 
 // Helper function to escape special regex characters
