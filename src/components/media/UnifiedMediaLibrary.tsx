@@ -21,6 +21,7 @@ import {
   fetchVariantCounts,
   fetchVariantsForMaster,
   deleteMediaAssets,
+  getCdnUrl,
   MediaAsset,
   MediaTag,
   S3BucketConfig,
