@@ -356,10 +356,16 @@ export const getMediaSourceStats = async (albumId?: string): Promise<MediaSource
       .select('*', { count: 'exact', head: true })
       .eq('status', 'rejected'));
 
+    const { count: restrictedCount } = await withAlbumFilter(supabase
+      .from('media_assets')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'restricted'));
+
     stats.statusCounts = {
       pending: pendingCount || 0,
       approved: approvedCount || 0,
-      rejected: rejectedCount || 0
+      rejected: rejectedCount || 0,
+      restricted: restrictedCount || 0
     };
 
     // Calculate total
