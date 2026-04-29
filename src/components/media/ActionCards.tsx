@@ -88,6 +88,16 @@ const ActionCards: React.FC = () => {
       iconColor: 'text-rose-500',
       creatorVisible: true,
       viewerVisible: true
+    },
+    {
+      title: 'User Guide',
+      description: 'How-to docs, walkthroughs, and tips for the Media Hub',
+      icon: LifeBuoy,
+      href: '/admin/media/user-guide',
+      color: 'from-amber-500/20 to-amber-500/10',
+      iconColor: 'text-amber-500',
+      creatorVisible: true,
+      viewerVisible: true
     }
   ];
 
