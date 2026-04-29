@@ -383,6 +383,22 @@ export function MasterImageUploadDialog({
                 autoDetectContentType="image"
                 onFieldChange={setCatalogFields}
               />
+
+              {/* Approval Status */}
+              <div className="space-y-1.5">
+                <Label htmlFor="approval-status" className="text-sm">Approval Status</Label>
+                <Select value={approvalStatus} onValueChange={(v) => setApprovalStatus(v as typeof approvalStatus)} disabled={isUploading}>
+                  <SelectTrigger id="approval-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="Approved">Approved</SelectItem>
+                    <SelectItem value="Rejected">Rejected</SelectItem>
+                    <SelectItem value="Restricted">Restricted</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
 
