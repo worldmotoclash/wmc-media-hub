@@ -21,6 +21,7 @@ import {
   fetchVariantCounts,
   fetchVariantsForMaster,
   deleteMediaAssets,
+  getCdnUrl,
   MediaAsset,
   MediaTag,
   S3BucketConfig,
@@ -1686,18 +1687,26 @@ export const UnifiedMediaLibrary: React.FC = () => {
                       </Button>
                     )}
                     
-                    {asset.fileUrl && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        title="Open file in new tab"
-                        onClick={() => {
-                          window.open(asset.fileUrl, '_blank', 'noopener,noreferrer');
-                        }}
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                      </Button>
-                    )}
+                    {(() => {
+                      const cdnUrl = getCdnUrl(asset);
+                      return cdnUrl ? (
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="outline"
+                          title="Open file in new tab"
+                        >
+                          <a
+                            href={cdnUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </Button>
+                      ) : null;
+                    })()}
                   </div>
                   
                   {/* Expand/Collapse Variants Button */}
@@ -1973,18 +1982,26 @@ export const UnifiedMediaLibrary: React.FC = () => {
                           <Tag className="w-4 h-4" />
                         </Button>
                       )}
-                      {asset.fileUrl && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          title="Open file in new tab"
-                          onClick={() => {
-                            window.open(asset.fileUrl, '_blank', 'noopener,noreferrer');
-                          }}
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </Button>
-                      )}
+                      {(() => {
+                        const cdnUrl = getCdnUrl(asset);
+                        return cdnUrl ? (
+                          <Button
+                            asChild
+                            size="sm"
+                            variant="ghost"
+                            title="Open file in new tab"
+                          >
+                            <a
+                              href={cdnUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                          </Button>
+                        ) : null;
+                      })()}
                     </div>
                   </TableCell>
                 </TableRow>
