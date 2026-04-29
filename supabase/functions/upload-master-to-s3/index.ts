@@ -110,7 +110,7 @@ serve(async (req) => {
       dimensions: `${payload.width}x${payload.height}`,
     });
 
-    const { imageBase64, filename, mimeType, width, height, title, description, tags, creatorContactId, thumbnailBase64, duration, salesforceFields, isPodcast, s3Key: preuploadedS3Key, cdnUrl: preuploadedCdnUrl, masterId: preuploadedMasterId, fileSize: preuploadedFileSize, albumId } = payload as UploadMasterRequest & { s3Key?: string; cdnUrl?: string; masterId?: string; fileSize?: number; albumId?: string };
+    const { imageBase64, filename, mimeType, width, height, title, description, tags, creatorContactId, thumbnailBase64, duration, salesforceFields, isPodcast, approvalStatus, s3Key: preuploadedS3Key, cdnUrl: preuploadedCdnUrl, masterId: preuploadedMasterId, fileSize: preuploadedFileSize, albumId } = payload as UploadMasterRequest & { s3Key?: string; cdnUrl?: string; masterId?: string; fileSize?: number; albumId?: string };
 
     // Support two modes:
     // 1. Traditional: imageBase64 + filename (file sent through edge function)
