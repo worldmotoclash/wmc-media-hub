@@ -299,7 +299,7 @@ serve(async (req) => {
         file_url: cdnUrl,
         thumbnail_url: thumbnailUrl || (isImage ? cdnUrl : null),
         source: "local_upload",
-        status: "ready",
+        status: approvalStatus ? approvalStatus.toLowerCase() : "ready",
         file_format: fileExtension,
         asset_type: assetType,
         s3_key: s3Key,
