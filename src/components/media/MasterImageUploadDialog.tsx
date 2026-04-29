@@ -69,6 +69,7 @@ export function MasterImageUploadDialog({
   const [uploadProgress, setUploadProgress] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [catalogFields, setCatalogFields] = useState<ContentCatalogFields | null>(null);
+  const [approvalStatus, setApprovalStatus] = useState<'Pending' | 'Approved' | 'Rejected' | 'Restricted'>('Pending');
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
