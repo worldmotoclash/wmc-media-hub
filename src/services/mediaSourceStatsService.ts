@@ -42,6 +42,7 @@ export interface StatusStats {
   pending: number;
   approved: number;
   rejected: number;
+  restricted: number;
 }
 
 export interface ApiConnectionStatus {
