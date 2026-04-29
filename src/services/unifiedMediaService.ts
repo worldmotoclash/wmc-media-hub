@@ -917,6 +917,35 @@ export async function fetchVariantsForMaster(masterId: string, salesforceId?: st
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MEDIA_CDN_HOSTS = new Set(['media.worldmotoclash.com']);
 
+export const CDN_BASE = 'https://media.worldmotoclash.com';
+
+/**
+ * Resolve the canonical CDN URL for a media asset.
+ * Prefers s3Key, falls back to rewriting raw Wasabi URLs to the CDN host.
+ * Returns null for assets without an S3-backed binary (e.g. YouTube-only).
+ */
+export function getCdnUrl(asset: { s3Key?: string | null; fileUrl?: string | null }): string | null {
+  if (asset.s3Key) {
+    const key = asset.s3Key.replace(/^\/+/, '');
+    return `${CDN_BASE}/${key.split('/').map(encodeURIComponent).join('/')}`;
+  }
+  if (asset.fileUrl) {
+    try {
+      const u = new URL(asset.fileUrl);
+      if (u.hostname === 'media.worldmotoclash.com') return asset.fileUrl;
+      if (u.hostname.endsWith('.wasabisys.com')) {
+        const parts = u.pathname.replace(/^\/+/, '').split('/');
+        // Path-style: /<bucket>/<key...> — strip the bucket segment
+        const key = parts.length > 1 ? parts.slice(1).join('/') : parts.join('/');
+        if (key) return `${CDN_BASE}/${key.split('/').map(encodeURIComponent).join('/')}`;
+      }
+    } catch {
+      /* not a parseable URL */
+    }
+  }
+  return null;
+}
+
 const isUuid = (value: string) => UUID_REGEX.test(value);
 
 const extractS3KeyFromUrl = (fileUrl?: string | null): string | null => {
