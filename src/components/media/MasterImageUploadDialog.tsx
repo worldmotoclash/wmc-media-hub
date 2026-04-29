@@ -297,6 +297,7 @@ export function MasterImageUploadDialog({
     setIsDragging(false);
     setUploadProgress("");
     setCatalogFields(null);
+    setApprovalStatus('Pending');
     onOpenChange(false);
   };
 
