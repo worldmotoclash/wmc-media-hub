@@ -92,7 +92,7 @@ export const getMediaSourceStats = async (albumId?: string): Promise<MediaSource
     salesforceApiAssets: 0,
     wasabiBreakdown: { videos: 0, images: 0, total: 0 },
     assetTypes: { video: 0, allImages: 0, masters: 0, variants: 0, grids: 0, standardImages: 0 },
-    statusCounts: { pending: 0, approved: 0, rejected: 0 }
+    statusCounts: { pending: 0, approved: 0, rejected: 0, restricted: 0 }
   };
 
   try {
