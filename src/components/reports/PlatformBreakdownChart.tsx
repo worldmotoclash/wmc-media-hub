@@ -91,7 +91,7 @@ export default function PlatformBreakdownChart({ rows }: Props) {
     });
 
     // Order: click-first platforms (FB, Tw, LI) then share-first (YT, IG, TT), then others by Views desc
-    const rank = (key: string, mode: "clicks" | "shares") => {
+    const rank = (key: string) => {
       const click = ["facebook", "twitter", "linkedin"].indexOf(key);
       if (click !== -1) return click;
       const share = ["youtube", "instagram", "tiktok"].indexOf(key);
