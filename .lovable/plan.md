@@ -1,58 +1,60 @@
-## Add "Restricted" Approval Status
+# Update Social Performance Report Rendering — Clicks vs Shares
 
-Today the app supports three approval statuses synced to Salesforce (`ri1__Content_Approved__c`): **Pending**, **Approved**, **Rejected**. We'll add **Restricted** as a fourth status and surface controls to set it at upload time and after upload.
+The ingest payload now distinguishes click-based platforms (Facebook, Twitter, LinkedIn) from share-based platforms (YouTube, Instagram, TikTok). Update DB schema, ingest, and all report UI to use the new fields exactly as provided.
 
-### 1. Status model: add "Restricted" everywhere
+## 1. Database — add `total_shares` column
 
-- **Drawer status select** (`MediaAssetDetailsDrawer.tsx` ~line 348): add `<SelectItem value="Restricted">Restricted</SelectItem>`.
-- **Sidebar status filter** (`UnifiedMediaLibrary.tsx` ~line 1243): include `'restricted'` in the rendered filter list.
-- **Stats** (`mediaSourceStatsService.ts`): add `restricted: number` to `StatusStats`, query `count(*) where status='restricted'`, and include it in returned `statusCounts`.
-- **Status badges / color mapping** (`UnifiedMediaLibrary.tsx` ~line 664 and any `getStatusVariant`-style helpers): add a visually distinct badge for Restricted (amber/orange or a lock icon) so it's obvious in grid + list views.
-- **SFDC sync** (`sync-asset-to-salesforce/index.ts`): no schema change needed — the function already forwards `payload.status` verbatim into `string_ri1__Content_Approved__c`. Confirm Salesforce picklist accepts "Restricted" (caller already controls value).
+New migration adding `total_shares BIGINT NOT NULL DEFAULT 0` to `social_performance_reports` so KPI queries don't have to crack `raw_payload` on every read.
 
-### 2. Set status during upload
+(`total_clicks` stays — it now means **click-based platforms only**, matching the new payload semantics. Historical rows keep their existing values; `total_shares` defaults to 0 for them.)
 
-Two upload entry points need a status selector that defaults to **Pending**:
+## 2. Ingest function — `supabase/functions/social-performance-ingest/index.ts`
 
-- **Single upload** — `MasterImageUploadDialog.tsx`: add an "Approval Status" `<Select>` (Pending / Approved / Rejected / Restricted) above the submit button. Pass the chosen value through to the upload service so it's written into `media_assets.status` at insert time and to SFDC on the initial sync.
-- **Bulk upload** — `BulkUploadTab.tsx`: add a single "Apply status to all" selector at the top of the queue (same four options, default Pending). Each queued upload uses that value when finalizing.
+- Accept `totals.shares`, `totals.all_clicks`, `totals.all_shares` (validate as finite numbers; `shares` required, the `all_*` ones optional).
+- Persist `total_shares = Math.trunc(payload.totals.shares)` into the new column.
+- Continue storing the entire payload in `raw_payload` so `presentation.*` and per-platform `metric_mode`, `display_name`, `primary_metric_*`, `sort_order`, `clicks`, `shares` flow through untouched.
 
-Backend wiring:
-- `upload-master-to-s3/index.ts` currently hardcodes `status: "ready"` on insert (line 301). Add an optional `approvalStatus` field to the request body; if provided, persist it to `media_assets.status` and also append `string_ri1__Content_Approved__c` to the SFDC form payload (today the function relies on the governance default of "Pending" for sync-created records — we override only when caller passes an explicit value).
-- Update `racerMediaService.ts` and `unifiedMediaService.ts` upload helpers to accept and forward `approvalStatus`.
+## 3. Detail page — `src/pages/reports/SocialPerformanceReport.tsx`
 
-### 3. Multi-select bulk status change in the library
+### Top summary cards (5 cards instead of 4)
+Posts · Views · Engagements · **Clicks** (`total_clicks`, label "Clicks (FB/Tw/LI)") · **Shares** (`total_shares`, label "Shares (YT/IG/TT)"). Responsive: `grid-cols-2 md:grid-cols-3 lg:grid-cols-5`. Never combine clicks + shares.
 
-In `UnifiedMediaLibrary.tsx`, the sticky selection toolbar (lines 1314–1410) currently exposes Auto-Tag, AI Rename, Sync to SFDC, and Delete. Add a **"Set Status"** dropdown button next to "Sync to SFDC":
+### Platform Summary — two clearly separated rows
+Read `presentation.click_first_platforms` and `presentation.share_first_platforms` from `raw_payload` for ordering; fall back to filtering `platforms[]` by `metric_mode` and sorting by `sort_order`, then by the canonical order:
+- Row 1 (Clicks): Facebook, Twitter, LinkedIn
+- Row 2 (Shares): YouTube, Instagram, TikTok
 
-```
-[ Set Status ▾ ]   →  Pending / Approved / Rejected / Restricted
-```
+Each row gets a small section heading ("Click-based platforms" / "Share-based platforms") and its own grid. Each platform card shows: Posts, Views, Engagements, and a fourth metric driven by `primary_metric_label` + `primary_metric_value` (so YT/IG/TT show **Shares**, not a misleading 0 Clicks).
 
-Behavior on selection:
-1. Optimistically update each selected asset's local `status`.
-2. Call `supabase.functions.invoke('sync-asset-to-salesforce', { body: { assetIds: [...selected], status: chosen } })` — this already supports an array of asset IDs and pushes the status to SFDC for each.
-3. Show a progress toast (`Updating X/Y…`) and reload the asset list + filter counts on completion.
-4. Skip (and report) any selected asset that has no `salesforce_id` yet, mirroring the existing single-asset drawer behavior.
+Use `display_name` for the card title (fallback to capitalized `platform`).
 
-### 4. Drawer (single asset) — already covered
+### Per-Platform Breakdown
+For each platform's section and `top_posts` table, the metric column after Engagements is dynamic:
+- header text = `platform.primary_metric_label`
+- cell value = `post.primary_metric_value` (fall back to `post.clicks` when `metric_mode === "clicks"`, else `post.shares`)
 
-The drawer's existing Approval Status select (lines 321–355) just needs the new "Restricted" option added; the save handler already POSTs whatever value is chosen.
+Order the per-platform sections the same way: clicks group first (FB, Tw, LI), then shares group (YT, IG, TT).
 
-### Files to change
+### Top Leaders
+Each `PostRow` already shows Views/Engagements/Clicks. Replace the third metric with the post's `primary_metric_label` / `primary_metric_value` (falling back to platform-level `metric_mode` when the post-level fields are missing on legacy data).
 
-```text
-src/components/media/MediaAssetDetailsDrawer.tsx     add Restricted option
-src/components/media/UnifiedMediaLibrary.tsx         filter + bulk Set Status + badge
-src/components/media/MasterImageUploadDialog.tsx     status select on single upload
-src/components/media/BulkUploadTab.tsx               status select on bulk upload
-src/services/unifiedMediaService.ts                  forward approvalStatus on upload + bulk update helper
-src/services/mediaSourceStatsService.ts              add restricted to StatusStats + counts
-supabase/functions/upload-master-to-s3/index.ts      accept approvalStatus, persist + send to SFDC
-```
+## 4. Archive page — `src/pages/reports/ReportsArchive.tsx`
 
-### Notes / assumptions
+- Select `total_shares` alongside existing columns.
+- KPI strip: add a fifth "Shares" card next to Clicks using `latest.total_shares`. Grid becomes `grid-cols-2 md:grid-cols-3 lg:grid-cols-5`.
+- Per-row mini metrics in the report list: add Shares next to Clicks.
 
-- "Restricted" is treated as a normal approval-status value (not a separate flag column), so it's stored in `media_assets.status` lower-cased (`'restricted'`) locally and "Restricted" in SFDC, matching the existing Pending/Approved/Rejected pattern.
-- No DB migration is needed — `media_assets.status` is a free-form `text` column.
-- Confirm the Salesforce `ri1__Content_Approved__c` picklist has "Restricted" as a valid value before going live; if not, an admin must add it on the SFDC side.
+## 5. PlatformBreakdownChart — `src/components/reports/PlatformBreakdownChart.tsx`
+
+For each platform, decide its primary metric using `metric_mode` (or fallback: shares > clicks). Replace the single `Clicks` bar with a `Primary` bar whose value is the platform's primary metric and whose tooltip/legend label reflects mixed semantics ("Clicks/Shares"). Keep Views and Engagements bars unchanged. Sort/group bars so click-first platforms appear before share-first ones.
+
+## 6. Types
+
+Update `ReportRow` / `PlatformBlock` / `TopPost` interfaces in both pages to include the new optional fields (`total_shares`, `display_name`, `metric_mode`, `primary_metric_label`, `primary_metric_value`, `clicks`, `shares`, `sort_order`) and a typed `presentation` block on `raw_payload`. All new fields are optional so legacy rows continue to render (they fall back to the old `clicks`-only layout, with the Shares card showing 0).
+
+## Files changed
+- `supabase/migrations/<new>.sql` (add `total_shares`)
+- `supabase/functions/social-performance-ingest/index.ts`
+- `src/pages/reports/SocialPerformanceReport.tsx`
+- `src/pages/reports/ReportsArchive.tsx`
+- `src/components/reports/PlatformBreakdownChart.tsx`
