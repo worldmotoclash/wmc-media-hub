@@ -58,13 +58,14 @@ export default function ReportsArchive() {
 
   // Each report stores cumulative snapshot totals. Show the LATEST report
   // within the selected window — not a sum (summing inflates the numbers).
-  const { totalPosts, totalViews, totalEngagements, totalClicks, periodInfo, asOfDate } = useMemo(() => {
+  const { totalPosts, totalViews, totalEngagements, totalClicks, totalShares, periodInfo, asOfDate } = useMemo(() => {
     if (filteredReports.length === 0) {
       return {
         totalPosts: 0,
         totalViews: 0,
         totalEngagements: 0,
         totalClicks: 0,
+        totalShares: 0,
         periodInfo: null as null | { from: string; to: string; count: number },
         asOfDate: null as string | null,
       };
@@ -78,6 +79,7 @@ export default function ReportsArchive() {
       totalViews: latest.total_views || 0,
       totalEngagements: latest.total_engagements || 0,
       totalClicks: latest.total_clicks || 0,
+      totalShares: latest.total_shares || 0,
       periodInfo: {
         from: sorted[0].report_date,
         to: latest.report_date,
