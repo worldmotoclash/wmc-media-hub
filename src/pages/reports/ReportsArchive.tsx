@@ -180,11 +180,12 @@ export default function ReportsArchive() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                         <Metric label="Posts" value={fmt(r.total_posts)} />
                         <Metric label="Views" value={fmt(r.total_views)} />
                         <Metric label="Engagements" value={fmt(r.total_engagements)} />
                         <Metric label="Clicks" value={fmt(r.total_clicks)} />
+                        <Metric label="Shares" value={fmt(r.total_shares ?? 0)} />
                       </div>
                     </CardContent>
                   </Card>
