@@ -99,8 +99,8 @@ export default function PlatformBreakdownChart({ rows }: Props) {
       return 99;
     };
     return out.sort((a, b) => {
-      const ra = rank(a.platformKey, a.mode);
-      const rb = rank(b.platformKey, b.mode);
+      const ra = rank(a.platformKey);
+      const rb = rank(b.platformKey);
       if (ra !== rb) return ra - rb;
       return b.Views - a.Views;
     });
