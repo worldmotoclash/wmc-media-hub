@@ -19,6 +19,7 @@ export interface TrendRow {
   total_views: number;
   total_engagements: number;
   total_clicks: number;
+  total_shares?: number;
 }
 
 interface Props {
@@ -41,6 +42,7 @@ export default function ReportsTrendChart({ rows }: Props) {
       Views: r.total_views,
       Engagements: r.total_engagements,
       Clicks: r.total_clicks,
+      Shares: r.total_shares ?? 0,
     }));
 
   const goTo = (slug?: string) => {
@@ -171,6 +173,15 @@ export default function ReportsTrendChart({ rows }: Props) {
                 type="monotone"
                 dataKey="Clicks"
                 stroke="hsl(var(--telemetry-secondary))"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 5, style: { cursor: "pointer" }, onClick: dotClick }}
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="Shares"
+                stroke="hsl(var(--telemetry-warning, 38 92% 50%))"
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 5, style: { cursor: "pointer" }, onClick: dotClick }}
