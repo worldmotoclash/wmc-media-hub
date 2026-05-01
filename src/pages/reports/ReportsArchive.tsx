@@ -16,6 +16,7 @@ interface ReportRow {
   total_views: number;
   total_engagements: number;
   total_clicks: number;
+  total_shares: number;
   platforms: unknown;
 }
 
