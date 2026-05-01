@@ -141,12 +141,13 @@ export default function ReportsArchive() {
             )}
           </div>
 
-          {/* KPI cards — total aggregates across selected window */}
-          <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {/* KPI cards — totals from latest snapshot in window. Clicks vs Shares are kept separate. */}
+          <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
             <KpiCard label="Posts" value={fmt(totalPosts)} caption={asOfDate ? `as of ${asOfDate}` : undefined} />
             <KpiCard label="Views" value={fmt(totalViews)} caption={asOfDate ? `as of ${asOfDate}` : undefined} />
             <KpiCard label="Engagements" value={fmt(totalEngagements)} caption={asOfDate ? `as of ${asOfDate}` : undefined} />
-            <KpiCard label="Clicks" value={fmt(totalClicks)} caption={asOfDate ? `as of ${asOfDate}` : undefined} />
+            <KpiCard label="Clicks" value={fmt(totalClicks)} caption="FB · Tw · LI" />
+            <KpiCard label="Shares" value={fmt(totalShares)} caption="YT · IG · TT" />
           </section>
 
           <ReportsTrendChart rows={filteredReports} />
