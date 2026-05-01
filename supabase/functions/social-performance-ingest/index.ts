@@ -178,6 +178,7 @@ Deno.serve(async (req: Request) => {
     total_views: Math.trunc(payload.totals.views),
     total_engagements: Math.trunc(payload.totals.engagements),
     total_clicks: Math.trunc(payload.totals.clicks),
+    total_shares: Math.trunc(payload.totals.shares ?? 0),
     platforms: payload.platforms ?? [],
     top_overall: payload.top_overall ?? [],
     raw_payload: payload,
