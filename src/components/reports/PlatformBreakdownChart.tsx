@@ -146,7 +146,7 @@ export default function PlatformBreakdownChart({ rows }: Props) {
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Bar dataKey="Views" fill="hsl(var(--telemetry-primary))" radius={[4, 4, 0, 0]} />
               <Bar dataKey="Engagements" fill="hsl(var(--telemetry-accent))" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Clicks" fill="hsl(var(--telemetry-secondary))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Primary" name="Clicks / Shares" fill="hsl(var(--telemetry-secondary))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}
