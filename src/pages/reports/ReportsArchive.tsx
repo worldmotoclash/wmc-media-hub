@@ -16,6 +16,7 @@ interface ReportRow {
   total_views: number;
   total_engagements: number;
   total_clicks: number;
+  total_shares: number;
   platforms: unknown;
 }
 
@@ -33,7 +34,7 @@ export default function ReportsArchive() {
     (async () => {
       const { data, error } = await supabase
         .from("social_performance_reports")
-        .select("id, slug, title, report_date, total_posts, total_views, total_engagements, total_clicks, platforms")
+        .select("id, slug, title, report_date, total_posts, total_views, total_engagements, total_clicks, total_shares, platforms")
         .order("report_date", { ascending: false })
         .limit(1000);
       if (error) {
@@ -57,13 +58,14 @@ export default function ReportsArchive() {
 
   // Each report stores cumulative snapshot totals. Show the LATEST report
   // within the selected window — not a sum (summing inflates the numbers).
-  const { totalPosts, totalViews, totalEngagements, totalClicks, periodInfo, asOfDate } = useMemo(() => {
+  const { totalPosts, totalViews, totalEngagements, totalClicks, totalShares, periodInfo, asOfDate } = useMemo(() => {
     if (filteredReports.length === 0) {
       return {
         totalPosts: 0,
         totalViews: 0,
         totalEngagements: 0,
         totalClicks: 0,
+        totalShares: 0,
         periodInfo: null as null | { from: string; to: string; count: number },
         asOfDate: null as string | null,
       };
@@ -77,6 +79,7 @@ export default function ReportsArchive() {
       totalViews: latest.total_views || 0,
       totalEngagements: latest.total_engagements || 0,
       totalClicks: latest.total_clicks || 0,
+      totalShares: latest.total_shares || 0,
       periodInfo: {
         from: sorted[0].report_date,
         to: latest.report_date,
@@ -138,12 +141,13 @@ export default function ReportsArchive() {
             )}
           </div>
 
-          {/* KPI cards — total aggregates across selected window */}
-          <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {/* KPI cards — totals from latest snapshot in window. Clicks vs Shares are kept separate. */}
+          <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
             <KpiCard label="Posts" value={fmt(totalPosts)} caption={asOfDate ? `as of ${asOfDate}` : undefined} />
             <KpiCard label="Views" value={fmt(totalViews)} caption={asOfDate ? `as of ${asOfDate}` : undefined} />
             <KpiCard label="Engagements" value={fmt(totalEngagements)} caption={asOfDate ? `as of ${asOfDate}` : undefined} />
-            <KpiCard label="Clicks" value={fmt(totalClicks)} caption={asOfDate ? `as of ${asOfDate}` : undefined} />
+            <KpiCard label="Clicks" value={fmt(totalClicks)} caption="FB · Tw · LI" />
+            <KpiCard label="Shares" value={fmt(totalShares)} caption="YT · IG · TT" />
           </section>
 
           <ReportsTrendChart rows={filteredReports} />
@@ -176,11 +180,12 @@ export default function ReportsArchive() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                         <Metric label="Posts" value={fmt(r.total_posts)} />
                         <Metric label="Views" value={fmt(r.total_views)} />
                         <Metric label="Engagements" value={fmt(r.total_engagements)} />
                         <Metric label="Clicks" value={fmt(r.total_clicks)} />
+                        <Metric label="Shares" value={fmt(r.total_shares ?? 0)} />
                       </div>
                     </CardContent>
                   </Card>

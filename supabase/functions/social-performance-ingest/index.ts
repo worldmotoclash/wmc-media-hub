@@ -69,6 +69,14 @@ function validatePayload(payload: any): { ok: true; data: any } | { ok: false; e
         errors.push({ field: `totals.${key}`, message: `totals.${key} must be a finite number` });
       }
     }
+    // shares is optional for backward compatibility with older ingesters,
+    // but if present it must be a finite number.
+    for (const key of ["shares", "all_clicks", "all_shares"]) {
+      const v = payload.totals[key];
+      if (v !== undefined && v !== null && (typeof v !== "number" || !Number.isFinite(v))) {
+        errors.push({ field: `totals.${key}`, message: `totals.${key} must be a finite number` });
+      }
+    }
   }
 
   // platforms
@@ -170,6 +178,7 @@ Deno.serve(async (req: Request) => {
     total_views: Math.trunc(payload.totals.views),
     total_engagements: Math.trunc(payload.totals.engagements),
     total_clicks: Math.trunc(payload.totals.clicks),
+    total_shares: Math.trunc(payload.totals.shares ?? 0),
     platforms: payload.platforms ?? [],
     top_overall: payload.top_overall ?? [],
     raw_payload: payload,

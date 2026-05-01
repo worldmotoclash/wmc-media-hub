@@ -561,6 +561,7 @@ export type Database = {
           total_clicks: number
           total_engagements: number
           total_posts: number
+          total_shares: number
           total_views: number
           updated_at: string
         }
@@ -582,6 +583,7 @@ export type Database = {
           total_clicks?: number
           total_engagements?: number
           total_posts?: number
+          total_shares?: number
           total_views?: number
           updated_at?: string
         }
@@ -603,6 +605,7 @@ export type Database = {
           total_clicks?: number
           total_engagements?: number
           total_posts?: number
+          total_shares?: number
           total_views?: number
           updated_at?: string
         }

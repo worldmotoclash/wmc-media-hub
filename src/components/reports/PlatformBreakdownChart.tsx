@@ -13,10 +13,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface PlatformBlock {
   platform?: string;
+  display_name?: string;
+  metric_mode?: "clicks" | "shares";
   posts?: number;
   views?: number;
   engagements?: number;
   clicks?: number;
+  shares?: number;
+  primary_metric_value?: number;
+  sort_order?: number;
 }
 
 interface Row {
@@ -40,6 +45,21 @@ function toMap(list: PlatformBlock[]): Map<string, PlatformBlock> {
   return m;
 }
 
+const SHARE_PLATFORMS = new Set(["youtube", "instagram", "tiktok"]);
+const CLICK_PLATFORMS = new Set(["facebook", "twitter", "linkedin"]);
+
+function modeOf(p: PlatformBlock): "clicks" | "shares" {
+  if (p.metric_mode === "clicks" || p.metric_mode === "shares") return p.metric_mode;
+  if (SHARE_PLATFORMS.has((p.platform ?? "").toLowerCase())) return "shares";
+  return "clicks";
+}
+
+function primaryOf(p?: PlatformBlock): number {
+  if (!p) return 0;
+  if (typeof p.primary_metric_value === "number") return p.primary_metric_value;
+  return modeOf(p) === "shares" ? Number(p.shares ?? 0) : Number(p.clicks ?? 0);
+}
+
 export default function PlatformBreakdownChart({ rows }: Props) {
   const data = useMemo(() => {
     if (rows.length === 0) return [];
@@ -58,22 +78,38 @@ export default function PlatformBreakdownChart({ rows }: Props) {
     const out = Array.from(lastMap.entries()).map(([key, lp]) => {
       const fp = firstMap.get(key);
       const sub = (a?: number, b?: number) => Math.max(0, Number(a ?? 0) - Number(b ?? 0));
+      const mode = modeOf(lp);
       return {
-        platform: key.charAt(0).toUpperCase() + key.slice(1),
+        platform: lp.display_name ?? key.charAt(0).toUpperCase() + key.slice(1),
+        platformKey: key,
+        mode,
         Views: sub(lp.views, fp?.views),
         Engagements: sub(lp.engagements, fp?.engagements),
-        Clicks: sub(lp.clicks, fp?.clicks),
+        Primary: Math.max(0, primaryOf(lp) - primaryOf(fp)),
         Posts: sub(lp.posts, fp?.posts),
       };
     });
 
-    return out.sort((a, b) => b.Views - a.Views);
+    // Order: click-first platforms (FB, Tw, LI) then share-first (YT, IG, TT), then others by Views desc
+    const rank = (key: string) => {
+      const click = ["facebook", "twitter", "linkedin"].indexOf(key);
+      if (click !== -1) return click;
+      const share = ["youtube", "instagram", "tiktok"].indexOf(key);
+      if (share !== -1) return 3 + share;
+      return 99;
+    };
+    return out.sort((a, b) => {
+      const ra = rank(a.platformKey);
+      const rb = rank(b.platformKey);
+      if (ra !== rb) return ra - rb;
+      return b.Views - a.Views;
+    });
   }, [rows]);
 
   return (
     <Card className="mb-10">
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg">Platform Breakdown <span className="text-xs font-normal text-muted-foreground">(period delta)</span></CardTitle>
+        <CardTitle className="text-lg">Platform Breakdown <span className="text-xs font-normal text-muted-foreground">(period delta · clicks for FB/Tw/LI, shares for YT/IG/TT)</span></CardTitle>
       </CardHeader>
       <CardContent className="h-72">
         {data.length === 0 ? (
@@ -110,7 +146,7 @@ export default function PlatformBreakdownChart({ rows }: Props) {
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Bar dataKey="Views" fill="hsl(var(--telemetry-primary))" radius={[4, 4, 0, 0]} />
               <Bar dataKey="Engagements" fill="hsl(var(--telemetry-accent))" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Clicks" fill="hsl(var(--telemetry-secondary))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Primary" name="Clicks / Shares" fill="hsl(var(--telemetry-secondary))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}
