@@ -142,6 +142,8 @@ const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({ asset, isOpen, on
               onAddTag={editableFields.addTag}
               onAddTagFromExisting={editableFields.addTagFromExisting}
               onSave={editableFields.handleSave}
+              isCreatingLocal={editableFields.isCreatingLocal}
+              onCreateLocal={!editableFields.canEdit && asset ? () => editableFields.createLocalRecord(asset) : undefined}
             />
 
             {/* AI Analysis Info */}
