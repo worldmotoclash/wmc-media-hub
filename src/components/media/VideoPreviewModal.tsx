@@ -213,6 +213,17 @@ const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({ video, isOpen, on
               onAddTag={editableFields.addTag}
               onAddTagFromExisting={editableFields.addTagFromExisting}
               onSave={editableFields.handleSave}
+              isCreatingLocal={editableFields.isCreatingLocal}
+              onCreateLocal={!editableFields.canEdit && video.id ? () => editableFields.createLocalRecord({
+                id: video.id,
+                title: video.title || 'Untitled',
+                description: video.description || '',
+                source: 'salesforce' as any,
+                fileUrl: video.videoSrc,
+                thumbnailUrl: video.thumbnail,
+                salesforceId: video.id.replace(/^sf_/, ''),
+                assetType: 'video',
+              } as any) : undefined}
             />
 
             <div className="text-xs text-muted-foreground border-t pt-4">

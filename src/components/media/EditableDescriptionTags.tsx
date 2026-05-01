@@ -26,6 +26,8 @@ interface EditableDescriptionTagsProps {
   onAddTag: () => void;
   onAddTagFromExisting?: (tag: MediaTag) => void;
   onSave: () => void;
+  isCreatingLocal?: boolean;
+  onCreateLocal?: () => void;
 }
 
 const EditableDescriptionTags: React.FC<EditableDescriptionTagsProps> = ({
@@ -46,6 +48,8 @@ const EditableDescriptionTags: React.FC<EditableDescriptionTagsProps> = ({
   onAddTag,
   onAddTagFromExisting,
   onSave,
+  isCreatingLocal,
+  onCreateLocal,
 }) => {
   const [tagPopoverOpen, setTagPopoverOpen] = useState(false);
 
@@ -57,6 +61,43 @@ const EditableDescriptionTags: React.FC<EditableDescriptionTagsProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Edit/Save controls */}
+      <div className="flex items-center justify-end gap-2">
+        {canEdit ? (
+          isEditing ? (
+            <>
+              <Button variant="ghost" size="sm" onClick={onCancelEditing} disabled={isSaving}>
+                <X className="w-4 h-4 mr-1" />
+                Cancel
+              </Button>
+              <Button size="sm" onClick={onSave} disabled={isSaving}>
+                {isSaving ? (
+                  <><Loader2 className="w-4 h-4 mr-1 animate-spin" />Saving…</>
+                ) : (
+                  <><Save className="w-4 h-4 mr-1" />Save</>
+                )}
+              </Button>
+            </>
+          ) : (
+            <Button variant="outline" size="sm" onClick={onStartEditing}>
+              <Pencil className="w-4 h-4 mr-1" />
+              Edit details
+            </Button>
+          )
+        ) : onCreateLocal ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground italic">Salesforce-only — create a local record to edit</span>
+            <Button variant="outline" size="sm" onClick={onCreateLocal} disabled={isCreatingLocal}>
+              {isCreatingLocal ? (
+                <><Loader2 className="w-4 h-4 mr-1 animate-spin" />Creating…</>
+              ) : (
+                <><Pencil className="w-4 h-4 mr-1" />Enable editing</>
+              )}
+            </Button>
+          </div>
+        ) : null}
+      </div>
+
       {/* Title */}
       {localTitle !== undefined && setLocalTitle && (
         <div>
