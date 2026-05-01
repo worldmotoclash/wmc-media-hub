@@ -13,10 +13,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface PlatformBlock {
   platform?: string;
+  display_name?: string;
+  metric_mode?: "clicks" | "shares";
   posts?: number;
   views?: number;
   engagements?: number;
   clicks?: number;
+  shares?: number;
+  primary_metric_value?: number;
+  sort_order?: number;
 }
 
 interface Row {
