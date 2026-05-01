@@ -34,7 +34,7 @@ export default function ReportsArchive() {
     (async () => {
       const { data, error } = await supabase
         .from("social_performance_reports")
-        .select("id, slug, title, report_date, total_posts, total_views, total_engagements, total_clicks, platforms")
+        .select("id, slug, title, report_date, total_posts, total_views, total_engagements, total_clicks, total_shares, platforms")
         .order("report_date", { ascending: false })
         .limit(1000);
       if (error) {
