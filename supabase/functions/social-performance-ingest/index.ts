@@ -69,6 +69,14 @@ function validatePayload(payload: any): { ok: true; data: any } | { ok: false; e
         errors.push({ field: `totals.${key}`, message: `totals.${key} must be a finite number` });
       }
     }
+    // shares is optional for backward compatibility with older ingesters,
+    // but if present it must be a finite number.
+    for (const key of ["shares", "all_clicks", "all_shares"]) {
+      const v = payload.totals[key];
+      if (v !== undefined && v !== null && (typeof v !== "number" || !Number.isFinite(v))) {
+        errors.push({ field: `totals.${key}`, message: `totals.${key} must be a finite number` });
+      }
+    }
   }
 
   // platforms
