@@ -6,6 +6,7 @@ import RacerApplication from '@/pages/racer/RacerApplication';
 import RacerMotorcycle from '@/pages/racer/RacerMotorcycle';
 import RacerQualification from '@/pages/racer/RacerQualification';
 import RacerProfile from '@/pages/racer/RacerProfile';
+import RacerUserGuide from '@/pages/racer/RacerUserGuide';
 
 export const isRacerHostname = (): boolean => {
   const hostname = window.location.hostname.toLowerCase();
@@ -20,6 +21,7 @@ export const RacerRoutes: React.FC = () => (
     <Route path="/racer/motorcycle" element={<RacerMotorcycle />} />
     <Route path="/racer/qualification" element={<RacerQualification />} />
     <Route path="/racer/profile" element={<RacerProfile />} />
+    <Route path="/racer/guide" element={<RacerUserGuide />} />
     <Route path="*" element={<Navigate to="/racer/login" replace />} />
   </Routes>
 );

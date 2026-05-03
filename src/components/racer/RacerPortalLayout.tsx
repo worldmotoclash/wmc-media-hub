@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Bike, Trophy, User, LogOut } from 'lucide-react';
+import { LayoutDashboard, FileText, Bike, Trophy, User, LogOut, BookOpen } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 
@@ -10,6 +10,7 @@ const navItems = [
   { to: '/racer/motorcycle', label: 'Motorcycle', icon: Bike },
   { to: '/racer/qualification', label: 'Qualification', icon: Trophy },
   { to: '/racer/profile', label: 'Profile', icon: User },
+  { to: '/racer/guide', label: 'Guide', icon: BookOpen },
 ];
 
 interface RacerPortalLayoutProps {
