@@ -461,7 +461,7 @@ const RacerUserGuide: React.FC = () => {
                   sitting or come back any time.
                 </p>
                 <GuideTable
-                  headers={['Step', 'What you'll provide']}
+                  headers={['Step', 'What you will provide']}
                   rows={[
                     ['1. Personal Info', 'Name, contact details, address'],
                     ['2. Experience Level', 'Your racing background'],
@@ -503,7 +503,7 @@ const RacerUserGuide: React.FC = () => {
                   evaluate your application fairly.
                 </p>
                 <GuideTable
-                  headers={['Level', 'Who it's for']}
+                  headers={['Level', 'Who it is for']}
                   rows={[
                     ['Beginner', 'New to track riding or club-level racing'],
                     ['Intermediate', 'Regular trackdays, some race experience'],
@@ -612,7 +612,7 @@ const RacerUserGuide: React.FC = () => {
                     ['2. Initial Review', 'WMC scouts review your submission'],
                     ['3. Entry Fee', 'Confirm and pay your entry fee'],
                     ['4. Final Review', 'Reviewer panel makes a decision'],
-                    ['5. Approval', 'You're cleared to race!'],
+                    ['5. Approval', 'You are cleared to race!'],
                   ]}
                 />
               </GuideSection>
