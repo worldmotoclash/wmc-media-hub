@@ -1,42 +1,82 @@
-## Problem
+# Racer Portal User Guide
 
-In the video preview modal, there is no way to edit the title (or description/tags). The form fields exist, but the component that hosts them (`EditableDescriptionTags`) is missing the Edit / Save / Cancel buttons that toggle edit mode. Because edit mode is never enabled, the Title input is never displayed and the title cannot be changed.
+Create a dedicated user guide for racers, mirroring the structure and styling of the existing Media Hub `UserGuide.tsx` but tailored to the racer experience (login → dashboard → application → motorcycle → qualification → profile).
 
-There is a second, related issue: for Salesforce-only videos (id starts with `sf_`), `canEdit` is false because there is no local DB row yet. The `useEditableAssetFields` hook already exposes `createLocalRecord` for this case, but the video modal does not use it.
+## What to build
 
-## Fix
+### 1. New page: `src/pages/racer/RacerUserGuide.tsx`
+Reuse the existing docs primitives:
+- `GuideTOC` from `src/components/docs/GuideTOC.tsx`
+- `GuideSection`, `GuideSubSection`, `GuideStep`, `GuideTip`, `GuideTable`, `RoleCategoryHeader` from `src/components/docs/GuideSection.tsx`
 
-### 1. Render Edit / Save / Cancel inside `EditableDescriptionTags`
+Wrap content in `RacerPortalLayout` so it inherits the racer sidebar/topbar and dark theme. Auth-guard against `sessionStorage.racerUser` (same pattern as other racer pages); redirect to `/racer/login` if missing.
 
-`src/components/media/EditableDescriptionTags.tsx`
+Include the same in-page search + highlight logic, hero section, sticky header, and Print/PDF button as the Media Hub guide (copy the `highlightMatches` helper and search effects).
 
-- Add a header row with a Pencil "Edit" button when not editing, and Save / Cancel buttons (with the existing `isSaving` spinner) when editing.
-- The button only appears when `canEdit` is true. When `canEdit` is false, show a small muted hint ("Create a local record to edit") and, if a new optional `onCreateLocal` prop is provided, render a "Create local record" button that calls it (used by Salesforce-only assets).
-- Wire the buttons to the existing `onStartEditing`, `onCancelEditing`, `onSave` props that are already passed in from the modals.
-- Use the existing `Pencil`, `Save`, `X`, `Loader2` icons (already imported).
+### 2. TOC structure (role categories adapted to racer journey)
 
-### 2. Wire Salesforce-only video support in the video modal
+```text
+Getting Started        (everyone)
+  - Welcome & Overview
+  - Logging In
+  - Navigating the Portal
 
-`src/components/media/VideoPreviewModal.tsx`
+Your Dashboard         (viewer)
+  - Application Status
+  - Qualification Timeline
+  - Quick Actions
 
-- Pass `isCreatingLocal` and `createLocalRecord` from the hook through to `EditableDescriptionTags` as `isCreatingLocal` and `onCreateLocal`.
-- When the video has an `sf_`-prefixed id, call `createLocalRecord` with a minimal `MediaAsset`-shaped object built from the current `video` (id, title, description, fileUrl=`videoSrc`, thumbnailUrl=`thumbnail`, salesforceId, assetType `video`).
+Application Wizard     (creator)
+  - 6-Step Application Walkthrough
+  - Personal Information
+  - Experience Level
+  - Social Media Handles
+  - Saving Progress (auto-syncs to Salesforce)
 
-### 3. Apply the same wiring to the other modals that reuse the component
+Motorcycle Details     (creator)
+  - Adding Your Bike
+  - Required Photos & Documents
+  - Album Organization (licenses, bikes, auditions)
 
-`src/components/media/ImagePreviewModal.tsx` and `src/components/media/AudioPreviewModal.tsx`
+Qualification          (editor)
+  - 5-Step Qualification Sequence
+  - Audition Submissions & Tagging
+  - Entry Fee / PayPal Step
+  - Tracking Reviewer Feedback
 
-- Pass through `isCreatingLocal` / `onCreateLocal` so the new button works consistently for images and audio too.
-- No behavior change for assets that are already local (UUID id) — the standard Edit / Save / Cancel buttons appear.
+Your Profile           (admin tier visual, but for racer)
+  - Editing Personal Info
+  - Updating Social Handles
+  - Sign Out & Session
+```
 
-## Out of scope
+The five colored role tiers (everyone/viewer/creator/editor/admin) from `GuideSection` will be repurposed visually as journey stages so the existing color system still works without new components.
 
-- Salesforce title sync: already handled by `handleSave` in `useEditableAssetFields` (it calls `sync-asset-to-salesforce` after the local update).
-- No DB or edge function changes are needed.
+### 3. Routing
+Add the route in `src/components/racer/HostnameRouter.tsx`:
+```tsx
+<Route path="/racer/guide" element={<RacerUserGuide />} />
+```
 
-## Files touched
+### 4. Navigation entry
+Add a "Guide" item (icon: `BookOpen`) to the `navItems` array in `src/components/racer/RacerPortalLayout.tsx` so racers can reach it from the sidebar/top bar.
 
-- `src/components/media/EditableDescriptionTags.tsx` — add Edit/Save/Cancel + optional Create-local button, accept `isCreatingLocal` and `onCreateLocal` props.
-- `src/components/media/VideoPreviewModal.tsx` — pass new props from the hook.
-- `src/components/media/ImagePreviewModal.tsx` — same.
-- `src/components/media/AudioPreviewModal.tsx` — same.
+### 5. Content sourcing
+Pull accurate behavior from existing memory + code:
+- Login/session behavior (`RacerLogin.tsx`, sessionStorage `racerUser`)
+- 6-step application wizard + SFDC sync (`RacerApplication.tsx`)
+- Motorcycle albums and uploads (`RacerMotorcycle.tsx`, `RacerFileUpload.tsx`)
+- 5-step qualification timeline (`QualificationTimeline.tsx`, `RacerQualification.tsx`)
+- Profile field sync (`RacerProfile.tsx`)
+- Social handle prefix rules (`SocialHandleInput.tsx`)
+- Entry fee / PayPal manual confirmation step
+
+Each section will include numbered `GuideStep`s, screenshots-free text descriptions, `GuideTip`s for key gotchas (e.g. "Your social handles are stored without the @ prefix"), and `GuideTable`s where useful (e.g. file types accepted per album).
+
+## Files
+
+- **Create:** `src/pages/racer/RacerUserGuide.tsx`
+- **Edit:** `src/components/racer/HostnameRouter.tsx` (add route)
+- **Edit:** `src/components/racer/RacerPortalLayout.tsx` (add nav item)
+
+No DB, edge function, or backend changes required — this is a static documentation page.
