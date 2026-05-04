@@ -210,9 +210,9 @@ export const GuideTOC: React.FC<GuideTOCProps> = ({ items }) => {
             <h3 className="font-semibold text-foreground mb-3">Contents</h3>
             <nav className="space-y-1">
               {groupedItems.map((group, idx) => (
-                <React.Fragment key={group.category?.id || `group-${idx}`}>
+                <div key={group.category?.id || `group-${idx}`} className="contents">
                   {renderCategory(group, true)}
-                </React.Fragment>
+                </div>
               ))}
             </nav>
           </div>
@@ -228,9 +228,9 @@ export const GuideTOC: React.FC<GuideTOCProps> = ({ items }) => {
           <ScrollArea className="h-[calc(100vh-180px)]">
             <nav className="space-y-1 pr-4">
               {groupedItems.map((group, idx) => (
-                <React.Fragment key={group.category?.id || `group-${idx}`}>
+                <div key={group.category?.id || `group-${idx}`} className="contents">
                   {renderCategory(group)}
-                </React.Fragment>
+                </div>
               ))}
             </nav>
           </ScrollArea>
