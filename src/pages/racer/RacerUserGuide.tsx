@@ -110,12 +110,7 @@ const RacerUserGuide: React.FC = () => {
     new Set(tocItems.map((i) => i.id))
   );
 
-  React.useEffect(() => {
-    const racerUser = sessionStorage.getItem('racerUser');
-    if (!racerUser) {
-      navigate('/racer/login');
-    }
-  }, [navigate]);
+  // Guide is public — no login redirect
 
   React.useEffect(() => {
     if (!searchQuery.trim()) {
