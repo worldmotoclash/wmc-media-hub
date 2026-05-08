@@ -495,60 +495,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
                 {getSyncStatusBadge()}
                 {localSalesforceId && <a href={`https://worldmotoclash.my.salesforce.com/${localSalesforceId.replace(/^sf_/, '')}`} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300 underline block">ID: {localSalesforceId.replace(/^sf_/, '')}</a>}
                 {!localSalesforceId && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={async () => {
-                      setIsSyncingToSfdc(true);
-                      try {
-                        const { data, error } = await supabase.functions.invoke('sync-asset-to-salesforce', {
-                          body: { assetIds: [asset.id] }
-                        });
-                        if (error) throw error;
-                        // Parse sync response to update local state immediately
-                        const result = data?.results?.[0];
-                        if (result?.salesforceId) {
-                          setLocalSalesforceId(result.salesforceId);
-                          setLocalStatus('Pending');
-                          toast.success('Asset synced to Salesforce');
-                        } else if (result?.action === 'created_pending' || result?.action === 'created') {
-                          toast.info('Record created — resolving Salesforce ID...');
-                          let resolved = false;
-                          for (let i = 0; i < 12; i++) {
-                            await new Promise(r => setTimeout(r, 5000));
-                            const { data: refreshed } = await supabase
-                              .from('media_assets')
-                              .select('salesforce_id')
-                              .eq('id', asset.id)
-                              .single();
-                            if (refreshed?.salesforce_id) {
-                              setLocalSalesforceId(refreshed.salesforce_id);
-                              setLocalStatus('Pending');
-                              toast.success('Salesforce ID resolved');
-                              resolved = true;
-                              break;
-                            }
-                          }
-                          if (!resolved) {
-                            toast.info('SFDC record created — ID will appear shortly. Refresh to check.');
-                          }
-                        } else {
-                          toast.success('Asset synced to Salesforce');
-                        }
-                        onAssetUpdated?.();
-                      } catch (err: any) {
-                        console.error('SFDC sync error:', err);
-                        toast.error('Sync failed: ' + (err.message || 'Unknown error'));
-                      } finally {
-                        setIsSyncingToSfdc(false);
-                      }
-                    }}
-                    disabled={isSyncingToSfdc}
-                    className="w-full mt-2"
-                  >
-                    {isSyncingToSfdc ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <CloudUpload className="h-3 w-3 mr-1" />}
-                    Sync to SFDC
-                  </Button>
+                  <p className="text-xs text-muted-foreground">Use "Sync to SFDC" below to create a Salesforce record.</p>
                 )}
               </div>
             </div>
