@@ -14,9 +14,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   X, Video, Image, Music, MapPin, Sparkles, Clock,
   HardDrive, Calendar, ExternalLink, CheckCircle, AlertTriangle,
-  Gauge, Link2, Eye, Wand2, Mic, Pencil, Loader2, Target, Trash2, CloudUpload
+  Gauge, Link2, Eye, Wand2, Mic, Pencil, Loader2, Target, Trash2, CloudUpload, MoreHorizontal
 } from "lucide-react";
 import { Save } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
