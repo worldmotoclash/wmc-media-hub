@@ -345,7 +345,13 @@ const MediaUpload: React.FC = () => {
     });
   };
 
-  const handleFileSelect = (file: File) => {
+  const handleFileSelect = async (rawFile: File) => {
+    let file: File;
+    try {
+      file = await convertHeicIfNeeded(rawFile);
+    } catch {
+      return;
+    }
     const validTypes = [
       // Video
       'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-m4v',
