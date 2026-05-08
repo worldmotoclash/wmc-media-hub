@@ -431,6 +431,7 @@ const MediaUpload: React.FC = () => {
       const fileName = cleanFile.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
       setUploadData(prev => ({ ...prev, title: fileName }));
     }
+    setIsPreparingFile(false);
   };
 
   const handleBrowseClick = () => {
@@ -446,6 +447,7 @@ const MediaUpload: React.FC = () => {
 
   const clearSelectedFile = () => {
     setSelectedFile(null);
+    setOriginalHeicFile(null);
     setAnalysisComplete(false);
     setAiSuggestions(null);
     setBumperSkipSeconds(0);
