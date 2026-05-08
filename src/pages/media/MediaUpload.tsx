@@ -360,7 +360,7 @@ const MediaUpload: React.FC = () => {
       }
       return await decode(input);
     } catch (err) {
-      if (input.type === 'image/jpeg' || input.name.toLowerCase().endsWith('.jpg') || input.name.toLowerCase().endsWith('.jpeg')) {
+      if (typeof createImageBitmap === 'function' && (input.type === 'image/jpeg' || input.name.toLowerCase().endsWith('.jpg') || input.name.toLowerCase().endsWith('.jpeg'))) {
         console.warn('[Analyze] JPEG decode failed, normalizing through createImageBitmap and retrying.', err);
         const bitmap = await createImageBitmap(input);
         const canvas = document.createElement('canvas');
