@@ -412,7 +412,7 @@ export function MasterImageUploadDialog({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
             onChange={handleFileSelect}
             className="hidden"
           />
