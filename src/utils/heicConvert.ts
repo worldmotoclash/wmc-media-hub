@@ -14,6 +14,29 @@ function renameToJpg(originalName: string): string {
   return originalName.replace(/\.(heic|heif)$/i, ".jpg") || `${originalName}.jpg`;
 }
 
+async function normalizeBlobToJpegFile(blob: Blob, fileName: string, lastModified: number): Promise<File> {
+  const makeFile = (output: Blob) => new File([output], fileName, {
+    type: "image/jpeg",
+    lastModified,
+  });
+
+  const bitmap = await createImageBitmap(blob).catch(() => null);
+  if (!bitmap) return makeFile(blob);
+
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
+    const normalized = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((out) => out ? resolve(out) : reject(new Error("Failed to normalize converted HEIC JPEG")), "image/jpeg", 0.92);
+    });
+    return makeFile(normalized);
+  } finally {
+    bitmap.close();
+  }
+}
+
 export interface HeicConvertResult {
   /** The file the rest of the pipeline should consume (JPEG if conversion happened, original otherwise). */
   file: File;
@@ -62,12 +85,9 @@ export async function convertHeicWithOriginal(file: File): Promise<HeicConvertRe
       quality: 0.92,
     });
 
-    const blob = Array.isArray(blobResult) ? blobResult[0] : blobResult;
     const jpgName = renameToJpg(file.name);
-    const converted = new File([blob], jpgName, {
-      type: "image/jpeg",
-      lastModified: file.lastModified,
-    });
+    const blob = Array.isArray(blobResult) ? blobResult[0] : blobResult;
+    const converted = await normalizeBlobToJpegFile(blob, jpgName, file.lastModified);
 
     if (toastId !== undefined) toast.dismiss(toastId);
     return { file: converted, original: file, converted: true };
