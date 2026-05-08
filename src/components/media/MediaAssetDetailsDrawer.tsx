@@ -125,6 +125,78 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
     } finally { setIsSavingPodcast(false); }
   };
 
+  const handleSyncToSfdc = async () => {
+    if (!asset) return;
+    setIsSyncingToSfdc(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-asset-to-salesforce', {
+        body: { assetIds: [asset.id] }
+      });
+      if (error) throw error;
+      const result = data?.results?.[0];
+      if (result?.salesforceId) {
+        setLocalSalesforceId(result.salesforceId);
+        setLocalStatus('Pending');
+        toast.success('Asset synced to Salesforce');
+      } else if (result?.action === 'created_pending' || result?.action === 'created') {
+        toast.info('Record created — resolving Salesforce ID...');
+        let resolved = false;
+        for (let i = 0; i < 12; i++) {
+          await new Promise(r => setTimeout(r, 5000));
+          const { data: refreshed } = await supabase
+            .from('media_assets')
+            .select('salesforce_id')
+            .eq('id', asset.id)
+            .single();
+          if (refreshed?.salesforce_id) {
+            setLocalSalesforceId(refreshed.salesforce_id);
+            setLocalStatus('Pending');
+            toast.success('Salesforce ID resolved');
+            resolved = true;
+            break;
+          }
+        }
+        if (!resolved) {
+          toast.info('SFDC record created — ID will appear shortly. Refresh to check.');
+        }
+      } else {
+        toast.success('Asset synced to Salesforce');
+      }
+      onAssetUpdated?.();
+    } catch (err: any) {
+      console.error('SFDC sync error:', err);
+      toast.error('Sync failed: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsSyncingToSfdc(false);
+    }
+  };
+
+  const handleReanalyze = async () => {
+    if (!asset) return;
+    setIsReanalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('auto-tag-media-asset', {
+        body: {
+          assetId: asset.id,
+          mediaUrl: asset.fileUrl || asset.thumbnailUrl,
+          mediaType: asset.assetType === 'video' ? 'video' : 'image',
+          suggestTitle: suggestTitleOnAnalyze,
+        }
+      });
+      if (error || !data?.success) throw error || new Error(data?.error || 'Failed');
+      const msg = data.suggestedTitle && suggestTitleOnAnalyze
+        ? `AI analysis complete — renamed to "${data.suggestedTitle}"`
+        : 'AI analysis complete';
+      toast.success(msg);
+      onAssetUpdated?.();
+      editableFields.refreshFromDB();
+    } catch (err: any) {
+      toast.error('AI analysis failed', { description: err.message });
+    } finally {
+      setIsReanalyzing(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!asset) return;
     setIsDeleting(true);
