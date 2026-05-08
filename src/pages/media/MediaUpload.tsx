@@ -333,6 +333,7 @@ const MediaUpload: React.FC = () => {
   // it on the spot so the <img> element can actually decode it.
   const resizeImageForAnalysis = async (input: File, maxDim = 1024): Promise<string> => {
     const decode = (file: File) => new Promise<string>((resolve, reject) => {
+      const objectUrl = URL.createObjectURL(file);
       const img = new window.Image();
       img.onload = () => {
         const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
@@ -341,23 +342,34 @@ const MediaUpload: React.FC = () => {
         canvas.height = Math.round(img.height * scale);
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(img.src);
+        URL.revokeObjectURL(objectUrl);
         resolve(canvas.toDataURL('image/jpeg', 0.8));
       };
       img.onerror = () => {
-        URL.revokeObjectURL(img.src);
+        URL.revokeObjectURL(objectUrl);
         reject(new Error('Failed to load image for resize'));
       };
-      img.src = URL.createObjectURL(file);
+      img.src = objectUrl;
     });
 
     try {
+      if (isHeicFile(input)) {
+        console.warn('[Analyze] HEIC reached resize step, converting before decode.');
+        const converted = await convertHeicIfNeeded(input);
+        return await decode(converted);
+      }
       return await decode(input);
     } catch (err) {
-      if (isHeicFile(input)) {
-        console.warn('[Analyze] Image looked like HEIC at resize time, converting and retrying.');
-        const reconverted = await convertHeicIfNeeded(input);
-        return await decode(reconverted);
+      if (input.type === 'image/jpeg' || input.name.toLowerCase().endsWith('.jpg') || input.name.toLowerCase().endsWith('.jpeg')) {
+        console.warn('[Analyze] JPEG decode failed, normalizing through createImageBitmap and retrying.', err);
+        const bitmap = await createImageBitmap(input);
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+        canvas.width = Math.round(bitmap.width * scale);
+        canvas.height = Math.round(bitmap.height * scale);
+        canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        bitmap.close();
+        return canvas.toDataURL('image/jpeg', 0.8);
       }
       throw err;
     }
@@ -398,6 +410,7 @@ const MediaUpload: React.FC = () => {
         description: "Please upload a video, image, or audio file",
         variant: "destructive",
       });
+      setIsPreparingFile(false);
       return;
     }
     
@@ -412,6 +425,7 @@ const MediaUpload: React.FC = () => {
         description: `Maximum file size is ${maxSizeLabel}`,
         variant: "destructive",
       });
+      setIsPreparingFile(false);
       return;
     }
     
@@ -1327,7 +1341,7 @@ const MediaUpload: React.FC = () => {
                         <input
                           ref={fileInputRef}
                           type="file"
-                          accept="video/*,image/*,audio/*"
+                          accept="video/*,image/*,audio/*,.heic,.heif,image/heic,image/heif"
                           onChange={handleFileInputChange}
                           className="hidden"
                         />
