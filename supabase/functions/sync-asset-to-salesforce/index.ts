@@ -336,13 +336,21 @@ async function createSalesforceRecord(
       return true;
     }
 
-    console.error(`w2x-engine create unexpected status: ${response.status}`);
     const responseText = await response.text();
-    console.error(`w2x-engine create response: ${responseText.substring(0, 300)}`);
-    return false;
+    // w2x-engine sometimes returns HTTP 200 with an HTML error body like
+    // "ERROR creating the record!<br/><pre>…</pre>". Detect that explicitly so
+    // the caller can surface the real reason instead of a generic failure.
+    const lower = responseText.toLowerCase();
+    const isInlineError = response.status === 200 && (lower.includes("error creating the record") || lower.includes("<pre>error"));
+    const reason = isInlineError
+      ? `w2x-engine rejected the create (HTTP 200): ${responseText.replace(/<[^>]+>/g, " ").trim().substring(0, 240)}`
+      : `w2x-engine create unexpected status ${response.status}: ${responseText.substring(0, 240)}`;
+    console.error(reason);
+    return reason;
   } catch (error) {
-    console.error("Error creating Salesforce record:", error);
-    return false;
+    const reason = error instanceof Error ? error.message : "Unknown error during Salesforce create";
+    console.error("Error creating Salesforce record:", reason);
+    return reason;
   }
 }
 
