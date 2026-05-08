@@ -38,8 +38,8 @@ export async function convertHeicIfNeeded(file: File): Promise<File> {
 
   try {
     // Dynamic import — heic2any is ~70 KB gz and only needed for HEIC files.
-    const mod = await import("heic2any");
-    const heic2any = (mod as unknown as { default: typeof import("heic2any") }).default;
+    const mod: any = await import("heic2any");
+    const heic2any = mod.default ?? mod;
 
     const result = await heic2any({
       blob: file,
