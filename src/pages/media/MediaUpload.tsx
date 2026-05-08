@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
 import { sanitizeFile } from "@/utils/sanitizeFilename";
-import { convertHeicIfNeeded } from "@/utils/heicConvert";
+import { convertHeicIfNeeded, convertHeicWithOriginal, isHeicFile } from "@/utils/heicConvert";
 
 interface SalesforceData {
   title: string;
@@ -64,6 +64,11 @@ const MediaUpload: React.FC = () => {
   
   // File upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  // When the user picked an iPhone HEIC and we transparently converted it to JPEG,
+  // we keep the untouched original around so we can archive it to S3 alongside the
+  // JPEG and expose a "Download original" link in the asset drawer.
+  const [originalHeicFile, setOriginalHeicFile] = useState<File | null>(null);
+  const [isPreparingFile, setIsPreparingFile] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -323,9 +328,11 @@ const MediaUpload: React.FC = () => {
     });
   };
 
-  // Resize image to a smaller JPEG for AI analysis (avoids oversized payloads causing 502s)
-  const resizeImageForAnalysis = (file: File, maxDim = 1024): Promise<string> => {
-    return new Promise((resolve, reject) => {
+  // Resize image to a smaller JPEG for AI analysis (avoids oversized payloads causing 502s).
+  // If the file looks like HEIC at this point (e.g., conversion was skipped), convert
+  // it on the spot so the <img> element can actually decode it.
+  const resizeImageForAnalysis = async (input: File, maxDim = 1024): Promise<string> => {
+    const decode = (file: File) => new Promise<string>((resolve, reject) => {
       const img = new window.Image();
       img.onload = () => {
         const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
@@ -343,15 +350,32 @@ const MediaUpload: React.FC = () => {
       };
       img.src = URL.createObjectURL(file);
     });
+
+    try {
+      return await decode(input);
+    } catch (err) {
+      if (isHeicFile(input)) {
+        console.warn('[Analyze] Image looked like HEIC at resize time, converting and retrying.');
+        const reconverted = await convertHeicIfNeeded(input);
+        return await decode(reconverted);
+      }
+      throw err;
+    }
   };
 
   const handleFileSelect = async (rawFile: File) => {
+    setIsPreparingFile(true);
     let file: File;
+    let original: File | null = null;
     try {
-      file = await convertHeicIfNeeded(rawFile);
+      const result = await convertHeicWithOriginal(rawFile);
+      file = result.file;
+      original = result.original ?? null;
     } catch {
+      setIsPreparingFile(false);
       return;
     }
+    setOriginalHeicFile(original);
     const validTypes = [
       // Video
       'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-m4v',
@@ -392,11 +416,11 @@ const MediaUpload: React.FC = () => {
     }
     
     // Sanitize filename so reserved characters never reach Wasabi/DB.
-    const { file: cleanFile, changed, original } = sanitizeFile(file);
+    const { file: cleanFile, changed, original: originalName } = sanitizeFile(file);
     if (changed) {
       toast({
         title: "Filename adjusted",
-        description: `Wasabi can't serve ":", "*", "?" or "#". "${original}" → "${cleanFile.name}"`,
+        description: `Wasabi can't serve ":", "*", "?" or "#". "${originalName}" → "${cleanFile.name}"`,
       });
     }
 
@@ -407,6 +431,7 @@ const MediaUpload: React.FC = () => {
       const fileName = cleanFile.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ");
       setUploadData(prev => ({ ...prev, title: fileName }));
     }
+    setIsPreparingFile(false);
   };
 
   const handleBrowseClick = () => {
@@ -422,6 +447,7 @@ const MediaUpload: React.FC = () => {
 
   const clearSelectedFile = () => {
     setSelectedFile(null);
+    setOriginalHeicFile(null);
     setAnalysisComplete(false);
     setAiSuggestions(null);
     setBumperSkipSeconds(0);
@@ -840,13 +866,49 @@ const MediaUpload: React.FC = () => {
           uploadResultData?.asset?.id;
 
         if (newAssetId) {
+          // Archive the original HEIC alongside the converted JPEG so the user can
+          // still download the untouched iPhone source file from the asset drawer.
+          if (originalHeicFile) {
+            try {
+              const heicBase64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const result = reader.result as string;
+                  resolve(result.split(',')[1] || '');
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(originalHeicFile);
+              });
+              const { data: heicData } = await supabase.functions.invoke('upload-generation-input', {
+                body: {
+                  imageBase64: heicBase64,
+                  filename: originalHeicFile.name,
+                  mimeType: originalHeicFile.type || 'image/heic',
+                },
+              });
+              if (heicData?.cdnUrl) {
+                await supabase.from('media_assets').update({
+                  metadata: {
+                    ...(uploadResultData?.metadata || {}),
+                    originalFileUrl: heicData.cdnUrl,
+                    originalFileName: originalHeicFile.name,
+                    originalFileMimeType: originalHeicFile.type || 'image/heic',
+                  },
+                }).eq('id', newAssetId);
+                console.log('Archived original HEIC at', heicData.cdnUrl);
+              }
+            } catch (heicErr) {
+              console.warn('Failed to archive original HEIC:', heicErr);
+            }
+          }
+
           toast({
             title: "Syncing to Salesforce…",
             description: "Creating SFDC record",
           });
           supabase.functions
             .invoke('sync-asset-to-salesforce', { body: { assetIds: [newAssetId] } })
-            .then(({ error: syncError }) => {
+            .then(({ data: syncData, error: syncError }) => {
               if (syncError) {
                 console.error('SFDC sync error:', syncError);
                 toast({
@@ -854,6 +916,26 @@ const MediaUpload: React.FC = () => {
                   description: `${syncError.message} — use "Sync to SFDC" in the asset details to retry.`,
                   variant: "destructive",
                 });
+                return;
+              }
+
+              const result = Array.isArray(syncData?.results) ? syncData.results[0] : null;
+              if (result && result.success === false) {
+                toast({
+                  title: "Salesforce create rejected",
+                  description: `${result.error || 'Unknown reason'} — use "Sync to SFDC" in the asset details to retry.`,
+                  variant: "destructive",
+                });
+                return;
+              }
+
+              const action = result?.action;
+              if (action === 'found') {
+                toast({ title: "Linked to existing Salesforce record" });
+              } else if (action === 'created_pending') {
+                toast({ title: "Salesforce record created", description: "Awaiting ID backfill." });
+              } else if (action === 'updated') {
+                toast({ title: "Salesforce record updated" });
               } else {
                 toast({ title: "Salesforce sync complete" });
               }
@@ -1342,12 +1424,17 @@ const MediaUpload: React.FC = () => {
                             type="button" 
                             variant="secondary"
                             onClick={handleAnalyzeVideo}
-                            disabled={isAnalyzing}
+                            disabled={isAnalyzing || isPreparingFile || !selectedFile}
                           >
                             {isAnalyzing ? (
                               <>
                                 <Sparkles className="w-4 h-4 mr-2 animate-spin" />
                                 Analyzing...
+                              </>
+                            ) : isPreparingFile ? (
+                              <>
+                                <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                                Preparing photo…
                               </>
                             ) : (
                               <>

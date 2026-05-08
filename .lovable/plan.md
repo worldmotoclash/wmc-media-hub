@@ -1,71 +1,68 @@
-## Goal
+# HEIC upload — three real bugs, one shared symptom
 
-Let users upload `.heic` / `.heif` photos straight from iPhone (Photos app, Files, share sheet) and have them flow through the existing pipeline — AI analysis, S3 upload, SFDC sync — as if they were JPEGs.
+The screenshot ("Analysis Failed: Failed to load image for resize") plus today's edge logs for `IMG_8235` (a2FQQ0000023v5R) show three independent problems stacking up. They need to be fixed together, otherwise the user keeps seeing "successful" uploads that point to the wrong Salesforce record.
 
-## Why this needs work
+## What actually happened on your IMG_8235.heic upload
 
-HEIC is Apple's default photo format on iPhone since iOS 11. Today:
-- Browsers (other than Safari) cannot render HEIC, so previews break.
-- The Lovable AI Gateway / Gemini vision API does not accept HEIC — auto-tagging silently fails.
-- Existing accept filters (`image/*` in `ImageDropzone`, `BulkUploadTab`, `MasterImageUploadDialog`, `MediaUpload`, `RacerFileUpload`) let HEIC through, but downstream the file is uploaded raw to Wasabi and then nothing can display or analyze it.
+1. HEIC → JPEG conversion **worked** (upload-master-to-s3 received `IMG_8235.jpg`, 4032×3024).
+2. The inline create call to `w2x-engine.php` returned **HTTP 200 with `ERROR creating the record!<br/><pre></pre>**` — Salesforce rejected the create, but the asset was saved locally with no SFDC ID.
+3. The client then auto-fired `sync-asset-to-salesforce`. Strategy 2 (filename match) compared the asset's last URL segment `master.jpg` against every other image in SFDC — they all end in `master.jpg` — and "found" `a2FQQ0000023v5R`, a record that belongs to a different asset. The DB row got that ID stamped on it and the toast said *Salesforce sync complete*. That's why no real new record exists.
+4. The "Failed to load image for resize" toast is a separate, earlier failure in the client AI-analyze step, before upload. Conversion is async; if the user clicks **Analyze** while heic2any is still working (or after switching files quickly), `selectedFile` can briefly be the original HEIC blob, which `<img>` cannot decode → the resize promise rejects with that exact message.
 
-## Approach: client-side convert to JPEG before anything else touches the file
+## Fixes
 
-Convert HEIC→JPEG in the browser the moment a file is selected. Once converted, the rest of the pipeline (preview, AI analysis, S3 upload, thumbnail generation, SFDC sync) is unchanged.
+### 1. Stop matching on `master.jpg` / `master.mp4` (highest-impact bug)
 
-Library: **`heic2any`** (~70 KB gz, pure browser, no native deps, MIT). It uses libheif compiled to WASM.
+`supabase/functions/sync-asset-to-salesforce/index.ts` — Strategy 2 (filename match):
 
-### Flow
+- Skip the fallback when the filename is one of our generic master keys (`master.jpg`, `master.mp4`, `master.png`, `master.webp`, `master.mp3`, `thumbnail.jpg`).
+- Add a guard: a filename match only counts if either the parent UUID path segment also matches, or the SFDC record's title equals the asset title. This protects against any future generic key.
+- Log "Strategy 2 skipped — generic filename" so we can see this in the edge logs instead of silently linking to the wrong record.
 
-1. User picks a `.heic` / `.heif` file (or one with `type: image/heic` / `image/heif`).
-2. New shared util `convertHeicIfNeeded(file)` in `src/utils/heicConvert.ts`:
-   - Returns the original `File` untouched if not HEIC.
-   - Else dynamically imports `heic2any`, converts to JPEG (quality 0.92), wraps the resulting Blob in a new `File` with the original name rewritten from `IMG_1234.HEIC` → `IMG_1234.jpg` and MIME `image/jpeg`.
-   - Shows a subtle toast: "Converting iPhone photo…" with progress for files >5 MB.
-3. All upload entrypoints call this util **first**, then proceed with their existing code.
+### 2. Make w2x-engine create errors visible
 
-### Files to update (one-line change each — call `convertHeicIfNeeded` before current logic)
+`supabase/functions/upload-master-to-s3/index.ts` (the inline SFDC create around line 467–496):
 
-- `src/components/media/ImageDropzone.tsx`
-- `src/components/media/BulkUploadTab.tsx`
-- `src/components/media/MasterImageUploadDialog.tsx`
+- Treat `status === 200` whose body contains `ERROR creating the record` as a hard failure (today it's flagged but the user-facing toast doesn't reflect it).
+- Persist the failure into `media_assets.metadata.sfdc_sync_error` so the drawer's existing "Sync to SFDC" retry button can pick it up.
+- Mirror the same parsing in `sync-asset-to-salesforce/index.ts` `createSalesforceRecord` (line 293–308) — currently only `302` is success and any other 200 is silently treated as `false`, which is fine, but the body should be captured into the per-asset result so the parent toast can say *SFDC create rejected* instead of *Salesforce sync complete*.
+
+### 3. Front-end toast honesty
+
+`src/pages/media/MediaUpload.tsx` (lines 836–863):
+
+- Change the success branch to read the per-asset `action` (`created` / `found` / `updated`) returned by `sync-asset-to-salesforce` and word the toast accordingly: *Linked to existing Salesforce record*, *Created Salesforce record*, or *Salesforce sync queued — awaiting backfill*.
+- On `success: false`, surface the captured `sfdc_sync_error` text instead of a generic "use Sync to SFDC to retry".
+- Apply the same pattern in `BulkUploadTab.tsx` (it follows the same shape).
+
+### 4. Harden the HEIC → analyze path
+
+`src/pages/media/MediaUpload.tsx`:
+
+- Disable the **Analyze** button while `selectedFile` is null **or** while `convertHeicIfNeeded` is in flight (track an `isPreparingFile` boolean alongside the existing state).
+- In `resizeImageForAnalysis`: if `img.onerror` fires and the file's MIME/extension still looks like HEIC/HEIF, run `convertHeicIfNeeded` once more on the spot and retry the resize before rejecting. This catches the rare case where state mutated faster than the conversion settled.
+- Replace the generic toast text with the actual cause: *"Could not read this image — please reselect the file."*
+
+## Out of scope
+
+- No DB schema changes.
+- No change to heic2any usage itself — conversion is working; the bug is around it.
+- No retroactive cleanup of the `IMG_8235` row that already got `a2FQQ0000023v5R` stamped on it. After the fixes ship, hitting **Sync to SFDC** in its drawer will create a fresh, correct record (assuming we identify what the original w2x-engine `ERROR creating the record` was — most likely the unsupported `Content_Type__c` value `JPG`; once #2 surfaces the response, we'll know).
+
+## Files touched
+
+- `supabase/functions/sync-asset-to-salesforce/index.ts`
+- `supabase/functions/upload-master-to-s3/index.ts`
 - `src/pages/media/MediaUpload.tsx`
-- `src/pages/media/SceneDetection.tsx` (if it accepts images)
-- `src/components/racer/RacerFileUpload.tsx`
-- `src/pages/racer/RacerMotorcycle.tsx`
-- `src/pages/racer/RacerApplication.tsx`
-- `src/components/media/VideoExtendWorkflow.tsx`
-
-Also update each component's `accept` prop to explicitly include `image/heic,image/heif,.heic,.heif` so iOS Safari surfaces the file.
-
-### Edge cases handled
-
-- **iPad / iPhone Safari**: Safari can natively render HEIC, but we still convert so the file that hits Wasabi is JPEG (otherwise SFDC + non-Apple users can't view it).
-- **Large HEIC** (>20 MB live photos): heic2any can be slow on low-end phones. Util enforces a 50 MB pre-conversion cap with a clear error toast.
-- **HEIC bursts / multi-image containers**: heic2any returns the primary image only — acceptable for our use case.
-- **Filename**: preserve original casing of base name; always end `.jpg`.
-- **Tag persistence / album assignment**: unchanged because we're feeding the existing pipeline a normal JPEG.
-
-### Memory update (non-technical)
-
-Replace the `Image Capture Workaround` memory line with a note that HEIC is now auto-converted to JPEG on the client, so users no longer have to convert manually.
-
-## What we're not doing
-
-- No server-side HEIC conversion (would require an extra edge function and roundtrip; client conversion is faster and free).
-- No format change for files already stored in Wasabi as `.heic` (rare; can be re-uploaded).
-- No HEIC support for `.heic` videos — those are actually `.mov` from iPhone and already work.
+- `src/components/media/BulkUploadTab.tsx`
 
 ## Verification
 
-1. Drag a real iPhone HEIC into Media Upload → preview renders, AI analysis returns categories/tags, file lands in Wasabi as `IMG_xxxx.jpg`, SFDC record gets the JPEG URL.
-2. Bulk upload 5 HEICs at once → all convert, AI analysis fans out, no console errors.
-3. Racer portal: upload license photo as HEIC → appears in the Licenses album as JPEG.
-4. Confirm a normal JPEG path is unchanged (no double-encode, no quality loss).
+1. Re-upload an iPhone HEIC at /admin/media/upload.
+2. Confirm Analyze is disabled until the conversion toast clears, then succeeds.
+3. Confirm edge logs show either a real `302` create or a captured `ERROR creating the record` body — and the front-end toast matches.
+4. Check `media_assets` for the new row: `salesforce_id` is either a fresh ID from a 302 redirect or `pending_id`, **not** an unrelated existing record.
 
-## Files / dependencies
+Additional. Lets add storage for the heic file and allow for a link to download the orginal file. I understand the need for the jpg conversion so this will be a varriant.
 
-- New dep: `heic2any` (~70 KB gz)
-- New file: `src/utils/heicConvert.ts`
-- ~9 component edits (each: one import + one `await convertHeicIfNeeded(file)` line + accept-attr tweak)
-- No DB migration, no edge function changes
+&nbsp;

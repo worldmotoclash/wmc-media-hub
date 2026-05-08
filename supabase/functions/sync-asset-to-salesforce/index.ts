@@ -79,18 +79,52 @@ async function findSalesforceMatch(cdnUrl: string, xmlCache?: string, title?: st
     }
   }
 
-  // Strategy 2: Filename match (compare last path segment, case-insensitive)
+  // Strategy 2: Filename match (compare last path segment, case-insensitive).
+  // IMPORTANT: every asset uploaded via upload-master-to-s3 lands at
+  // `<bucket>/.../masters/<uuid>/master.<ext>`, so the bare filename is almost
+  // always one of a tiny handful of generic names ("master.jpg", "master.mp4",
+  // "thumbnail.jpg", etc.). Matching on those would link every new upload to
+  // some unrelated existing record. We require *either* the parent UUID path
+  // segment to also match, *or* the SFDC <name> to equal our title.
+  const GENERIC_FILENAMES = new Set([
+    "master.jpg", "master.jpeg", "master.png", "master.webp", "master.gif",
+    "master.mp4", "master.mov", "master.webm", "master.mp3", "master.wav",
+    "master.heic", "master.heif", "thumbnail.jpg", "thumbnail.png",
+  ]);
+  const assetParentSegment = (() => {
+    const parts = cdnUrl.split('?')[0].split('/');
+    return parts.length >= 2 ? parts[parts.length - 2].toLowerCase() : '';
+  })();
+  const normalizedTitle = title?.trim().toLowerCase() || '';
+
   if (assetFilename) {
     for (const block of contentBlocks) {
       const urlMatch = block.match(/<ri1__URL__c>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/ri1__URL__c>/) || 
                        block.match(/<url>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/url>/);
-      if (urlMatch && urlMatch[1]) {
-        const sfdcFilename = urlMatch[1].trim().split('/').pop()?.split('?')[0]?.toLowerCase() || '';
-        if (sfdcFilename && sfdcFilename === assetFilename) {
-          const result = extractFromBlock(block, `Strategy 2 (filename "${assetFilename}")`);
-          if (result) return result;
+      if (!urlMatch || !urlMatch[1]) continue;
+
+      const sfdcUrl = urlMatch[1].trim();
+      const sfdcFilename = sfdcUrl.split('?')[0].split('/').pop()?.toLowerCase() || '';
+      if (!sfdcFilename || sfdcFilename !== assetFilename) continue;
+
+      // Disambiguate generic names
+      if (GENERIC_FILENAMES.has(assetFilename)) {
+        const sfdcParts = sfdcUrl.split('?')[0].split('/');
+        const sfdcParent = sfdcParts.length >= 2 ? sfdcParts[sfdcParts.length - 2].toLowerCase() : '';
+        const parentMatches = !!assetParentSegment && assetParentSegment === sfdcParent;
+
+        const nameMatch = block.match(/<name>([^<]+)<\/name>/);
+        const sfdcName = nameMatch ? nameMatch[1].trim().toLowerCase() : '';
+        const titleMatches = !!normalizedTitle && normalizedTitle === sfdcName;
+
+        if (!parentMatches && !titleMatches) {
+          console.log(`Strategy 2 skipped — generic filename "${assetFilename}" without parent/title corroboration (sfdc parent="${sfdcParent}", sfdc name="${sfdcName}")`);
+          continue;
         }
       }
+
+      const result = extractFromBlock(block, `Strategy 2 (filename "${assetFilename}")`);
+      if (result) return result;
     }
   }
 
@@ -196,7 +230,7 @@ async function createSalesforceRecord(
   cdnUrl: string, 
   contentType: string,
   metadata?: SfdcSyncMetadata
-): Promise<boolean> {
+): Promise<true | string> {
   console.log(`Creating Salesforce record: ${title}`);
   
   try {
@@ -302,13 +336,21 @@ async function createSalesforceRecord(
       return true;
     }
 
-    console.error(`w2x-engine create unexpected status: ${response.status}`);
     const responseText = await response.text();
-    console.error(`w2x-engine create response: ${responseText.substring(0, 300)}`);
-    return false;
+    // w2x-engine sometimes returns HTTP 200 with an HTML error body like
+    // "ERROR creating the record!<br/><pre>…</pre>". Detect that explicitly so
+    // the caller can surface the real reason instead of a generic failure.
+    const lower = responseText.toLowerCase();
+    const isInlineError = response.status === 200 && (lower.includes("error creating the record") || lower.includes("<pre>error"));
+    const reason = isInlineError
+      ? `w2x-engine rejected the create (HTTP 200): ${responseText.replace(/<[^>]+>/g, " ").trim().substring(0, 240)}`
+      : `w2x-engine create unexpected status ${response.status}: ${responseText.substring(0, 240)}`;
+    console.error(reason);
+    return reason;
   } catch (error) {
-    console.error("Error creating Salesforce record:", error);
-    return false;
+    const reason = error instanceof Error ? error.message : "Unknown error during Salesforce create";
+    console.error("Error creating Salesforce record:", reason);
+    return reason;
   }
 }
 
@@ -526,23 +568,24 @@ serve(async (req) => {
       };
       
       const created = await createSalesforceRecord(asset.title, asset.file_url, contentType, syncMetadata);
-      
-      if (!created) {
+
+      if (created !== true) {
+        const errorMessage = typeof created === "string" ? created : "Failed to create Salesforce record via w2x-engine";
         results.push({
           assetId: asset.id,
           success: false,
-          error: "Failed to create Salesforce record via w2x-engine",
+          error: errorMessage,
           action: 'failed',
         });
-        
-        // Update metadata to reflect failure
+
+        // Update metadata to reflect failure (capture the real reason)
         await supabase
           .from("media_assets")
           .update({
             metadata: {
               ...asset.metadata,
               sfdcSyncStatus: 'failed',
-              sfdcSyncError: 'w2x-engine call failed',
+              sfdcSyncError: errorMessage,
               sfdcSyncAttemptedAt: new Date().toISOString(),
             }
           })

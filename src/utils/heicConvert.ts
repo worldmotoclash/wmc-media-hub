@@ -3,7 +3,7 @@ import { toast } from "sonner";
 const HEIC_MIME = ["image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"];
 const MAX_HEIC_BYTES = 50 * 1024 * 1024; // 50 MB
 
-function isHeicFile(file: File): boolean {
+export function isHeicFile(file: File): boolean {
   const name = file.name.toLowerCase();
   if (name.endsWith(".heic") || name.endsWith(".heif")) return true;
   if (file.type && HEIC_MIME.includes(file.type.toLowerCase())) return true;
@@ -14,6 +14,15 @@ function renameToJpg(originalName: string): string {
   return originalName.replace(/\.(heic|heif)$/i, ".jpg") || `${originalName}.jpg`;
 }
 
+export interface HeicConvertResult {
+  /** The file the rest of the pipeline should consume (JPEG if conversion happened, original otherwise). */
+  file: File;
+  /** Original HEIC file when conversion happened — useful for archiving the source. */
+  original?: File;
+  /** True when a conversion actually ran. */
+  converted: boolean;
+}
+
 /**
  * If the input file is a HEIC/HEIF image (typical from iPhones), convert it
  * to a JPEG File in-browser. Otherwise return the original file unchanged.
@@ -22,7 +31,13 @@ function renameToJpg(originalName: string): string {
  * stays untouched and just sees a normal JPEG.
  */
 export async function convertHeicIfNeeded(file: File): Promise<File> {
-  if (!isHeicFile(file)) return file;
+  const result = await convertHeicWithOriginal(file);
+  return result.file;
+}
+
+/** Same as `convertHeicIfNeeded` but also returns the untouched original when a conversion happens. */
+export async function convertHeicWithOriginal(file: File): Promise<HeicConvertResult> {
+  if (!isHeicFile(file)) return { file, converted: false };
 
   if (file.size > MAX_HEIC_BYTES) {
     toast.error(
@@ -41,13 +56,13 @@ export async function convertHeicIfNeeded(file: File): Promise<File> {
     const mod: any = await import("heic2any");
     const heic2any = mod.default ?? mod;
 
-    const result = await heic2any({
+    const blobResult = await heic2any({
       blob: file,
       toType: "image/jpeg",
       quality: 0.92,
     });
 
-    const blob = Array.isArray(result) ? result[0] : result;
+    const blob = Array.isArray(blobResult) ? blobResult[0] : blobResult;
     const jpgName = renameToJpg(file.name);
     const converted = new File([blob], jpgName, {
       type: "image/jpeg",
@@ -55,7 +70,7 @@ export async function convertHeicIfNeeded(file: File): Promise<File> {
     });
 
     if (toastId !== undefined) toast.dismiss(toastId);
-    return converted;
+    return { file: converted, original: file, converted: true };
   } catch (err) {
     if (toastId !== undefined) toast.dismiss(toastId);
     console.error("[HEIC] Conversion failed for", file.name, err);
