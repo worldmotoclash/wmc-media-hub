@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
 import { sanitizeFile } from "@/utils/sanitizeFilename";
-import { convertHeicIfNeeded } from "@/utils/heicConvert";
+import { convertHeicIfNeeded, convertHeicWithOriginal, isHeicFile } from "@/utils/heicConvert";
 
 interface SalesforceData {
   title: string;
