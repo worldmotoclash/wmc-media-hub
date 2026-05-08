@@ -416,11 +416,11 @@ const MediaUpload: React.FC = () => {
     }
     
     // Sanitize filename so reserved characters never reach Wasabi/DB.
-    const { file: cleanFile, changed, original } = sanitizeFile(file);
+    const { file: cleanFile, changed, original: originalName } = sanitizeFile(file);
     if (changed) {
       toast({
         title: "Filename adjusted",
-        description: `Wasabi can't serve ":", "*", "?" or "#". "${original}" → "${cleanFile.name}"`,
+        description: `Wasabi can't serve ":", "*", "?" or "#". "${originalName}" → "${cleanFile.name}"`,
       });
     }
 
