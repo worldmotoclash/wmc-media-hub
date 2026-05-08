@@ -14,9 +14,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   X, Video, Image, Music, MapPin, Sparkles, Clock,
   HardDrive, Calendar, ExternalLink, CheckCircle, AlertTriangle,
-  Gauge, Link2, Eye, Wand2, Mic, Pencil, Loader2, Target, Trash2, CloudUpload
+  Gauge, Link2, Eye, Wand2, Mic, Pencil, Loader2, Target, Trash2, CloudUpload, MoreHorizontal
 } from "lucide-react";
 import { Save } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -119,6 +123,78 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
       toast.error('Failed to update podcast status');
       setIsPodcast(!checked);
     } finally { setIsSavingPodcast(false); }
+  };
+
+  const handleSyncToSfdc = async () => {
+    if (!asset) return;
+    setIsSyncingToSfdc(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-asset-to-salesforce', {
+        body: { assetIds: [asset.id] }
+      });
+      if (error) throw error;
+      const result = data?.results?.[0];
+      if (result?.salesforceId) {
+        setLocalSalesforceId(result.salesforceId);
+        setLocalStatus('Pending');
+        toast.success('Asset synced to Salesforce');
+      } else if (result?.action === 'created_pending' || result?.action === 'created') {
+        toast.info('Record created — resolving Salesforce ID...');
+        let resolved = false;
+        for (let i = 0; i < 12; i++) {
+          await new Promise(r => setTimeout(r, 5000));
+          const { data: refreshed } = await supabase
+            .from('media_assets')
+            .select('salesforce_id')
+            .eq('id', asset.id)
+            .single();
+          if (refreshed?.salesforce_id) {
+            setLocalSalesforceId(refreshed.salesforce_id);
+            setLocalStatus('Pending');
+            toast.success('Salesforce ID resolved');
+            resolved = true;
+            break;
+          }
+        }
+        if (!resolved) {
+          toast.info('SFDC record created — ID will appear shortly. Refresh to check.');
+        }
+      } else {
+        toast.success('Asset synced to Salesforce');
+      }
+      onAssetUpdated?.();
+    } catch (err: any) {
+      console.error('SFDC sync error:', err);
+      toast.error('Sync failed: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsSyncingToSfdc(false);
+    }
+  };
+
+  const handleReanalyze = async () => {
+    if (!asset) return;
+    setIsReanalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('auto-tag-media-asset', {
+        body: {
+          assetId: asset.id,
+          mediaUrl: asset.fileUrl || asset.thumbnailUrl,
+          mediaType: asset.assetType === 'video' ? 'video' : 'image',
+          suggestTitle: suggestTitleOnAnalyze,
+        }
+      });
+      if (error || !data?.success) throw error || new Error(data?.error || 'Failed');
+      const msg = data.suggestedTitle && suggestTitleOnAnalyze
+        ? `AI analysis complete — renamed to "${data.suggestedTitle}"`
+        : 'AI analysis complete';
+      toast.success(msg);
+      onAssetUpdated?.();
+      editableFields.refreshFromDB();
+    } catch (err: any) {
+      toast.error('AI analysis failed', { description: err.message });
+    } finally {
+      setIsReanalyzing(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -419,60 +495,7 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
                 {getSyncStatusBadge()}
                 {localSalesforceId && <a href={`https://worldmotoclash.my.salesforce.com/${localSalesforceId.replace(/^sf_/, '')}`} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300 underline block">ID: {localSalesforceId.replace(/^sf_/, '')}</a>}
                 {!localSalesforceId && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={async () => {
-                      setIsSyncingToSfdc(true);
-                      try {
-                        const { data, error } = await supabase.functions.invoke('sync-asset-to-salesforce', {
-                          body: { assetIds: [asset.id] }
-                        });
-                        if (error) throw error;
-                        // Parse sync response to update local state immediately
-                        const result = data?.results?.[0];
-                        if (result?.salesforceId) {
-                          setLocalSalesforceId(result.salesforceId);
-                          setLocalStatus('Pending');
-                          toast.success('Asset synced to Salesforce');
-                        } else if (result?.action === 'created_pending' || result?.action === 'created') {
-                          toast.info('Record created — resolving Salesforce ID...');
-                          let resolved = false;
-                          for (let i = 0; i < 12; i++) {
-                            await new Promise(r => setTimeout(r, 5000));
-                            const { data: refreshed } = await supabase
-                              .from('media_assets')
-                              .select('salesforce_id')
-                              .eq('id', asset.id)
-                              .single();
-                            if (refreshed?.salesforce_id) {
-                              setLocalSalesforceId(refreshed.salesforce_id);
-                              setLocalStatus('Pending');
-                              toast.success('Salesforce ID resolved');
-                              resolved = true;
-                              break;
-                            }
-                          }
-                          if (!resolved) {
-                            toast.info('SFDC record created — ID will appear shortly. Refresh to check.');
-                          }
-                        } else {
-                          toast.success('Asset synced to Salesforce');
-                        }
-                        onAssetUpdated?.();
-                      } catch (err: any) {
-                        console.error('SFDC sync error:', err);
-                        toast.error('Sync failed: ' + (err.message || 'Unknown error'));
-                      } finally {
-                        setIsSyncingToSfdc(false);
-                      }
-                    }}
-                    disabled={isSyncingToSfdc}
-                    className="w-full mt-2"
-                  >
-                    {isSyncingToSfdc ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <CloudUpload className="h-3 w-3 mr-1" />}
-                    Sync to SFDC
-                  </Button>
+                  <p className="text-xs text-muted-foreground">Use "Sync to SFDC" below to create a Salesforce record.</p>
                 )}
               </div>
             </div>
@@ -491,54 +514,8 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
               </Button>
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
-              {isVideoAsset && asset.fileUrl && (
-                <Button variant="secondary" className="w-full" onClick={() => setAudioToVideoOpen(true)}><Wand2 className="w-4 h-4 mr-2" />Create Video with This Audio</Button>
-              )}
-              {editableFields.canEdit && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="suggest-title"
-                      checked={suggestTitleOnAnalyze}
-                      onCheckedChange={(checked) => setSuggestTitleOnAnalyze(!!checked)}
-                    />
-                    <Label htmlFor="suggest-title" className="text-sm cursor-pointer">Also suggest a descriptive title</Label>
-                  </div>
-                  <Button
-                    variant="secondary"
-                    className="w-full"
-                    disabled={isReanalyzing}
-                    onClick={async () => {
-                      setIsReanalyzing(true);
-                      try {
-                        const { data, error } = await supabase.functions.invoke('auto-tag-media-asset', {
-                          body: {
-                            assetId: asset.id,
-                            mediaUrl: asset.fileUrl || asset.thumbnailUrl,
-                            mediaType: asset.assetType === 'video' ? 'video' : 'image',
-                            suggestTitle: suggestTitleOnAnalyze,
-                          }
-                        });
-                        if (error || !data?.success) throw error || new Error(data?.error || 'Failed');
-                        const msg = data.suggestedTitle && suggestTitleOnAnalyze
-                          ? `AI analysis complete — renamed to "${data.suggestedTitle}"`
-                          : 'AI analysis complete';
-                        toast.success(msg);
-                        onAssetUpdated?.();
-                        editableFields.refreshFromDB();
-                      } catch (err: any) {
-                        toast.error('AI analysis failed', { description: err.message });
-                      } finally {
-                        setIsReanalyzing(false);
-                      }
-                    }}
-                  >
-                    {isReanalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-                    Reanalyze with AI
-                  </Button>
-                </div>
-              )}
+            <div className="flex flex-col gap-3">
+              {/* PRIMARY ROW */}
               <div className="flex gap-2">
                 <Button
                   variant="default"
@@ -555,24 +532,117 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
                   {editableFields.isCreatingLocal ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Pencil className="w-4 h-4 mr-2" />}
                   Edit Details
                 </Button>
-                {asset.fileUrl && <Button variant="outline" className="flex-1" onClick={() => {
-                  if (asset.assetType === 'video') {
-                    onPreview?.(asset);
-                  } else {
-                    window.open(asset.fileUrl, '_blank');
-                  }
-                }}><ExternalLink className="w-4 h-4 mr-2" />{asset.assetType === 'video' ? 'Play Video' : 'Open in Browser'}</Button>}
+                {asset.fileUrl && (
+                  <Button
+                    variant="default"
+                    className="flex-1"
+                    onClick={() => {
+                      if (asset.assetType === 'video') {
+                        onPreview?.(asset);
+                      } else {
+                        window.open(asset.fileUrl, '_blank');
+                      }
+                    }}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    {asset.assetType === 'video' ? 'Play Video' : asset.assetType === 'audio' ? 'Play Audio' : 'Open in Browser'}
+                  </Button>
+                )}
               </div>
-              {isEditor() && (
-                <Button
-                  variant="destructive"
-                  className="w-full"
-                  onClick={() => setShowDeleteConfirm(true)}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete Asset
+
+              {/* CONTEXTUAL ROW: AI + SFDC sync */}
+              {(editableFields.canEdit || !localSalesforceId) && (
+                <div className="flex gap-2">
+                  {editableFields.canEdit && (
+                    <div className="flex flex-1 rounded-md overflow-hidden">
+                      <Button
+                        variant="secondary"
+                        className="flex-1 rounded-r-none border-r border-border/50"
+                        disabled={isReanalyzing}
+                        onClick={handleReanalyze}
+                      >
+                        {isReanalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                        Reanalyze with AI
+                      </Button>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="secondary"
+                            className="rounded-l-none px-2"
+                            aria-label="Reanalyze options"
+                            disabled={isReanalyzing}
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="w-64">
+                          <div className="flex items-start gap-2">
+                            <Checkbox
+                              id="suggest-title"
+                              checked={suggestTitleOnAnalyze}
+                              onCheckedChange={(checked) => setSuggestTitleOnAnalyze(!!checked)}
+                            />
+                            <Label htmlFor="suggest-title" className="text-sm cursor-pointer leading-tight">
+                              Also suggest a descriptive title
+                              <span className="block text-xs text-muted-foreground font-normal mt-1">
+                                When enabled, AI will rename the asset based on its analysis.
+                              </span>
+                            </Label>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  )}
+                  {!localSalesforceId && (
+                    <Button
+                      variant="secondary"
+                      className="flex-1"
+                      onClick={handleSyncToSfdc}
+                      disabled={isSyncingToSfdc}
+                    >
+                      {isSyncingToSfdc ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CloudUpload className="w-4 h-4 mr-2" />}
+                      Sync to SFDC
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {/* AUDIO-ONLY ROW */}
+              {isAudioAsset && asset.fileUrl && (
+                <Button variant="secondary" className="w-full" onClick={() => setAudioToVideoOpen(true)}>
+                  <Wand2 className="w-4 h-4 mr-2" />
+                  Create Video with This Audio
                 </Button>
               )}
+
+              {/* UTILITY ROW */}
+              <div className="flex items-center justify-between pt-2 border-t">
+                <DrawerClose asChild>
+                  <Button variant="ghost" size="sm">
+                    <X className="w-4 h-4 mr-2" />
+                    Close
+                  </Button>
+                </DrawerClose>
+                {isEditor() && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" aria-label="More actions">
+                        <MoreHorizontal className="w-4 h-4 mr-2" />
+                        More
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Asset
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
             </div>
           )}
         </DrawerFooter>
