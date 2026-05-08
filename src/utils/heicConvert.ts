@@ -20,7 +20,9 @@ async function normalizeBlobToJpegFile(blob: Blob, fileName: string, lastModifie
     lastModified,
   });
 
-  const bitmap = await createImageBitmap(blob).catch(() => null);
+  const bitmap = typeof createImageBitmap === "function"
+    ? await createImageBitmap(blob).catch(() => null)
+    : null;
   if (!bitmap) return makeFile(blob);
 
   try {
