@@ -230,7 +230,7 @@ async function createSalesforceRecord(
   cdnUrl: string, 
   contentType: string,
   metadata?: SfdcSyncMetadata
-): Promise<boolean> {
+): Promise<true | string> {
   console.log(`Creating Salesforce record: ${title}`);
   
   try {
