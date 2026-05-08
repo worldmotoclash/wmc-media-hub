@@ -79,18 +79,52 @@ async function findSalesforceMatch(cdnUrl: string, xmlCache?: string, title?: st
     }
   }
 
-  // Strategy 2: Filename match (compare last path segment, case-insensitive)
+  // Strategy 2: Filename match (compare last path segment, case-insensitive).
+  // IMPORTANT: every asset uploaded via upload-master-to-s3 lands at
+  // `<bucket>/.../masters/<uuid>/master.<ext>`, so the bare filename is almost
+  // always one of a tiny handful of generic names ("master.jpg", "master.mp4",
+  // "thumbnail.jpg", etc.). Matching on those would link every new upload to
+  // some unrelated existing record. We require *either* the parent UUID path
+  // segment to also match, *or* the SFDC <name> to equal our title.
+  const GENERIC_FILENAMES = new Set([
+    "master.jpg", "master.jpeg", "master.png", "master.webp", "master.gif",
+    "master.mp4", "master.mov", "master.webm", "master.mp3", "master.wav",
+    "master.heic", "master.heif", "thumbnail.jpg", "thumbnail.png",
+  ]);
+  const assetParentSegment = (() => {
+    const parts = cdnUrl.split('?')[0].split('/');
+    return parts.length >= 2 ? parts[parts.length - 2].toLowerCase() : '';
+  })();
+  const normalizedTitle = title?.trim().toLowerCase() || '';
+
   if (assetFilename) {
     for (const block of contentBlocks) {
       const urlMatch = block.match(/<ri1__URL__c>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/ri1__URL__c>/) || 
                        block.match(/<url>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/url>/);
-      if (urlMatch && urlMatch[1]) {
-        const sfdcFilename = urlMatch[1].trim().split('/').pop()?.split('?')[0]?.toLowerCase() || '';
-        if (sfdcFilename && sfdcFilename === assetFilename) {
-          const result = extractFromBlock(block, `Strategy 2 (filename "${assetFilename}")`);
-          if (result) return result;
+      if (!urlMatch || !urlMatch[1]) continue;
+
+      const sfdcUrl = urlMatch[1].trim();
+      const sfdcFilename = sfdcUrl.split('?')[0].split('/').pop()?.toLowerCase() || '';
+      if (!sfdcFilename || sfdcFilename !== assetFilename) continue;
+
+      // Disambiguate generic names
+      if (GENERIC_FILENAMES.has(assetFilename)) {
+        const sfdcParts = sfdcUrl.split('?')[0].split('/');
+        const sfdcParent = sfdcParts.length >= 2 ? sfdcParts[sfdcParts.length - 2].toLowerCase() : '';
+        const parentMatches = !!assetParentSegment && assetParentSegment === sfdcParent;
+
+        const nameMatch = block.match(/<name>([^<]+)<\/name>/);
+        const sfdcName = nameMatch ? nameMatch[1].trim().toLowerCase() : '';
+        const titleMatches = !!normalizedTitle && normalizedTitle === sfdcName;
+
+        if (!parentMatches && !titleMatches) {
+          console.log(`Strategy 2 skipped — generic filename "${assetFilename}" without parent/title corroboration (sfdc parent="${sfdcParent}", sfdc name="${sfdcName}")`);
+          continue;
         }
       }
+
+      const result = extractFromBlock(block, `Strategy 2 (filename "${assetFilename}")`);
+      if (result) return result;
     }
   }
 
