@@ -436,7 +436,23 @@ serve(async (req) => {
 
       // First, check if the record already exists in Salesforce
       const sfdcMatch = await findSalesforceMatch(asset.file_url, apiXml, asset.title);
-      
+
+      // GUARD: if a previous sync already created a record but the ID has not yet
+      // been resolved (pending_id), DO NOT create another record on retry.
+      // The RI content API can lag for new SFDC records, so a missed match here
+      // does not mean the record is absent — it just hasn't surfaced yet.
+      const priorSyncStatus = (asset.metadata as any)?.sfdcSyncStatus;
+      if (!sfdcMatch && priorSyncStatus === 'pending_id') {
+        console.log(`Skipping create for ${asset.id}: already pending_id from prior sync. Awaiting backfill.`);
+        results.push({
+          assetId: asset.id,
+          success: true,
+          action: 'created_pending',
+          error: 'Already pending — record was created previously, awaiting Salesforce ID resolution.',
+        });
+        continue;
+      }
+
       if (sfdcMatch) {
         console.log(`Found existing Salesforce record: ${sfdcMatch.id}, approval: ${sfdcMatch.approvalStatus}`);
         
