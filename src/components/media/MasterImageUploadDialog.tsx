@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
 import { ContentCatalogForm } from "./ContentCatalogForm";
 import { ContentCatalogFields } from "@/constants/salesforceFields";
+import { convertHeicIfNeeded } from "@/utils/heicConvert";
 
 interface MasterImageUploadDialogProps {
   open: boolean;
@@ -102,9 +103,15 @@ export function MasterImageUploadDialog({
     return true;
   };
 
-  const handleFile = (file: File) => {
+  const handleFile = async (rawFile: File) => {
+    let file: File;
+    try {
+      file = await convertHeicIfNeeded(rawFile);
+    } catch {
+      return;
+    }
     if (!validateFile(file)) return;
-    
+
     setSelectedFile(file);
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -405,7 +412,7 @@ export function MasterImageUploadDialog({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
             onChange={handleFileSelect}
             className="hidden"
           />

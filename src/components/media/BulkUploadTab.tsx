@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { sanitizeFile } from "@/utils/sanitizeFilename";
+import { convertHeicBatch } from "@/utils/heicConvert";
 
 interface ExistingAlbum {
   id: string;
@@ -129,10 +130,13 @@ export const BulkUploadTab: React.FC = () => {
     };
   }, []);
 
-  const addFiles = useCallback((files: FileList | File[]) => {
+  const addFiles = useCallback(async (files: FileList | File[]) => {
+    // Convert any HEIC/HEIF iPhone photos to JPEG before anything else touches them.
+    const converted = await convertHeicBatch(Array.from(files));
+
     // Sanitize filenames up front so reserved characters (":", "*", "?", "#")
     // never enter Wasabi keys, S3 metadata, or DB titles.
-    const sanitized: { file: File; original: string; changed: boolean }[] = Array.from(files)
+    const sanitized: { file: File; original: string; changed: boolean }[] = converted
       .filter(isValidMedia)
       .map((f) => sanitizeFile(f));
 

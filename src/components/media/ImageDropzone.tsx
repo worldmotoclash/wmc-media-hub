@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { convertHeicIfNeeded } from '@/utils/heicConvert';
 
 export interface UploadedImageInfo {
   url: string;
@@ -144,7 +145,14 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
     return null;
   };
 
-  const handleUpload = useCallback(async (file: File) => {
+  const handleUpload = useCallback(async (rawFile: File) => {
+    let file: File;
+    try {
+      file = await convertHeicIfNeeded(rawFile);
+    } catch {
+      return; // toast already surfaced inside util
+    }
+
     const error = validateFile(file);
     if (error) {
       toast.error(error);
