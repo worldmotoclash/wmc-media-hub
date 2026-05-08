@@ -1,69 +1,71 @@
-## Problem
+## Goal
 
-The asset detail drawer footer currently stacks 6 unrelated actions in a flat list:
+Let users upload `.heic` / `.heif` photos straight from iPhone (Photos app, Files, share sheet) and have them flow through the existing pipeline — AI analysis, S3 upload, SFDC sync — as if they were JPEGs.
 
-```text
-[ Sync to SFDC ]                   ← inline above the footer
-─────────────────
-[ Create Video with This Audio ]   ← contextual, full width
-[x] Also suggest a descriptive title  ← orphan checkbox
-[ Reanalyze with AI ]              ← AI action
-[ Edit Details ] [ Play Video ]    ← row of two
-[ Delete Asset ]                   ← destructive, full width
-```
+## Why this needs work
 
-Issues:
-- No visual hierarchy — every button looks equally important.
-- Destructive `Delete Asset` is the same width and weight as everyday actions.
-- The only way to dismiss the drawer is the small `×` in the top-right corner, which users miss.
-- The "Also suggest a descriptive title" checkbox floats next to "Reanalyze" with no grouping affordance.
-- Sync to SFDC sits in the body, disconnected from the action area.
+HEIC is Apple's default photo format on iPhone since iOS 11. Today:
+- Browsers (other than Safari) cannot render HEIC, so previews break.
+- The Lovable AI Gateway / Gemini vision API does not accept HEIC — auto-tagging silently fails.
+- Existing accept filters (`image/*` in `ImageDropzone`, `BulkUploadTab`, `MasterImageUploadDialog`, `MediaUpload`, `RacerFileUpload`) let HEIC through, but downstream the file is uploaded raw to Wasabi and then nothing can display or analyze it.
 
-## Redesign
+## Approach: client-side convert to JPEG before anything else touches the file
 
-Reorganize into **three tiers** with an explicit close affordance:
+Convert HEIC→JPEG in the browser the moment a file is selected. Once converted, the rest of the pipeline (preview, AI analysis, S3 upload, thumbnail generation, SFDC sync) is unchanged.
 
-```text
-┌─ Drawer footer ──────────────────────────────────────────────┐
-│  PRIMARY ROW                                                 │
-│  [ ✏ Edit Details ]   [ ▶ Play Video / Open ]                │ 50/50 split, both prominent
-│                                                              │
-│  CONTEXTUAL ROW (only shown if applicable)                   │
-│  [ ✨ Reanalyze with AI ▾ ]   [ ☁ Sync to SFDC ]             │ secondary variant
-│   └─ popover: "Also suggest a descriptive title" toggle      │ checkbox moves into popover
-│                                                              │
-│  AUDIO-ONLY ROW (only on audio assets)                       │
-│  [ 🪄 Create Video with This Audio ]                         │ full width, secondary
-│                                                              │
-│  ─────────────────────────────────────────────────────────   │
-│  FOOTER UTILITY ROW                                          │
-│  [ Close ]                                  [ ⋯ More ▾ ]     │ ghost left, overflow right
-│                                              └─ Delete Asset │ destructive lives in overflow
-└──────────────────────────────────────────────────────────────┘
-```
+Library: **`heic2any`** (~70 KB gz, pure browser, no native deps, MIT). It uses libheif compiled to WASM.
 
-### Tier rules
-1. **Primary** (default variant, brand color) — the two actions a user is most likely to take: edit metadata or view the file.
-2. **Contextual** (secondary variant) — AI / sync / convert actions. Only render when the asset type and user role qualify.
-3. **Utility** (ghost + overflow menu) — Close is always visible. Destructive `Delete Asset` is moved into a `DropdownMenu` ("More") so it can't be hit accidentally and stops competing visually.
+### Flow
 
-### Behavioral changes
-- **Add explicit `Close` button** in the footer left. Keeps the corner `×` but adds a labeled escape hatch.
-- **Move "Also suggest a descriptive title"** out of the footer into a small popover attached to the `Reanalyze with AI` button (split-button style), so the checkbox stops floating.
-- **Move `Delete Asset`** into a "More" overflow menu (DropdownMenu) with a destructive-styled item. Single confirmation dialog stays unchanged.
-- **Move `Sync to SFDC`** out of the body section into the contextual row so all actions live in one place. Keep the badge/status indicator in the body, just remove the button.
-- When the drawer is in **edit mode**, the footer collapses to `[ Save Changes ] [ Cancel ]` exactly as today — no change.
+1. User picks a `.heic` / `.heif` file (or one with `type: image/heic` / `image/heif`).
+2. New shared util `convertHeicIfNeeded(file)` in `src/utils/heicConvert.ts`:
+   - Returns the original `File` untouched if not HEIC.
+   - Else dynamically imports `heic2any`, converts to JPEG (quality 0.92), wraps the resulting Blob in a new `File` with the original name rewritten from `IMG_1234.HEIC` → `IMG_1234.jpg` and MIME `image/jpeg`.
+   - Shows a subtle toast: "Converting iPhone photo…" with progress for files >5 MB.
+3. All upload entrypoints call this util **first**, then proceed with their existing code.
 
-### Visual polish
-- Add `gap-3` between rows and a hairline `border-t` separator between the contextual block and the utility row to visually segment "things you do to the asset" from "drawer controls."
-- Standardize all icons to 16px (`w-4 h-4`) — currently the Sync button uses 12px (`h-3 w-3`).
+### Files to update (one-line change each — call `convertHeicIfNeeded` before current logic)
 
-## Files to touch
-- `src/components/media/MediaAssetDetailsDrawer.tsx` — restructure the `<DrawerFooter>` block (lines ~482–577) and remove the inline Sync button (lines ~430–476) from the body, relocating it into the footer's contextual row.
+- `src/components/media/ImageDropzone.tsx`
+- `src/components/media/BulkUploadTab.tsx`
+- `src/components/media/MasterImageUploadDialog.tsx`
+- `src/pages/media/MediaUpload.tsx`
+- `src/pages/media/SceneDetection.tsx` (if it accepts images)
+- `src/components/racer/RacerFileUpload.tsx`
+- `src/pages/racer/RacerMotorcycle.tsx`
+- `src/pages/racer/RacerApplication.tsx`
+- `src/components/media/VideoExtendWorkflow.tsx`
 
-No service or data changes. No new dependencies — `DropdownMenu` and `Popover` already exist in `src/components/ui/`.
+Also update each component's `accept` prop to explicitly include `image/heic,image/heif,.heic,.heif` so iOS Safari surfaces the file.
 
-## Out of scope
-- Changing what any button actually does.
-- Refactoring the edit-mode footer.
-- Touching the asset preview area or the SFDC sync status indicators.
+### Edge cases handled
+
+- **iPad / iPhone Safari**: Safari can natively render HEIC, but we still convert so the file that hits Wasabi is JPEG (otherwise SFDC + non-Apple users can't view it).
+- **Large HEIC** (>20 MB live photos): heic2any can be slow on low-end phones. Util enforces a 50 MB pre-conversion cap with a clear error toast.
+- **HEIC bursts / multi-image containers**: heic2any returns the primary image only — acceptable for our use case.
+- **Filename**: preserve original casing of base name; always end `.jpg`.
+- **Tag persistence / album assignment**: unchanged because we're feeding the existing pipeline a normal JPEG.
+
+### Memory update (non-technical)
+
+Replace the `Image Capture Workaround` memory line with a note that HEIC is now auto-converted to JPEG on the client, so users no longer have to convert manually.
+
+## What we're not doing
+
+- No server-side HEIC conversion (would require an extra edge function and roundtrip; client conversion is faster and free).
+- No format change for files already stored in Wasabi as `.heic` (rare; can be re-uploaded).
+- No HEIC support for `.heic` videos — those are actually `.mov` from iPhone and already work.
+
+## Verification
+
+1. Drag a real iPhone HEIC into Media Upload → preview renders, AI analysis returns categories/tags, file lands in Wasabi as `IMG_xxxx.jpg`, SFDC record gets the JPEG URL.
+2. Bulk upload 5 HEICs at once → all convert, AI analysis fans out, no console errors.
+3. Racer portal: upload license photo as HEIC → appears in the Licenses album as JPEG.
+4. Confirm a normal JPEG path is unchanged (no double-encode, no quality loss).
+
+## Files / dependencies
+
+- New dep: `heic2any` (~70 KB gz)
+- New file: `src/utils/heicConvert.ts`
+- ~9 component edits (each: one import + one `await convertHeicIfNeeded(file)` line + accept-attr tweak)
+- No DB migration, no edge function changes
