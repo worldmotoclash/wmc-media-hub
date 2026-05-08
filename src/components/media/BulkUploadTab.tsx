@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { sanitizeFile } from "@/utils/sanitizeFilename";
+import { convertHeicBatch } from "@/utils/heicConvert";
 
 interface ExistingAlbum {
   id: string;
