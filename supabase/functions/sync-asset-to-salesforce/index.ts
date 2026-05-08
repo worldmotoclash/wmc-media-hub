@@ -568,23 +568,24 @@ serve(async (req) => {
       };
       
       const created = await createSalesforceRecord(asset.title, asset.file_url, contentType, syncMetadata);
-      
-      if (!created) {
+
+      if (created !== true) {
+        const errorMessage = typeof created === "string" ? created : "Failed to create Salesforce record via w2x-engine";
         results.push({
           assetId: asset.id,
           success: false,
-          error: "Failed to create Salesforce record via w2x-engine",
+          error: errorMessage,
           action: 'failed',
         });
-        
-        // Update metadata to reflect failure
+
+        // Update metadata to reflect failure (capture the real reason)
         await supabase
           .from("media_assets")
           .update({
             metadata: {
               ...asset.metadata,
               sfdcSyncStatus: 'failed',
-              sfdcSyncError: 'w2x-engine call failed',
+              sfdcSyncError: errorMessage,
               sfdcSyncAttemptedAt: new Date().toISOString(),
             }
           })
