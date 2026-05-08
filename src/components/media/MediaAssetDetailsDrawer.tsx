@@ -497,6 +497,20 @@ export const MediaAssetDetailsDrawer: React.FC<MediaAssetDetailsDrawerProps> = (
                 {!localSalesforceId && (
                   <p className="text-xs text-muted-foreground">Use "Sync to SFDC" below to create a Salesforce record.</p>
                 )}
+                {asset.metadata?.originalFileUrl && (
+                  <a
+                    href={asset.metadata.originalFileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download
+                    className="text-xs text-blue-400 hover:text-blue-300 underline block"
+                  >
+                    Download original {asset.metadata.originalFileName ? `(${asset.metadata.originalFileName})` : 'file'}
+                  </a>
+                )}
+                {asset.metadata?.sfdcSyncError && (
+                  <p className="text-xs text-destructive">Last sync error: {asset.metadata.sfdcSyncError}</p>
+                )}
               </div>
             </div>
           </div>
