@@ -145,7 +145,14 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
     return null;
   };
 
-  const handleUpload = useCallback(async (file: File) => {
+  const handleUpload = useCallback(async (rawFile: File) => {
+    let file: File;
+    try {
+      file = await convertHeicIfNeeded(rawFile);
+    } catch {
+      return; // toast already surfaced inside util
+    }
+
     const error = validateFile(file);
     if (error) {
       toast.error(error);
