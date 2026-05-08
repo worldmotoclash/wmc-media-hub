@@ -64,6 +64,11 @@ const MediaUpload: React.FC = () => {
   
   // File upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  // When the user picked an iPhone HEIC and we transparently converted it to JPEG,
+  // we keep the untouched original around so we can archive it to S3 alongside the
+  // JPEG and expose a "Download original" link in the asset drawer.
+  const [originalHeicFile, setOriginalHeicFile] = useState<File | null>(null);
+  const [isPreparingFile, setIsPreparingFile] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
