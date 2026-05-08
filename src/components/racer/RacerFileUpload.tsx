@@ -53,17 +53,22 @@ const RacerFileUpload: React.FC<RacerFileUploadProps> = ({
   const [status, setStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
   const [error, setError] = useState('');
 
-  const handleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (f) {
-      // Strip Wasabi-incompatible characters (":", "*", "?", "#") from the
-      // filename before it can reach S3.
-      const { file: cleanFile } = sanitizeFile(f);
-      setFile(cleanFile);
-      setStatus('idle');
-      setProgress(0);
-      setError('');
+  const handleSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.files?.[0];
+    if (!raw) return;
+    let f: File;
+    try {
+      f = await convertHeicIfNeeded(raw);
+    } catch {
+      return;
     }
+    // Strip Wasabi-incompatible characters (":", "*", "?", "#") from the
+    // filename before it can reach S3.
+    const { file: cleanFile } = sanitizeFile(f);
+    setFile(cleanFile);
+    setStatus('idle');
+    setProgress(0);
+    setError('');
   };
 
   const handleUpload = async () => {
