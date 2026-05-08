@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
 import { ContentCatalogForm } from "./ContentCatalogForm";
 import { ContentCatalogFields } from "@/constants/salesforceFields";
+import { convertHeicIfNeeded } from "@/utils/heicConvert";
 
 interface MasterImageUploadDialogProps {
   open: boolean;
