@@ -103,9 +103,15 @@ export function MasterImageUploadDialog({
     return true;
   };
 
-  const handleFile = (file: File) => {
+  const handleFile = async (rawFile: File) => {
+    let file: File;
+    try {
+      file = await convertHeicIfNeeded(rawFile);
+    } catch {
+      return;
+    }
     if (!validateFile(file)) return;
-    
+
     setSelectedFile(file);
     const reader = new FileReader();
     reader.onload = (e) => {
