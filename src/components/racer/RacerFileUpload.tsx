@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { uploadRacerFile } from '@/services/racerMediaService';
 import { cn } from '@/lib/utils';
 import { sanitizeFile } from '@/utils/sanitizeFilename';
+import { convertHeicIfNeeded } from '@/utils/heicConvert';
 
 const MIME_MAP: Record<string, string> = {
   heic: 'image/heic',
