@@ -866,13 +866,49 @@ const MediaUpload: React.FC = () => {
           uploadResultData?.asset?.id;
 
         if (newAssetId) {
+          // Archive the original HEIC alongside the converted JPEG so the user can
+          // still download the untouched iPhone source file from the asset drawer.
+          if (originalHeicFile) {
+            try {
+              const heicBase64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const result = reader.result as string;
+                  resolve(result.split(',')[1] || '');
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(originalHeicFile);
+              });
+              const { data: heicData } = await supabase.functions.invoke('upload-generation-input', {
+                body: {
+                  imageBase64: heicBase64,
+                  filename: originalHeicFile.name,
+                  mimeType: originalHeicFile.type || 'image/heic',
+                },
+              });
+              if (heicData?.cdnUrl) {
+                await supabase.from('media_assets').update({
+                  metadata: {
+                    ...(uploadResultData?.metadata || {}),
+                    originalFileUrl: heicData.cdnUrl,
+                    originalFileName: originalHeicFile.name,
+                    originalFileMimeType: originalHeicFile.type || 'image/heic',
+                  },
+                }).eq('id', newAssetId);
+                console.log('Archived original HEIC at', heicData.cdnUrl);
+              }
+            } catch (heicErr) {
+              console.warn('Failed to archive original HEIC:', heicErr);
+            }
+          }
+
           toast({
             title: "Syncing to Salesforce…",
             description: "Creating SFDC record",
           });
           supabase.functions
             .invoke('sync-asset-to-salesforce', { body: { assetIds: [newAssetId] } })
-            .then(({ error: syncError }) => {
+            .then(({ data: syncData, error: syncError }) => {
               if (syncError) {
                 console.error('SFDC sync error:', syncError);
                 toast({
@@ -880,6 +916,26 @@ const MediaUpload: React.FC = () => {
                   description: `${syncError.message} — use "Sync to SFDC" in the asset details to retry.`,
                   variant: "destructive",
                 });
+                return;
+              }
+
+              const result = Array.isArray(syncData?.results) ? syncData.results[0] : null;
+              if (result && result.success === false) {
+                toast({
+                  title: "Salesforce create rejected",
+                  description: `${result.error || 'Unknown reason'} — use "Sync to SFDC" in the asset details to retry.`,
+                  variant: "destructive",
+                });
+                return;
+              }
+
+              const action = result?.action;
+              if (action === 'found') {
+                toast({ title: "Linked to existing Salesforce record" });
+              } else if (action === 'created_pending') {
+                toast({ title: "Salesforce record created", description: "Awaiting ID backfill." });
+              } else if (action === 'updated') {
+                toast({ title: "Salesforce record updated" });
               } else {
                 toast({ title: "Salesforce sync complete" });
               }
