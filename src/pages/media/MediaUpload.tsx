@@ -1368,12 +1368,17 @@ const MediaUpload: React.FC = () => {
                             type="button" 
                             variant="secondary"
                             onClick={handleAnalyzeVideo}
-                            disabled={isAnalyzing}
+                            disabled={isAnalyzing || isPreparingFile || !selectedFile}
                           >
                             {isAnalyzing ? (
                               <>
                                 <Sparkles className="w-4 h-4 mr-2 animate-spin" />
                                 Analyzing...
+                              </>
+                            ) : isPreparingFile ? (
+                              <>
+                                <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                                Preparing photo…
                               </>
                             ) : (
                               <>
