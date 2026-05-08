@@ -328,9 +328,11 @@ const MediaUpload: React.FC = () => {
     });
   };
 
-  // Resize image to a smaller JPEG for AI analysis (avoids oversized payloads causing 502s)
-  const resizeImageForAnalysis = (file: File, maxDim = 1024): Promise<string> => {
-    return new Promise((resolve, reject) => {
+  // Resize image to a smaller JPEG for AI analysis (avoids oversized payloads causing 502s).
+  // If the file looks like HEIC at this point (e.g., conversion was skipped), convert
+  // it on the spot so the <img> element can actually decode it.
+  const resizeImageForAnalysis = async (input: File, maxDim = 1024): Promise<string> => {
+    const decode = (file: File) => new Promise<string>((resolve, reject) => {
       const img = new window.Image();
       img.onload = () => {
         const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
@@ -348,15 +350,32 @@ const MediaUpload: React.FC = () => {
       };
       img.src = URL.createObjectURL(file);
     });
+
+    try {
+      return await decode(input);
+    } catch (err) {
+      if (isHeicFile(input)) {
+        console.warn('[Analyze] Image looked like HEIC at resize time, converting and retrying.');
+        const reconverted = await convertHeicIfNeeded(input);
+        return await decode(reconverted);
+      }
+      throw err;
+    }
   };
 
   const handleFileSelect = async (rawFile: File) => {
+    setIsPreparingFile(true);
     let file: File;
+    let original: File | null = null;
     try {
-      file = await convertHeicIfNeeded(rawFile);
+      const result = await convertHeicWithOriginal(rawFile);
+      file = result.file;
+      original = result.original ?? null;
     } catch {
+      setIsPreparingFile(false);
       return;
     }
+    setOriginalHeicFile(original);
     const validTypes = [
       // Video
       'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-m4v',
