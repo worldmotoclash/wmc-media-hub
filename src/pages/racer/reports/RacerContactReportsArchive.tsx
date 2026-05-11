@@ -106,6 +106,8 @@ export default function RacerContactReportsArchive() {
     }
   }, [selectedRange]);
 
+  if (blocked) return null;
+
   return (
     <main className="container mx-auto px-4 py-10 max-w-6xl">
       <header className="mb-6">

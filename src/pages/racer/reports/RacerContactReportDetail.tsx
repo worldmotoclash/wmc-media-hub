@@ -195,6 +195,8 @@ export default function RacerContactReportDetail() {
     })();
   }, [slug]);
 
+  if (blocked) return null;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
