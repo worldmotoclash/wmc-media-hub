@@ -168,6 +168,7 @@ function Section({
 }
 
 export default function RacerContactReportDetail() {
+  const blocked = useRacerReportsGuard();
   const { slug } = useParams<{ slug: string }>();
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState<string | null>(null);
