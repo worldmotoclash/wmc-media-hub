@@ -452,6 +452,90 @@ export type Database = {
         }
         Relationships: []
       }
+      racer_contact_reports: {
+        Row: {
+          contacts: Json
+          created_at: string
+          created_today_contacts: Json
+          field_completion: Json
+          generated_at: string
+          heading: string | null
+          id: string
+          missing_critical: Json
+          new_contacts: Json
+          page_url: string | null
+          raw_payload: Json
+          recent_contacts: Json
+          regressions: Json
+          report_date: string
+          report_id: string
+          report_type: string
+          slug: string
+          status: string
+          status_counts: Json
+          subheading: string | null
+          summary_text: string
+          title: string
+          totals: Json
+          updated_at: string
+          updated_contacts: Json
+        }
+        Insert: {
+          contacts?: Json
+          created_at?: string
+          created_today_contacts?: Json
+          field_completion?: Json
+          generated_at: string
+          heading?: string | null
+          id?: string
+          missing_critical?: Json
+          new_contacts?: Json
+          page_url?: string | null
+          raw_payload?: Json
+          recent_contacts?: Json
+          regressions?: Json
+          report_date: string
+          report_id: string
+          report_type?: string
+          slug: string
+          status?: string
+          status_counts?: Json
+          subheading?: string | null
+          summary_text: string
+          title: string
+          totals?: Json
+          updated_at?: string
+          updated_contacts?: Json
+        }
+        Update: {
+          contacts?: Json
+          created_at?: string
+          created_today_contacts?: Json
+          field_completion?: Json
+          generated_at?: string
+          heading?: string | null
+          id?: string
+          missing_critical?: Json
+          new_contacts?: Json
+          page_url?: string | null
+          raw_payload?: Json
+          recent_contacts?: Json
+          regressions?: Json
+          report_date?: string
+          report_id?: string
+          report_type?: string
+          slug?: string
+          status?: string
+          status_counts?: Json
+          subheading?: string | null
+          summary_text?: string
+          title?: string
+          totals?: Json
+          updated_at?: string
+          updated_contacts?: Json
+        }
+        Relationships: []
+      }
       s3_bucket_configs: {
         Row: {
           bucket_name: string
