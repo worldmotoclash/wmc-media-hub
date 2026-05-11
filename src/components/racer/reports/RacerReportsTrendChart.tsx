@@ -133,7 +133,7 @@ export default function RacerReportsTrendChart({ rows }: Props) {
                 axisLine={{ stroke: "hsl(var(--border))" }}
                 tickLine={false}
                 width={48}
-              />>
+              />
               <YAxis
                 yAxisId="right"
                 orientation="right"
