@@ -149,6 +149,7 @@ function ContactsTable({
           <TableHead>Name</TableHead>
           <TableHead>Email</TableHead>
           <TableHead>Mobile</TableHead>
+          <TableHead>Next Step</TableHead>
           {anyChanged && <TableHead>Changed</TableHead>}
           <TableHead className="text-right">Action</TableHead>
         </TableRow>
@@ -164,6 +165,7 @@ function ContactsTable({
               <TableCell className="font-medium">{d.name}</TableCell>
               <TableCell className="text-sm">{d.email || "—"}</TableCell>
               <TableCell className="text-sm">{d.mobile || "—"}</TableCell>
+              <TableCell className="text-sm">{d.nextStep || "—"}</TableCell>
               {anyChanged && (
                 <TableCell className="text-xs text-muted-foreground">{changed || "—"}</TableCell>
               )}
