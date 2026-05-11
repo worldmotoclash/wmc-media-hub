@@ -100,6 +100,7 @@ function pickDisplay(c: any): {
   id?: string;
   email?: string;
   mobile?: string;
+  nextStep?: string;
   updateUrl?: string | null;
 } {
   const name =
@@ -107,11 +108,14 @@ function pickDisplay(c: any): {
     [c?.first_name, c?.last_name].filter(Boolean).join(" ") ||
     c?.contact_name || "—";
   const id = c?.id_plain || c?.id || c?.contact_id || c?.salesforce_id || c?.sfdc_id || c?.racer_id;
+  const nextStep =
+    c?.next_step || c?.nextStep || c?.next_steps || c?.Next_Step__c || c?.next_action || "";
   return {
     name,
     id,
     email: c?.email,
     mobile: c?.mobile || c?.phone || c?.mobile_phone,
+    nextStep,
     updateUrl: buildUpdateUrl(c),
   };
 }
