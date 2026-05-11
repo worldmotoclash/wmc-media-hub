@@ -95,17 +95,38 @@ function KeyCountTable({ data }: { data: Record<string, number> | null | undefin
   );
 }
 
-function pickDisplay(c: any): { name: string; id?: string; email?: string; mobile?: string } {
+function pickDisplay(c: any): {
+  name: string;
+  id?: string;
+  email?: string;
+  mobile?: string;
+  updateUrl?: string | null;
+} {
   const name =
     c?.name || c?.full_name ||
     [c?.first_name, c?.last_name].filter(Boolean).join(" ") ||
     c?.contact_name || "—";
+  const id = c?.id_plain || c?.id || c?.contact_id || c?.salesforce_id || c?.sfdc_id || c?.racer_id;
   return {
     name,
-    id: c?.id || c?.contact_id || c?.salesforce_id || c?.sfdc_id,
+    id,
     email: c?.email,
     mobile: c?.mobile || c?.phone || c?.mobile_phone,
+    updateUrl: buildUpdateUrl(c),
   };
+}
+
+function buildUpdateUrl(c: any): string | null {
+  if (!c) return null;
+  if (typeof c.update_url === "string" && c.update_url) return c.update_url;
+  if (typeof c.update_link === "string" && c.update_link) return c.update_link;
+  const id =
+    c.id_plain || c.id || c.racer_id || c.contact_id || c.salesforce_id || c.sfdc_id;
+  if (!id) return null;
+  const ORG = "00D5e000000HEcP";
+  return `https://realintelligence.com/customers/expos/${ORG}/index-Racer-Update-mobile.php?eventId=${ORG}&orgId=${ORG}&ID=${encodeURIComponent(
+    String(id),
+  )}`;
 }
 
 function ContactsTable({
@@ -126,6 +147,7 @@ function ContactsTable({
           <TableHead>Email</TableHead>
           <TableHead>Mobile</TableHead>
           {anyChanged && <TableHead>Changed</TableHead>}
+          <TableHead className="text-right">Action</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -145,6 +167,20 @@ function ContactsTable({
               {anyChanged && (
                 <TableCell className="text-xs text-muted-foreground">{changed || "—"}</TableCell>
               )}
+              <TableCell className="text-right">
+                {d.updateUrl ? (
+                  <a
+                    href={d.updateUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors whitespace-nowrap"
+                  >
+                    Update Rider
+                  </a>
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
+              </TableCell>
             </TableRow>
           );
         })}
