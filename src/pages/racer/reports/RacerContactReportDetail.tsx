@@ -7,6 +7,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Users, UserPlus, RefreshCw, TrendingUp, CheckCircle2, ClipboardList } from "lucide-react";
+import { useRacerReportsGuard } from "@/hooks/useRacerReportsGuard";
 
 interface Report {
   id: string;
