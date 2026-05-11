@@ -15,6 +15,8 @@ import RacerMotorcycle from "./pages/racer/RacerMotorcycle";
 import RacerQualification from "./pages/racer/RacerQualification";
 import RacerProfile from "./pages/racer/RacerProfile";
 import RacerUserGuide from "./pages/racer/RacerUserGuide";
+import RacerContactReportsArchive from "./pages/racer/reports/RacerContactReportsArchive";
+import RacerContactReportDetail from "./pages/racer/reports/RacerContactReportDetail";
 import PWAInstallPrompt from "./components/PWAInstallPrompt";
 import Index from "./pages/Index";
 import MediaHub from "./pages/MediaHub";
@@ -75,6 +77,8 @@ const App = () => (
                 <Route path="/racer/qualification" element={<RacerQualification />} />
                 <Route path="/racer/profile" element={<RacerProfile />} />
                 <Route path="/racer/guide" element={<RacerUserGuide />} />
+                <Route path="/racer/reports" element={<RacerContactReportsArchive />} />
+                <Route path="/racer/reports/:slug" element={<RacerContactReportDetail />} />
 
                 {/* Main site routes */}
                 <Route path="/" element={isRacerHostname() ? <Navigate to="/racer/login" replace /> : <Index />} />

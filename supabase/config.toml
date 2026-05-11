@@ -93,3 +93,6 @@ verify_jwt = false
 [functions.mediahub-content-report-ingest]
 verify_jwt = false
 
+
+[functions.racer-contact-report-ingest]
+verify_jwt = false
