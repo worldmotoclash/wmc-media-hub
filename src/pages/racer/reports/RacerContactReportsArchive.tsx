@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import RangeSelector, { Range, rangeToDays } from "@/components/reports/RangeSelector";
 import RacerReportsTrendChart from "@/components/racer/reports/RacerReportsTrendChart";
+import { useRacerReportsGuard } from "@/hooks/useRacerReportsGuard";
 
 interface Row {
   id: string;
@@ -33,6 +34,7 @@ function pickTotals(t: Record<string, number> | null) {
 }
 
 export default function RacerContactReportsArchive() {
+  const blocked = useRacerReportsGuard();
   const [allRows, setAllRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedRange, setSelectedRange] = useState<Range>("all");
@@ -103,6 +105,8 @@ export default function RacerContactReportsArchive() {
       case "2y": return "LAST 2 YEARS";
     }
   }, [selectedRange]);
+
+  if (blocked) return null;
 
   return (
     <main className="container mx-auto px-4 py-10 max-w-6xl">

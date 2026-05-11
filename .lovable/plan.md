@@ -1,51 +1,32 @@
-# Racer Application Reports Dashboard
+## Restrict `/racer/reports` to Admin / Editor / Creator
 
-Upgrade `/racer/reports` from a simple card archive into a KPI dashboard modeled on `/reports`, summarizing racer-contact KPIs over time.
+Gate the racer reports archive and detail pages behind the existing `mediaHubAccess` role check. No new navigation links.
 
-## Layout (matches `/reports`)
+### Access rules
 
-1. **Header** — "Racer Application Dashboard" + subtitle
-2. **Range selector** — reuse existing `RangeSelector` component (`7d / 30d / 60d / 120d / 1y / 2y / all`)
-3. **Active range chip + period info** — "N reports · from → to"
-4. **KPI cards (latest snapshot in window)** — these are point-in-time totals, not sums:
-   - Total Contacts
-   - Complete Profiles
-   - Readiness Started
-   - Created Today (latest report's value)
-   - Updated (latest report's value)
-5. **Trend chart** — new `RacerReportsTrendChart` using recharts `ComposedChart`, click point → opens that day's report:
-   - Area: Total Contacts (left axis)
-   - Lines: Complete Profiles, Readiness Started (left axis)
-   - Lines: Created Today, Updated, New vs Previous (right axis)
-6. **Activity totals (sum across window)** — small secondary KPI strip:
-   - Σ Created (sum of `created_today` across selected reports)
-   - Σ Updated (sum of `updated_contacts`)
-   - Σ Regressions (sum of `regressions`)
-7. **Reports list** — one card per report with date + the six KPI metrics, links to `/racer/reports/:slug`
+- **Allowed**: logged-in users where `user.mediaHubAccess` is `Admin`, `Editor`, or `Creator` (matches existing `isEditor()` helper in `UserContext`).
+- **Unauthenticated** → redirect to `/login`.
+- **Logged in but `Viewer`** → redirect to `/admin/media` with a toast ("This feature is not available for your access level"), mirroring the existing `useCreatorGuard` pattern.
 
-## Data
+### Implementation
 
-- Single query against existing `racer_contact_reports` table, ordered by `report_date desc`, limit 1000.
-- Select: `id, slug, title, report_date, totals`.
-- Filtering by range happens client-side (same pattern as `/reports`).
-- KPI values come from the `totals` JSON: `total_contacts`, `created_today`, `new_vs_previous`, `updated_contacts`, `regressions`, `contact_profiles_complete`, `readiness_profiles_started`.
+1. **New hook `src/hooks/useRacerReportsGuard.tsx`**
+   - Reads `useUser()`.
+   - If `!user` → `navigate('/login')`.
+   - Else if `isViewer()` (or not in Admin/Editor/Creator) → toast + `navigate('/admin/media')`.
+   - Returns `blocked: boolean` so pages can render `null` while redirect is in flight.
+   - Modeled directly on `src/hooks/useCreatorGuard.tsx`.
 
-## Files
+2. **`src/pages/racer/reports/RacerContactReportsArchive.tsx`**
+   - Call `const blocked = useRacerReportsGuard();` at the top.
+   - `if (blocked) return null;` before rendering dashboard.
 
-Edited:
-- `src/pages/racer/reports/RacerContactReportsArchive.tsx` — replace current grid with dashboard layout.
+3. **`src/pages/racer/reports/RacerContactReportDetail.tsx`**
+   - Same guard usage as above.
 
-New:
-- `src/components/racer/reports/RacerReportsTrendChart.tsx` — KPI trend chart specific to racer KPIs (mirrors `ReportsTrendChart` styling, different metrics).
+### Out of scope
 
-Reused:
-- `@/components/reports/RangeSelector` (shared)
-- shadcn `Card`, `Skeleton`
-- recharts (already a dep)
-
-## Out of scope
-
-- No DB changes.
-- No new ingest fields — KPIs come from what's already stored in `totals`.
-- Detail page `/racer/reports/:slug` unchanged.
-- Not adding the dashboard under `/reports` — kept as its own racer family.
+- No changes to navigation (`Navbar`, `ProfileDropdown`, `RacerPortalLayout`).
+- No changes to routing in `App.tsx`.
+- No DB / RLS changes (RLS already only exposes `published` reports; this is a UI-level access gate).
+- No changes to the ingest function.

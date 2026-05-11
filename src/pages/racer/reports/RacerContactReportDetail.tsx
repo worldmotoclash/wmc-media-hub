@@ -7,6 +7,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Users, UserPlus, RefreshCw, TrendingUp, CheckCircle2, ClipboardList } from "lucide-react";
+import { useRacerReportsGuard } from "@/hooks/useRacerReportsGuard";
 
 interface Report {
   id: string;
@@ -167,6 +168,7 @@ function Section({
 }
 
 export default function RacerContactReportDetail() {
+  const blocked = useRacerReportsGuard();
   const { slug } = useParams<{ slug: string }>();
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -192,6 +194,8 @@ export default function RacerContactReportDetail() {
       setLoading(false);
     })();
   }, [slug]);
+
+  if (blocked) return null;
 
   if (loading) {
     return (
