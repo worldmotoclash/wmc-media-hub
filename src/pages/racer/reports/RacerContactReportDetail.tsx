@@ -100,6 +100,7 @@ function pickDisplay(c: any): {
   id?: string;
   email?: string;
   mobile?: string;
+  nextStep?: string;
   updateUrl?: string | null;
 } {
   const name =
@@ -107,11 +108,14 @@ function pickDisplay(c: any): {
     [c?.first_name, c?.last_name].filter(Boolean).join(" ") ||
     c?.contact_name || "—";
   const id = c?.id_plain || c?.id || c?.contact_id || c?.salesforce_id || c?.sfdc_id || c?.racer_id;
+  const nextStep =
+    c?.next_step || c?.nextStep || c?.next_steps || c?.Next_Step__c || c?.next_action || "";
   return {
     name,
     id,
     email: c?.email,
     mobile: c?.mobile || c?.phone || c?.mobile_phone,
+    nextStep,
     updateUrl: buildUpdateUrl(c),
   };
 }
@@ -145,6 +149,7 @@ function ContactsTable({
           <TableHead>Name</TableHead>
           <TableHead>Email</TableHead>
           <TableHead>Mobile</TableHead>
+          <TableHead>Next Step</TableHead>
           {anyChanged && <TableHead>Changed</TableHead>}
           <TableHead className="text-right">Action</TableHead>
         </TableRow>
@@ -160,6 +165,7 @@ function ContactsTable({
               <TableCell className="font-medium">{d.name}</TableCell>
               <TableCell className="text-sm">{d.email || "—"}</TableCell>
               <TableCell className="text-sm">{d.mobile || "—"}</TableCell>
+              <TableCell className="text-sm">{d.nextStep || "—"}</TableCell>
               {anyChanged && (
                 <TableCell className="text-xs text-muted-foreground">{changed || "—"}</TableCell>
               )}
