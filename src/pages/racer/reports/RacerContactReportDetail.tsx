@@ -143,7 +143,6 @@ function ContactsTable({
       <TableHeader>
         <TableRow>
           <TableHead>Name</TableHead>
-          <TableHead>ID</TableHead>
           <TableHead>Email</TableHead>
           <TableHead>Mobile</TableHead>
           {anyChanged && <TableHead>Changed</TableHead>}
@@ -159,9 +158,6 @@ function ContactsTable({
           return (
             <TableRow key={d.id || i}>
               <TableCell className="font-medium">{d.name}</TableCell>
-              <TableCell className="font-mono text-xs text-muted-foreground">
-                {d.id || "—"}
-              </TableCell>
               <TableCell className="text-sm">{d.email || "—"}</TableCell>
               <TableCell className="text-sm">{d.mobile || "—"}</TableCell>
               {anyChanged && (
